@@ -1,0 +1,57 @@
+/* eslint-disable react/prop-types */
+
+export default function ValidationCard({ type = "error", title, description, badge, onAction }) {
+    // Styles based on type
+    const styles = {
+        error: {
+            borderClass: "border-red-500",
+            iconBg: "bg-red-100 dark:bg-red-950/40",
+            iconText: "text-red-600 dark:text-red-400",
+            icon: "report",
+            badgeBg: "bg-red-100 dark:bg-red-900/30",
+            badgeText: "text-red-600 dark:text-red-400"
+        },
+        warning: {
+            borderClass: "border-amber-400",
+            iconBg: "bg-amber-100 dark:bg-amber-950/40",
+            iconText: "text-amber-600 dark:text-amber-400",
+            icon: "image_not_supported",
+            badgeBg: "bg-amber-100 dark:bg-amber-900/30",
+            badgeText: "text-amber-600 dark:text-amber-400"
+        },
+        advisory: {
+            borderClass: "border-primary/20",
+            iconBg: "bg-primary",
+            iconText: "text-white",
+            icon: "psychology",
+            badgeBg: "bg-primary/20",
+            badgeText: "text-primary"
+        }
+    };
+
+    const s = styles[type] || styles.error;
+
+    return (
+        <div className={`bg-white dark:bg-slate-900 border-l-4 ${s.borderClass} rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow group`}>
+            <div className="flex gap-4">
+                <div className={`${s.iconBg} ${s.iconText} h-10 w-10 rounded-lg flex items-center justify-center shrink-0`}>
+                    <span className="material-symbols-outlined">{s.icon}</span>
+                </div>
+                <div className="flex-1">
+                    <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-900 dark:text-white">{title}</h3>
+                        <span className={`${s.badgeBg} ${s.badgeText} text-[10px] font-black uppercase px-2 py-0.5 rounded`}>{badge}</span>
+                    </div>
+                    <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed">{description}</p>
+                    <div className="mt-4 flex items-center gap-4">
+                        <button className="text-primary text-xs font-bold hover:underline flex items-center gap-1" onClick={onAction}>
+                            <span className="material-symbols-outlined text-xs">map</span>
+                            Locate in doc
+                        </button>
+                        <button className="text-slate-500 text-xs font-bold hover:underline">Ignore</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}

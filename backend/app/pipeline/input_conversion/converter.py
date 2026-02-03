@@ -1,0 +1,195 @@
+"""
+Input Conversion Module - Handles multi-format document conversion.
+"""
+
+import os
+import shutil
+import subprocess
+import tempfile
+from pathlib import Path
+from typing import Optional
+
+class ConversionError(Exception):
+    """Raised when conversion fails."""
+    pass
+
+class InputConverter:
+    """
+    Converts various input formats to a standardized DOCX format
+    for pipeline processing.
+    """
+    
+    SUPPORTED_EXTENSIONS = {
+        '.docx': 'pass',
+        '.md': 'pandoc',
+        '.html': 'pandoc',
+        '.txt': 'pandoc',
+        '.pdf': 'libreoffice',
+        '.odt': 'libreoffice',
+        '.rtf': 'libreoffice'
+    }
+    
+    def __init__(self, temp_dir: Optional[str] = None):
+        self.temp_dir = temp_dir or tempfile.gettempdir()
+        
+    def convert_to_docx(self, input_path: str, job_id: str, enable_ocr: bool = True) -> str:
+        """
+        Convert input file to DOCX.
+        
+        Args:
+            input_path: Path to source file
+            job_id: Unique job identifier for temp isolation
+            enable_ocr: Whether to attempt OCR for scanned PDFs
+            
+        Returns:
+            Path to the resulting .docx file
+            
+        Raises:
+            ConversionError: If format unsupported or tool missing/failed
+        """
+        input_path = os.path.abspath(input_path)
+        if not os.path.exists(input_path):
+            raise FileNotFoundError(f"Input file not found: {input_path}")
+            
+        _, ext = os.path.splitext(input_path)
+        ext = ext.lower()
+        
+        if ext not in self.SUPPORTED_EXTENSIONS:
+            raise ConversionError(f"Unsupported file format: {ext}")
+            
+        strategy = self.SUPPORTED_EXTENSIONS[ext]
+        
+        # Prepare Output Path
+        job_dir = os.path.join(self.temp_dir, job_id)
+        os.makedirs(job_dir, exist_ok=True)
+        output_path = os.path.join(job_dir, "input.docx")
+        
+        # Strategy Execution
+        if strategy == 'pass':
+            # Just copy to standardize location
+            shutil.copy2(input_path, output_path)
+            return output_path
+            
+        elif strategy == 'pandoc':
+            self._run_pandoc(input_path, output_path)
+            return output_path
+            
+        elif strategy == 'libreoffice':
+            if ext == '.pdf':
+                return self._handle_pdf(input_path, job_dir, job_id, enable_ocr)
+
+            self._run_libreoffice(input_path, job_dir)
+            # LibreOffice output name might need handling
+            # It saves as [filename].docx in outdir.
+            # We need to rename it to input.docx if needed, 
+            # or just return the generated name.
+            
+            # Predict LO output name
+            input_name = Path(input_path).stem
+            lo_output = os.path.join(job_dir, f"{input_name}.docx")
+            
+            if os.path.exists(lo_output):
+                # Rename to standard input.docx
+                if os.path.exists(output_path):
+                    os.remove(output_path)
+                os.rename(lo_output, output_path)
+                return output_path
+            else:
+                raise ConversionError("LibreOffice conversion failed to produce output file")
+        
+        return output_path
+
+    def _handle_pdf(self, input_path: str, output_dir: str, job_id: str, enable_ocr: bool) -> str:
+        """
+        Handle PDF conversion. 
+        Auto-detects scanned PDFs and applies OCR if needed.
+        """
+        from app.pipeline.ocr.pdf_ocr import PdfOCR, OCRError
+        
+        output_path = os.path.join(output_dir, "input.docx")
+        
+        if enable_ocr:
+            # Check if scanned
+            ocr = PdfOCR()
+            is_scanned = ocr.is_scanned(input_path)
+            
+            if is_scanned:
+                try:
+                    print(f"Job {job_id}: PDF detected as scanned. Attempting OCR...")
+                    ocr.convert_to_docx(input_path, output_path)
+                    print(f"Job {job_id}: OCR conversion successful.")
+                    return output_path
+                except OCRError as e:
+                    print(f"Job {job_id}: OCR failed ({e}). Falling back to LibreOffice.")
+                    # Fallback to LibreOffice below
+                except Exception as e:
+                    print(f"Job {job_id}: Unexpected OCR error ({e}). Falling back.")
+        else:
+             print(f"Job {job_id}: OCR disabled. Skipping scanned check.")
+                
+        # Existing LibreOffice logic
+        self._run_libreoffice(input_path, output_dir)
+        
+        filename = os.path.splitext(os.path.basename(input_path))[0]
+        lo_output = os.path.join(output_dir, f"{filename}.docx")
+        
+        if os.path.exists(lo_output):
+             if lo_output != output_path:
+                 if os.path.exists(output_path):
+                     os.remove(output_path)
+                 os.rename(lo_output, output_path)
+        else:
+             raise ConversionError(f"LibreOffice conversion failed output not found at {lo_output}")
+             
+        return output_path
+
+    def _run_pandoc(self, input_path: str, output_path: str):
+        """Convert using Pandoc."""
+        if not shutil.which("pandoc"):
+             raise ConversionError("Pandoc not installed or not in PATH")
+             
+        try:
+            # pandoc input.md -o output.docx
+            cmd = ["pandoc", input_path, "-o", output_path]
+            subprocess.run(cmd, check=True, capture_output=True)
+        except subprocess.CalledProcessError as e:
+            raise ConversionError(f"Pandoc conversion failed: {e.stderr.decode() if e.stderr else str(e)}")
+
+    def _run_libreoffice(self, input_path: str, output_dir: str):
+        """Convert using LibreOffice (headless)."""
+        # Determine command name (platform dependent)
+        soffice = self._get_libreoffice_cmd()
+        
+        if not soffice:
+            raise ConversionError("LibreOffice not installed or not in PATH")
+            
+        try:
+            # soffice --headless --convert-to docx input.pdf --outdir ...
+            cmd = [
+                soffice, 
+                "--headless", 
+                "--convert-to", "docx", 
+                input_path, 
+                "--outdir", output_dir
+            ]
+            subprocess.run(cmd, check=True, capture_output=True)
+        except subprocess.CalledProcessError as e:
+            raise ConversionError(f"LibreOffice conversion failed: {e.stderr.decode() if e.stderr else str(e)}")
+
+    def _get_libreoffice_cmd(self) -> Optional[str]:
+        # Common command names
+        candidates = ["soffice", "libreoffice"]
+        if os.name == 'nt': # Windows
+            # Check common paths if not in PATH
+            candidates.extend([
+                r"C:\Program Files\LibreOffice\program\soffice.exe",
+                r"C:\Program Files (x86)\LibreOffice\program\soffice.exe"
+            ])
+            
+        for cmd in candidates:
+            if shutil.which(cmd):
+                return cmd
+            if os.name == 'nt' and os.path.exists(cmd):
+                return cmd
+                
+        return None
