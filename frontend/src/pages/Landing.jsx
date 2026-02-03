@@ -87,7 +87,7 @@ export default function Landing() {
             </section>
 
             {/* Feature Grid Section */}
-            <section className="py-20 bg-white dark:bg-background-dark/50">
+            <section className="py-20 bg-white dark:bg-background-dark/50" id="features">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="text-center max-w-3xl mx-auto mb-16">
                         <h2 className="text-primary font-bold text-sm tracking-widest uppercase mb-3">Powerful Capabilities</h2>
@@ -147,8 +147,84 @@ export default function Landing() {
                 </div>
             </section>
 
+            {/* Templates Preview Section */}
+            <section className="py-20 bg-background-light dark:bg-slate-900/30" id="templates">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="text-center max-w-3xl mx-auto mb-16">
+                        <h2 className="text-primary font-bold text-sm tracking-widest uppercase mb-3">Journal Library</h2>
+                        <h3 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-6 leading-tight">One-click formatting for 1,000+ journals.</h3>
+                        <p className="text-slate-600 dark:text-slate-400">Our library is constantly updated with the latest formatting requirements from major academic publishers.</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+                        {/* IEEE Preview Card */}
+                        <Link to="/templates" className="flex flex-col gap-4 p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:shadow-xl hover:border-primary/30 transition-all group">
+                            <div className="flex justify-between items-start">
+                                <div className="size-10 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-primary border border-slate-100 dark:border-slate-700">
+                                    <span className="material-symbols-outlined text-[24px]">architecture</span>
+                                </div>
+                                <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Available</span>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <h3 className="text-[#0d131b] dark:text-white text-lg font-bold">IEEE Transactions</h3>
+                                <p className="text-xs text-[#4c6c9a] dark:text-slate-400 leading-relaxed line-clamp-2">Official format for technical, electrical, and engineering research.</p>
+                            </div>
+                        </Link>
+
+                        {/* Nature Preview Card */}
+                        <Link to="/templates" className="flex flex-col gap-4 p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:shadow-xl hover:border-primary/30 transition-all group">
+                            <div className="flex justify-between items-start">
+                                <div className="size-10 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-primary border border-slate-100 dark:border-slate-700">
+                                    <span className="material-symbols-outlined text-[24px]">biotech</span>
+                                </div>
+                                <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Available</span>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <h3 className="text-[#0d131b] dark:text-white text-lg font-bold">Nature Portfolio</h3>
+                                <p className="text-xs text-[#4c6c9a] dark:text-slate-400 leading-relaxed line-clamp-2">Standard template for submission to all Nature Portfolio journals.</p>
+                            </div>
+                        </Link>
+
+                        {/* Elsevier Preview Card */}
+                        <Link to="/templates" className="flex flex-col gap-4 p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:shadow-xl hover:border-primary/30 transition-all group">
+                            <div className="flex justify-between items-start">
+                                <div className="size-10 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-primary border border-slate-100 dark:border-slate-700">
+                                    <span className="material-symbols-outlined text-[24px]">description</span>
+                                </div>
+                                <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Available</span>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <h3 className="text-[#0d131b] dark:text-white text-lg font-bold">Elsevier Standard</h3>
+                                <p className="text-xs text-[#4c6c9a] dark:text-slate-400 leading-relaxed line-clamp-2">Guidelines compatible with Elsevier's wide range of journals.</p>
+                            </div>
+                        </Link>
+
+                        {/* APA Preview Card */}
+                        <Link to="/templates" className="flex flex-col gap-4 p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:shadow-xl hover:border-primary/30 transition-all group">
+                            <div className="flex justify-between items-start">
+                                <div className="size-10 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-primary border border-slate-100 dark:border-slate-700">
+                                    <span className="material-symbols-outlined text-[24px]">history_edu</span>
+                                </div>
+                                <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Available</span>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <h3 className="text-[#0d131b] dark:text-white text-lg font-bold">APA 7th Edition</h3>
+                                <p className="text-xs text-[#4c6c9a] dark:text-slate-400 leading-relaxed line-clamp-2">Latest standards for social and behavioral sciences research.</p>
+                            </div>
+                        </Link>
+                    </div>
+
+                    <div className="flex justify-center">
+                        <Link to="/templates" className="flex items-center gap-2 px-8 py-3 rounded-xl border border-primary text-primary font-bold hover:bg-primary hover:text-white transition-all">
+                            <span>View All Templates</span>
+                            <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                        </Link>
+                    </div>
+                </div>
+            </section>
+
             {/* CTA Section */}
-            <section className="py-16">
+            <section className="py-16" id="pricing">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="relative bg-slate-900 dark:bg-primary/20 rounded-3xl p-8 md:p-16 overflow-hidden">
                         <div className="absolute inset-0 bg-primary opacity-5 mix-blend-overlay"></div>
@@ -160,19 +236,21 @@ export default function Landing() {
                                 Join 25,000+ PhD students and researchers who have reclaimed their time and improved their acceptance rates.
                             </p>
                             <div className="flex flex-col sm:flex-row gap-4">
-                                <button className="bg-primary hover:bg-blue-600 text-white px-10 py-4 rounded-xl font-bold text-lg transition-all shadow-xl shadow-primary/20">
+                                <Link to="/upload" className="bg-primary hover:bg-blue-600 text-white px-10 py-4 rounded-xl font-bold text-lg transition-all shadow-xl shadow-primary/20">
                                     Get Started Free
-                                </button>
-                                <button className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-10 py-4 rounded-xl font-bold text-lg transition-all backdrop-blur-sm">
+                                </Link>
+                                <Link to="/templates" className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-10 py-4 rounded-xl font-bold text-lg transition-all backdrop-blur-sm">
                                     View Sample Output
-                                </button>
+                                </Link>
                             </div>
                         </div>
                     </div>
                 </div>
             </section>
 
-            <Footer variant="landing" />
+            <div id="about">
+                <Footer variant="landing" />
+            </div>
         </>
     );
 }

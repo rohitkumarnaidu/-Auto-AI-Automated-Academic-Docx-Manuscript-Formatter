@@ -23,7 +23,7 @@ export default function History() {
 
     return (
         <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen flex flex-col">
-            <Navbar variant="app" />
+            <Navbar variant="app" activeTab="history" />
 
             {/* Page Content */}
             <main className="flex flex-1 justify-center py-8 animate-in fade-in slide-in-from-bottom-4 duration-500">

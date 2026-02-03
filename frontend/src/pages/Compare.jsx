@@ -39,6 +39,8 @@ export default function Compare() {
         ];
     }, [job]);
 
+    const [isPaused, setIsPaused] = useState(false);
+
     if (!job) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-background-light dark:bg-background-dark">
@@ -64,6 +66,13 @@ export default function Compare() {
                         <h1 className="text-[#0d131b] dark:text-white text-2xl font-bold leading-tight tracking-[-0.015em]">Document Comparison</h1>
                     </div>
                     <div className="flex items-center gap-2 mt-4 md:mt-0">
+                        <button
+                            onClick={() => setIsPaused(!isPaused)}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${isPaused ? 'bg-amber-50 border-amber-200 text-amber-600' : 'bg-primary/5 border-primary/20 text-primary hover:bg-primary/10'}`}
+                        >
+                            <span className="material-symbols-outlined text-[18px]">{isPaused ? 'play_arrow' : 'pause'}</span>
+                            {isPaused ? 'RESUME FORMATTING' : 'PAUSE FORMATTING'}
+                        </button>
                         <span className="text-xs font-medium text-slate-500 px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded uppercase">{job.template} Template Applied</span>
                     </div>
                 </div>
@@ -136,14 +145,23 @@ export default function Compare() {
                     </div>
 
                     {/* Right Panel: Processed */}
-                    <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 border-2 border-primary rounded-xl overflow-hidden shadow-lg">
+                    <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 border-2 border-primary rounded-xl overflow-hidden shadow-lg relative transition-all duration-300">
+                        {isPaused && (
+                            <div className="absolute inset-0 bg-white/20 dark:bg-slate-900/20 backdrop-blur-[1px] z-10 flex items-center justify-center pointer-events-none">
+                                <div className="bg-white/90 dark:bg-slate-800/90 p-4 rounded-full shadow-2xl border border-amber-200 animate-in fade-in zoom-in duration-300">
+                                    <span className="material-symbols-outlined text-amber-500 text-6xl">format_paint</span>
+                                </div>
+                            </div>
+                        )}
                         <div className="px-6 py-3 border-b border-slate-200 dark:border-slate-800 bg-primary/5 flex justify-between items-center">
                             <h3 className="font-bold text-sm text-primary uppercase tracking-wider flex items-center gap-2">
                                 <span className="material-symbols-outlined text-[18px]">verified</span>
                                 Processed ({job.template})
                             </h3>
                             <div className="flex gap-2">
-                                <span className="text-[10px] font-bold text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-2 py-0.5 rounded">VALIDATED</span>
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded transition-colors ${isPaused ? 'bg-amber-100 text-amber-600' : 'bg-green-100 text-green-600 dark:text-green-400'}`}>
+                                    {isPaused ? 'PAUSED' : 'VALIDATED'}
+                                </span>
                             </div>
                         </div>
                         <div className={`flex-1 p-8 overflow-y-auto custom-scrollbar bg-white dark:bg-slate-900 ${scrollSync ? 'scroll-sync-right' : ''}`}>
@@ -151,8 +169,11 @@ export default function Compare() {
                                 {processedLines.map((line, i) => {
                                     const isModified = i < originalLines.length && line !== originalLines[i] && line.trim() !== "";
                                     return (
-                                        <p key={i} className={`${line.trim() === "" ? "h-4" : ""} ${highlights && isModified ? 'bg-diff-mod/30 border-l-2 border-amber-400 pl-2' : ''}`}>
+                                        <p key={i} className={`relative ${line.trim() === "" ? "h-4" : ""} ${highlights && isModified ? 'bg-diff-mod/30 border-l-2 border-amber-400 pl-2' : ''}`}>
                                             {line}
+                                            {(isPaused || highlights) && line.trim() !== "" && (
+                                                <span className="inline-block ml-1 text-primary/30 font-serif translate-y-[2px]" title="Formatting Symbol">¶</span>
+                                            )}
                                         </p>
                                     );
                                 })}

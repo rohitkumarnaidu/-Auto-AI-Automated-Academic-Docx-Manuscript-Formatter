@@ -9,9 +9,9 @@ export default function Footer({ variant = 'app' }) {
                         <div className="col-span-2 md:col-span-1">
                             <div className="flex items-center gap-2 mb-6">
                                 <div className="bg-primary text-white p-1 rounded-md flex items-center justify-center">
-                                    <span className="material-symbols-outlined text-sm">menu_book</span>
+                                    <span className="material-symbols-outlined text-sm">auto_stories</span>
                                 </div>
-                                <span className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">ManuscriptFormatter</span>
+                                <span className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">ScholarForm AI</span>
                             </div>
                             <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6">
                                 Providing specialized technical writing and formatting infrastructure for global academia and scientific institutions since 2021.
