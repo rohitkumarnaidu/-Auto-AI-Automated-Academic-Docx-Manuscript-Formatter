@@ -1,13 +1,29 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
+import { useAuth } from '../context/AuthContext';
 
 export default function ForgotPassword() {
-    const navigate = useNavigate();
+    const { resetPassword } = useAuth();
+    const [email, setEmail] = useState('');
+    const [message, setMessage] = useState('');
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        // UI logic: navigate to verify-otp
-        navigate('/verify-otp');
+        setMessage('');
+        setError('');
+        setLoading(true);
+
+        const { error } = await resetPassword(email);
+
+        if (error) {
+            setError(error.message);
+        } else {
+            setMessage('Password reset link has been sent to your email.');
+        }
+        setLoading(false);
     };
 
     return (
@@ -30,9 +46,21 @@ export default function ForgotPassword() {
                             Forgot your password?
                         </h1>
                         <p className="text-[#4c6c9a] dark:text-slate-400 text-base font-normal leading-relaxed px-2">
-                            Enter your registered email address to receive a verification code.
+                            Enter your registered email address to receive a password reset link.
                         </p>
                     </div>
+
+                    {message && (
+                        <div className="mb-6 p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-600 dark:text-green-400 text-sm">
+                            {message}
+                        </div>
+                    )}
+
+                    {error && (
+                        <div className="mb-6 p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm">
+                            {error}
+                        </div>
+                    )}
 
                     {/* Input Form Section */}
                     <form className="space-y-6" onSubmit={handleSubmit}>
@@ -46,6 +74,8 @@ export default function ForgotPassword() {
                                         placeholder="Enter your registered email address"
                                         required
                                         type="email"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
                                     />
                                 </div>
                             </label>
@@ -54,10 +84,11 @@ export default function ForgotPassword() {
                         {/* Action Button */}
                         <div className="pt-2">
                             <button
-                                className="w-full flex cursor-pointer items-center justify-center rounded-lg h-14 px-5 bg-primary text-white text-base font-bold leading-normal tracking-wide transition-all hover:bg-primary/90 active:scale-[0.98]"
+                                className="w-full flex cursor-pointer items-center justify-center rounded-lg h-14 px-5 bg-primary text-white text-base font-bold leading-normal tracking-wide transition-all hover:bg-primary/90 active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
                                 type="submit"
+                                disabled={loading}
                             >
-                                <span className="truncate">Send OTP</span>
+                                <span className="truncate">{loading ? 'Sending...' : 'Send Reset Link'}</span>
                             </button>
                         </div>
                     </form>

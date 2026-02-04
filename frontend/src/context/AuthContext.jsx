@@ -1,41 +1,80 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '../lib/supabaseClient';
 
 const AuthContext = createContext();
 
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [user, setUser] = useState(null);
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [loading, setLoading] = useState(true);
 
-    // Persist auth state for development convenience
     useEffect(() => {
-        const savedAuth = localStorage.getItem('isLoggedIn');
-        const savedUser = localStorage.getItem('user');
-        if (savedAuth === 'true') {
-            setIsLoggedIn(true);
-            setUser(JSON.parse(savedUser));
-        }
+        // Check active session
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            setUser(session?.user ?? null);
+            setIsLoggedIn(!!session);
+            setLoading(false);
+        });
+
+        // Listen for auth changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            setUser(session?.user ?? null);
+            setIsLoggedIn(!!session);
+            setLoading(false);
+
+            if (!session) {
+                // Clear app-specific storage on logout
+                sessionStorage.clear();
+                localStorage.removeItem('scholarform_job'); // Assuming job might be stored here too, mostly session
+            }
+        });
+
+        return () => subscription.unsubscribe();
     }, []);
 
-    const login = (userData) => {
-        setIsLoggedIn(true);
-        setUser(userData || { name: 'Researcher', email: 'researcher@example.com' });
-        localStorage.setItem('isLoggedIn', 'true');
-        localStorage.setItem('user', JSON.stringify(userData || { name: 'Researcher', email: 'researcher@example.com' }));
+    const signUp = async (email, password) => {
+        return await supabase.auth.signUp({ email, password });
     };
 
-    const logout = () => {
-        setIsLoggedIn(false);
-        setUser(null);
-        localStorage.removeItem('isLoggedIn');
-        localStorage.removeItem('user');
-        sessionStorage.clear(); // Clear all session data on logout
+    const signIn = async (email, password) => {
+        return await supabase.auth.signInWithPassword({ email, password });
+    };
+
+    const signInWithGoogle = async () => {
+        return await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+                redirectTo: `${window.location.origin}/dashboard`, // Redirect back to dashboard
+            }
+        });
+    };
+
+    const signOut = async () => {
+        return await supabase.auth.signOut();
+    };
+
+    const resetPassword = async (email) => {
+        return await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: `${window.location.origin}/reset-password`,
+        });
+    };
+
+    const value = {
+        user,
+        isLoggedIn,
+        signUp,
+        signIn,
+        signInWithGoogle,
+        signOut,
+        resetPassword,
+        loading
     };
 
     return (
-        <AuthContext.Provider value={{ isLoggedIn, user, login, logout }}>
-            {children}
+        <AuthContext.Provider value={value}>
+            {!loading && children}
         </AuthContext.Provider>
     );
 };

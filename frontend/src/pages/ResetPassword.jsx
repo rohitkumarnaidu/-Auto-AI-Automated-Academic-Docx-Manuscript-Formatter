@@ -1,13 +1,43 @@
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
+import { supabase } from '../lib/supabaseClient';
 
 export default function ResetPassword() {
     const navigate = useNavigate();
+    const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [error, setError] = useState('');
+    const [message, setMessage] = useState('');
+    const [loading, setLoading] = useState(false);
 
-    const handleReset = (e) => {
+    const handleReset = async (e) => {
         e.preventDefault();
-        // UI logic: navigate to login
-        navigate('/login');
+        setError('');
+        setMessage('');
+
+        if (password !== confirmPassword) {
+            setError("Passwords do not match.");
+            return;
+        }
+
+        setLoading(true);
+        // User is authenticated here via the recovery link from email
+        const { error } = await supabase.auth.updateUser({ password });
+
+        if (error) {
+            console.error(error);
+            setError(error.message);
+            setLoading(false);
+        } else {
+            setLoading(false);
+            setMessage("Password updated successfully! Redirecting to dashboard...");
+            setTimeout(() => {
+                navigate('/dashboard');
+            }, 2000);
+        }
     };
 
     return (
@@ -26,6 +56,18 @@ export default function ResetPassword() {
                         </p>
                     </div>
 
+                    {error && (
+                        <div className="mx-8 mb-4 p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm">
+                            {error}
+                        </div>
+                    )}
+
+                    {message && (
+                        <div className="mx-8 mb-4 p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-600 dark:text-green-400 text-sm">
+                            {message}
+                        </div>
+                    )}
+
                     <form className="px-8 pb-10 space-y-5" onSubmit={handleReset}>
                         {/* TextField: New Password */}
                         <div className="flex flex-col gap-1.5">
@@ -35,11 +77,18 @@ export default function ResetPassword() {
                                     <input
                                         className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg rounded-r-none border border-[#cfd9e7] dark:border-slate-700 bg-white dark:bg-slate-800 text-[#0d131b] dark:text-slate-100 focus:outline-0 focus:ring-1 focus:ring-primary focus:border-primary h-12 placeholder:text-[#94a3b8] p-[15px] border-r-0 text-base font-normal leading-normal"
                                         placeholder="Enter your new password"
-                                        type="password"
+                                        type={showPassword ? "text" : "password"}
                                         required
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
                                     />
-                                    <div className="text-[#4c6c9a] flex border border-[#cfd9e7] dark:border-slate-700 bg-white dark:bg-slate-800 items-center justify-center pr-[15px] rounded-r-lg border-l-0 cursor-pointer hover:text-primary transition-colors">
-                                        <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>visibility</span>
+                                    <div
+                                        className="text-[#4c6c9a] flex border border-[#cfd9e7] dark:border-slate-700 bg-white dark:bg-slate-800 items-center justify-center pr-[15px] rounded-r-lg border-l-0 cursor-pointer hover:text-primary transition-colors"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                    >
+                                        <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>
+                                            {showPassword ? 'visibility_off' : 'visibility'}
+                                        </span>
                                     </div>
                                 </div>
                             </label>
@@ -55,11 +104,18 @@ export default function ResetPassword() {
                                     <input
                                         className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg rounded-r-none border border-[#cfd9e7] dark:border-slate-700 bg-white dark:bg-slate-800 text-[#0d131b] dark:text-slate-100 focus:outline-0 focus:ring-1 focus:ring-primary focus:border-primary h-12 placeholder:text-[#94a3b8] p-[15px] border-r-0 text-base font-normal leading-normal"
                                         placeholder="Enter your new password again"
-                                        type="password"
+                                        type={showConfirmPassword ? "text" : "password"}
                                         required
+                                        value={confirmPassword}
+                                        onChange={(e) => setConfirmPassword(e.target.value)}
                                     />
-                                    <div className="text-[#4c6c9a] flex border border-[#cfd9e7] dark:border-slate-700 bg-white dark:bg-slate-800 items-center justify-center pr-[15px] rounded-r-lg border-l-0 cursor-pointer hover:text-primary transition-colors">
-                                        <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>visibility</span>
+                                    <div
+                                        className="text-[#4c6c9a] flex border border-[#cfd9e7] dark:border-slate-700 bg-white dark:bg-slate-800 items-center justify-center pr-[15px] rounded-r-lg border-l-0 cursor-pointer hover:text-primary transition-colors"
+                                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                    >
+                                        <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>
+                                            {showConfirmPassword ? 'visibility_off' : 'visibility'}
+                                        </span>
                                     </div>
                                 </div>
                             </label>
@@ -68,10 +124,11 @@ export default function ResetPassword() {
                         {/* Primary Action Button */}
                         <div className="pt-4">
                             <button
-                                className="w-full flex items-center justify-center rounded-lg h-12 bg-primary text-white text-base font-bold leading-normal tracking-wide hover:bg-primary/90 transition-all shadow-md active:scale-[0.98]"
+                                className="w-full flex items-center justify-center rounded-lg h-12 bg-primary text-white text-base font-bold leading-normal tracking-wide hover:bg-primary/90 transition-all shadow-md active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
                                 type="submit"
+                                disabled={loading}
                             >
-                                Reset Password
+                                {loading ? 'Updating Password...' : 'Reset Password'}
                             </button>
                         </div>
 
