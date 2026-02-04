@@ -35,7 +35,7 @@ export default function Error() {
                                 <div className="relative flex items-center">
                                     <input className="h-5 w-5 rounded border-[#cfd9e7] dark:border-slate-700 border-2 bg-transparent text-primary checked:bg-primary checked:border-primary focus:ring-0 focus:ring-offset-0 transition-all" type="checkbox" />
                                 </div>
-                                <p className="text-slate-700 dark:text-slate-300 text-base font-normal leading-normal">Check if your file is in <span className="font-semibold text-[#0d131b] dark:text-white">.docx</span> or <span class="font-semibold text-[#0d131b] dark:text-white">.pdf</span> format</p>
+                                <p className="text-slate-700 dark:text-slate-300 text-base font-normal leading-normal">Check if your file is in <span className="font-semibold text-[#0d131b] dark:text-white">.docx, .pdf, .tex, .txt, .html</span> or <span className="font-semibold text-[#0d131b] dark:text-white">.md</span> format</p>
                             </label>
                             <label className="flex gap-x-4 py-3 px-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer group">
                                 <div className="relative flex items-center">

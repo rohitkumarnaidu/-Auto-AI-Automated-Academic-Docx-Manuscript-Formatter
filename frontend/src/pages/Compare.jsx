@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import * as Diff from 'diff';
 import { useDocument } from '../context/DocumentContext';
 import Navbar from '../components/Navbar';
 
@@ -10,33 +11,39 @@ export default function Compare() {
     const [scrollSync, setScrollSync] = useState(true);
     const [highlights, setHighlights] = useState(true);
 
-    // Mock/Fallack text for comparison if not in API response
-    // In a real app, this would come from job.originalText and job.processedText
-    const originalLines = useMemo(() => {
-        if (job?.originalText) return job.originalText.split('\n');
-        return [
-            "Recent Advancements in Generative Adversarial Networks for Image Synthesis",
-            "",
-            "Abstract",
-            "This paper presents a comprehensive review of GAN architectures. We focus on the evolution from the standard DCGAN to more advanced models like StyleGAN3. Our analysis shows that training stability remains a primary challenge.",
-            "",
-            "1. Introduction",
-            "Generative modeling has witnessed a paradigm shift with the introduction of GANs by Goodfellow et al. (2014). Since then, many variants have been proposed to address issues like mode collapse and training instability.",
-            "The core idea behind GANs is a minimax game between two neural networks: a generator and a discriminator. The generator learns to map a latent space to a data distribution of interest, while the discriminator tries to distinguish between real and synthetic samples."
-        ];
-    }, [job]);
+    // Generate aligned diffs for side-by-side view
+    const diffs = useMemo(() => {
+        if (!job?.originalText || !job?.processedText) return { left: [], right: [] };
 
-    const processedLines = useMemo(() => {
-        if (job?.processedText) return job.processedText.split('\n');
-        return [
-            "RECENT ADVANCEMENTS IN GENERATIVE ADVERSARIAL NETWORKS FOR IMAGE SYNTHESIS",
-            "",
-            "Abstract—This paper presents a comprehensive review of Generative Adversarial Network (GAN) architectures. We focus on the evolution from the Deep Convolutional GAN (DCGAN) to more advanced models like StyleGAN3. Our analysis shows that training stability and convergence speed remain primary challenges.",
-            "",
-            "I. INTRODUCTION",
-            "Generative modeling has witnessed a paradigm shift with the introduction of GANs by Goodfellow et al. [1]. Since then, many variants have been proposed to address issues like unstable gradients (mode collapse) and training instability.",
-            "The core idea behind GANs is a minimax game between two neural networks: a generator and a discriminator. The generator G learns to map a latent space z to a data distribution p_data, while the discriminator D tries to distinguish between real and synthetic samples."
-        ];
+        const changes = Diff.diffLines(job.originalText, job.processedText);
+        // const changes = []; // Diff.diffLines(job.originalText, job.processedText);
+        const left = [];
+        const right = [];
+
+        changes.forEach(part => {
+            const lines = part.value.replace(/\n$/, '').split('\n');
+            if (part.added) {
+                // Formatting change / Insertion -> Right side only
+                lines.forEach(line => {
+                    right.push({ text: line, type: 'added' });
+                    left.push({ text: '', type: 'empty' }); // Spacer
+                });
+            } else if (part.removed) {
+                // Deletion -> Left side only
+                lines.forEach(line => {
+                    left.push({ text: line, type: 'removed' });
+                    right.push({ text: '', type: 'empty' }); // Spacer
+                });
+            } else {
+                // Unchanged -> Both sides
+                lines.forEach(line => {
+                    left.push({ text: line, type: 'unchanged' });
+                    right.push({ text: line, type: 'unchanged' });
+                });
+            }
+        });
+
+        return { left, right };
     }, [job]);
 
     const [isPaused, setIsPaused] = useState(false);
@@ -88,13 +95,16 @@ export default function Compare() {
                                 <span className="material-symbols-outlined text-[20px]">description</span>
                                 Text View
                             </button>
-                            <button
-                                onClick={() => setViewMode('structured')}
-                                className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'structured' ? 'bg-white dark:bg-slate-700 shadow-sm text-primary' : 'text-slate-500 dark:text-slate-400 hover:text-primary'}`}
-                            >
-                                <span className="material-symbols-outlined text-[20px]">account_tree</span>
-                                Structured
-                            </button>
+                            {/* Only show Structured view if data exists */}
+                            {job.structuredData && (
+                                <button
+                                    onClick={() => setViewMode('structured')}
+                                    className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'structured' ? 'bg-white dark:bg-slate-700 shadow-sm text-primary' : 'text-slate-500 dark:text-slate-400 hover:text-primary'}`}
+                                >
+                                    <span className="material-symbols-outlined text-[20px]">account_tree</span>
+                                    Structured
+                                </button>
+                            )}
                         </div>
                         <div className="flex h-10 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 p-1">
                             <label onClick={() => setScrollSync(!scrollSync)} className={`cursor-pointer flex h-full items-center justify-center rounded-md px-3 text-xs transition-all ${scrollSync ? 'bg-white dark:bg-slate-700 shadow-sm text-primary font-bold' : 'text-slate-500 dark:text-slate-400 font-medium hover:text-primary'}`}>
@@ -113,10 +123,16 @@ export default function Compare() {
                                 <span className="material-symbols-outlined">file_download</span>
                             </button>
                         </div>
-                        <Link to="/edit" className="flex items-center justify-center rounded-lg h-10 bg-primary text-white gap-2 px-6 text-sm font-bold shadow-md hover:bg-blue-600 transition-all">
+                        <button
+                            onClick={() => {
+                                // If we're here and it was processing, it will stay paused during Edit
+                                navigate('/edit');
+                            }}
+                            className="flex items-center justify-center rounded-lg h-10 bg-primary text-white gap-2 px-6 text-sm font-bold shadow-md hover:bg-blue-600 transition-all"
+                        >
                             <span className="material-symbols-outlined">edit_note</span>
                             <span className="truncate">Edit Version</span>
-                        </Link>
+                        </button>
                     </div>
                 </div>
 
@@ -132,9 +148,14 @@ export default function Compare() {
                             <span className="text-[10px] text-slate-400">Source: {job.originalFileName}</span>
                         </div>
                         <div className={`flex-1 p-8 overflow-y-auto custom-scrollbar leading-relaxed text-slate-800 dark:text-slate-300 font-serif text-[15px] ${scrollSync ? 'scroll-sync-left' : ''}`}>
-                            <div className="max-w-2xl mx-auto space-y-4">
-                                {originalLines.map((line, i) => (
-                                    <p key={i} className={line.trim() === "" ? "h-4" : ""}>{line}</p>
+                            <div className="max-w-2xl mx-auto space-y-1">
+                                {diffs.left.map((line, i) => (
+                                    <div key={i} className={`min-h-[24px] ${highlights && line.type === 'removed'
+                                        ? 'bg-red-100 dark:bg-red-900/30 border-l-2 border-red-500 pl-2'
+                                        : line.type === 'empty' ? 'bg-slate-50/50 dark:bg-slate-800/30' : ''
+                                        }`}>
+                                        <p>{line.text}</p>
+                                    </div>
                                 ))}
                             </div>
                         </div>
@@ -165,18 +186,18 @@ export default function Compare() {
                             </div>
                         </div>
                         <div className={`flex-1 p-8 overflow-y-auto custom-scrollbar bg-white dark:bg-slate-900 ${scrollSync ? 'scroll-sync-right' : ''}`}>
-                            <div className="max-w-2xl mx-auto space-y-4">
-                                {processedLines.map((line, i) => {
-                                    const isModified = i < originalLines.length && line !== originalLines[i] && line.trim() !== "";
-                                    return (
-                                        <p key={i} className={`relative ${line.trim() === "" ? "h-4" : ""} ${highlights && isModified ? 'bg-diff-mod/30 border-l-2 border-amber-400 pl-2' : ''}`}>
-                                            {line}
-                                            {(isPaused || highlights) && line.trim() !== "" && (
-                                                <span className="inline-block ml-1 text-primary/30 font-serif translate-y-[2px]" title="Formatting Symbol">¶</span>
-                                            )}
-                                        </p>
-                                    );
-                                })}
+                            <div className="max-w-2xl mx-auto space-y-1">
+                                {diffs.right.map((line, i) => (
+                                    <div key={i} className={`min-h-[24px] relative ${highlights && line.type === 'added'
+                                        ? 'bg-green-100 dark:bg-green-900/30 border-l-2 border-green-500 pl-2'
+                                        : line.type === 'empty' ? 'bg-slate-50/50 dark:bg-slate-800/30' : ''
+                                        }`}>
+                                        <p>{line.text}</p>
+                                        {(isPaused || highlights) && line.text.trim() !== "" && line.type !== 'empty' && (
+                                            <span className="inline-block ml-1 text-primary/30 font-serif translate-y-[2px]" title="Formatting Symbol">¶</span>
+                                        )}
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     </div>

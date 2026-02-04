@@ -1,8 +1,11 @@
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import { useDocument } from '../context/DocumentContext';
 
 export default function Dashboard() {
+    const { history } = useDocument();
+    const recentJobs = history.slice(0, 3); // Show only 3 most recent
     return (
         <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
             <Navbar variant="app" activeTab="dashboard" />
@@ -90,60 +93,56 @@ export default function Dashboard() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                                    <td className="px-6 py-5">
-                                        <div className="flex items-center gap-3">
-                                            <span className="material-symbols-outlined text-slate-400">article</span>
-                                            <span className="text-slate-900 dark:text-white font-medium">Quantum Physics Draft v2.4</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-5">
-                                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-green-600 dark:bg-green-400 mr-2"></span>
-                                            Validated
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-5 text-slate-500 dark:text-slate-400 text-sm">Oct 24, 2023 14:32</td>
-                                    <td className="px-6 py-5 text-right">
-                                        <button className="text-primary hover:text-primary/80 font-bold text-sm transition-colors">Download</button>
-                                    </td>
-                                </tr>
-                                <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                                    <td className="px-6 py-5">
-                                        <div className="flex items-center gap-3">
-                                            <span className="material-symbols-outlined text-slate-400">article</span>
-                                            <span className="text-slate-900 dark:text-white font-medium">Neural Networks Study - Final</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-5">
-                                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-primary mr-2 animate-pulse"></span>
-                                            In Progress
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-5 text-slate-500 dark:text-slate-400 text-sm">Oct 22, 2023 09:15</td>
-                                    <td className="px-6 py-5 text-right">
-                                        <button className="text-primary hover:text-primary/80 font-bold text-sm transition-colors">Edit</button>
-                                    </td>
-                                </tr>
-                                <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                                    <td className="px-6 py-5">
-                                        <div className="flex items-center gap-3">
-                                            <span className="material-symbols-outlined text-slate-400">article</span>
-                                            <span className="text-slate-900 dark:text-white font-medium">Climate Change Analysis</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-5">
-                                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-amber-600 dark:bg-amber-400 mr-2"></span>
-                                            Formatting Needed
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-5 text-slate-500 dark:text-slate-400 text-sm">Oct 20, 2023 18:45</td>
-                                    <td className="px-6 py-5 text-right">
-                                        <button className="text-primary hover:text-primary/80 font-bold text-sm transition-colors">Fix Errors</button>
-                                    </td>
-                                </tr>
+                                {recentJobs.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="4" className="px-6 py-12 text-center">
+                                            <div className="flex flex-col items-center gap-3">
+                                                <span className="material-symbols-outlined text-4xl text-slate-300 dark:text-slate-700">inbox</span>
+                                                <p className="text-slate-500 dark:text-slate-400 font-medium">No manuscripts yet</p>
+                                                <Link to="/upload" className="text-primary text-sm font-bold hover:underline">Upload your first manuscript</Link>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    recentJobs.map((job, index) => (
+                                        <tr key={job.id || index} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                                            <td className="px-6 py-5">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="material-symbols-outlined text-slate-400">article</span>
+                                                    <span className="text-slate-900 dark:text-white font-medium">{job.originalFileName || 'Untitled'}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-5">
+                                                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${job.status === 'completed'
+                                                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                                                        : job.status === 'processing'
+                                                            ? 'bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary'
+                                                            : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
+                                                    }`}>
+                                                    <span className={`w-1.5 h-1.5 rounded-full mr-2 ${job.status === 'completed' ? 'bg-green-600 dark:bg-green-400' : 'bg-primary animate-pulse'
+                                                        }`}></span>
+                                                    {job.status === 'completed' ? 'Validated' : job.status === 'processing' ? 'In Progress' : 'Pending'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-5 text-slate-500 dark:text-slate-400 text-sm">
+                                                {new Date(job.timestamp).toLocaleString('en-US', {
+                                                    month: 'short',
+                                                    day: 'numeric',
+                                                    year: 'numeric',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                })}
+                                            </td>
+                                            <td className="px-6 py-5 text-right">
+                                                {job.status === 'completed' ? (
+                                                    <Link to="/download" className="text-primary hover:text-primary/80 font-bold text-sm transition-colors">Download</Link>
+                                                ) : (
+                                                    <Link to="/upload" className="text-primary hover:text-primary/80 font-bold text-sm transition-colors">Continue</Link>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
                             </tbody>
                         </table>
                     </div>

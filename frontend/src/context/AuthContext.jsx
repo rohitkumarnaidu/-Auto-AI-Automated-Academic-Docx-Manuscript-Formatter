@@ -30,6 +30,7 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
         localStorage.removeItem('isLoggedIn');
         localStorage.removeItem('user');
+        sessionStorage.clear(); // Clear all session data on logout
     };
 
     return (

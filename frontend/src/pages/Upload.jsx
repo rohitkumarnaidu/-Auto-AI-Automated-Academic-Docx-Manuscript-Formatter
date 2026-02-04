@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useDocument } from '../context/DocumentContext';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 
 export default function Upload() {
     const { isLoggedIn } = useAuth();
+    const { job, setJob } = useDocument();
     const fileInputRef = useRef(null);
     const [file, setFile] = useState(null);
     const [isDragging, setIsDragging] = useState(false);
@@ -19,22 +21,36 @@ export default function Upload() {
     const navigate = useNavigate();
     const navigatedRef = useRef(false);
 
-    // Simulation resume logic
+    // Simulation resume logic + Job restoration
     useEffect(() => {
-        const wasProcessing = sessionStorage.getItem('wasProcessing');
-        if (wasProcessing === 'true') {
+        const wasProcessing = sessionStorage.getItem('scholarform_wasProcessing');
+        const savedJob = sessionStorage.getItem('scholarform_currentJob');
+
+        if (wasProcessing === 'true' && savedJob) {
+            const parsedJob = JSON.parse(savedJob);
+            setJob(parsedJob);
             setIsProcessing(true);
-            const savedProgress = parseFloat(sessionStorage.getItem('lastProgress') || '75');
+            setJob(parsedJob);
+            setIsProcessing(true);
+            const savedProgress = parseFloat(sessionStorage.getItem('scholarform_lastProgress') || '75');
             setProgress(savedProgress);
-            sessionStorage.removeItem('wasProcessing');
-            sessionStorage.removeItem('lastProgress');
+            sessionStorage.removeItem('scholarform_wasProcessing');
+            sessionStorage.removeItem('scholarform_lastProgress');
+        } else if (savedJob) {
+            // Restore job even if not processing (for completed jobs)
+            const parsedJob = JSON.parse(savedJob);
+            setJob(parsedJob);
+            if (parsedJob.progress >= 100) {
+                setProgress(100);
+            }
         }
-    }, []);
+    }, [setJob]);
 
     const handleReviewClick = (path) => {
-        if (isProcessing) {
-            sessionStorage.setItem('wasProcessing', 'true');
-            sessionStorage.setItem('lastProgress', progress.toString());
+        // Only Compare can be clicked during processing
+        if (isProcessing && path === '/compare') {
+            sessionStorage.setItem('scholarform_wasProcessing', 'true');
+            sessionStorage.setItem('scholarform_lastProgress', progress.toString());
         }
         navigate(path);
     };
@@ -61,9 +77,10 @@ export default function Upload() {
         } else if (progress >= 100) {
             setIsProcessing(false);
 
-            // Automatic navigation after completion
-            if (!navigatedRef.current) {
-                navigatedRef.current = true;
+            // Robust auto-redirect: Trigger only once per processing run
+            const hasRedirected = sessionStorage.getItem('scholarform_hasAutoRedirected');
+            if (hasRedirected !== 'true') {
+                sessionStorage.setItem('scholarform_hasAutoRedirected', 'true');
                 const timer = setTimeout(() => {
                     navigate('/download');
                 }, 1000);
@@ -82,8 +99,15 @@ export default function Upload() {
             // Dynamic time remaining estimation
             const remaining = Math.max(0, Math.floor(45 * (1 - progress / 100)));
             setTimeRemaining(remaining);
+
+            // Update job progress in DocumentContext
+            if (job) {
+                const updatedJob = { ...job, progress, status: progress >= 100 ? 'completed' : 'processing' };
+                setJob(updatedJob);
+                sessionStorage.setItem('scholarform_currentJob', JSON.stringify(updatedJob));
+            }
         }
-    }, [progress, isProcessing]);
+    }, [isProcessing, progress, steps.length, job, setJob]);
 
     const handleFileChange = (e) => {
         const selectedFile = e.target.files[0];
@@ -138,6 +162,24 @@ export default function Upload() {
 
     const handleProcess = () => {
         if (file && !isProcessing && progress < 100) {
+            // Reset auto-redirect flag for new processing run
+            sessionStorage.removeItem('scholarform_hasAutoRedirected');
+
+            // Create job in DocumentContext
+            const newJob = {
+                id: `job_${Date.now()}`,
+                timestamp: new Date().toISOString(),
+                status: 'processing',
+                originalFileName: file.name,
+                originalText: `Sample manuscript content from ${file.name}\n\nAbstract\nThis is a simulated abstract for the uploaded document.\n\nIntroduction\nThe field of automated formatting is rapidly evolving...`,
+                processedText: `Formatted version of ${file.name}\n\nABSTRACT\nThis is a simulated abstract for the uploaded document.\n\n1. INTRODUCTION\nThe field of automated formatting is rapidly evolving...`,
+                template: template,
+                flags: { ai_enhanced: aiEnabled, ocr_applied: ocrEnabled },
+                progress: 0
+            };
+            setJob(newJob);
+            sessionStorage.setItem('scholarform_currentJob', JSON.stringify(newJob));
+
             setIsProcessing(true);
             setProgress(0);
             setCurrentStep(1);
@@ -313,11 +355,11 @@ export default function Upload() {
                                     <span className="text-sm font-bold">Compare Results</span>
                                 </button>
                                 <button
-                                    onClick={() => (progress === 100 || isProcessing) && handleReviewClick('/edit')}
-                                    disabled={!isProcessing && progress < 100}
-                                    className={`flex flex-col items-center justify-center gap-2 p-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 transition-all group ${(!isProcessing && progress < 100) ? 'opacity-50 cursor-not-allowed text-slate-500' : 'hover:border-primary hover:bg-primary/5 text-slate-900 dark:text-white'}`}
+                                    onClick={() => progress === 100 && navigate('/preview')}
+                                    disabled={progress < 100}
+                                    className={`flex flex-col items-center justify-center gap-2 p-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 transition-all group ${progress < 100 ? 'opacity-50 cursor-not-allowed text-slate-500' : 'hover:border-primary hover:bg-primary/5 text-slate-900 dark:text-white'}`}
                                 >
-                                    <span className={`material-symbols-outlined text-2xl ${(!isProcessing && progress < 100) ? 'text-slate-400' : 'text-primary'}`}>visibility</span>
+                                    <span className={`material-symbols-outlined text-2xl ${progress < 100 ? 'text-slate-400' : 'text-primary'}`}>visibility</span>
                                     <span className="text-sm font-bold">Preview Document</span>
                                 </button>
                                 <button

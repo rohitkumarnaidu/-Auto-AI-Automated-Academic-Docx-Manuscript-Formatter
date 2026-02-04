@@ -10,6 +10,7 @@ export default function Edit() {
     const [title, setTitle] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [lastSaved, setLastSaved] = useState('Just now');
+    const [validationMessage, setValidationMessage] = useState(null);
 
     useEffect(() => {
         if (job) {
@@ -42,10 +43,12 @@ export default function Edit() {
         // Simple local validation check
         const hasAbstract = content.toLowerCase().includes('abstract');
         if (!hasAbstract) {
-            alert("Local Validation: Missing 'Abstract' section!");
+            setValidationMessage({ type: 'warning', text: "Missing 'Abstract' section" });
         } else {
-            alert("Local Validation: Basic structure looks good.");
+            setValidationMessage({ type: 'success', text: 'Basic structure looks good' });
         }
+        // Clear message after 5 seconds
+        setTimeout(() => setValidationMessage(null), 5000);
     };
 
     return (
@@ -83,25 +86,24 @@ export default function Edit() {
                 {/* Editor View */}
                 <main className="flex-1 overflow-y-auto bg-background-light dark:bg-background-dark p-8 flex justify-center">
                     <div className="w-full max-w-[850px]">
-                        {/* Formatting Toolbar */}
-                        <div className="sticky top-0 mb-6 flex justify-center z-10">
-                            <div className="flex items-center gap-1 p-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg">
-                                <button className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg">
-                                    <span className="material-symbols-outlined">format_bold</span>
-                                </button>
-                                <button className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg">
-                                    <span className="material-symbols-outlined">format_italic</span>
-                                </button>
-                                <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1"></div>
-                                <button className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg">
-                                    <span className="material-symbols-outlined">format_list_bulleted</span>
-                                </button>
-                                <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1"></div>
-                                <button className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg">
-                                    <span className="material-symbols-outlined">auto_fix_high</span>
-                                </button>
+                        {/* Validation Message Banner */}
+                        {validationMessage && (
+                            <div className={`mb-6 p-4 rounded-xl border animate-in fade-in slide-in-from-top duration-300 ${validationMessage.type === 'success'
+                                    ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/30'
+                                    : 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-900/30'
+                                }`}>
+                                <div className="flex items-center gap-2">
+                                    <span className={`material-symbols-outlined text-sm ${validationMessage.type === 'success' ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'
+                                        }`}>
+                                        {validationMessage.type === 'success' ? 'check_circle' : 'warning'}
+                                    </span>
+                                    <p className={`text-sm font-medium ${validationMessage.type === 'success' ? 'text-green-900 dark:text-green-300' : 'text-amber-900 dark:text-amber-300'
+                                        }`}>
+                                        {validationMessage.text}
+                                    </p>
+                                </div>
                             </div>
-                        </div>
+                        )}
 
                         {/* Manuscript Paper Area */}
                         <article className="manuscript-paper bg-white dark:bg-slate-900 min-h-[1100px] p-16 rounded-sm border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">

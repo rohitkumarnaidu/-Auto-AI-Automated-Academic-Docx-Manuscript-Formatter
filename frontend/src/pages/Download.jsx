@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
@@ -7,6 +8,8 @@ import { downloadFile } from '../services/api';
 export default function Download() {
     const navigate = useNavigate();
     const { job } = useDocument();
+    const [isDownloading, setIsDownloading] = useState(false);
+    const [downloadError, setDownloadError] = useState(null);
 
     if (!job) {
         return (
@@ -18,6 +21,8 @@ export default function Download() {
     }
 
     const handleDownload = async () => {
+        setIsDownloading(true);
+        setDownloadError(null);
         try {
             // Use output_path if available from job result, otherwise fallback to a generic name
             const filename = job.outputPath || 'processed_manuscript.docx';
@@ -31,7 +36,9 @@ export default function Download() {
             link.parentNode.removeChild(link);
         } catch (error) {
             console.error("Download failed:", error);
-            alert("Download failed. Please try again.");
+            setDownloadError('Download failed. The file may not be ready yet or the server is unavailable. Please try again.');
+        } finally {
+            setIsDownloading(false);
         }
     };
 
@@ -52,6 +59,16 @@ export default function Download() {
 
                     {/* Main Success Card */}
                     <div className="p-4 @container">
+                        {/* Error Message Banner */}
+                        {downloadError && (
+                            <div className="mb-6 p-4 rounded-xl border bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/30 animate-in fade-in slide-in-from-top duration-300">
+                                <div className="flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-sm text-red-600 dark:text-red-400">error</span>
+                                    <p className="text-sm font-medium text-red-900 dark:text-red-300">{downloadError}</p>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="flex flex-col items-stretch justify-start rounded-xl @xl:flex-row @xl:items-start shadow-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
                             <div className="w-full md:w-1/3 bg-slate-100 dark:bg-slate-800 flex items-center justify-center aspect-[3/4] group">
                                 <span className="material-symbols-outlined text-7xl text-slate-300 dark:text-slate-600 group-hover:scale-110 transition-transform">description</span>
@@ -74,9 +91,22 @@ export default function Download() {
                                     </div>
                                 </div>
                                 <div className="flex flex-col gap-3">
-                                    <button onClick={handleDownload} className="flex w-full cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-12 px-6 bg-primary text-white text-base font-bold leading-normal transition-all hover:bg-blue-700 active:scale-[0.98] shadow-lg shadow-primary/20">
-                                        <span className="material-symbols-outlined">download</span>
-                                        <span className="truncate">Download Formatted Document</span>
+                                    <button
+                                        onClick={handleDownload}
+                                        disabled={isDownloading}
+                                        className="flex w-full cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-12 px-6 bg-primary text-white text-base font-bold leading-normal transition-all hover:bg-blue-700 active:scale-[0.98] shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {isDownloading ? (
+                                            <>
+                                                <span className="material-symbols-outlined animate-spin">progress_activity</span>
+                                                <span className="truncate">Downloading...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span className="material-symbols-outlined">download</span>
+                                                <span className="truncate">Download Formatted Document</span>
+                                            </>
+                                        )}
                                     </button>
                                 </div>
                             </div>
