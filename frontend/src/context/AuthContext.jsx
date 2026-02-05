@@ -55,10 +55,19 @@ export const AuthProvider = ({ children }) => {
         return await supabase.auth.signOut();
     };
 
-    const resetPassword = async (email) => {
-        return await supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: `${window.location.origin}/reset-password`,
-        });
+    const forgotPassword = async (email) => {
+        const { forgotPassword: apiForgotPassword } = await import('../services/api');
+        return await apiForgotPassword({ email });
+    };
+
+    const verifyOtp = async (email, otp) => {
+        const { verifyOtp: apiVerifyOtp } = await import('../services/api');
+        return await apiVerifyOtp({ email, otp });
+    };
+
+    const resetPassword = async (email, otp, newPassword) => {
+        const { resetPassword: apiResetPassword } = await import('../services/api');
+        return await apiResetPassword({ email, otp, new_password: newPassword });
     };
 
     const value = {
@@ -68,6 +77,8 @@ export const AuthProvider = ({ children }) => {
         signIn,
         signInWithGoogle,
         signOut,
+        forgotPassword,
+        verifyOtp,
         resetPassword,
         loading
     };

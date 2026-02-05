@@ -1,10 +1,16 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import { supabase } from '../lib/supabaseClient';
+import { useAuth } from '../context/AuthContext';
 
 export default function ResetPassword() {
     const navigate = useNavigate();
+    const location = useLocation();
+    const { resetPassword } = useAuth();
+
+    const email = location.state?.email || '';
+    const otp = location.state?.otp || '';
+
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -12,6 +18,12 @@ export default function ResetPassword() {
     const [error, setError] = useState('');
     const [message, setMessage] = useState('');
     const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (!email || !otp) {
+            navigate('/forgot-password');
+        }
+    }, [email, otp, navigate]);
 
     const handleReset = async (e) => {
         e.preventDefault();
@@ -23,20 +35,22 @@ export default function ResetPassword() {
             return;
         }
 
-        setLoading(true);
-        // User is authenticated here via the recovery link from email
-        const { error } = await supabase.auth.updateUser({ password });
+        if (password.length < 8) {
+            setError("Password must be at least 8 characters.");
+            return;
+        }
 
-        if (error) {
-            console.error(error);
-            setError(error.message);
-            setLoading(false);
-        } else {
-            setLoading(false);
-            setMessage("Password updated successfully! Redirecting to dashboard...");
+        setLoading(true);
+        try {
+            await resetPassword(email, otp, password);
+            setMessage("Password updated successfully! Redirecting to login...");
             setTimeout(() => {
-                navigate('/dashboard');
+                navigate('/login');
             }, 2000);
+        } catch (err) {
+            setError(err.message || 'Failed to reset password.');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -139,7 +153,7 @@ export default function ResetPassword() {
                                 className="text-primary hover:text-primary/80 text-sm font-medium transition-colors inline-flex items-center gap-1"
                             >
                                 <span className="material-symbols-outlined text-sm">arrow_back</span>
-                                Back to Login
+                                Back to Sign in
                             </Link>
                         </div>
                     </form>

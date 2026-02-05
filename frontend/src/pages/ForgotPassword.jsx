@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
 
 export default function ForgotPassword() {
-    const { resetPassword } = useAuth();
+    const { forgotPassword } = useAuth();
+    const navigate = useNavigate();
     const [email, setEmail] = useState('');
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
@@ -16,14 +17,18 @@ export default function ForgotPassword() {
         setError('');
         setLoading(true);
 
-        const { error } = await resetPassword(email);
-
-        if (error) {
-            setError(error.message);
-        } else {
-            setMessage('Password reset link has been sent to your email.');
+        try {
+            await forgotPassword(email);
+            setMessage('OTP has been sent to your email.');
+            // Navigate after a short delay so user can see success message
+            setTimeout(() => {
+                navigate('/verify-otp', { state: { email } });
+            }, 1500);
+        } catch (err) {
+            setError(err.message || 'Failed to send OTP');
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     return (
@@ -46,7 +51,7 @@ export default function ForgotPassword() {
                             Forgot your password?
                         </h1>
                         <p className="text-[#4c6c9a] dark:text-slate-400 text-base font-normal leading-relaxed px-2">
-                            Enter your registered email address to receive a password reset link.
+                            Enter your registered email address to receive a 6-digit OTP.
                         </p>
                     </div>
 
@@ -88,7 +93,7 @@ export default function ForgotPassword() {
                                 type="submit"
                                 disabled={loading}
                             >
-                                <span className="truncate">{loading ? 'Sending...' : 'Send Reset Link'}</span>
+                                <span className="truncate">{loading ? 'Sending...' : 'Send OTP'}</span>
                             </button>
                         </div>
                     </form>
@@ -100,7 +105,7 @@ export default function ForgotPassword() {
                             className="inline-flex items-center gap-2 text-primary hover:text-primary/80 text-sm font-semibold transition-colors"
                         >
                             <span className="material-symbols-outlined text-base">arrow_back</span>
-                            Back to Login
+                            Back to Sign in
                         </Link>
                     </div>
                 </div>
