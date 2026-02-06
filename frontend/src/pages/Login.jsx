@@ -15,10 +15,10 @@ export default function Login() {
         e.preventDefault();
         setError('');
         setLocalLoading(true);
-        const { error } = await signIn(email, password);
-        if (error) {
-            console.error(error);
-            setError(error.message);
+        const { error: signInError } = await signIn(email, password);
+        if (signInError) {
+            console.error(signInError);
+            setError(signInError); // Already a string from AuthContext/api.js
             setLocalLoading(false);
         } else {
             // Redirect handled by AuthContext or separate listener, but we can do it here too if needed.
@@ -30,10 +30,10 @@ export default function Login() {
 
     const handleGoogleLogin = async () => {
         setError('');
-        const { error } = await signInWithGoogle();
-        if (error) {
-            console.error(error);
-            setError(error.message);
+        const { error: googleError } = await signInWithGoogle();
+        if (googleError) {
+            console.error(googleError);
+            setError(googleError.message || googleError);
         }
     };
 
@@ -45,8 +45,8 @@ export default function Login() {
             <main className="flex flex-1 items-center justify-center py-12 px-4">
                 <div className="layout-content-container flex flex-col w-full max-w-[480px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm p-8">
                     {/* Headline */}
-                    <h1 className="text-[#0d131b] dark:text-slate-100 tracking-light text-[32px] font-bold leading-tight text-center pb-2 pt-4 font-display">Welcome back</h1>
-                    <p className="text-[#4c6c9a] dark:text-slate-400 text-center text-base pb-8 font-normal">Please enter your details to sign in.</p>
+                    <h1 className="text-slate-900 dark:text-slate-100 tracking-light text-[32px] font-bold leading-tight text-center pb-2 pt-4 font-display">Welcome back</h1>
+                    <p className="text-slate-500 dark:text-slate-400 text-center text-base pb-8 font-normal">Please enter your details to sign in.</p>
 
                     {error && (
                         <div className="mb-6 p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm">
@@ -59,9 +59,9 @@ export default function Login() {
                         {/* Email Field */}
                         <div className="flex flex-col">
                             <label className="flex flex-col w-full">
-                                <p className="text-[#0d131b] dark:text-slate-200 text-sm font-medium leading-normal pb-2">Email Address</p>
+                                <p className="text-slate-900 dark:text-slate-200 text-sm font-medium leading-normal pb-2">Email Address</p>
                                 <input
-                                    className="form-input flex w-full rounded-lg text-[#0d131b] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary/20 border border-[#cfd9e7] dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary h-12 placeholder:text-[#4c6c9a] px-4 text-sm font-normal leading-normal transition-all"
+                                    className="form-input flex w-full rounded-lg text-slate-900 dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary/20 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary h-12 placeholder:text-slate-500 px-4 text-sm font-normal leading-normal transition-all"
                                     placeholder="Enter your registered email address"
                                     type="email"
                                     required
@@ -73,9 +73,9 @@ export default function Login() {
                         {/* Password Field */}
                         <div className="flex flex-col">
                             <label className="flex flex-col w-full">
-                                <p className="text-[#0d131b] dark:text-slate-200 text-sm font-medium leading-normal pb-2">Password</p>
+                                <p className="text-slate-900 dark:text-slate-200 text-sm font-medium leading-normal pb-2">Password</p>
                                 <input
-                                    className="form-input flex w-full rounded-lg text-[#0d131b] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary/20 border border-[#cfd9e7] dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary h-12 placeholder:text-[#4c6c9a] px-4 text-sm font-normal leading-normal transition-all"
+                                    className="form-input flex w-full rounded-lg text-slate-900 dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary/20 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary h-12 placeholder:text-slate-500 px-4 text-sm font-normal leading-normal transition-all"
                                     placeholder="Enter your password"
                                     type="password"
                                     required
@@ -100,9 +100,9 @@ export default function Login() {
                     </form>
 
                     <div className="relative flex items-center py-8">
-                        <div className="flex-grow border-t border-[#e7ecf3] dark:border-slate-800"></div>
-                        <span className="flex-shrink mx-4 text-sm text-[#4c6c9a] dark:text-slate-500 font-normal uppercase tracking-wider">or continue with</span>
-                        <div className="flex-grow border-t border-[#e7ecf3] dark:border-slate-800"></div>
+                        <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
+                        <span className="flex-shrink mx-4 text-sm text-slate-500 dark:text-slate-500 font-normal uppercase tracking-wider">or continue with</span>
+                        <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
                     </div>
 
                     {/* Social Login Section (REQUIRED SECOND) */}
@@ -110,7 +110,7 @@ export default function Login() {
                         <button
                             type="button"
                             onClick={handleGoogleLogin}
-                            className="flex w-full items-center justify-center gap-3 rounded-lg border border-[#cfd9e7] dark:border-slate-700 bg-white dark:bg-slate-800/50 px-4 py-3 text-sm font-medium text-[#0d131b] dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                            className="flex w-full items-center justify-center gap-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                         >
                             <svg className="h-5 w-5" viewBox="0 0 24 24">
                                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"></path>
@@ -123,7 +123,7 @@ export default function Login() {
                     </div>
 
                     {/* Signup Link */}
-                    <p className="text-center text-sm text-[#4c6c9a] dark:text-slate-400 mt-8">
+                    <p className="text-center text-sm text-slate-500 dark:text-slate-400 mt-8">
                         Don't have an account? <Link to="/signup" className="text-primary font-bold hover:underline">Sign up</Link>
                     </p>
                 </div>

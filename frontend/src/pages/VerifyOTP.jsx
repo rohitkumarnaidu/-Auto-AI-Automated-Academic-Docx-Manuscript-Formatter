@@ -63,13 +63,12 @@ export default function VerifyOTP() {
             return;
         }
 
-        setLoading(true);
-        try {
-            await verifyOtp(email, otpString);
+        const { error: authError } = await verifyOtp(email, otpString);
+        if (authError) {
+            setError(authError);
+            setLoading(false);
+        } else {
             navigate('/reset-password', { state: { email, otp: otpString } });
-        } catch (err) {
-            setError(err.message || 'Verification failed. Please check the code.');
-        } finally {
             setLoading(false);
         }
     };
@@ -77,14 +76,13 @@ export default function VerifyOTP() {
     const handleResend = async () => {
         setResendLoading(true);
         setError('');
-        try {
-            await forgotPassword(email);
-            // Could show a "Code resent" toast here
-        } catch (err) {
-            setError('Failed to resend code.');
-        } finally {
-            setResendLoading(false);
+        const { error: authError } = await forgotPassword(email);
+        if (authError) {
+            setError(authError);
+        } else {
+            // Success
         }
+        setResendLoading(false);
     };
 
     return (
@@ -97,7 +95,7 @@ export default function VerifyOTP() {
                         <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
                             <span className="material-symbols-outlined !text-3xl">mark_email_read</span>
                         </div>
-                        <h1 className="text-[#0d131b] dark:text-white tracking-tight text-[28px] md:text-[32px] font-bold leading-tight text-center pb-2">
+                        <h1 className="text-slate-900 dark:text-white tracking-tight text-[28px] md:text-[32px] font-bold leading-tight text-center pb-2">
                             Verify your email
                         </h1>
                         <p className="text-slate-600 dark:text-slate-400 text-base font-normal leading-normal pb-6 text-center">
@@ -118,7 +116,7 @@ export default function VerifyOTP() {
                                     <input
                                         key={i}
                                         ref={inputRefs[i]}
-                                        className="flex h-14 w-11 md:w-12 text-center [appearance:textfield] focus:outline-0 focus:ring-2 focus:ring-primary/50 focus:border-primary border-0 border-b-2 border-[#cfd9e7] dark:border-slate-700 bg-transparent text-xl font-bold leading-normal text-primary dark:text-white"
+                                        className="flex h-14 w-11 md:w-12 text-center [appearance:textfield] focus:outline-0 focus:ring-2 focus:ring-primary/50 focus:border-primary border-0 border-b-2 border-slate-200 dark:border-slate-700 bg-transparent text-xl font-bold leading-normal text-primary dark:text-white"
                                         maxLength="6"
                                         type="text"
                                         value={digit}
@@ -158,7 +156,7 @@ export default function VerifyOTP() {
                             className="flex items-center gap-2 text-slate-500 dark:text-slate-400 hover:text-primary dark:hover:text-primary transition-colors text-sm font-medium"
                         >
                             <span className="material-symbols-outlined text-sm">arrow_back</span>
-                            Back to Login
+                            Back to Sign in
                         </Link>
                     </div>
                 </div>

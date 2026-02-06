@@ -34,12 +34,32 @@ export const AuthProvider = ({ children }) => {
         return () => subscription.unsubscribe();
     }, []);
 
-    const signUp = async (email, password) => {
-        return await supabase.auth.signUp({ email, password });
+    const signUp = async (signupData) => {
+        const { signup: apiSignup } = await import('../services/api');
+        try {
+            const data = await apiSignup(signupData);
+            return { data, error: null };
+        } catch (error) {
+            return { data: null, error };
+        }
     };
 
     const signIn = async (email, password) => {
-        return await supabase.auth.signInWithPassword({ email, password });
+        const { login: apiLogin } = await import('../services/api');
+        try {
+            const data = await apiLogin({ email, password });
+
+            if (data?.session) {
+                await supabase.auth.setSession({
+                    access_token: data.session.access_token,
+                    refresh_token: data.session.refresh_token
+                });
+            }
+
+            return { data, error: null };
+        } catch (error) {
+            return { data: null, error: error.message };
+        }
     };
 
     const signInWithGoogle = async () => {
@@ -57,17 +77,32 @@ export const AuthProvider = ({ children }) => {
 
     const forgotPassword = async (email) => {
         const { forgotPassword: apiForgotPassword } = await import('../services/api');
-        return await apiForgotPassword({ email });
+        try {
+            const data = await apiForgotPassword({ email });
+            return { data, error: null };
+        } catch (error) {
+            return { data: null, error: error.message };
+        }
     };
 
     const verifyOtp = async (email, otp) => {
         const { verifyOtp: apiVerifyOtp } = await import('../services/api');
-        return await apiVerifyOtp({ email, otp });
+        try {
+            const data = await apiVerifyOtp({ email, otp });
+            return { data, error: null };
+        } catch (error) {
+            return { data: null, error: error.message };
+        }
     };
 
     const resetPassword = async (email, otp, newPassword) => {
         const { resetPassword: apiResetPassword } = await import('../services/api');
-        return await apiResetPassword({ email, otp, new_password: newPassword });
+        try {
+            const data = await apiResetPassword({ email, otp, new_password: newPassword });
+            return { data, error: null };
+        } catch (error) {
+            return { data: null, error: error.message };
+        }
     };
 
     const value = {

@@ -160,30 +160,42 @@ export default function Upload() {
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
 
-    const handleProcess = () => {
+    const handleProcess = async () => {
         if (file && !isProcessing && progress < 100) {
             // Reset auto-redirect flag for new processing run
             sessionStorage.removeItem('scholarform_hasAutoRedirected');
-
-            // Create job in DocumentContext
-            const newJob = {
-                id: `job_${Date.now()}`,
-                timestamp: new Date().toISOString(),
-                status: 'processing',
-                originalFileName: file.name,
-                originalText: `Sample manuscript content from ${file.name}\n\nAbstract\nThis is a simulated abstract for the uploaded document.\n\nIntroduction\nThe field of automated formatting is rapidly evolving...`,
-                processedText: `Formatted version of ${file.name}\n\nABSTRACT\nThis is a simulated abstract for the uploaded document.\n\n1. INTRODUCTION\nThe field of automated formatting is rapidly evolving...`,
-                template: template,
-                flags: { ai_enhanced: aiEnabled, ocr_applied: ocrEnabled },
-                progress: 0
-            };
-            setJob(newJob);
-            sessionStorage.setItem('scholarform_currentJob', JSON.stringify(newJob));
-
             setIsProcessing(true);
             setProgress(0);
             setCurrentStep(1);
-            navigatedRef.current = false;
+
+            try {
+                const { uploadDocument } = await import('../services/api');
+                const result = await uploadDocument(file, template, {
+                    enableOCR: ocrEnabled,
+                    enableAI: aiEnabled
+                });
+
+                // Create job in DocumentContext with real job_id
+                const newJob = {
+                    id: result.job_id || `job_${Date.now()}`,
+                    timestamp: new Date().toISOString(),
+                    status: 'processing',
+                    originalFileName: file.name,
+                    // Keeping these for UI preview/diff simulation until backend returns real content
+                    originalText: `Manuscript content from ${file.name}\n\nAbstract\nThis is a placeholder for the uploaded document.\n\nIntroduction\nThe field of automated formatting is rapidly evolving...`,
+                    processedText: `Formatted version of ${file.name}\n\nABSTRACT\nThis is a placeholder for the uploaded document.\n\n1. INTRODUCTION\nThe field of automated formatting is rapidly evolving...`,
+                    template: template,
+                    flags: { ai_enhanced: aiEnabled, ocr_applied: ocrEnabled },
+                    progress: 0
+                };
+                setJob(newJob);
+                sessionStorage.setItem('scholarform_currentJob', JSON.stringify(newJob));
+
+            } catch (error) {
+                console.error("Upload failed:", error);
+                setIsProcessing(false);
+                navigate('/error');
+            }
         }
     };
     return (
@@ -192,7 +204,7 @@ export default function Upload() {
 
             <main className="max-w-[1280px] mx-auto px-6 py-8">
                 <div className="mb-8">
-                    <h1 className="text-[#0d131b] dark:text-white text-4xl font-black leading-tight tracking-[-0.033em]">
+                    <h1 className="text-slate-900 dark:text-white text-4xl font-black leading-tight tracking-[-0.033em]">
                         Upload Manuscript
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 text-lg mt-2">

@@ -75,7 +75,7 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
     };
 
     return (
-        <header className="flex items-center justify-between whitespace-nowrap border-b border-solid border-[#e7ecf3] dark:border-slate-800 bg-white dark:bg-background-dark px-10 py-3 sticky top-0 z-50">
+        <header className="flex items-center justify-between whitespace-nowrap border-b border-solid border-slate-200 dark:border-slate-800 bg-white dark:bg-background-dark px-10 py-3 sticky top-0 z-50">
             <div className="flex items-center gap-4 text-primary">
                 <Link to={isLoggedIn ? "/dashboard" : "/"} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
                     <div className="bg-primary text-white p-1.5 rounded-lg flex items-center justify-center">

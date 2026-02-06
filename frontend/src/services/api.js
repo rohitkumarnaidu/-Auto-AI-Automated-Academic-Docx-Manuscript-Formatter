@@ -9,13 +9,33 @@ const handleRequest = async (endpoint, options = {}) => {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.detail || `Request failed: ${response.statusText}`);
+            let errorMessage = `Request failed: ${response.statusText}`;
+
+            if (errorData.detail) {
+                if (typeof errorData.detail === 'string') {
+                    errorMessage = errorData.detail;
+                } else if (Array.isArray(errorData.detail)) {
+                    // Handle FastAPI validation error lists
+                    errorMessage = errorData.detail
+                        .map(err => err.msg || JSON.stringify(err))
+                        .join('. ');
+                } else if (typeof errorData.detail === 'object') {
+                    errorMessage = JSON.stringify(errorData.detail);
+                }
+            }
+
+            throw new Error(errorMessage);
         }
 
         return await response.json();
     } catch (error) {
-        console.error(`API Error [${endpoint}]:`, error.message);
-        throw error;
+        // Ensure error.message is always a string
+        const finalMessage = typeof error.message === 'string'
+            ? error.message
+            : String(error || 'An unknown error occurred');
+
+        console.error(`API Error [${endpoint}]:`, finalMessage);
+        throw new Error(finalMessage);
     }
 };
 
@@ -59,8 +79,32 @@ export const downloadFile = async (filename) => {
 };
 
 /* =====================
-   AUTH APIs (OTP-BASED)
+   AUTH APIs (BACKEND PROXY)
    ===================== */
+
+/**
+ * Proxies signup to Supabase via backend.
+ * Payload: { full_name, email, institution, password, terms_accepted }
+ */
+export const signup = async (data) => {
+    return handleRequest('/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+};
+
+/**
+ * Proxies login to Supabase via backend.
+ * Payload: { email, password }
+ */
+export const login = async (data) => {
+    return handleRequest('/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+};
 
 /**
  * Triggers the Supabase recovery OTP flow.

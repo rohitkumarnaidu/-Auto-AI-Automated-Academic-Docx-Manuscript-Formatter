@@ -1,11 +1,13 @@
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-import { useDocument } from '../context/DocumentContext';
-
 export default function Dashboard() {
+    const { user } = useAuth();
     const { history } = useDocument();
     const recentJobs = history.slice(0, 3); // Show only 3 most recent
+
+    const displayName = user?.user_metadata?.full_name || "Researcher";
+
     return (
         <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
             <Navbar variant="app" activeTab="dashboard" />
@@ -14,7 +16,7 @@ export default function Dashboard() {
                 {/* PageHeading Component */}
                 <div className="mb-10">
                     <div className="flex flex-col gap-2">
-                        <h1 className="text-slate-900 dark:text-white text-4xl font-black leading-tight tracking-tight">Welcome back, Dr. Smith</h1>
+                        <h1 className="text-slate-900 dark:text-white text-4xl font-black leading-tight tracking-tight">Welcome back, {displayName}</h1>
                         <p className="text-slate-500 dark:text-slate-400 text-lg font-normal leading-normal max-w-2xl">Manage your academic manuscripts, track validation status, and ensure formatting compliance for upcoming publications.</p>
                     </div>
                 </div>
@@ -114,10 +116,10 @@ export default function Dashboard() {
                                             </td>
                                             <td className="px-6 py-5">
                                                 <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${job.status === 'completed'
-                                                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                                                        : job.status === 'processing'
-                                                            ? 'bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary'
-                                                            : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
+                                                    ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                                                    : job.status === 'processing'
+                                                        ? 'bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary'
+                                                        : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
                                                     }`}>
                                                     <span className={`w-1.5 h-1.5 rounded-full mr-2 ${job.status === 'completed' ? 'bg-green-600 dark:bg-green-400' : 'bg-primary animate-pulse'
                                                         }`}></span>

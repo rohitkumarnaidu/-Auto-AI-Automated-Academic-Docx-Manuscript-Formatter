@@ -41,15 +41,16 @@ export default function ResetPassword() {
         }
 
         setLoading(true);
-        try {
-            await resetPassword(email, otp, password);
+        const { error: authError } = await resetPassword(email, otp, password);
+
+        if (authError) {
+            setError(authError);
+            setLoading(false);
+        } else {
             setMessage("Password updated successfully! Redirecting to login...");
             setTimeout(() => {
                 navigate('/login');
             }, 2000);
-        } catch (err) {
-            setError(err.message || 'Failed to reset password.');
-        } finally {
             setLoading(false);
         }
     };
@@ -60,12 +61,12 @@ export default function ResetPassword() {
 
             {/* Main Content */}
             <main className="flex-1 flex items-center justify-center p-4">
-                <div className="w-full max-w-[480px] bg-white dark:bg-slate-900 shadow-xl rounded-xl overflow-hidden border border-[#e7ecf3] dark:border-slate-800">
+                <div className="w-full max-w-[480px] bg-white dark:bg-slate-900 shadow-xl rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800">
                     <div className="px-8 pt-10 pb-4">
                         {/* HeadlineText */}
-                        <h1 className="text-[#0d131b] dark:text-slate-100 tracking-tight text-[28px] md:text-[32px] font-bold leading-tight text-center">Reset your password</h1>
+                        <h1 className="text-slate-900 dark:text-slate-100 tracking-tight text-[28px] md:text-[32px] font-bold leading-tight text-center">Reset your password</h1>
                         {/* BodyText */}
-                        <p className="text-[#4c6c9a] dark:text-slate-400 text-base font-normal leading-normal pt-2 text-center">
+                        <p className="text-slate-500 dark:text-slate-400 text-base font-normal leading-normal pt-2 text-center">
                             Create a new password for your account.
                         </p>
                     </div>
@@ -86,10 +87,10 @@ export default function ResetPassword() {
                         {/* TextField: New Password */}
                         <div className="flex flex-col gap-1.5">
                             <label className="flex flex-col w-full">
-                                <p className="text-[#0d131b] dark:text-slate-200 text-sm font-medium leading-normal pb-1">New Password</p>
+                                <p className="text-slate-900 dark:text-slate-200 text-sm font-medium leading-normal pb-1">New Password</p>
                                 <div className="flex w-full items-stretch rounded-lg shadow-sm">
                                     <input
-                                        className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg rounded-r-none border border-[#cfd9e7] dark:border-slate-700 bg-white dark:bg-slate-800 text-[#0d131b] dark:text-slate-100 focus:outline-0 focus:ring-1 focus:ring-primary focus:border-primary h-12 placeholder:text-[#94a3b8] p-[15px] border-r-0 text-base font-normal leading-normal"
+                                        className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg rounded-r-none border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-0 focus:ring-1 focus:ring-primary focus:border-primary h-12 placeholder:text-[#94a3b8] p-[15px] border-r-0 text-base font-normal leading-normal"
                                         placeholder="Enter your new password"
                                         type={showPassword ? "text" : "password"}
                                         required
@@ -97,7 +98,7 @@ export default function ResetPassword() {
                                         onChange={(e) => setPassword(e.target.value)}
                                     />
                                     <div
-                                        className="text-[#4c6c9a] flex border border-[#cfd9e7] dark:border-slate-700 bg-white dark:bg-slate-800 items-center justify-center pr-[15px] rounded-r-lg border-l-0 cursor-pointer hover:text-primary transition-colors"
+                                        className="text-slate-500 flex border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 items-center justify-center pr-[15px] rounded-r-lg border-l-0 cursor-pointer hover:text-primary transition-colors"
                                         onClick={() => setShowPassword(!showPassword)}
                                     >
                                         <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>
@@ -107,16 +108,16 @@ export default function ResetPassword() {
                                 </div>
                             </label>
                             {/* MetaText */}
-                            <p className="text-[#64748b] dark:text-slate-500 text-xs font-normal leading-normal">At least 8 characters with a number</p>
+                            <p className="text-slate-500 dark:text-slate-500 text-xs font-normal leading-normal">At least 8 characters with a number</p>
                         </div>
 
                         {/* TextField: Confirm Password */}
                         <div className="flex flex-col gap-1.5">
                             <label className="flex flex-col w-full">
-                                <p className="text-[#0d131b] dark:text-slate-200 text-sm font-medium leading-normal pb-1">Confirm Password</p>
+                                <p className="text-slate-900 dark:text-slate-200 text-sm font-medium leading-normal pb-1">Confirm Password</p>
                                 <div className="flex w-full items-stretch rounded-lg shadow-sm">
                                     <input
-                                        className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg rounded-r-none border border-[#cfd9e7] dark:border-slate-700 bg-white dark:bg-slate-800 text-[#0d131b] dark:text-slate-100 focus:outline-0 focus:ring-1 focus:ring-primary focus:border-primary h-12 placeholder:text-[#94a3b8] p-[15px] border-r-0 text-base font-normal leading-normal"
+                                        className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg rounded-r-none border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-0 focus:ring-1 focus:ring-primary focus:border-primary h-12 placeholder:text-[#94a3b8] p-[15px] border-r-0 text-base font-normal leading-normal"
                                         placeholder="Enter your new password again"
                                         type={showConfirmPassword ? "text" : "password"}
                                         required
@@ -124,7 +125,7 @@ export default function ResetPassword() {
                                         onChange={(e) => setConfirmPassword(e.target.value)}
                                     />
                                     <div
-                                        className="text-[#4c6c9a] flex border border-[#cfd9e7] dark:border-slate-700 bg-white dark:bg-slate-800 items-center justify-center pr-[15px] rounded-r-lg border-l-0 cursor-pointer hover:text-primary transition-colors"
+                                        className="text-slate-500 flex border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 items-center justify-center pr-[15px] rounded-r-lg border-l-0 cursor-pointer hover:text-primary transition-colors"
                                         onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                                     >
                                         <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>

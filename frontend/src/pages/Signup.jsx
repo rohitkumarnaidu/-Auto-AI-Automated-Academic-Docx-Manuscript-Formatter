@@ -14,6 +14,7 @@ export default function Signup() {
     const [error, setError] = useState('');
     const [localLoading, setLocalLoading] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
+    const [termsAccepted, setTermsAccepted] = useState(false);
 
     const handleSignup = async (e) => {
         e.preventDefault();
@@ -26,23 +27,23 @@ export default function Signup() {
         }
 
         setLocalLoading(true);
-        // Pass metadata if needed, for instance full_name
-        // supabase signUp supports options: { data: { full_name: ... } }
-        // We'll stick to basic email/pass first as per AuthContext wrapper, 
-        // but typically you'd want to store name.
-        // For strict adherence to simple wrapper, we just call signUp.
-        const { data, error } = await signUp(email, password);
+        const { data, error: signupError } = await signUp({
+            full_name: fullName,
+            email: email,
+            institution: institution,
+            password: password,
+            terms_accepted: termsAccepted
+        });
 
-        if (error) {
-            console.error(error);
-            setError(error.message);
+        if (signupError) {
+            console.error(signupError);
+            setError(signupError); // Already a string
             setLocalLoading(false);
         } else {
             setLocalLoading(false);
             if (data?.user && !data?.session) {
                 setSuccessMessage("Account created! Please check your email to verify your account.");
             } else {
-                // Auto-login (if email confirmation is off)
                 setSuccessMessage("Account created! Redirecting...");
             }
         }
@@ -50,24 +51,24 @@ export default function Signup() {
 
     const handleGoogleSignup = async () => {
         setError('');
-        const { error } = await signInWithGoogle();
-        if (error) {
-            console.error(error);
-            setError(error.message);
+        const { error: googleError } = await signInWithGoogle();
+        if (googleError) {
+            console.error(googleError);
+            setError(googleError.message || googleError);
         }
     };
 
     return (
-        <div className="bg-background-light dark:bg-background-dark font-display text-[#0d131b] dark:text-slate-50 min-h-screen flex flex-col">
+        <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-50 min-h-screen flex flex-col">
             <Navbar variant="auth" />
 
             {/* Main Content */}
             <main className="flex-grow flex items-center justify-center py-12 px-4">
-                <div className="max-w-[540px] w-full bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-[#e7ecf3] dark:border-slate-800 p-8 md:p-10">
+                <div className="max-w-[540px] w-full bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 p-8 md:p-10">
                     {/* Headline & Intro */}
                     <div className="text-center mb-8">
-                        <h1 className="text-[#0d131b] dark:text-slate-50 tracking-tight text-[32px] font-bold leading-tight pb-2">Create your account</h1>
-                        <p className="text-[#4c6c9a] dark:text-slate-400 text-base font-normal">Join thousands of researchers formatting with ease.</p>
+                        <h1 className="text-slate-900 dark:text-slate-50 tracking-tight text-[32px] font-bold leading-tight pb-2">Create your account</h1>
+                        <p className="text-slate-500 dark:text-slate-400 text-base font-normal">Join thousands of researchers formatting with ease.</p>
                     </div>
 
                     {error && (
@@ -86,11 +87,11 @@ export default function Signup() {
                     <form className="space-y-4" onSubmit={handleSignup}>
                         {/* Full Name */}
                         <div className="flex flex-col">
-                            <p className="text-[#0d131b] dark:text-slate-200 text-sm font-medium pb-2">Full Name</p>
+                            <p className="text-slate-900 dark:text-slate-200 text-sm font-medium pb-2">Full Name</p>
                             <div className="relative">
-                                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#4c6c9a] text-[20px]">person</span>
+                                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-[20px]">person</span>
                                 <input
-                                    className="form-input flex w-full rounded-lg text-[#0d131b] dark:text-slate-50 border border-[#cfd9e7] dark:border-slate-700 bg-white dark:bg-slate-800 h-12 pl-12 pr-4 placeholder:text-[#4c6c9a] dark:placeholder:text-slate-500 focus:border-primary focus:ring-1 focus:ring-primary transition-all text-sm"
+                                    className="form-input flex w-full rounded-lg text-slate-900 dark:text-slate-50 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 h-12 pl-12 pr-4 placeholder:text-slate-500 dark:placeholder:text-slate-500 focus:border-primary focus:ring-1 focus:ring-primary transition-all text-sm"
                                     placeholder="e.g. Jane Doe"
                                     required
                                     type="text"
@@ -101,11 +102,11 @@ export default function Signup() {
                         </div>
                         {/* Email */}
                         <div className="flex flex-col">
-                            <p className="text-[#0d131b] dark:text-slate-200 text-sm font-medium pb-2">Institutional Email</p>
+                            <p className="text-slate-900 dark:text-slate-200 text-sm font-medium pb-2">Institutional Email</p>
                             <div className="relative">
-                                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#4c6c9a] text-[20px]">alternate_email</span>
+                                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-[20px]">alternate_email</span>
                                 <input
-                                    className="form-input flex w-full rounded-lg text-[#0d131b] dark:text-slate-50 border border-[#cfd9e7] dark:border-slate-700 bg-white dark:bg-slate-800 h-12 pl-12 pr-4 placeholder:text-[#4c6c9a] dark:placeholder:text-slate-500 focus:border-primary focus:ring-1 focus:ring-primary transition-all text-sm"
+                                    className="form-input flex w-full rounded-lg text-slate-900 dark:text-slate-50 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 h-12 pl-12 pr-4 placeholder:text-slate-500 dark:placeholder:text-slate-500 focus:border-primary focus:ring-1 focus:ring-primary transition-all text-sm"
                                     placeholder="Enter your email address"
                                     required
                                     type="email"
@@ -116,11 +117,11 @@ export default function Signup() {
                         </div>
                         {/* Institution */}
                         <div className="flex flex-col">
-                            <p className="text-[#0d131b] dark:text-slate-200 text-sm font-medium pb-2">Institution / University <span className="text-xs text-[#4c6c9a] font-normal ml-1">(Optional)</span></p>
+                            <p className="text-slate-900 dark:text-slate-200 text-sm font-medium pb-2">Institution / University <span className="text-xs text-slate-500 font-normal ml-1">(Optional)</span></p>
                             <div className="relative">
-                                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#4c6c9a] text-[20px]">school</span>
+                                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-[20px]">school</span>
                                 <input
-                                    className="form-input flex w-full rounded-lg text-[#0d131b] dark:text-slate-50 border border-[#cfd9e7] dark:border-slate-700 bg-white dark:bg-slate-800 h-12 pl-12 pr-4 placeholder:text-[#4c6c9a] dark:placeholder:text-slate-500 focus:border-primary focus:ring-1 focus:ring-primary transition-all text-sm"
+                                    className="form-input flex w-full rounded-lg text-slate-900 dark:text-slate-50 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 h-12 pl-12 pr-4 placeholder:text-slate-500 dark:placeholder:text-slate-500 focus:border-primary focus:ring-1 focus:ring-primary transition-all text-sm"
                                     placeholder="Enter your institution name"
                                     type="text"
                                     value={institution}
@@ -131,11 +132,11 @@ export default function Signup() {
                         {/* Password Group */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="flex flex-col">
-                                <p className="text-[#0d131b] dark:text-slate-200 text-sm font-medium pb-2">Password</p>
+                                <p className="text-slate-900 dark:text-slate-200 text-sm font-medium pb-2">Password</p>
                                 <div className="relative">
-                                    <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#4c6c9a] text-[20px]">lock</span>
+                                    <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-[20px]">lock</span>
                                     <input
-                                        className="form-input flex w-full rounded-lg text-[#0d131b] dark:text-slate-50 border border-[#cfd9e7] dark:border-slate-700 bg-white dark:bg-slate-800 h-12 pl-12 pr-4 placeholder:text-[#4c6c9a] dark:placeholder:text-slate-500 focus:border-primary focus:ring-1 focus:ring-primary transition-all text-sm"
+                                        className="form-input flex w-full rounded-lg text-slate-900 dark:text-slate-50 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 h-12 pl-12 pr-4 placeholder:text-slate-500 dark:placeholder:text-slate-500 focus:border-primary focus:ring-1 focus:ring-primary transition-all text-sm"
                                         placeholder="Enter your password"
                                         required
                                         type="password"
@@ -145,11 +146,11 @@ export default function Signup() {
                                 </div>
                             </div>
                             <div className="flex flex-col">
-                                <p className="text-[#0d131b] dark:text-slate-200 text-sm font-medium pb-2">Confirm Password</p>
+                                <p className="text-slate-900 dark:text-slate-200 text-sm font-medium pb-2">Confirm Password</p>
                                 <div className="relative">
-                                    <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#4c6c9a] text-[20px]">lock_reset</span>
+                                    <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-[20px]">lock_reset</span>
                                     <input
-                                        className="form-input flex w-full rounded-lg text-[#0d131b] dark:text-slate-50 border border-[#cfd9e7] dark:border-slate-700 bg-white dark:bg-slate-800 h-12 pl-12 pr-4 placeholder:text-[#4c6c9a] dark:placeholder:text-slate-500 focus:border-primary focus:ring-1 focus:ring-primary transition-all text-sm"
+                                        className="form-input flex w-full rounded-lg text-slate-900 dark:text-slate-50 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 h-12 pl-12 pr-4 placeholder:text-slate-500 dark:placeholder:text-slate-500 focus:border-primary focus:ring-1 focus:ring-primary transition-all text-sm"
                                         placeholder="Enter your password again"
                                         required
                                         type="password"
@@ -162,12 +163,19 @@ export default function Signup() {
                         {/* Requirements hint */}
                         <div className="flex items-center gap-2 px-1">
                             <span className="material-symbols-outlined text-green-500 text-[14px]">check_circle</span>
-                            <span className="text-xs text-[#4c6c9a] dark:text-slate-400">At least 8 characters with a number</span>
+                            <span className="text-xs text-slate-500 dark:text-slate-400">At least 8 characters with a number</span>
                         </div>
                         {/* Terms */}
                         <div className="flex items-start gap-2 pt-2 px-1">
-                            <input className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" id="terms" required type="checkbox" />
-                            <label className="text-xs text-[#4c6c9a] dark:text-slate-400 leading-relaxed" htmlFor="terms">
+                            <input
+                                className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                id="terms"
+                                required
+                                type="checkbox"
+                                checked={termsAccepted}
+                                onChange={(e) => setTermsAccepted(e.target.checked)}
+                            />
+                            <label className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed" htmlFor="terms">
                                 I agree to the <a className="text-primary hover:underline" href="#">Terms of Service</a> and <a className="text-primary hover:underline" href="#">Privacy Policy</a>.
                             </label>
                         </div>
@@ -182,16 +190,16 @@ export default function Signup() {
                     </form>
 
                     <div className="relative flex items-center my-6">
-                        <div className="flex-grow border-t border-[#e7ecf3] dark:border-slate-800"></div>
-                        <span className="flex-shrink mx-4 text-xs font-medium text-[#4c6c9a] dark:text-slate-500 uppercase tracking-wider">or sign up with</span>
-                        <div className="flex-grow border-t border-[#e7ecf3] dark:border-slate-800"></div>
+                        <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
+                        <span className="flex-shrink mx-4 text-xs font-medium text-slate-500 dark:text-slate-500 uppercase tracking-wider">or sign up with</span>
+                        <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
                     </div>
 
                     {/* Social Signup (REQUIRED SECOND) */}
                     <button
                         type="button"
                         onClick={handleGoogleSignup}
-                        className="flex w-full items-center justify-center gap-3 rounded-lg border border-[#cfd9e7] dark:border-slate-700 bg-white dark:bg-slate-800 h-12 px-4 text-[#0d131b] dark:text-slate-50 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-all mb-6"
+                        className="flex w-full items-center justify-center gap-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 h-12 px-4 text-slate-900 dark:text-slate-50 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-all mb-6"
                     >
                         <svg className="h-5 w-5" viewBox="0 0 24 24">
                             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"></path>
@@ -204,7 +212,7 @@ export default function Signup() {
 
                     {/* Footer Link */}
                     <div className="mt-8 text-center">
-                        <p className="text-sm text-[#4c6c9a] dark:text-slate-400">
+                        <p className="text-sm text-slate-500 dark:text-slate-400">
                             Already have an account?
                             <Link to="/login" className="text-primary font-bold hover:underline ml-1">Sign in</Link>
                         </p>

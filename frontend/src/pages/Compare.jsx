@@ -58,7 +58,7 @@ export default function Compare() {
     }
 
     return (
-        <div className="bg-background-light dark:bg-background-dark font-display text-[#0d131b] dark:text-slate-50 min-h-screen flex flex-col">
+        <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-50 min-h-screen flex flex-col">
             <Navbar variant="app" />
 
             <main className="flex-1 flex flex-col max-w-[1600px] mx-auto w-full px-4 lg:px-10 py-6 animate-in fade-in duration-500">
@@ -70,7 +70,7 @@ export default function Compare() {
                             <span className="material-symbols-outlined text-[14px]">chevron_right</span>
                             <span className="font-medium">{job.originalFileName}</span>
                         </nav>
-                        <h1 className="text-[#0d131b] dark:text-white text-2xl font-bold leading-tight tracking-[-0.015em]">Document Comparison</h1>
+                        <h1 className="text-slate-900 dark:text-white text-2xl font-bold leading-tight tracking-[-0.015em]">Document Comparison</h1>
                     </div>
                     <div className="flex items-center gap-2 mt-4 md:mt-0">
                         <button
