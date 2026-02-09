@@ -29,14 +29,37 @@ export default function Edit() {
         );
     }
 
-    const handleSave = () => {
+    const handleSave = async () => {
+        if (isSaving) return;
         setIsSaving(true);
-        // Simulate save delay
-        setTimeout(() => {
-            setJob({ ...job, processedText: content });
-            setIsSaving(false);
+        try {
+            const { submitEdit } = await import('../services/api');
+            // Basic parsing: Treat the whole content as one 'BODY' section for now, 
+            // since we don't have a structured editor yet.
+            // In a real scenario, we'd enable block-based editing.
+            const structuredData = {
+                sections: {
+                    "BODY": content.split('\n').filter(line => line.trim() !== '')
+                }
+            };
+
+            await submitEdit(job.id, structuredData);
+
             setLastSaved(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-        }, 800);
+
+            // Redirect to processing/upload page to show progress of re-formatting
+            // We reuse the upload page state logic but we need to set the job back to 'processing'
+            const updatedJob = { ...job, status: 'processing', progress: 0 };
+            setJob(updatedJob);
+            sessionStorage.setItem('scholarform_currentJob', JSON.stringify(updatedJob));
+            navigate('/upload'); // Reuse polling logic
+
+        } catch (error) {
+            console.error("Save failed:", error);
+            alert("Failed to save edit.");
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const handleRevalidate = () => {
@@ -89,8 +112,8 @@ export default function Edit() {
                         {/* Validation Message Banner */}
                         {validationMessage && (
                             <div className={`mb-6 p-4 rounded-xl border animate-in fade-in slide-in-from-top duration-300 ${validationMessage.type === 'success'
-                                    ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/30'
-                                    : 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-900/30'
+                                ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/30'
+                                : 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-900/30'
                                 }`}>
                                 <div className="flex items-center gap-2">
                                     <span className={`material-symbols-outlined text-sm ${validationMessage.type === 'success' ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'

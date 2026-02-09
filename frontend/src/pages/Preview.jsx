@@ -10,10 +10,33 @@ export default function Preview() {
     const [content, setContent] = useState('');
 
     useEffect(() => {
-        if (job) {
-            setTitle(job.originalFileName?.split('.')[0] || 'Untitled Manuscript');
-            setContent(job.processedText || "Recent Advancements in Generative Adversarial Networks for Image Synthesis\n\nAbstract—This paper presents a comprehensive review of Generative Adversarial Network (GAN) architectures. We focus on the evolution from the Deep Convolutional GAN (DCGAN) to more advanced models like StyleGAN3. Our analysis shows that training stability and convergence speed remain primary challenges.");
-        }
+        const fetchPreview = async () => {
+            if (job?.id) {
+                try {
+                    const { getPreview } = await import('../services/api');
+                    const data = await getPreview(job.id);
+                    setTitle(data.metadata?.filename?.split('.')[0] || job.originalFileName || 'Untitled');
+
+                    // Reconstruct text from structured data for display
+                    // The structured_data.sections is { "HEADER": ["text"], "ABSTRACT": ["text"] ... }
+                    let fullText = "";
+                    if (data.structured_data?.sections) {
+                        Object.entries(data.structured_data.sections).forEach(([section, texts]) => {
+                            fullText += `--- ${section} ---\n`;
+                            fullText += texts.join('\n') + "\n\n";
+                        });
+                    } else {
+                        fullText = "No structured text content available.";
+                    }
+                    setContent(fullText);
+                } catch (err) {
+                    console.error("Failed to load preview:", err);
+                    setContent("Error loading preview content. Please try again.");
+                }
+            }
+        };
+
+        fetchPreview();
     }, [job]);
 
     if (!job) {

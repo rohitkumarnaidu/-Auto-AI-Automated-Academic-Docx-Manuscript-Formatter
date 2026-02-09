@@ -53,18 +53,54 @@ export const uploadDocument = async (file, template, options = {}) => {
     formData.append('enable_ocr', options.enableOCR || false);
     formData.append('enable_ai', options.enableAI || false);
 
-    return handleRequest('/upload', {
+    formData.append('enable_ai', options.enableAI || false);
+
+    return handleRequest('/api/documents/upload', {
         method: 'POST',
         body: formData,
     });
 };
 
 /**
- * Downloads a processed file and returns a blob URL.
+ * Polls the processing status of a job.
  */
-export const downloadFile = async (filename) => {
+export const getJobStatus = async (jobId) => {
+    return handleRequest(`/api/documents/${jobId}/status`);
+};
+
+/**
+ * Fetches the preview data (structured content + validation results).
+ */
+export const getPreview = async (jobId) => {
+    return handleRequest(`/api/documents/${jobId}/preview`);
+};
+
+/**
+ * Fetches the comparison data (original vs formatted).
+ */
+export const getComparison = async (jobId) => {
+    return handleRequest(`/api/documents/${jobId}/compare`);
+};
+
+/**
+ * Submits edited content for re-processing.
+ */
+export const submitEdit = async (jobId, editedData) => {
+    return handleRequest(`/api/documents/${jobId}/edit`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ edited_structured_data: editedData }),
+    });
+};
+
+/**
+ * Downloads a processed file.
+ */
+export const downloadFile = async (jobId, format = 'docx') => {
     try {
-        const response = await fetch(`${API_BASE_URL}/download/${filename}`);
+        const response = await fetch(`${API_BASE_URL}/api/documents/${jobId}/download?format=${format}`);
 
         if (!response.ok) {
             throw new Error('Download failed');

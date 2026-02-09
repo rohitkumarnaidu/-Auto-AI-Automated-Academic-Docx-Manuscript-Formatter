@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function Navbar({ variant = 'app', activeTab = '' }) {
-    const { isLoggedIn, logout } = useAuth();
+    const { isLoggedIn, logout, loading } = useAuth();
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const profileRef = useRef(null);
 
@@ -18,6 +18,9 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+
+    // Prevent rendering while auth state is indeterminate
+    if (loading) return null;
 
     if (variant === 'landing') {
         return (
@@ -84,7 +87,9 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
                     <span className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">ScholarForm AI</span>
                 </Link>
             </div>
+
             <div className="flex flex-1 justify-end gap-8">
+                {/* Center Nav Links */}
                 <nav className="flex items-center gap-9">
                     {isLoggedIn ? (
                         <>
@@ -102,6 +107,8 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
                         </>
                     )}
                 </nav>
+
+                {/* Auth Actions */}
                 {isLoggedIn ? (
                     <div className="flex items-center gap-4">
                         <div className="flex gap-2">
@@ -149,6 +156,12 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
                     </div>
                 ) : (
                     <div className="flex items-center gap-4">
+                        <span className="hidden xl:block text-xs text-slate-500 dark:text-slate-400 font-medium italic">
+                            Login to save your documents and access history
+                        </span>
+                        <Link to="/login" className="text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-primary transition-colors">
+                            Login
+                        </Link>
                         <Link to="/signup" className="bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-lg hover:bg-blue-700 shadow-sm transition-all active:scale-[0.98]">
                             Sign Up
                         </Link>

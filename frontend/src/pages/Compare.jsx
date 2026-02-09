@@ -12,39 +12,62 @@ export default function Compare() {
     const [highlights, setHighlights] = useState(true);
 
     // Generate aligned diffs for side-by-side view
-    const diffs = useMemo(() => {
-        if (!job?.originalText || !job?.processedText) return { left: [], right: [] };
+    const [diffData, setDiffData] = useState({ left: [], right: [] });
+    const [loading, setLoading] = useState(true);
 
-        const changes = Diff.diffLines(job.originalText, job.processedText);
-        // const changes = []; // Diff.diffLines(job.originalText, job.processedText);
-        const left = [];
-        const right = [];
+    useEffect(() => {
+        const loadComparison = async () => {
+            if (job?.id) {
+                try {
+                    const { getComparison } = await import('../services/api');
+                    const data = await getComparison(job.id);
 
-        changes.forEach(part => {
-            const lines = part.value.replace(/\n$/, '').split('\n');
-            if (part.added) {
-                // Formatting change / Insertion -> Right side only
-                lines.forEach(line => {
-                    right.push({ text: line, type: 'added' });
-                    left.push({ text: '', type: 'empty' }); // Spacer
-                });
-            } else if (part.removed) {
-                // Deletion -> Left side only
-                lines.forEach(line => {
-                    left.push({ text: line, type: 'removed' });
-                    right.push({ text: '', type: 'empty' }); // Spacer
-                });
-            } else {
-                // Unchanged -> Both sides
-                lines.forEach(line => {
-                    left.push({ text: line, type: 'unchanged' });
-                    right.push({ text: line, type: 'unchanged' });
-                });
+                    const originalText = data.original?.raw_text || "";
+
+                    // Reconstruct formatted text
+                    let formattedText = "";
+                    if (data.formatted?.structured_data?.sections) {
+                        Object.values(data.formatted.structured_data.sections).forEach((texts) => {
+                            formattedText += texts.join('\n') + "\n\n";
+                        });
+                    }
+
+                    const changes = Diff.diffLines(originalText, formattedText);
+                    const left = [];
+                    const right = [];
+
+                    changes.forEach(part => {
+                        const lines = part.value.replace(/\n$/, '').split('\n');
+                        if (part.added) {
+                            lines.forEach(line => {
+                                right.push({ text: line, type: 'added' });
+                                left.push({ text: '', type: 'empty' });
+                            });
+                        } else if (part.removed) {
+                            lines.forEach(line => {
+                                left.push({ text: line, type: 'removed' });
+                                right.push({ text: '', type: 'empty' });
+                            });
+                        } else {
+                            lines.forEach(line => {
+                                left.push({ text: line, type: 'unchanged' });
+                                right.push({ text: line, type: 'unchanged' });
+                            });
+                        }
+                    });
+
+                    setDiffData({ left, right });
+                } catch (error) {
+                    console.error("Comparison load failed:", error);
+                } finally {
+                    setLoading(false);
+                }
             }
-        });
-
-        return { left, right };
+        };
+        loadComparison();
     }, [job]);
+
+    const diffs = useMemo(() => diffData, [diffData]);
 
     const [isPaused, setIsPaused] = useState(false);
 

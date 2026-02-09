@@ -11,27 +11,82 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Check active session
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setUser(session?.user ?? null);
-            setIsLoggedIn(!!session);
-            setLoading(false);
-        });
+        let mounted = true;
 
-        // Listen for auth changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            setUser(session?.user ?? null);
-            setIsLoggedIn(!!session);
-            setLoading(false);
+        const initializeAuth = async () => {
+            try {
+                // 1. Get the initial session
+                const { data: { session } } = await supabase.auth.getSession();
 
-            if (!session) {
-                // Clear app-specific storage on logout
+                // 2. Strict validation: Must have session AND access_token
+                if (!session || !session.access_token) {
+                    if (mounted) {
+                        setUser(null);
+                        setIsLoggedIn(false);
+                        setLoading(false);
+                    }
+                    return;
+                }
+
+                // 3. Server-side verification (getUser is the source of truth)
+                const { data: { user }, error } = await supabase.auth.getUser();
+
+                if (error || !user) {
+                    // Token invalid/expired/revoked -> aggressive cleanup
+                    console.warn("Auth: Invalid session detected, signing out.");
+                    await supabase.auth.signOut();
+                    sessionStorage.clear();
+                    localStorage.removeItem('scholarform_job');
+                    if (mounted) {
+                        setUser(null);
+                        setIsLoggedIn(false);
+                    }
+                } else {
+                    // Valid session confirmed
+                    if (mounted) {
+                        setUser(user);
+                        setIsLoggedIn(true);
+                    }
+                }
+            } catch (err) {
+                console.error("Auth: Initialization error", err);
+                if (mounted) {
+                    setUser(null);
+                    setIsLoggedIn(false);
+                }
+            } finally {
+                if (mounted) setLoading(false);
+            }
+        };
+
+        initializeAuth();
+
+        // 4. Listener for SUBSEQUENT changes (login/logout events)
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            // Only update state if we are NOT in the middle of initial loading
+            // (Actually, checking if mounted handles unmounts, but we just update reactive state)
+
+            if (event === 'SIGNED_OUT') {
+                setUser(null);
+                setIsLoggedIn(false);
                 sessionStorage.clear();
-                localStorage.removeItem('scholarform_job'); // Assuming job might be stored here too, mostly session
+                localStorage.removeItem('scholarform_job');
+            } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+                // For sign-in/refresh, we trust the session but access_token must exist
+                if (session?.user && session?.access_token) {
+                    setUser(session.user);
+                    setIsLoggedIn(true);
+                } else {
+                    setUser(null);
+                    setIsLoggedIn(false);
+                }
             }
         });
 
-        return () => subscription.unsubscribe();
+        return () => {
+            mounted = false;
+            subscription.unsubscribe();
+        };
     }, []);
 
     const signUp = async (signupData) => {

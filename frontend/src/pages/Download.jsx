@@ -3,13 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { useDocument } from '../context/DocumentContext';
+import { useAuth } from '../context/AuthContext';
 import { downloadFile } from '../services/api';
 
 export default function Download() {
     const navigate = useNavigate();
     const { job } = useDocument();
+    const { isLoggedIn } = useAuth();
     const [isDownloading, setIsDownloading] = useState(false);
     const [downloadError, setDownloadError] = useState(null);
+    const [showLoginModal, setShowLoginModal] = useState(false);
 
     if (!job) {
         return (
@@ -24,9 +27,8 @@ export default function Download() {
         setIsDownloading(true);
         setDownloadError(null);
         try {
-            // Use output_path if available from job result, otherwise fallback to a generic name
-            const filename = job.outputPath || 'processed_manuscript.docx';
-            const url = await downloadFile(filename);
+            // Use real backend API with job ID
+            const url = await downloadFile(job.id, 'docx');
 
             const link = document.createElement('a');
             link.href = url;
@@ -42,11 +44,19 @@ export default function Download() {
         }
     };
 
+    const handleBrowseHistory = () => {
+        if (isLoggedIn) {
+            navigate('/history');
+        } else {
+            setShowLoginModal(true);
+        }
+    };
+
     return (
         <>
             <Navbar variant="app" />
 
-            <main className="px-4 md:px-20 lg:px-40 flex flex-1 justify-center py-12 min-h-[calc(100vh-200px)] animate-in zoom-in-95 duration-500">
+            <main className="px-4 md:px-20 lg:px-40 flex flex-1 justify-center py-12 min-h-[calc(100vh-200px)] animate-in zoom-in-95 duration-500 relative">
                 <div className="layout-content-container flex flex-col max-w-[800px] flex-1">
                     {/* Success Header */}
                     <div className="flex flex-col items-center mb-8">
@@ -140,10 +150,14 @@ export default function Download() {
 
                     {/* Secondary Action Button Group */}
                     <div className="mt-10 mb-20 flex justify-center">
-                        <div className="flex flex-col sm:flex-row gap-4 px-4 py-3 w-full max-w-[600px] justify-center">
+                        <div className="flex flex-col sm:flex-row gap-4 px-4 py-3 w-full max-w-[800px] justify-center flex-wrap">
                             <button onClick={() => navigate('/upload')} className="flex min-w-[160px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-12 px-6 bg-slate-200 dark:bg-slate-800 text-[#0d131b] dark:text-slate-50 text-sm font-bold leading-normal tracking-[0.015em] grow transition-colors hover:bg-slate-300 dark:hover:bg-slate-700">
                                 <span className="material-symbols-outlined text-xl">upload_file</span>
                                 <span className="truncate">Upload Another</span>
+                            </button>
+                            <button onClick={handleBrowseHistory} className="flex min-w-[160px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-12 px-6 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 text-[#0d131b] dark:text-slate-50 text-sm font-bold leading-normal tracking-[0.015em] grow transition-colors hover:bg-slate-50 dark:hover:bg-slate-800">
+                                <span className="material-symbols-outlined text-xl">history</span>
+                                <span className="truncate">Browse Documents</span>
                             </button>
                             <button onClick={() => navigate('/results')} className="flex min-w-[160px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-12 px-6 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 text-[#0d131b] dark:text-slate-50 text-sm font-bold leading-normal tracking-[0.015em] grow transition-colors hover:bg-slate-50 dark:hover:bg-slate-800">
                                 <span className="material-symbols-outlined text-xl">fact_check</span>
@@ -152,6 +166,39 @@ export default function Download() {
                         </div>
                     </div>
                 </div>
+
+                {/* Login Modal */}
+                {showLoginModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+                        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-700 scale-100 animate-in zoom-in-95 duration-200">
+                            <div className="flex flex-col items-center text-center gap-4">
+                                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                                    <span className="material-symbols-outlined text-2xl">lock</span>
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-bold text-slate-900 dark:text-white">Login Required</h3>
+                                    <p className="text-slate-500 dark:text-slate-400 mt-2">
+                                        Please login to view your document history and access saved manuscripts.
+                                    </p>
+                                </div>
+                                <div className="flex gap-3 w-full mt-4">
+                                    <button
+                                        onClick={() => setShowLoginModal(false)}
+                                        className="flex-1 px-4 py-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={() => navigate('/login')}
+                                        className="flex-1 px-4 py-2.5 rounded-lg bg-primary text-white font-bold hover:bg-blue-600 transition-colors"
+                                    >
+                                        Login
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </main>
 
             <Footer variant="app" />
