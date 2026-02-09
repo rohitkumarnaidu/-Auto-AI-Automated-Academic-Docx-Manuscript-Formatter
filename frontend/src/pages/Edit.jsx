@@ -97,7 +97,11 @@ export default function Edit() {
                         <span className="material-symbols-outlined text-[18px]">refresh</span>
                         <span className="text-sm font-medium">Local Validate</span>
                     </button>
-                    <button onClick={() => navigate('/download')} className="flex items-center gap-1.5 px-4 py-1.5 bg-primary text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
+                    <button
+                        onClick={() => navigate('/download')}
+                        disabled={job?.status !== 'COMPLETED'}
+                        className="flex items-center gap-1.5 px-4 py-1.5 bg-primary text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-400"
+                    >
                         <span className="material-symbols-outlined text-[18px]">description</span>
                         <span className="text-sm font-bold">Export</span>
                     </button>

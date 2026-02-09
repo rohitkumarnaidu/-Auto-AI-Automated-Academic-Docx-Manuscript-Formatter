@@ -23,22 +23,53 @@ export default function Download() {
         );
     }
 
-    const handleDownload = async () => {
+    // GATING: Processing State
+    if (job.status === 'processing' || job.status === 'RUNNING' || job.status === 'IN_PROGRESS') {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center bg-background-light dark:bg-background-dark">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                    <h2 className="text-xl font-bold text-slate-900 dark:text-white">Processing Document...</h2>
+                    <p className="text-slate-500">Please wait while we format your manuscript.</p>
+                    <button onClick={() => navigate('/upload')} className="text-primary font-bold hover:underline mt-4">View Progress</button>
+                </div>
+            </div>
+        );
+    }
+
+    // GATING: Failed State
+    if (job.status === 'failed' || job.status === 'FAILED') {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center bg-background-light dark:bg-background-dark">
+                <div className="p-8 max-w-md text-center">
+                    <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span className="material-symbols-outlined text-3xl">error</span>
+                    </div>
+                    <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Formatting Failed</h2>
+                    <p className="text-slate-500 mb-6">{job.error || "An unexpected error occurred during processing."}</p>
+                    <button onClick={() => navigate('/upload')} className="bg-primary text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 transition-colors">Try Again</button>
+                </div>
+            </div>
+        );
+    }
+
+    const handleDownload = async (format = 'docx') => {
         setIsDownloading(true);
         setDownloadError(null);
         try {
             // Use real backend API with job ID
-            const url = await downloadFile(job.id, 'docx');
+            const url = await downloadFile(job.id, format);
 
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', job.originalFileName ? `Formatted_${job.originalFileName}` : 'Manuscript_Formatted.docx');
+            const ext = format === 'pdf' ? 'pdf' : 'docx';
+            link.setAttribute('download', job.originalFileName ? `Formatted_${job.originalFileName.replace(/\.[^/.]+$/, "")}.${ext}` : `Manuscript_Formatted.${ext}`);
             document.body.appendChild(link);
             link.click();
             link.parentNode.removeChild(link);
         } catch (error) {
             console.error("Download failed:", error);
-            setDownloadError('Download failed. The file may not be ready yet or the server is unavailable. Please try again.');
+            setDownloadError(`Download failed. The file may not be ready yet or the server is unavailable. Please try again.`);
         } finally {
             setIsDownloading(false);
         }
@@ -102,7 +133,7 @@ export default function Download() {
                                 </div>
                                 <div className="flex flex-col gap-3">
                                     <button
-                                        onClick={handleDownload}
+                                        onClick={() => handleDownload('docx')}
                                         disabled={isDownloading}
                                         className="flex w-full cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-12 px-6 bg-primary text-white text-base font-bold leading-normal transition-all hover:bg-blue-700 active:scale-[0.98] shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
@@ -114,9 +145,18 @@ export default function Download() {
                                         ) : (
                                             <>
                                                 <span className="material-symbols-outlined">download</span>
-                                                <span className="truncate">Download Formatted Document</span>
+                                                <span className="truncate">Download Word Document (.docx)</span>
                                             </>
                                         )}
+                                    </button>
+
+                                    <button
+                                        onClick={() => handleDownload('pdf')}
+                                        disabled={isDownloading}
+                                        className="flex w-full cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-12 px-6 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-base font-bold leading-normal transition-all hover:bg-slate-50 dark:hover:bg-slate-700 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        <span className="material-symbols-outlined text-red-500">picture_as_pdf</span>
+                                        <span className="truncate">Download PDF (.pdf)</span>
                                     </button>
                                 </div>
                             </div>

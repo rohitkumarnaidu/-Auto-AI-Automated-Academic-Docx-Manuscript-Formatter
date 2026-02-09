@@ -406,27 +406,27 @@ export default function Upload() {
                             </h2>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <button
-                                    onClick={() => (progress === 100 || isProcessing) && handleReviewClick('/compare')}
-                                    disabled={!isProcessing && progress < 100}
-                                    className={`flex flex-col items-center justify-center gap-2 p-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 transition-all group ${(!isProcessing && progress < 100) ? 'opacity-50 cursor-not-allowed text-slate-500' : 'hover:border-primary hover:bg-primary/5 text-slate-900 dark:text-white'}`}
+                                    onClick={() => job?.status === 'completed' && !isProcessing && handleReviewClick('/compare')}
+                                    disabled={job?.status !== 'completed' || isProcessing}
+                                    className={`flex flex-col items-center justify-center gap-2 p-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 transition-all group ${(job?.status !== 'completed' || isProcessing) ? 'opacity-50 cursor-not-allowed text-slate-500' : 'hover:border-primary hover:bg-primary/5 text-slate-900 dark:text-white'}`}
                                 >
-                                    <span className={`material-symbols-outlined text-2xl ${(!isProcessing && progress < 100) ? 'text-slate-400' : 'text-primary'}`}>difference</span>
+                                    <span className={`material-symbols-outlined text-2xl ${(job?.status !== 'completed' || isProcessing) ? 'text-slate-400' : 'text-primary'}`}>difference</span>
                                     <span className="text-sm font-bold">Compare Results</span>
                                 </button>
                                 <button
-                                    onClick={() => progress === 100 && navigate('/preview')}
-                                    disabled={progress < 100}
-                                    className={`flex flex-col items-center justify-center gap-2 p-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 transition-all group ${progress < 100 ? 'opacity-50 cursor-not-allowed text-slate-500' : 'hover:border-primary hover:bg-primary/5 text-slate-900 dark:text-white'}`}
+                                    onClick={() => job?.status === 'completed' && !isProcessing && navigate('/preview')}
+                                    disabled={job?.status !== 'completed' || isProcessing}
+                                    className={`flex flex-col items-center justify-center gap-2 p-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 transition-all group ${(job?.status !== 'completed' || isProcessing) ? 'opacity-50 cursor-not-allowed text-slate-500' : 'hover:border-primary hover:bg-primary/5 text-slate-900 dark:text-white'}`}
                                 >
-                                    <span className={`material-symbols-outlined text-2xl ${progress < 100 ? 'text-slate-400' : 'text-primary'}`}>visibility</span>
+                                    <span className={`material-symbols-outlined text-2xl ${(job?.status !== 'completed' || isProcessing) ? 'text-slate-400' : 'text-primary'}`}>visibility</span>
                                     <span className="text-sm font-bold">Preview Document</span>
                                 </button>
                                 <button
-                                    onClick={() => progress === 100 && navigate('/download')}
-                                    disabled={progress < 100}
-                                    className={`flex flex-col items-center justify-center gap-2 p-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 transition-all group ${progress < 100 ? 'opacity-50 cursor-not-allowed text-slate-500' : 'hover:border-primary hover:bg-primary/5 text-slate-900 dark:text-white'}`}
+                                    onClick={() => job?.status === 'completed' && !isProcessing && navigate('/download')}
+                                    disabled={job?.status !== 'completed' || isProcessing}
+                                    className={`flex flex-col items-center justify-center gap-2 p-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 transition-all group ${(job?.status !== 'completed' || isProcessing) ? 'opacity-50 cursor-not-allowed text-slate-500' : 'hover:border-primary hover:bg-primary/5 text-slate-900 dark:text-white'}`}
                                 >
-                                    <span className={`material-symbols-outlined text-2xl ${progress < 100 ? 'text-slate-400' : 'text-primary'}`}>download</span>
+                                    <span className={`material-symbols-outlined text-2xl ${(job?.status !== 'completed' || isProcessing) ? 'text-slate-400' : 'text-primary'}`}>download</span>
                                     <span className="text-sm font-bold">Download Final</span>
                                 </button>
                             </div>
