@@ -29,7 +29,7 @@ class Formatter:
         
     def process(self, document: Document) -> Document:
         """Standard pipeline stage entry point."""
-        template_name = document.template.template_name if document.template else "IEEE"
+        template_name = document.template.template_name if document.template else "none"
         # We store the resulting Word object in a transient field
         document.generated_doc = self.format(document, template_name)
         return document
@@ -67,8 +67,9 @@ class Formatter:
         
         # Add Blocks
         for block in document.blocks:
-            # SKIP figure captions - they will be rendered via document.figures
-            if block.block_type == BlockType.FIGURE_CAPTION:
+            # SKIP figure captions - check both Enum and String to be safe
+            b_type = str(block.block_type).upper()
+            if "FIGURE_CAPTION" in b_type or "TABLE_CAPTION" in b_type:
                 continue
             
             # Special handling for references: if it's a reference entry, we might want to re-format it
@@ -219,10 +220,28 @@ class Formatter:
         word_style = self.style_mapper.get_style_name(block, template_name)
         
         try:
-            doc.add_paragraph(block.text, style=word_style)
+            # Clean text to prevent empty lines/whitespace
+            clean_text = block.text.strip()
+            if not clean_text:
+                 # Skip empty blocks to prevent "Massive White Space"
+                 return
+
+            p = doc.add_paragraph(clean_text, style=word_style)
+            
+            # Reset spacing to prevent massive gaps (issue #2)
+            # Default to 12pt after unless strictly overriden by style
+            if template_name == "none":
+                p.paragraph_format.space_before = 0
+                p.paragraph_format.space_after = 0 # Let Word default handle or be compact
+            
         except:
-            # Fallback if style missing in template.docx
-            doc.add_paragraph(block.text)
+            # Fallback if style missing
+            clean_text = block.text.strip()
+            if clean_text:
+                p = doc.add_paragraph(clean_text)
+                if template_name == "none":
+                    p.paragraph_format.space_before = 0
+                    p.paragraph_format.space_after = 0
 
     def _render_figure(self, doc, figure: Figure, number: int):
         # 1. Image

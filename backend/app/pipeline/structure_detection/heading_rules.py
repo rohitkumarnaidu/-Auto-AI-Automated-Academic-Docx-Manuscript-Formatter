@@ -10,7 +10,7 @@ This module contains rule-based logic to detect heading candidates based on:
 """
 
 import re
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional, Dict, Any, Tuple, List
 from app.models import Block
 
 
@@ -28,6 +28,13 @@ COMMON_SECTION_KEYWORDS = {
     "acknowledgments", "acknowledgements", "funding",
     "references", "bibliography", "works cited",
     "appendix", "appendices", "supplementary material",
+    
+    # Compliance / Meta
+    "conflict of interest", "conflicts of interest", "disclosure",
+    "author contributions", "authors' contributions",
+    "data availability", "data availability statement",
+    "ethics statement", "ethics approval",
+    "abbreviations",
 }
 
 
@@ -253,6 +260,18 @@ def analyze_heading_candidate(
         
     if not num_info and (re.search(r'[\.\?\!]\s+[A-Z]', text) or len(text.split()) > 15):
         return None
+
+    # HARD GUARD 7: Numbered but looks like sentence (e.g. Reference entry)
+    # "1. Smith, J. Title."
+    if num_info:
+        remainder = num_info["remainder"].strip()
+        # If the remainder contains sentence-ending punctuation followed by space+Cap
+        # AND it's not super short (like "Q. A.")
+        # AND it looks like a list/reference (contains comma or "et al")
+        if re.search(r'[\.\?\!]\s+[A-Z]', remainder) and len(remainder) > 20:
+             if ',' in remainder or " et al" in remainder.lower():
+                 return None
+
 
     # ABSTRACT SAFETY GUARD (ABSOLUTE)
     # If we have recently seen an "Abstract" keyword heading, all following blocks

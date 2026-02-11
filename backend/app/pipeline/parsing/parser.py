@@ -120,6 +120,14 @@ class DocxParser:
         # Extract document content in order
         # DOCX structure: paragraphs and tables are interspersed
         blocks, figures, tables, equations = self._extract_body_content(docx)
+
+        # SAFE EXTENSION: Footnotes and Endnotes
+        # We append them after the main body to preserve main index order logic
+        # and prevent breaking any body-relative logic.
+        note_blocks = self._extract_footnotes_and_endnotes(docx)
+        if note_blocks:
+            blocks.extend(note_blocks)
+            # Update history message to reflect notes (optional, but good for visibility)
         
         document.blocks = blocks
         document.figures = figures
@@ -127,14 +135,121 @@ class DocxParser:
         document.equations = equations
         
         # Add processing history
+        msg = f"Parsed {len(blocks)} blocks, {len(figures)} figures, {len(tables)} tables, {len(equations)} equations"
+        if note_blocks:
+            msg += f" (incl. {len(note_blocks)} notes)"
+
         document.add_processing_stage(
             stage_name="parsing",
             status="success",
-            message=f"Parsed {len(blocks)} blocks, {len(figures)} figures, {len(tables)} tables, {len(equations)} equations"
+            message=msg
         )
         
         return document
     
+    def _extract_footnotes_and_endnotes(self, docx: DocxDocumentType) -> List[Block]:
+        """
+        Extract content from Footnotes and Endnotes parts.
+        
+        Args:
+            docx: python-docx Document object
+            
+        Returns:
+            List of Block objects marked with is_footnote/is_endnote
+        """
+        note_blocks = []
+        
+        # 1. Footnotes
+        try:
+            part = None
+            if hasattr(docx, 'part'):
+                if hasattr(docx.part, 'footnotes_part'):
+                    part = docx.part.footnotes_part
+            
+            if part:
+                # Iterate XML elements directly as python-docx high-level API is limited
+                from docx.oxml.ns import qn
+                root = part.element
+                for i, fn in enumerate(root.findall(qn('w:footnote'))):
+                    # Skip separator/continuation footnotes (usually ids < 0 or specific types)
+                    # We just try to extract text from paragraphs inside
+                    fn_id = fn.get(qn('w:id'))
+                    
+                    # Extract paragraphs within footnote
+                    for p_element in fn.findall(qn('w:p')):
+                        # Create a temp paragraph to use existing extraction logic is tricky
+                        # because _extract_paragraph expects a docx parent.
+                        # We will do manual extraction to be safe and simple.
+                        text_chunks = []
+                        for r in p_element.findall(qn('w:r')):
+                            t = r.find(qn('w:t'))
+                            if t is not None and t.text:
+                                text_chunks.append(t.text)
+                        
+                        text = "".join(text_chunks).strip()
+                        if text:
+                            # Create Block
+                            block_id = generate_block_id(self.block_counter)
+                            self.block_counter += 1
+                            
+                            # Fake style (Footnote Text usually)
+                            style = TextStyle(font_size=10.0) # Assumption
+                            
+                            block = Block(
+                                block_id=block_id,
+                                text=text,
+                                index=self.block_counter - 1, # Continue sequence
+                                block_type=BlockType.UNKNOWN,
+                                style=style
+                            )
+                            block.metadata["is_footnote"] = True
+                            block.metadata["footnote_id"] = fn_id
+                            note_blocks.append(block)
+        except Exception as e:
+            # Silent failure as per requirements ("No crashes allowed")
+            print(f"Warning: Footnote extraction skipped: {e}")
+
+        # 2. Endnotes
+        try:
+            part = None
+            if hasattr(docx, 'part'):
+                if hasattr(docx.part, 'endnotes_part'):
+                    part = docx.part.endnotes_part
+            
+            if part:
+                from docx.oxml.ns import qn
+                root = part.element
+                for i, en in enumerate(root.findall(qn('w:endnote'))):
+                    en_id = en.get(qn('w:id'))
+                    for p_element in en.findall(qn('w:p')):
+                        text_chunks = []
+                        for r in p_element.findall(qn('w:r')):
+                            t = r.find(qn('w:t'))
+                            if t is not None and t.text:
+                                text_chunks.append(t.text)
+                        
+                        text = "".join(text_chunks).strip()
+                        if text:
+                            block_id = generate_block_id(self.block_counter)
+                            self.block_counter += 1
+                            
+                            style = TextStyle(font_size=10.0)
+                            
+                            block = Block(
+                                block_id=block_id,
+                                text=text,
+                                index=self.block_counter - 1,
+                                block_type=BlockType.UNKNOWN,
+                                style=style
+                            )
+                            block.metadata["is_endnote"] = True
+                            block.metadata["endnote_id"] = en_id
+                            note_blocks.append(block)
+        except Exception:
+            pass
+
+        return note_blocks
+
     def _extract_core_properties(self, docx: DocxDocumentType) -> DocumentMetadata:
         """
         Extract document metadata from DOCX core properties.

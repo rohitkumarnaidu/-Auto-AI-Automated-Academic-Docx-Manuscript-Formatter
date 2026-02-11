@@ -193,8 +193,8 @@ class StructureDetector(PipelineStage):
             )
             
             # Enforce deterministic levels for major sections
-            level = heading_info["level"]
-            all_reasons = heading_info["reasons"] + position_info["position_hints"]
+            level = heading_info.get("level", 1)
+            all_reasons = heading_info.get("reasons", []) + position_info.get("position_hints", [])
             
             # Update block metadata (Keep UNKNOWN type until classification)
             block.level = level
