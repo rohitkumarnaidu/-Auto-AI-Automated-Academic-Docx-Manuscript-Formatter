@@ -1,22 +1,22 @@
 {
   "summary": {
-    "total_blocks": 17,
-    "has_figures": true,
-    "has_tables": true
+    "total_blocks": 16,
+    "has_figures": false,
+    "has_tables": false
   },
   "blocks": [
     {
       "block_id": "blk_000",
-      "text": "Automated Academic Manuscript Formatter",
+      "text": "Automated Document Processing System",
       "block_type": "unknown",
       "index": 0,
       "page_number": null,
       "style": {
-        "bold": true,
+        "bold": false,
         "italic": false,
         "underline": false,
         "font_name": null,
-        "font_size": 18.0,
+        "font_size": null,
         "color": null
       },
       "level": null,
@@ -31,12 +31,12 @@
       "is_valid": true,
       "warnings": [],
       "metadata": {
-        "style_name": "Normal"
+        "style_name": "Title"
       }
     },
     {
       "block_id": "blk_001",
-      "text": "Rohit Kumar, Ananya Sharma, Vikram Patel",
+      "text": "This is the abstract-like section but without the keyword.",
       "block_type": "unknown",
       "index": 1,
       "page_number": null,
@@ -65,7 +65,7 @@
     },
     {
       "block_id": "blk_002",
-      "text": "Department of Computer Science",
+      "text": "1 System Overview",
       "block_type": "unknown",
       "index": 2,
       "page_number": null,
@@ -89,12 +89,12 @@
       "is_valid": true,
       "warnings": [],
       "metadata": {
-        "style_name": "Normal"
+        "style_name": "Heading 1"
       }
     },
     {
       "block_id": "blk_003",
-      "text": "XYZ University",
+      "text": "Content for section 1. This system uses advanced heuristics.",
       "block_type": "unknown",
       "index": 3,
       "page_number": null,
@@ -123,12 +123,12 @@
     },
     {
       "block_id": "blk_004",
-      "text": "Abstract",
+      "text": "2 Technical Approach",
       "block_type": "unknown",
       "index": 4,
       "page_number": null,
       "style": {
-        "bold": true,
+        "bold": false,
         "italic": false,
         "underline": false,
         "font_name": null,
@@ -147,12 +147,12 @@
       "is_valid": true,
       "warnings": [],
       "metadata": {
-        "style_name": "Normal"
+        "style_name": "Heading 1"
       }
     },
     {
       "block_id": "blk_005",
-      "text": "This paper presents an automated system for converting poorly formatted academic manuscripts into publication-ready documents. The system reconstructs documents using deterministic rules and predefined templates, eliminating manual formatting effort and reducing submission errors.",
+      "text": "Content for section 2. We utilize a multi-layered pipeline.",
       "block_type": "unknown",
       "index": 5,
       "page_number": null,
@@ -181,7 +181,7 @@
     },
     {
       "block_id": "blk_006",
-      "text": "1 IntroductionAcademic publishing requires strict adherence to formatting guidelines imposed by journals and conferences. Researchers often spend significant time manually adjusting fonts, margins, headings, and references. This process is time-consuming, error-prone, and distracts from core research activities.",
+      "text": "2.1 Design Considerations",
       "block_type": "unknown",
       "index": 6,
       "page_number": null,
@@ -205,12 +205,12 @@
       "is_valid": true,
       "warnings": [],
       "metadata": {
-        "style_name": "Normal"
+        "style_name": "Heading 2"
       }
     },
     {
       "block_id": "blk_007",
-      "text": "2ethodology",
+      "text": "Content for section 2.1. Handling edge cases is priority.",
       "block_type": "unknown",
       "index": 7,
       "page_number": null,
@@ -239,7 +239,7 @@
     },
     {
       "block_id": "blk_008",
-      "text": "The proposed system uses a pipeline-based architecture in which each stage performs a specific responsibility such as document parsing, structure detection, semantic classification, ad formatting. This modular approach ensures scalability, correctness, and maintainability.",
+      "text": "3 Experimental Evaluation",
       "block_type": "unknown",
       "index": 8,
       "page_number": null,
@@ -263,12 +263,12 @@
       "is_valid": true,
       "warnings": [],
       "metadata": {
-        "style_name": "Normal"
+        "style_name": "Heading 1"
       }
     },
     {
       "block_id": "blk_009",
-      "text": "Figure 1: college logo",
+      "text": "Content for section 3. We tested on various datasets.",
       "block_type": "unknown",
       "index": 9,
       "page_number": null,
@@ -297,7 +297,7 @@
     },
     {
       "block_id": "blk_010",
-      "text": "",
+      "text": "4 Observations and Insights",
       "block_type": "unknown",
       "index": 10,
       "page_number": null,
@@ -321,12 +321,12 @@
       "is_valid": true,
       "warnings": [],
       "metadata": {
-        "style_name": "Normal"
+        "style_name": "Heading 1"
       }
     },
     {
       "block_id": "blk_011",
-      "text": "Table 1: Comparison of Formatting Methods",
+      "text": "Content for section 4. The system is extremely robust.",
       "block_type": "unknown",
       "index": 11,
       "page_number": null,
@@ -355,7 +355,36 @@
     },
     {
       "block_id": "blk_012",
-      "text": "",
+      "text": "5 Closing Remarks",
+      "block_type": "unknown",
+      "index": 12,
+      "page_number": null,
+      "style": {
+        "bold": false,
+        "italic": false,
+        "underline": false,
+        "font_name": null,
+        "font_size": null,
+        "color": null
+      },
+      "level": null,
+      "parent_id": null,
+      "list_type": null,
+      "list_level": null,
+      "section_name": null,
+      "semantic_intent": null,
+      "classification_confidence": null,
+      "contains_citation": false,
+      "citation_keys": [],
+      "is_valid": true,
+      "warnings": [],
+      "metadata": {
+        "style_name": "Heading 1"
+      }
+    },
+    {
+      "block_id": "blk_013",
+      "text": "Content for section 5. Future work includes Stage 2 implementation.",
       "block_type": "unknown",
       "index": 13,
       "page_number": null,
@@ -383,7 +412,7 @@
       }
     },
     {
-      "block_id": "blk_013",
+      "block_id": "blk_014",
       "text": "",
       "block_type": "unknown",
       "index": 14,
@@ -408,12 +437,14 @@
       "is_valid": true,
       "warnings": [],
       "metadata": {
-        "style_name": "Normal"
+        "style_name": "Header",
+        "is_header": true,
+        "section_index": 0
       }
     },
     {
-      "block_id": "blk_014",
-      "text": "REFERENCES",
+      "block_id": "blk_015",
+      "text": "",
       "block_type": "unknown",
       "index": 15,
       "page_number": null,
@@ -437,65 +468,9 @@
       "is_valid": true,
       "warnings": [],
       "metadata": {
-        "style_name": "Normal"
-      }
-    },
-    {
-      "block_id": "blk_015",
-      "text": "[1] John Smith, Automated Document Processing, Journal of Artificial Intelligence, 2021",
-      "block_type": "unknown",
-      "index": 16,
-      "page_number": null,
-      "style": {
-        "bold": false,
-        "italic": false,
-        "underline": false,
-        "font_name": null,
-        "font_size": null,
-        "color": null
-      },
-      "level": null,
-      "parent_id": null,
-      "list_type": null,
-      "list_level": null,
-      "section_name": null,
-      "semantic_intent": null,
-      "classification_confidence": null,
-      "contains_citation": false,
-      "citation_keys": [],
-      "is_valid": true,
-      "warnings": [],
-      "metadata": {
-        "style_name": "Normal"
-      }
-    },
-    {
-      "block_id": "blk_016",
-      "text": "[2] Alice Brown, Acaic Formatting Tools and Systems, Publishing Technologies, 2020.",
-      "block_type": "unknown",
-      "index": 17,
-      "page_number": null,
-      "style": {
-        "bold": false,
-        "italic": false,
-        "underline": false,
-        "font_name": null,
-        "font_size": null,
-        "color": null
-      },
-      "level": null,
-      "parent_id": null,
-      "list_type": null,
-      "list_level": null,
-      "section_name": null,
-      "semantic_intent": null,
-      "classification_confidence": null,
-      "contains_citation": false,
-      "citation_keys": [],
-      "is_valid": true,
-      "warnings": [],
-      "metadata": {
-        "style_name": "Normal"
+        "style_name": "Footer",
+        "is_footer": true,
+        "section_index": 0
       }
     }
   ]

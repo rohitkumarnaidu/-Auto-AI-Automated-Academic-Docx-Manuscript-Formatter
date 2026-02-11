@@ -25,12 +25,15 @@ COMMON_SECTION_KEYWORDS = {
     "results", "findings", "experimental results",
     "discussion", "results and discussion",
     "conclusion", "conclusions",
-    "acknowledgments", "acknowledgements", "funding",
+    "acknowledgments", "acknowledgements", "acknowledgment", "acknowledgement",
+    "funding", "funding information", "financial support",
     "references", "bibliography", "works cited",
     "appendix", "appendices", "supplementary material",
     
     # Compliance / Meta
     "conflict of interest", "conflicts of interest", "disclosure",
+    "declaration of interest", "declarations of interest",
+    "competing interests", "competing interest",
     "author contributions", "authors' contributions",
     "data availability", "data availability statement",
     "ethics statement", "ethics approval",

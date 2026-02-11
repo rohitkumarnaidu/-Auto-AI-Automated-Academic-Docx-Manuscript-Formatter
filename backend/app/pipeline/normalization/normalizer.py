@@ -202,13 +202,11 @@ class Normalizer(PipelineStage):
             # Pattern B: Numbered Headings + Body
             # Match "1 IntroductionScientific..." or "1 Introduction: Scientific..."
             # The [A-Z] guard ensures we are splitting at a potential sentence boundary.
-            # We look for a Keyword or a short Word (Title Case) after the number.
             numbered_merged_match = re.match(rf'^(\d+(?:\.\d+)*\.?\s*(?:{kw_regex}|[A-Z][a-z]+))[:\.\—\-]?\s*([A-Z].+)$', text)
             if numbered_merged_match:
                 heading_part = numbered_merged_match.group(1).strip()
                 body_part = numbered_merged_match.group(2).strip()
                 
-                # Check if body is really body (length or punctuation)
                 if len(body_part) > 20 or re.search(r'[\.\?\!]\s', body_part):
                     normalized_blocks.append(block.model_copy(update={
                         "text": heading_part,
@@ -225,7 +223,6 @@ class Normalizer(PipelineStage):
                 continue
 
             # Pattern C: Keyword + Body (Non-numbered)
-            # Match "IntroductionScientific..."
             keyword_merged_match = re.match(rf'^({kw_regex})([A-Z][a-z].*)$', text)
             if keyword_merged_match:
                 heading_part = keyword_merged_match.group(1).strip()
@@ -248,7 +245,27 @@ class Normalizer(PipelineStage):
                 if text.strip():
                     normalized_blocks.append(block.model_copy(update={"text": text}))
         
-        return normalized_blocks
+        # SAFE EXTENSION: Duplicate Consecutive Block Filter
+        # Remove identical consecutive blocks (text, style, metadata)
+        final_blocks = []
+        for i, b in enumerate(normalized_blocks):
+            if i == 0:
+                final_blocks.append(b)
+                continue
+            
+            prev = final_blocks[-1]
+            if (b.text.strip() == prev.text.strip() and 
+                b.style == prev.style and 
+                b.metadata == prev.metadata):
+                
+                if b.text.strip():
+                    prev.metadata["has_consecutive_duplicate"] = True
+                    prev.warnings.append(f"Standardization: Consecutive duplicate suppressed ({b.block_id})")
+                    continue
+            
+            final_blocks.append(b)
+            
+        return final_blocks
 
     def _repair_common_corruptions(self, text: str) -> str:
         """

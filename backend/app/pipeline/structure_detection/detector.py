@@ -149,9 +149,11 @@ class StructureDetector(PipelineStage):
             }
         """
         # Import local rules including new Title rule
-        from .heading_rules import analyze_heading_candidate, detect_title
+        from .heading_rules import analyze_heading_candidate, detect_title, get_capitalization_ratio
         
         candidates = []
+        found_title = False
+        potential_author_count = 0 
         
         for i, block in enumerate(blocks):
             # Skip empty blocks (Normalizer should have removed them, but double check)
@@ -176,14 +178,65 @@ class StructureDetector(PipelineStage):
                     "reasons": ["Main Document Title Detected"],
                     "position_info": {"position_hints": ["Title"]}
                 })
+                found_title = True
                 continue
+
+            # AUTHOR/AFFILIATION HEURISTIC (SAFE Metadata)
+            # If Block appears immediately after TITLE, check for Author/Affiliation
+            if found_title and potential_author_count < 5:
+                # If we hit a clear heading, stop searching for authors
+                num_info = analyze_heading_candidate(block, blocks, i, self.avg_font_size)
+                if num_info:
+                    found_title = False # Stop looking after hit heading
+                else: 
+                    text = block.text.strip()
+                    if len(text) < 120:
+                        potential_author_count += 1
+                        uni_keywords = ["University", "Institute", "College", "Department", "Faculty", "Center", "Lab", "Corporation", "School"]
+                        is_aff = any(kw.lower() in text.lower() for kw in uni_keywords)
+                        # Author heuristic: caps ratio + commas/et al
+                        is_auth = (get_capitalization_ratio(text) > 0.6 and ("," in text or len(text.split()) < 10))
+                        
+                        if is_auth:
+                            block.metadata["is_author_block"] = True
+                        if is_aff:
+                            block.metadata["is_affiliation_block"] = True
             
             # 2. HEADING ANALYSIS (Numbered/Keyword/Style/Fallback)
-            # Pass all_blocks and index for isolation and safety guard analysis
-            heading_info = analyze_heading_candidate(block, blocks, i, self.avg_font_size)
+            # Multi-line heading support (Strict Heuristic)
+            next_block = blocks[i+1] if i + 1 < len(blocks) else None
+            is_multiline = False
+            
+            if next_block and next_block.text.strip():
+                # Block A short (<60), no punct
+                # Block B follows, starts uppercase
+                # Both bold or larger font
+                # Combined < 120
+                if (len(block.text.strip()) < 60 and 
+                    not block.text.strip().endswith(('.', '?', '!')) and
+                    next_block.text.strip()[0].isupper() and
+                    (block.style.bold or (block.style.font_size and self.avg_font_size and block.style.font_size > self.avg_font_size)) and
+                    (next_block.style.bold or (next_block.style.font_size and self.avg_font_size and next_block.style.font_size > self.avg_font_size)) and
+                    len(block.text.strip()) + len(next_block.text.strip()) < 120):
+                    
+                    is_multiline = True
+
+            # Use combined text for analysis if multiline
+            if is_multiline:
+                # Merge virtually (Concatenate just for the candidate analysis)
+                temp_text = f"{block.text.strip()} {next_block.text.strip()}"
+                temp_block = block.model_copy(update={"text": temp_text})
+                heading_info = analyze_heading_candidate(temp_block, blocks, i, self.avg_font_size)
+            else:
+                heading_info = analyze_heading_candidate(block, blocks, i, self.avg_font_size)
             
             if heading_info is None:
                 continue
+            
+            # Post-analysis check for multiline markers
+            if is_multiline:
+                block.metadata["multiline_heading"] = True
+                block.metadata["multiline_continuation_block_id"] = next_block.block_id
             
             # Confidence boosting by position (only for valid candidates)
             position_info = analyze_position(block, blocks)

@@ -121,6 +121,12 @@ class DocxParser:
         # DOCX structure: paragraphs and tables are interspersed
         blocks, figures, tables, equations = self._extract_body_content(docx)
 
+        # SAFE EXTENSION: Headers and Footers
+        # Extract and append at the very end to avoid index corruption
+        header_footer_blocks = self._extract_headers_and_footers(docx)
+        if header_footer_blocks:
+            blocks.extend(header_footer_blocks)
+
         # SAFE EXTENSION: Footnotes and Endnotes
         # We append them after the main body to preserve main index order logic
         # and prevent breaking any body-relative logic.
@@ -136,8 +142,8 @@ class DocxParser:
         
         # Add processing history
         msg = f"Parsed {len(blocks)} blocks, {len(figures)} figures, {len(tables)} tables, {len(equations)} equations"
-        if note_blocks:
-            msg += f" (incl. {len(note_blocks)} notes)"
+        if note_blocks or header_footer_blocks:
+            msg += f" (incl. {len(note_blocks)} notes and {len(header_footer_blocks)} header/footers)"
 
         document.add_processing_stage(
             stage_name="parsing",
@@ -249,6 +255,35 @@ class DocxParser:
             pass
 
         return note_blocks
+
+    def _extract_headers_and_footers(self, docx: DocxDocumentType) -> List[Block]:
+        """
+        Extract content from Headers and Footers of all sections.
+        """
+        hf_blocks = []
+        try:
+            for i, section in enumerate(docx.sections):
+                # Process Headers
+                if section.header:
+                    for p in section.header.paragraphs:
+                        block = self._extract_paragraph(p)
+                        if block:
+                            block.metadata["is_header"] = True
+                            block.metadata["section_index"] = i
+                            hf_blocks.append(block)
+                
+                # Process Footers
+                if section.footer:
+                    for p in section.footer.paragraphs:
+                        block = self._extract_paragraph(p)
+                        if block:
+                            block.metadata["is_footer"] = True
+                            block.metadata["section_index"] = i
+                            hf_blocks.append(block)
+        except Exception as e:
+            print(f"Warning: Header/Footer extraction skipped: {e}")
+            
+        return hf_blocks
 
     def _extract_core_properties(self, docx: DocxDocumentType) -> DocumentMetadata:
         """
@@ -389,7 +424,62 @@ class DocxParser:
         if paragraph.alignment is not None:
             block.metadata["alignment"] = str(paragraph.alignment)
         
+        # SAFE EXTENSION: Hyperlink Extraction
+        hyperlinks = self._extract_hyperlinks(paragraph)
+        if hyperlinks:
+            block.metadata["hyperlinks"] = hyperlinks
+
+        # SAFE EXTENSION: Nested List Depth
+        list_info = self._get_list_info(paragraph)
+        if list_info:
+            block.metadata.update(list_info)
+        
         return block
+
+    def _extract_hyperlinks(self, paragraph: DocxParagraph) -> List[Dict[str, str]]:
+        """Extract URLs from w:hyperlink elements."""
+        links = []
+        try:
+            # Hyperlinks are at the paragraph element level in the XML
+            for hyperlink in paragraph._element.findall(qn('w:hyperlink')):
+                # Get RId
+                r_id = hyperlink.get(qn('r:id'))
+                if r_id:
+                    # Resolve URL from relationship
+                    try:
+                        url = paragraph.part.rels[r_id].target_ref
+                        # Get Text
+                        text = "".join([t.text for t in hyperlink.findall(qn('w:r')) if t.text])
+                        if text:
+                            links.append({"text": text, "url": url})
+                    except (KeyError, AttributeError):
+                        continue
+        except Exception:
+            pass
+        return links
+
+    def _get_list_info(self, paragraph: DocxParagraph) -> Optional[Dict[str, Any]]:
+        """Detect list level and status using w:ilvl."""
+        try:
+            pPr = paragraph._element.find(qn('w:pPr'))
+            if pPr is not None:
+                numPr = pPr.find(qn('w:numPr'))
+                if numPr is not None:
+                    ilvl = numPr.find(qn('w:ilvl'))
+                    if ilvl is not None:
+                        depth = int(ilvl.get(qn('w:val'), 0))
+                        return {
+                            "list_level": depth,
+                            "is_list_item": True
+                        }
+                    # If numPr exists but no ilvl, it's still a list item (level 0)
+                    return {
+                        "list_level": 0,
+                        "is_list_item": True
+                    }
+        except Exception:
+            pass
+        return None
     
     def _extract_paragraph_style(self, paragraph: DocxParagraph) -> TextStyle:
         """
