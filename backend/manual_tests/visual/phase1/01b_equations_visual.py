@@ -63,11 +63,8 @@ def main():
         para = annotated_doc.add_paragraph()
         run = para.add_run(block.text)
         
-        # Heuristic: If block contains OMML like tags or if it was marked (though current parser doesn't mark block as EQ yet)
-        # We can also check if any equation object's text matches this block text
-        is_equation = False
-        if any(eq.text in block.text and len(eq.text) > 2 for eq in doc_obj.equations):
-            is_equation = True
+        # Correct detection: Match by block_id
+        is_equation = any(eq.block_id == block.block_id for eq in doc_obj.equations)
             
         # Hard check on typical symbols if it's an equation block
         if not is_equation and (('=' in block.text or '+' in block.text) and len(block.text) < 100):
