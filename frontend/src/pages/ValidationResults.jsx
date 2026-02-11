@@ -18,7 +18,9 @@ export default function ValidationResults() {
         );
     }
 
-    const { errors = [], warnings = [], advisories = [] } = job.result;
+    const { errors = [], warnings = [], advisories = [] } = job.result || {};
+
+    const totalIssues = errors.length + warnings.length + advisories.length;
 
     const filteredIssues = () => {
         if (activeTab === 'errors') return errors;
@@ -119,27 +121,39 @@ export default function ValidationResults() {
                     <div className="flex items-center border-b border-slate-200 dark:border-slate-800 overflow-x-auto">
                         <button
                             onClick={() => setActiveTab('all')}
-                            className={`px-6 py-3 border-b-2 text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'all' ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                            className={`px-6 py-3 font-bold text-sm transition-colors border-b-2 whitespace-nowrap ${activeTab === 'all'
+                                ? 'border-primary text-primary'
+                                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+                                }`}
                         >
-                            All Feedback
+                            All Issues ({totalIssues})
                         </button>
                         <button
                             onClick={() => setActiveTab('errors')}
-                            className={`px-6 py-3 border-b-2 text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'errors' ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                            className={`px-6 py-3 font-bold text-sm transition-colors border-b-2 whitespace-nowrap ${activeTab === 'errors'
+                                ? 'border-red-600 text-red-600 dark:text-red-400'
+                                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+                                }`}
                         >
                             Errors ({errors.length})
                         </button>
                         <button
                             onClick={() => setActiveTab('warnings')}
-                            className={`px-6 py-3 border-b-2 text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'warnings' ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                            className={`px-6 py-3 font-bold text-sm transition-colors border-b-2 whitespace-nowrap ${activeTab === 'warnings'
+                                ? 'border-amber-600 text-amber-600 dark:text-amber-400'
+                                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+                                }`}
                         >
                             Warnings ({warnings.length})
                         </button>
                         <button
                             onClick={() => setActiveTab('advisories')}
-                            className={`px-6 py-3 border-b-2 text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'advisories' ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                            className={`px-6 py-3 font-bold text-sm transition-colors border-b-2 whitespace-nowrap ${activeTab === 'advisories'
+                                ? 'border-primary text-primary'
+                                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+                                }`}
                         >
-                            AI Advisory ({advisories.length})
+                            Advisories ({advisories.length})
                         </button>
                     </div>
 
@@ -153,31 +167,41 @@ export default function ValidationResults() {
                                 badge={issue.severity || (activeTab === 'errors' ? 'Critical' : 'Notice')}
                             />
                         )) : (
-                            <div className="py-12 text-center text-slate-400">
-                                <span className="material-symbols-outlined text-4xl mb-2 opacity-20">check_circle</span>
-                                <p>No issues found in this category.</p>
+                            <div className="flex flex-col items-center justify-center py-16 px-4">
+                                <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400">
+                                    <span className="material-symbols-outlined text-5xl">check_circle</span>
+                                </div>
+                                <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">No validation issues found 🎉</h3>
+                                <p className="text-slate-500 dark:text-slate-400 text-center max-w-md">
+                                    {activeTab === 'all'
+                                        ? 'Your manuscript meets all formatting requirements and is ready for submission.'
+                                        : `No ${activeTab} detected in your manuscript.`
+                                    }
+                                </p>
                             </div>
                         )}
                     </div>
 
-                    {/* Action Footer */}
-                    <div className="flex flex-col sm:flex-row gap-4 pt-8">
-                        <button onClick={() => navigate('/compare')} className="flex-1 flex items-center justify-center gap-2 py-4 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-xl font-bold text-slate-700 dark:text-slate-200 hover:border-primary transition-all shadow-sm">
-                            <span className="material-symbols-outlined">compare_arrows</span>
-                            Compare with Original
-                        </button>
-                        <button onClick={() => navigate('/edit')} className="flex-1 flex items-center justify-center gap-2 py-4 bg-primary text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-primary/20">
-                            <span className="material-symbols-outlined">edit_note</span>
-                            Edit Processed Version
-                        </button>
-                    </div>
                 </div>
+
+                {/* Action Footer */}
+                <div className="flex flex-col sm:flex-row gap-4 pt-8">
+                    <button onClick={() => navigate('/compare')} className="flex-1 flex items-center justify-center gap-2 py-4 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-xl font-bold text-slate-700 dark:text-slate-200 hover:border-primary transition-all shadow-sm">
+                        <span className="material-symbols-outlined">compare_arrows</span>
+                        Compare with Original
+                    </button>
+                    <button onClick={() => navigate('/edit')} className="flex-1 flex items-center justify-center gap-2 py-4 bg-primary text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-primary/20">
+                        <span className="material-symbols-outlined">edit_note</span>
+                        Edit Processed Version
+                    </button>
+                </div>
+
 
                 <footer className="max-w-5xl mx-auto px-4 py-12 text-center text-slate-400 text-xs border-t border-slate-200 dark:border-slate-800 mt-12">
                     <p>© 2023 ManuscriptFormatter AI Inc. All rights reserved.</p>
                     <p className="mt-2">Validation performed against {job.template.toUpperCase()} academic standards.</p>
                 </footer>
-            </main>
+            </main >
         </>
     );
 }

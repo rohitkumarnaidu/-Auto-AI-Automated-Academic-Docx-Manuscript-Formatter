@@ -1,41 +1,17 @@
-"""
-Models package - Canonical data structures for the document pipeline.
-
-All models are Pydantic-based for validation and serialization.
-Each pipeline stage takes a Document as input and returns an enriched Document.
-"""
-
-from .block import Block, BlockType, ListType, TextStyle
-from .figure import Figure, FigureType, ImageFormat
-from .table import Table, TableCell
-from .reference import Reference, ReferenceType, CitationStyle
-from .document import (
-    Document,
-    DocumentMetadata,
-    TemplateInfo,
-    ProcessingHistory,
+from app.models.user import User
+from app.models.document import Document # Database model
+from app.models.document_result import DocumentResult
+from app.models.processing_status import ProcessingStatus
+from app.models.block import Block, BlockType, TextStyle, ListType
+from app.models.figure import Figure, FigureType, ImageFormat
+from app.models.table import Table, TableCell
+from app.models.reference import Reference, ReferenceType, CitationStyle
+from app.models.equation import Equation
+from app.models.review import ReviewStatus, ReviewMetadata
+from app.models.pipeline_document import (
+    DocumentMetadata, 
+    TemplateInfo, 
+    ProcessingStage as ProcessingHistory,
+    PipelineDocument
 )
-
-__all__ = [
-    # Block models
-    "Block",
-    "BlockType",
-    "ListType",
-    "TextStyle",
-    # Figure models
-    "Figure",
-    "FigureType",
-    "ImageFormat",
-    # Table models
-    "Table",
-    "TableCell",
-    # Reference models
-    "Reference",
-    "ReferenceType",
-    "CitationStyle",
-    # Document models
-    "Document",
-    "DocumentMetadata",
-    "TemplateInfo",
-    "ProcessingHistory",
-]
+from app.models.document_version import DocumentVersion

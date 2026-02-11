@@ -59,13 +59,23 @@ class Table(BaseModel):
         description="List of all table cells"
     )
     
-    # Alternative representation (2D array)
+    # Table data (Source of Truth)
+    data: List[List[str]] = Field(
+        default_factory=list,
+        description="2D array representation of table (row-major order). data[row][col] = text"
+    )
+    
+    # Backward compatibility
     rows: List[List[str]] = Field(
         default_factory=list,
         description="2D array representation of table (row-major order)"
     )
     
     # Header information
+    has_header: bool = Field(
+        default=False,
+        description="Whether the table has a header row"
+    )
     has_header_row: bool = Field(
         default=False,
         description="Whether first row is a header"
@@ -87,6 +97,10 @@ class Table(BaseModel):
     index: int = Field(
         ...,
         description="Sequential position among all tables (0-based)"
+    )
+    block_index: int = Field(
+        ...,
+        description="Global block index in document order (shared with text blocks)"
     )
     
     # Caption information

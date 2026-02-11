@@ -1,0 +1,12 @@
+publisher: "APA"
+description: "American Psychological Association Style (7th Edition)"
+# Placeholder contract
+sections:
+  required:
+    - "abstract"
+    - "introduction"
+    - "references"
+  order:
+    - "abstract"
+    - "introduction"
+    - "references"

@@ -8,12 +8,14 @@ import re
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
-from app.models import Document, Block, BlockType, Reference, ReferenceType
+from app.models import PipelineDocument as Document, Block, BlockType, Reference, ReferenceType
 from app.utils.id_generator import generate_reference_id
 from .normalizer import clean_title, clean_author_name, normalize_page_range
 
 
-class ReferenceParser:
+from app.pipeline.base import PipelineStage
+
+class ReferenceParser(PipelineStage):
     """
     Parses reference blocks into structured Reference objects.
     
@@ -31,7 +33,7 @@ class ReferenceParser:
         # IEEE style author split (comma separated, followed by quote)
         # Conservative: Authors are usually at the start.
         
-    def parse_references(self, document: Document) -> Document:
+    def process(self, document: Document) -> Document:
         """
         Extract and parse references from the document.
         """
@@ -192,4 +194,4 @@ class ReferenceParser:
 # Convenience
 def parse_references(document: Document) -> Document:
     parser = ReferenceParser()
-    return parser.parse_references(document)
+    return parser.process(document)

@@ -28,9 +28,12 @@ from docx.text.paragraph import Paragraph as DocxParagraph
 from docx.oxml.table import CT_Tbl
 from docx.oxml.text.paragraph import CT_P
 from docx.shape import InlineShape
+from docx.oxml.ns import qn
+
+from app.pipeline.tables.extractor import TableExtractor
 
 from app.models import (
-    Document,
+    PipelineDocument as Document,
     DocumentMetadata,
     Block,
     BlockType,
@@ -39,8 +42,14 @@ from app.models import (
     ImageFormat,
     Table,
     TableCell,
+    Equation,
 )
-from app.utils.id_generator import generate_block_id, generate_figure_id, generate_table_id
+from app.utils.id_generator import (
+    generate_block_id, 
+    generate_figure_id, 
+    generate_table_id,
+    generate_equation_id
+)
 
 
 class DocxParser:
@@ -54,8 +63,10 @@ class DocxParser:
     def __init__(self):
         """Initialize the parser."""
         self.block_counter = 0
+        self.element_counter = 0  # Global sequential index
         self.figure_counter = 0
         self.table_counter = 0
+        self.equation_counter = 0
         self.current_page = None  # DOCX doesn't provide reliable page numbers
     
     def parse(self, docx_path: str, document_id: str) -> Document:
@@ -78,8 +89,10 @@ class DocxParser:
         
         # Reset counters for this parse
         self.block_counter = 0
+        self.element_counter = 0
         self.figure_counter = 0
         self.table_counter = 0
+        self.equation_counter = 0
         
         # Open DOCX document
         try:
@@ -88,6 +101,11 @@ class DocxParser:
             raise ValueError(f"Failed to open DOCX file: {e}")
         
         # Initialize document
+        # FIX: Explicitly cast document_id to string to avoid Pydantic ValidationError
+        # The orchestrator might pass a UUID object, but PipelineDocument expects a str.
+        if not isinstance(document_id, str):
+            document_id = str(document_id)
+
         document = Document(
             document_id=document_id,
             original_filename=Path(docx_path).name,
@@ -101,17 +119,18 @@ class DocxParser:
         
         # Extract document content in order
         # DOCX structure: paragraphs and tables are interspersed
-        blocks, figures, tables = self._extract_body_content(docx)
+        blocks, figures, tables, equations = self._extract_body_content(docx)
         
         document.blocks = blocks
         document.figures = figures
         document.tables = tables
+        document.equations = equations
         
         # Add processing history
         document.add_processing_stage(
             stage_name="parsing",
             status="success",
-            message=f"Parsed {len(blocks)} blocks, {len(figures)} figures, {len(tables)} tables"
+            message=f"Parsed {len(blocks)} blocks, {len(figures)} figures, {len(tables)} tables, {len(equations)} equations"
         )
         
         return document
@@ -154,7 +173,7 @@ class DocxParser:
     
     def _extract_body_content(
         self, docx: DocxDocumentType
-    ) -> Tuple[List[Block], List[Figure], List[Table]]:
+    ) -> Tuple[List[Block], List[Figure], List[Table], List[Equation]]:
         """
         Extract all content from document body in original order.
         
@@ -170,6 +189,7 @@ class DocxParser:
         blocks: List[Block] = []
         figures: List[Figure] = []
         tables: List[Table] = []
+        equations: List[Equation] = []
         
         # Iterate through body elements in order
         # This preserves the exact sequence of content
@@ -181,6 +201,8 @@ class DocxParser:
                 # Extract text block
                 block = self._extract_paragraph(paragraph)
                 if block:  # Only add if not None (skip certain empties)
+                    block.index = self.element_counter
+                    self.element_counter += 1
                     blocks.append(block)
                 
                 # Check for inline images
@@ -192,14 +214,22 @@ class DocxParser:
                         figure.metadata["block_index"] = block.index
                 
                 figures.extend(inline_figures)
+
+                # Check for equations in paragraph
+                paragraph_equations = self._extract_equations(paragraph)
+                for eqn in paragraph_equations:
+                    if block:
+                        eqn.block_id = block.block_id
+                equations.extend(paragraph_equations)
             
             elif isinstance(element, CT_Tbl):
                 # Table element
                 table = DocxTable(element, docx)
-                extracted_table = self._extract_table(table)
+                extracted_table = self._extract_table(table, self.element_counter)
+                self.element_counter += 1
                 tables.append(extracted_table)
         
-        return blocks, figures, tables
+        return blocks, figures, tables, equations
     
     def _extract_paragraph(self, paragraph: DocxParagraph) -> Optional[Block]:
         """
@@ -331,9 +361,19 @@ class DocxParser:
                         )
                         
                         for inline in inline_shapes:
-                            figure = self._extract_image_from_inline(inline, run._part)
-                            if figure:
-                                figures.append(figure)
+                            # Safely get part from run (support different python-docx versions)
+                            # This prevents 'AttributeError: 'Run' object has no attribute '_part''
+                            part = None
+                            try:
+                                part = getattr(run, 'part', getattr(run, '_part', None))
+                            except AttributeError:
+                                # Certain environments might still throw if even getattr is restricted (rare)
+                                pass
+                                
+                            if part:
+                                figure = self._extract_image_from_inline(inline, part)
+                                if figure:
+                                    figures.append(figure)
                     except Exception as e:
                         # If image extraction fails, log but continue
                         # Don't let image errors stop paragraph processing
@@ -433,83 +473,87 @@ class DocxParser:
         
         return format_map.get(content_type, ImageFormat.UNKNOWN)
     
-    def _extract_table(self, table: DocxTable) -> Table:
+    def _extract_table(self, table: DocxTable, block_index: int) -> Table:
         """
-        Extract a table with full cell structure.
+        Extract a table using the specialized TableExtractor.
         
         Args:
             table: python-docx Table object
+            block_index: Global sequential index in document
         
         Returns:
             Table instance
         """
-        # Generate unique ID
-        table_id = generate_table_id(self.table_counter)
-        self.table_counter += 1
-        
-        # Get table dimensions
-        num_rows = len(table.rows)
-        num_cols = len(table.columns) if table.columns else 0
-        
-        # Extract cells
-        cells: List[TableCell] = []
-        rows_data: List[List[str]] = []
-        
-        for row_idx, row in enumerate(table.rows):
-            row_data = []
-            for col_idx, cell in enumerate(row.cells):
-                # Get cell text
-                cell_text = cell.text.strip()
-                
-                # Create TableCell
-                table_cell = TableCell(
-                    row=row_idx,
-                    col=col_idx,
-                    text=cell_text,
-                    # Note: python-docx doesn't easily expose rowspan/colspan
-                    # These would need more complex XML parsing if needed
-                    rowspan=1,
-                    colspan=1,
-                    # Check if this looks like a header (first row, bold text)
-                    is_header=(row_idx == 0),
-                    bold=self._is_cell_bold(cell)
-                )
-                
-                cells.append(table_cell)
-                row_data.append(cell_text)
-            
-            rows_data.append(row_data)
-        
-        # Create Table model
-        extracted_table = Table(
-            table_id=table_id,
-            index=self.table_counter - 1,
-            num_rows=num_rows,
-            num_cols=num_cols,
-            cells=cells,
-            rows=rows_data,
-            has_header_row=(num_rows > 0),  # Assume first row is header if table exists
-            header_rows=1 if num_rows > 0 else 0
+        extractor = TableExtractor()
+        extracted_table = extractor.extract(
+            table, 
+            generate_table_id(self.table_counter),
+            self.table_counter,
+            block_index
         )
-        
+        self.table_counter += 1
         return extracted_table
     
-    def _is_cell_bold(self, cell) -> bool:
+
+
+    def _extract_equations(self, paragraph: DocxParagraph) -> List[Equation]:
         """
-        Check if cell text is predominantly bold.
-        
-        Args:
-            cell: python-docx Cell object
-        
-        Returns:
-            True if cell appears to be bold
+        Extract equations (OMML) from a paragraph.
         """
-        # Check paragraphs in cell
-        for paragraph in cell.paragraphs:
-            for run in paragraph.runs:
-                if run.bold:
-                    return True
-        return False
+        equations = []
+        
+        # Word Math namespaces
+        # m:oMathPara (Block equation wrapper)
+        # m:oMath (The actual equation)
+        
+        # Look for oMathPara (Block Equations)
+        for om_para in paragraph._element.findall(qn('m:oMathPara')):
+            for om in om_para.findall(qn('m:oMath')):
+                eqn = self._extract_math_element(om, is_block=True)
+                if eqn:
+                    equations.append(eqn)
+                    
+        # Look for inline oMath (not inside oMathPara)
+        # This is a bit tricky with findall if they are nested differently.
+        # Most inline equations are direct children of w:p or inside w:r.
+        for om in paragraph._element.findall(qn('m:oMath')):
+            # Check if already processed as block
+            if any(om is b_om for b_om in paragraph._element.findall(f".//{qn('m:oMathPara')}/{qn('m:oMath')}")):
+                continue
+                
+            eqn = self._extract_math_element(om, is_block=False)
+            if eqn:
+                equations.append(eqn)
+                
+        return equations
+
+    def _extract_math_element(self, om_element, is_block: bool) -> Optional[Equation]:
+        """Extract data from an oMath element."""
+        try:
+            # Get raw XML (OMML)
+            from lxml import etree
+            omml_str = etree.tostring(om_element, encoding='unicode')
+            
+            # Simple text extraction (heuristic)
+            # oMath contains w:t or m:t elements
+            math_text = "".join(t.text for t in om_element.findall(f".//{qn('m:t')}"))
+            if not math_text:
+                math_text = "".join(t.text for t in om_element.findall(f".//{qn('w:t')}"))
+            
+            # Create Equation
+            eqn_id = generate_equation_id(self.equation_counter)
+            self.equation_counter += 1
+            
+            return Equation(
+                equation_id=eqn_id,
+                index=self.equation_counter - 1,
+                text=math_text,
+                omml=omml_str,
+                is_block=is_block
+            )
+        except Exception as e:
+            print(f"Warning: Failed to extract equation: {e}")
+            return None
 
 
 # Convenience function
@@ -532,3 +576,19 @@ def parse_docx(docx_path: str, document_id: str) -> Document:
     """
     parser = DocxParser()
     return parser.parse(docx_path, document_id)
+
+
+# Helper functions for unique IDs
+def generate_figure_id(counter: int) -> str:
+    """Generate a unique ID for a figure (e.g., 'fig_001')."""
+    return f"fig_{counter:03d}"
+
+
+def generate_table_id(counter: int) -> str:
+    """Generate a unique ID for a table (e.g., 'tbl_001')."""
+    return f"tbl_{counter:03d}"
+
+
+def generate_equation_id(counter: int) -> str:
+    """Generate a unique ID for an equation (e.g., 'eqn_001')."""
+    return f"eqn_{counter:03d}"

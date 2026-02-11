@@ -1,113 +1,95 @@
-"""
-FastAPI Application - Exposes the manuscript formatting pipeline.
-"""
 
-import os
-import shutil
-import uuid
-import tempfile
-from typing import Optional
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.routers import auth, documents
+from app.config.settings import settings
+import logging
 
-from app.pipeline.orchestrator import PipelineOrchestrator
+# Phase 2: Silence Global AI Startup Noise
+import os
+os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
+from transformers import logging as transformers_logging
+transformers_logging.set_verbosity_error()
 
-app = FastAPI(title="Auto Manuscript Formatter API")
+app = FastAPI(
+    title="ScholarForm AI Backend",
+    description="Backend API for ScholarForm AI with Supabase Auth",
+    version="1.0.0"
+)
 
-# CORS (Allow all for development)
+# CORS Configuration
+origins = [
+    "http://localhost:5173",  # Vite dev server
+    "http://localhost:3000",
+    # Add production domains here
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Global Orchestrator
-# In prod, config might come from env
-orchestrator = PipelineOrchestrator(
-    templates_dir=os.path.join(os.path.dirname(__file__), "templates"),
-    temp_dir=tempfile.gettempdir()
-)
+# Include Routers
+app.include_router(auth.router)
+app.include_router(documents.router)
 
-@app.post("/upload")
-async def upload_document(
-    file: UploadFile = File(...),
-    template_name: Optional[str] = Form(None),
-    enable_ocr: bool = Form(True),
-    enable_ai: bool = Form(False)
-):
+@app.on_event("startup")
+async def startup_event():
     """
-    Upload a document for processing.
-    
-    Args:
-        file: The document file.
-        template_name: Optional name of the template to apply.
-        enable_ocr: Auto-detect and OCR scanned PDFs (Default: True).
-        enable_ai: Enable advisory AI analysis (Default: False).
+    Perform startup tasks, including cleaning up interrupted jobs.
+    Note: This project intentionally avoids automated pipeline testing at this stage.
     """
-    job_id = str(uuid.uuid4())
+    from app.db.session import SessionLocal
+    from app.models import Document
+    from sqlalchemy.exc import OperationalError
     
-    # Save Upload to Temp
-    temp_dir = tempfile.gettempdir()
-    _, ext = os.path.splitext(file.filename)
-    if not ext:
-        ext = ".docx" # Default assume docx if missing? Or error.
-        
-    temp_path = os.path.join(temp_dir, f"{job_id}_raw{ext}")
-    
+    db = None
     try:
-        with open(temp_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        # Lazy instantiation inside try block
+        db = SessionLocal()
+        # Find jobs stuck in RUNNING state from previous session
+        # This will trigger the connection attempt
+        interrupted_docs = db.query(Document).filter(Document.status == "RUNNING").all()
+        if interrupted_docs:
+            print(f"Startup: Found {len(interrupted_docs)} interrupted jobs. Marking as FAILED.")
+            for doc in interrupted_docs:
+                doc.status = "FAILED"
+                doc.error_message = "Processing interrupted by server restart."
+            db.commit()
+    except (OperationalError, Exception) as e:
+        # Log a clear warning instead of crashing the process
+        # This ensures the app starts even if DNS or DB is down
+        print(f"Startup DB Link Status: UNREACHABLE. Error: {e}")
+        print("Note: App is starting in degraded mode. DB-dependent endpoints will fail at request-time.")
+    finally:
+        if db:
+            db.close()
             
-        # Run Pipeline
-        result = orchestrator.run_pipeline(
-            input_path=temp_path,
-            job_id=job_id,
-            template_name=template_name,
-            enable_ocr=enable_ocr,
-            enable_ai=enable_ai
-        )
-        
-        # Cleanup input
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
-            
-        return JSONResponse(content=result)
-        
-    except Exception as e:
-        # Cleanup
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/download/{filename}")
-async def download_file(filename: str):
-    """
-    Serve generated files.
-    Note: In real prod, serve via Nginx or S3 presigned URLs.
-    """
-    # Security: basic check to prevent traversal
-    if ".." in filename or "/" in filename or "\\" in filename:
-        raise HTTPException(status_code=400, detail="Invalid filename")
-        
-    # Search in output directories?
-    # Our orchestrator saves to output/{job_id}/...
-    # This endpoint is tricky dynamically without job_id.
-    # Simplified: We assume consumer knows the full path or we return a download URL in /upload.
-    # The /upload response returns local "output_path".
-    # For this manual test integration, we might not need a perfect download endpoint 
-    # if the manual test checks the file system.
-    # But let's verify if user requested it. 
-    # "Return JSON... Download URL if file generated".
-    # So /upload should return a URL.
-    # I'll update /upload return to include a downloadable URL logic if I can.
-    # For now, simplistic static serving of 'output' dir is easier?
+    # Phase 2: AI Model Pre-loading
+    from app.services.model_store import model_store
+    from app.pipeline.intelligence.semantic_parser import get_semantic_parser
+    from app.pipeline.intelligence.rag_engine import get_rag_engine
     
-    # Basic implementation: We assume filename is unique or we need job_id.
-    return HTTPException(status_code=501, detail="Download via static serving or direct path access for now.")
+    print("Startup: Pre-loading AI models into memory...")
+    try:
+        # Load Semantic Parser (SciBERT)
+        parser = get_semantic_parser()
+        parser._load_model()
+        model_store.set_model("scibert_tokenizer", parser.tokenizer)
+        model_store.set_model("scibert_model", parser.model)
+        
+        # Load RagEngine (SentenceTransformer + Vector Store)
+        rag = get_rag_engine()
+        model_store.set_model("rag_engine", rag)
+        model_store.set_model("embedding_model", rag.embedding_model)
+        
+        print("Startup: AI models loaded and registered successfully.")
+    except Exception as e:
+        print(f"Startup AI Error: Failed to pre-load models ({e}). Falling back to lazy-loading.")
 
-@app.get("/health")
-def health_check():
-    return {"status": "ok"}
+@app.get("/")
+async def root():
+    return {"message": "ScholarForm AI Backend is running"}

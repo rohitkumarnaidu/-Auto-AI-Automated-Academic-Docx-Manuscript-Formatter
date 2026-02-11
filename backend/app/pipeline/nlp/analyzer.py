@@ -4,7 +4,7 @@ NLP Content Analyzer - Enriches document with AI/NLP hints (Read-Only).
 
 import re
 from typing import List, Dict, Any
-from app.models import Document, Block, BlockType
+from app.models import PipelineDocument as Document, Block, BlockType
 
 try:
     # import spacy
@@ -13,7 +13,9 @@ try:
 except ImportError:
     NLP_AVAILABLE = False
 
-class ContentAnalyzer:
+from app.pipeline.base import PipelineStage
+
+class ContentAnalyzer(PipelineStage):
     """
     Analyzes document content to provide advisory hints.
     Does NOT modify content or block types.
@@ -32,7 +34,7 @@ class ContentAnalyzer:
             except Exception as e:
                 print(f"Warning: Failed to load spacy model: {e}")
 
-    def analyze(self, document: Document) -> Document:
+    def process(self, document: Document) -> Document:
         """
         Run analysis on the document blocks.
         Populates block.metadata["ai_hints"].

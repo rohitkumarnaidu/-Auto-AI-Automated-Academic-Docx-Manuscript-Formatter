@@ -1,0 +1,182 @@
+"""
+Verification script for Phase 3.1 Post-Audit Maintenance Fixes
+
+Tests:
+1. EquationStandardizer: namespace validation, conversion logging
+2. ReviewManager: threshold validation, flag prioritization, logging
+3. JATS XML: author validation, abstract mapping, reference list
+"""
+
+import sys
+import os
+sys.path.append(os.getcwd())
+
+from app.models.pipeline_document import PipelineDocument, DocumentMetadata
+from app.models.block import Block
+from app.models.equation import Equation
+from app.models.reference import Reference
+from app.pipeline.equations.standardizer import EquationStandardizer
+from app.pipeline.validation.review_manager import ReviewManager
+from app.pipeline.export.jats_generator import JATSGenerator
+
+def test_equation_standardizer():
+    """Test EquationStandardizer improvements."""
+    print("\n=== Testing EquationStandardizer ===")
+    
+    # Create document with equations
+    doc = PipelineDocument(document_id="test_eq")
+    
+    # Valid OMML equation
+    valid_omml = '''<m:oMath xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math">
+        <m:r><m:t>E=mc²</m:t></m:r>
+    </m:oMath>'''
+    
+    # Invalid OMML (malformed XML)
+    invalid_omml = '<m:oMath>broken<xml'
+    
+    doc.equations = [
+        Equation(equation_id="eq1", index=0, is_block=True, omml=valid_omml),
+        Equation(equation_id="eq2", index=1, is_block=True, omml=invalid_omml),
+    ]
+    
+    # Process
+    standardizer = EquationStandardizer()
+    doc = standardizer.process(doc)
+    
+    # Verify logging
+    stage = doc.processing_history[-1]
+    print(f"✓ Stage message: {stage.message}")
+    print(f"✓ Stage status: {stage.status}")
+    
+    # Check conversion results
+    assert doc.equations[0].mathml is not None, "Valid equation should convert"
+    assert doc.equations[1].mathml == "", "Invalid equation should fail gracefully"
+    
+    # Verify message includes success/failure counts
+    assert "1/2" in stage.message or "Converted 1" in stage.message, "Should log conversion stats"
+    assert "partial" in stage.status or "failed" in stage.message, "Should indicate partial success"
+    
+    print("✅ EquationStandardizer: PASS")
+
+def test_review_manager():
+    """Test ReviewManager improvements."""
+    print("\n=== Testing ReviewManager ===")
+    
+    # Test 1: Threshold validation
+    try:
+        ReviewManager(review_threshold=0.7, critical_threshold=0.8)
+        assert False, "Should reject invalid thresholds"
+    except ValueError as e:
+        print(f"✓ Threshold validation: {e}")
+    
+    # Test 2: Flag prioritization
+    doc = PipelineDocument(document_id="test_review")
+    doc.blocks = [
+        Block(block_id="b1", text="Critical block", index=0),
+        Block(block_id="b2", text="Review block", index=1),
+        Block(block_id="b3", text="Another critical", index=2),
+    ]
+    
+    # Set confidences
+    doc.blocks[0].metadata["nlp_confidence"] = 0.65  # CRITICAL
+    doc.blocks[1].metadata["nlp_confidence"] = 0.80  # REVIEW
+    doc.blocks[2].metadata["nlp_confidence"] = 0.68  # CRITICAL
+    
+    manager = ReviewManager()
+    doc = manager.evaluate(doc)
+    
+    # Verify CRITICAL flags come first
+    flags = doc.review.flags
+    print(f"✓ Generated {len(flags)} flags")
+    
+    critical_count = sum(1 for f in flags if "CRITICAL" in f)
+    review_count = sum(1 for f in flags if "REVIEW" in f and "CRITICAL" not in f)
+    
+    print(f"✓ CRITICAL flags: {critical_count}, REVIEW flags: {review_count}")
+    
+    # Check first flags are CRITICAL
+    if flags:
+        assert "CRITICAL" in flags[0], "First flag should be CRITICAL"
+        print(f"✓ First flag: {flags[0][:60]}...")
+    
+    # Verify block IDs are included
+    assert any("[block:" in f for f in flags), "Flags should include block IDs"
+    print("✓ Block IDs included in flags")
+    
+    print("✅ ReviewManager: PASS")
+
+def test_jats_generator():
+    """Test JATS XML improvements."""
+    print("\n=== Testing JATS XML Generator ===")
+    
+    # Test 1: Author validation (empty list)
+    doc = PipelineDocument(document_id="test_jats")
+    doc.metadata = DocumentMetadata(
+        title="Test Article",
+        authors=[],  # Empty - should add placeholder
+        abstract="This is a test abstract."
+    )
+    
+    # Add a reference
+    doc.references = [
+        Reference(
+            reference_id="ref1",
+            text="Smith et al. (2020). Test Article. Journal of Testing.",
+            index=0
+        )
+    ]
+    
+    generator = JATSGenerator()
+    xml = generator.to_xml(doc)
+    
+    # Verify author placeholder was added
+    assert "Unknown Author" in xml or len(doc.metadata.authors) > 0, "Should add placeholder author"
+    print("✓ Author validation: placeholder added for empty list")
+    
+    # Verify abstract is present
+    assert "<abstract>" in xml, "Should include abstract element"
+    assert "test abstract" in xml.lower(), "Should include abstract text"
+    print("✓ Abstract mapping: present in XML")
+    
+    # Verify reference list
+    assert "<ref-list>" in xml, "Should include reference list"
+    assert "<ref id=\"ref1\">" in xml, "Should include reference with ID"
+    assert "Smith et al" in xml, "Should include reference text"
+    print("✓ Reference list: present in back matter")
+    
+    # Test 2: Document with authors and no abstract
+    doc2 = PipelineDocument(document_id="test_jats2")
+    doc2.metadata = DocumentMetadata(
+        title="Another Test",
+        authors=["John Doe", "Jane Smith"],
+        abstract=None
+    )
+    
+    xml2 = generator.to_xml(doc2)
+    assert "John Doe" in xml2 or "Doe" in xml2, "Should include authors"
+    print("✓ Authors present when provided")
+    
+    print("✅ JATS XML Generator: PASS")
+
+if __name__ == "__main__":
+    print("=" * 60)
+    print("Phase 3.1 Post-Audit Maintenance Verification")
+    print("=" * 60)
+    
+    try:
+        test_equation_standardizer()
+        test_review_manager()
+        test_jats_generator()
+        
+        print("\n" + "=" * 60)
+        print("✅ ALL TESTS PASSED")
+        print("=" * 60)
+        
+    except AssertionError as e:
+        print(f"\n❌ TEST FAILED: {e}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"\n❌ ERROR: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)

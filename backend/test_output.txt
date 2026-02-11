@@ -1,0 +1,116 @@
+﻿============================================================
+Phase 3.1 Post-Audit Maintenance Verification
+============================================================
+
+=== Testing EquationStandardizer ===
+EquationStandardizer: XML syntax error: Namespace prefix m on oMath is not defined, line 1, column 9 (<string>, line 1)
+.\.venv\Scripts\pytho
+n : Traceback (most 
+recent call last):
+At line:1 char:1
++ .\.venv\Scripts\pyt
+hon verify_audit_fixe
+s.py 2>&1 | Out-File 
+-Encodin ...
++ ~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~
+    + CategoryInfo   
+           : NotSpe  
+  cified: (Traceba   
+ ck (most recent     
+call last)::Stri    
+ng) [], RemoteEx    
+ception
+    + FullyQualified 
+   ErrorId : Native  
+  CommandError
+ 
+  File "C:\Hackathons
+\ECLearnIX\(Auto AI) 
+Automated Academic 
+Docx Manuscript Forma
+tter\automated-manusc
+ript-formatter\backen
+d\verify_audit_fixes.
+py", line 167, in 
+<module>
+    test_equation_sta
+ndardizer()
+    ~~~~~~~~~~~~~~~~~
+~~~~~~~~~^^
+  File "C:\Hackathons
+\ECLearnIX\(Auto AI) 
+Automated Academic 
+Docx Manuscript Forma
+tter\automated-manusc
+ript-formatter\backen
+d\verify_audit_fixes.
+py", line 48, in test
+_equation_standardize
+r
+    print(f"\u2713 
+Stage message: 
+{stage.message}")
+    ~~~~~^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
+^^^^
+  File "C:\Python314\
+Lib\encodings\cp1252.
+py", line 19, in 
+encode
+    return codecs.cha
+rmap_encode(input,sel
+f.errors,encoding_tab
+le)[0]
+           ~~~~~~~~~~
+~~~~~~~~~~~^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
+^^^
+UnicodeEncodeError: 
+'charmap' codec 
+can't encode 
+character '\u2713' 
+in position 0: 
+character maps to 
+<undefined>
+
+During handling of 
+the above exception, 
+another exception 
+occurred:
+
+Traceback (most 
+recent call last):
+  File "C:\Hackathons
+\ECLearnIX\(Auto AI) 
+Automated Academic 
+Docx Manuscript Forma
+tter\automated-manusc
+ript-formatter\backen
+d\verify_audit_fixes.
+py", line 179, in 
+<module>
+    print(f"\n\u274c 
+ERROR: {e}")
+    ~~~~~^^^^^^^^^^^^
+^^^^^^^^
+  File "C:\Python314\
+Lib\encodings\cp1252.
+py", line 19, in 
+encode
+    return codecs.cha
+rmap_encode(input,sel
+f.errors,encoding_tab
+le)[0]
+           ~~~~~~~~~~
+~~~~~~~~~~~^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
+^^^
+UnicodeEncodeError: 
+'charmap' codec 
+can't encode 
+character '\u274c' 
+in position 2: 
+character maps to 
+<undefined>

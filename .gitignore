@@ -46,7 +46,9 @@ Thumbs.db
 *.sublime-workspace
 
 # Logs
+# Logs
 *.log
+build_log.txt
 
 # Temporary & Output files
 output/

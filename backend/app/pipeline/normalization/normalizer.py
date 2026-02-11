@@ -26,7 +26,7 @@ IMPORTANT:
 from typing import List
 from datetime import datetime
 
-from app.models import Document, Block, Table, DocumentMetadata
+from app.models import PipelineDocument as Document, Block, Table, DocumentMetadata
 from app.utils.text_utils import (
     normalize_block_text,
     normalize_table_cell_text,
@@ -34,7 +34,9 @@ from app.utils.text_utils import (
 )
 
 
-class Normalizer:
+from app.pipeline.base import PipelineStage
+
+class Normalizer(PipelineStage):
     """
     Normalizes text content in a Document model.
     
@@ -46,7 +48,7 @@ class Normalizer:
         """Initialize the normalizer."""
         pass
     
-    def normalize(self, document: Document) -> Document:
+    def process(self, document: Document) -> Document:
         """
         Normalize all text content in the document.
         
@@ -145,35 +147,135 @@ class Normalizer:
     
     def _normalize_blocks(self, blocks: List[Block]) -> List[Block]:
         """
-        Normalize text in all blocks.
+        Normalize text in all blocks with strict sequential logic.
         
-        IMPORTANT: This preserves:
-        - Block IDs
-        - Block positions (index)
-        - Block types (UNKNOWN)
-        - Block order
-        - All metadata
-        
-        Args:
-            blocks: List of blocks from parsing
-        
-        Returns:
-            List of blocks with normalized text
+        STRICT ORDER OF OPERATIONS (Journal Editor Mode):
+        1. CLEAN text (whitespace/unicode)
+        2. REPAIR corruptions (e.g. "2ethodology" -> "2 Methodology")
+        3. SPLIT merged blocks (Heading merged with body text)
+        4. FILTER empty blocks (Post-split)
         """
+        import re
         normalized_blocks = []
         
+        # Comprehensive Keyword List for Academic Sections
+        keywords = [
+            "Abstract", "Introduction", "Methods", "Methodology", "Materials and Methods",
+            "Results", "Findings", "Discussion", "Conclusion", "Conclusions", 
+            "References", "Bibliography", "Works Cited", "Background", 
+            "Literature Review", "Summary", "Keywords", "Acknowledgment", "Acknowledgements",
+            "Appendix", "Appendices"
+        ]
+        kw_regex = "(?:" + "|".join(keywords) + ")"
+        
         for block in blocks:
-            # Normalize the text content
-            # Allow empty blocks (they might indicate structure)
-            normalized_text = normalize_block_text(block.text, is_empty_ok=True)
+            # 1. CLEAN
+            text = normalize_block_text(block.text, is_empty_ok=True)
             
-            # Create a new block with normalized text
-            # Using model_copy to preserve all other fields
-            normalized_block = block.model_copy(update={"text": normalized_text})
+            # 2. REPAIR (Crucial to run before splitting)
+            text = self._repair_common_corruptions(text)
             
-            normalized_blocks.append(normalized_block)
+            # 3. SPLIT MERGED BLOCKS
+            was_split = False
+            
+            # Pattern A: ABSTRACT SPLIT (ABSOLUTE PRIORITY)
+            # Matches "AbstractThe system..." or "Abstract: This paper..."
+            abstract_match = re.match(r'^Abstract[:\.\—\-]?\s*(.+)$', text, flags=re.IGNORECASE)
+            if abstract_match:
+                body_text = abstract_match.group(1).strip()
+                if body_text:
+                    # Split into "Abstract" (Heading) and "rest of text" (Body)
+                    normalized_blocks.append(block.model_copy(update={
+                        "text": "Abstract",
+                        "metadata": {**block.metadata, "split_from_original": True, "split_reason": "abstract_split"}
+                    }))
+                    normalized_blocks.append(block.model_copy(update={
+                        "block_id": f"{block.block_id}_body",
+                        "text": body_text,
+                        "metadata": {**block.metadata, "split_from_original": True, "split_reason": "abstract_split"}
+                    }))
+                    was_split = True
+            
+            if was_split:
+                continue
+
+            # Pattern B: Numbered Headings + Body
+            # Match "1 IntroductionScientific..." or "1 Introduction: Scientific..."
+            # The [A-Z] guard ensures we are splitting at a potential sentence boundary.
+            # We look for a Keyword or a short Word (Title Case) after the number.
+            numbered_merged_match = re.match(rf'^(\d+(?:\.\d+)*\.?\s*(?:{kw_regex}|[A-Z][a-z]+))[:\.\—\-]?\s*([A-Z].+)$', text)
+            if numbered_merged_match:
+                heading_part = numbered_merged_match.group(1).strip()
+                body_part = numbered_merged_match.group(2).strip()
+                
+                # Check if body is really body (length or punctuation)
+                if len(body_part) > 20 or re.search(r'[\.\?\!]\s', body_part):
+                    normalized_blocks.append(block.model_copy(update={
+                        "text": heading_part,
+                        "metadata": {**block.metadata, "split_from_original": True, "split_reason": "numbered_split"}
+                    }))
+                    normalized_blocks.append(block.model_copy(update={
+                        "block_id": f"{block.block_id}_body",
+                        "text": body_part,
+                        "metadata": {**block.metadata, "split_from_original": True, "split_reason": "numbered_split"}
+                    }))
+                    was_split = True
+
+            if was_split:
+                continue
+
+            # Pattern C: Keyword + Body (Non-numbered)
+            # Match "IntroductionScientific..."
+            keyword_merged_match = re.match(rf'^({kw_regex})([A-Z][a-z].*)$', text)
+            if keyword_merged_match:
+                heading_part = keyword_merged_match.group(1).strip()
+                body_part = keyword_merged_match.group(2).strip()
+                
+                if len(body_part) > 30 or re.search(r'[\.\?\!]\s', body_part):
+                    normalized_blocks.append(block.model_copy(update={
+                        "text": heading_part,
+                        "metadata": {**block.metadata, "split_from_original": True, "split_reason": "keyword_split"}
+                    }))
+                    normalized_blocks.append(block.model_copy(update={
+                        "block_id": f"{block.block_id}_body",
+                        "text": body_part,
+                        "metadata": {**block.metadata, "split_from_original": True, "split_reason": "keyword_split"}
+                    }))
+                    was_split = True
+
+            if not was_split:
+                # 4. FILTER EMPTY (Finally append if not empty)
+                if text.strip():
+                    normalized_blocks.append(block.model_copy(update={"text": text}))
         
         return normalized_blocks
+
+    def _repair_common_corruptions(self, text: str) -> str:
+        """
+        Repair specific known text corruptions from parsing artifacts.
+        
+        STRICTLY fix: "2ethodology" -> "2 Methodology"
+        """
+        import re
+        if not text:
+            return text
+            
+        # Patterns for common academic headings starting with a number
+        # Fixing the lowercase first letter corruption
+        repairs = [
+            (r'^(\d+)\s*ntroduction', r'\1 Introduction'),
+            (r'^(\d+)\s*ethodology', r'\1 Methodology'),
+            (r'^(\d+)\s*esults', r'\1 Results'),
+            (r'^(\d+)\s*iscussion', r'\1 Discussion'),
+            (r'^(\d+)\s*onclusion', r'\1 Conclusion'),
+            (r'^(\d+)\s*eferences', r'\1 References'),
+            (r'^(\d+)\s*bstract', r'\1 Abstract'),
+        ]
+        
+        for pattern, replacement in repairs:
+            text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
+            
+        return text
     
     def _normalize_tables(self, tables: List[Table]) -> List[Table]:
         """
@@ -247,4 +349,4 @@ def normalize_document(document: Document) -> Document:
         >>> print("Normalized!")
     """
     normalizer = Normalizer()
-    return normalizer.normalize(document)
+    return normalizer.process(document)

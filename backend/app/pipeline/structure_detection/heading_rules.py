@@ -17,56 +17,37 @@ from app.models import Block
 # Common academic section headings (case-insensitive)
 COMMON_SECTION_KEYWORDS = {
     # Front matter
-    "abstract", "keywords", "key words",
+    "abstract", "keywords", "key words", "summary",
     
     # Main sections (level 1)
     "introduction", "background", "related work", "literature review",
     "methods", "methodology", "materials and methods", "experimental setup",
     "results", "findings", "experimental results",
     "discussion", "results and discussion",
-    "conclusion", "conclusions", "summary",
+    "conclusion", "conclusions",
     "acknowledgments", "acknowledgements", "funding",
     "references", "bibliography", "works cited",
     "appendix", "appendices", "supplementary material",
-    
-    # Common subsections (level 2+)
-    "motivation", "contributions", "objectives",
-    "dataset", "data collection", "participants",
-    "procedure", "analysis", "evaluation",
-    "limitations", "future work", "implications",
 }
 
 
 def detect_numbering_pattern(text: str) -> Optional[Dict[str, Any]]:
     """
     Detect if text starts with a heading numbering pattern.
-    
-    Patterns recognized:
-    - "1." or "1.1" or "1.1.1" (decimal)
-    - "I." or "II." or "III." (Roman numerals)
-    - "(a)" or "(1)" (parenthetical)
-    - "A." or "B." (letters)
-    
-    Args:
-        text: Block text (should be trimmed)
-    
-    Returns:
-        Dict with pattern info if detected, None otherwise
-        {
-            "pattern_type": "decimal" | "roman" | "letter" | "parenthetical",
-            "number": "1.1",
-            "level": 2,  # inferred from decimal depth
-            "remainder": "Introduction"  # text after number
-        }
     """
     text = text.strip()
-    
+    if not text:
+        return None
+        
     # Decimal numbering: 1., 1.1, 1.1.1, etc.
-    decimal_match = re.match(r'^(\d+(?:\.\d+)*)\.\s+(.+)$', text)
+    # Also support "1 Introduction" (no dot) if followed by Capital Letter
+    # Regex: ^(\d+(?:\.\d+)*)\.?\s+([A-Z].+)$
+    decimal_match = re.match(r'^(\d+(?:\.\d+)*)\.?\s+([A-Z].*)$', text)
     if decimal_match:
         number = decimal_match.group(1)
         remainder = decimal_match.group(2)
-        level = number.count('.') + 1  # 1. = level 1, 1.1 = level 2
+        level = number.count('.') + 1
+        
         return {
             "pattern_type": "decimal",
             "number": number,
@@ -74,253 +55,294 @@ def detect_numbering_pattern(text: str) -> Optional[Dict[str, Any]]:
             "remainder": remainder
         }
     
-    # Roman numerals: I., II., III., IV., etc.
-    roman_match = re.match(r'^([IVX]+)\.\s+(.+)$', text)
+    # Roman numerals: I. Introduction
+    roman_match = re.match(r'^([IVX]+)\.?\s+([A-Z].*)$', text)
     if roman_match:
         number = roman_match.group(1)
         remainder = roman_match.group(2)
-        # Roman numerals are typically level 1 or 2
         return {
             "pattern_type": "roman",
             "number": number,
-            "level": 1,  # Assume level 1 for Roman
-            "remainder": remainder
-        }
-    
-    # Letter numbering: A., B., C., etc.
-    letter_match = re.match(r'^([A-Z])\.\s+(.+)$', text)
-    if letter_match:
-        number = letter_match.group(1)
-        remainder = letter_match.group(2)
-        return {
-            "pattern_type": "letter",
-            "number": number,
-            "level": 2,  # Assume level 2 for letters
-            "remainder": remainder
-        }
-    
-    # Parenthetical: (a), (1), etc.
-    paren_match = re.match(r'^\(([a-z0-9])\)\s+(.+)$', text)
-    if paren_match:
-        number = paren_match.group(1)
-        remainder = paren_match.group(2)
-        return {
-            "pattern_type": "parenthetical",
-            "number": number,
-            "level": 3,  # Assume level 3 for parenthetical
+            "level": 1,
             "remainder": remainder
         }
     
     return None
 
 
+def detect_title(block: Block, all_blocks: list) -> bool:
+    """
+    STRICT Title Detection.
+    Rules:
+    - ONLY the first non-empty block in the document.
+    - Length between 5 and 200 chars.
+    - Not a numbered heading.
+    """
+    text = block.text.strip()
+    if not text or len(text) < 5 or len(text) > 200:
+        return False
+        
+    # Find all non-empty blocks
+    non_empty = [b for b in all_blocks if b.text.strip()]
+    if not non_empty:
+        return False
+        
+    # Rule: MUST be the very first non-empty block
+    if block.block_id != non_empty[0].block_id:
+        return False
+        
+    # Rule: TITLE must NEVER be a numbered heading
+    if detect_numbering_pattern(text):
+        return False
+        
+    return True
+
+
 def matches_section_keyword(text: str) -> bool:
     """
     Check if text matches a common section heading keyword.
-    
-    Args:
-        text: Block text (normalized)
-    
-    Returns:
-        True if text matches a known section keyword
+    Strictly enforce short length for keywords.
     """
-    # Normalize: lowercase, strip numbering
     text_clean = text.strip().lower()
     
-    # Remove leading numbering if present
-    text_clean = re.sub(r'^\d+(?:\.\d+)*\.\s*', '', text_clean)
-    text_clean = re.sub(r'^[IVX]+\.\s*', '', text_clean)
-    text_clean = re.sub(r'^[A-Z]\.\s*', '', text_clean)
+    # HARD GUARD: Headings matching keywords are rarely long.
+    # "Abstract" etc. are usually < 40 chars.
+    if len(text_clean) > 50:
+        return False
+        
+    # Remove leading numbering
+    text_clean = re.sub(r'^\d+(?:\.\d+)*\.?\s*', '', text_clean)
+    text_clean = re.sub(r'^[IVX]+\.?\s*', '', text_clean)
     
     # Check exact match
     if text_clean in COMMON_SECTION_KEYWORDS:
         return True
     
-    # Check if it starts with a keyword (e.g., "Introduction and Background")
-    for keyword in COMMON_SECTION_KEYWORDS:
-        if text_clean.startswith(keyword):
+    # Check for small variations like "1. Introduction" (number already removed)
+    # But do NOT allow "Abstract publishing requires..."
+    # We only allow trailing text if it's very short (e.g., "Abstract - Summer 2023")
+    if any(text_clean.startswith(f"{kw}") for kw in COMMON_SECTION_KEYWORDS):
+        if len(text_clean) < 30: # Tight limit for prefix matches
             return True
-    
+            
     return False
 
 
 def is_likely_heading_by_style(block: Block, avg_font_size: Optional[float] = None) -> Tuple[bool, float]:
     """
     Determine if a block is likely a heading based on styling.
-    
-    Heuristics:
-    - Bold text
-    - Larger font size than average
-    - Short text (< 100 chars typically)
-    - No punctuation at end (headings rarely end with .)
-    
-    Args:
-        block: Block to analyze
-        avg_font_size: Average font size in document (for comparison)
-    
-    Returns:
-        Tuple of (is_likely_heading, confidence_score)
-        confidence_score: 0.0-1.0
     """
-    score = 0.0
     text = block.text.strip()
     
-    # Empty or very short text is unlikely to be a heading
-    if len(text) < 2:
+    # HARD GUARD 1: Length > 120 chars is NOT a heading
+    if len(text) > 120 or len(text) < 2:
         return False, 0.0
+        
+    score = 0.0
     
-    # Check bold
+    # Font size outliers are strong signals
+    if block.style.font_size and avg_font_size:
+        if block.style.font_size > avg_font_size * 1.2:
+            score += 0.5
+        elif block.style.font_size > avg_font_size:
+            score += 0.2
+            
     if block.style.bold:
         score += 0.3
-    
-    # Check font size
-    if block.style.font_size and avg_font_size:
-        if block.style.font_size > avg_font_size * 1.1:  # 10% larger
-            score += 0.3
-        elif block.style.font_size > avg_font_size * 1.3:  # 30% larger
-            score += 0.4
-    
-    # Check text length (headings are usually short)
-    if len(text) < 100:
+        
+    if text.isupper():
         score += 0.2
-    if len(text) < 50:
-        score += 0.1
-    
-    # Check for lack of sentence-ending punctuation
-    # Headings typically don't end with periods (except for numbering)
-    if not text.endswith('.') or detect_numbering_pattern(text):
-        score += 0.1
-    
-    # Check for ALL CAPS (common for headings)
-    if text.isupper() and len(text) > 2:
-        score += 0.2
-    
-    # Check for title case (each word capitalized)
-    words = text.split()
-    if len(words) >= 2:
-        capitalized_words = sum(1 for w in words if w and w[0].isupper())
-        if capitalized_words / len(words) > 0.7:  # 70%+ capitalized
-            score += 0.1
-    
-    # Confidence threshold
-    is_likely = score >= 0.4
-    
-    return is_likely, min(score, 1.0)
+        
+    # Negative signal: Ends with period
+    if text.endswith('.'):
+        score -= 0.3
+        
+    return score >= 0.4, min(score, 1.0)
 
 
 def infer_heading_level(block: Block, numbering_info: Optional[Dict] = None) -> int:
     """
-    Infer the heading level (1, 2, 3, or 4).
-    
-    Level inference:
-    - If numbering detected, use numbering depth
-    - If font size available, larger = higher level (lower number)
-    - Otherwise, default to level 2
-    
-    Args:
-        block: Block to analyze
-        numbering_info: Output from detect_numbering_pattern()
-    
-    Returns:
-        Heading level (1-4)
+    Infer heading level (1-4).
+    TITLE = 0 (handled by detect_title)
+    Abstract/Intro/Methods/References/Conclusion = 1
+    Numbering depth (1.1 = 2)
     """
-    # If we have numbering, use that
-    if numbering_info and "level" in numbering_info:
-        return min(numbering_info["level"], 4)  # Cap at level 4
+    text = block.text.strip().lower()
     
-    # Use font size as a heuristic
-    # Larger font = higher level (level 1 is biggest)
-    if block.style.font_size:
-        font_size = block.style.font_size
-        if font_size >= 18:
-            return 1
-        elif font_size >= 16:
-            return 1
-        elif font_size >= 14:
-            return 2
-        elif font_size >= 12:
-            return 3
-        else:
-            return 4
+    # Major sections are always Level 1
+    major_sections = {
+        "abstract", "introduction", "methods", "methodology", 
+        "results", "discussion", "conclusion", "conclusions", 
+        "references", "bibliography", "summary", "keywords"
+    }
     
-    # Check if it matches a major section keyword (Introduction, Methods, etc.)
-    text_lower = block.text.strip().lower()
-    major_sections = {"introduction", "methods", "results", "discussion", "conclusion", "abstract", "references"}
-    if text_lower in major_sections:
+    # Remove leading numbering for keyword check
+    clean_text = re.sub(r'^\d+(?:\.\d+)*\.?\s*', '', text)
+    if clean_text in major_sections:
         return 1
+        
+    # Use numbering depth
+    if numbering_info and "level" in numbering_info:
+        return min(numbering_info["level"], 4)
+        
+    return 1 # Default to level 1 for other heading candidates
+
+
+def get_capitalization_ratio(text: str) -> float:
+    """Calculate ratio of capitalized words for Title Case detection."""
+    words = text.split()
+    if not words:
+        return 0.0
+    # Common small words in Title Case
+    small_words = {"a", "an", "the", "and", "but", "or", "for", "nor", "on", "at", "to", "from", "by", "of", "with"}
     
-    # Default to level 2
-    return 2
+    meaningful_words = [w for w in words if w.lower() not in small_words]
+    if not meaningful_words:
+        return 1.0 # If only small words, assume it's okay (rare for headings)
+        
+    capped = [w for w in meaningful_words if w[0].isupper() or any(c.isupper() for c in w)]
+    return len(capped) / len(meaningful_words)
 
 
 def analyze_heading_candidate(
     block: Block,
+    all_blocks: List[Block],
+    block_index: int,
     avg_font_size: Optional[float] = None
 ) -> Optional[Dict[str, Any]]:
     """
-    Comprehensive analysis of whether a block is a heading candidate.
-    
-    This combines all heuristics to produce a single result.
-    
-    Args:
-        block: Block to analyze
-        avg_font_size: Average font size in document
-    
-    Returns:
-        Dict with heading info if it's a candidate, None otherwise
-        {
-            "is_heading": bool,
-            "confidence": float,
-            "level": int,
-            "has_numbering": bool,
-            "numbering_info": dict or None,
-            "matches_keyword": bool,
-            "reasons": list of strings
-        }
+    Unified analysis with ABSOLUTE SENIOR HARD GUARDS.
+    These guards override ALL keyword/style matches.
     """
     text = block.text.strip()
-    
-    # Skip empty blocks
     if not text:
         return None
+
+    # HARD GUARD 1: Max length
+    if len(text) > 120:
+        return None
+        
+    # Check for numbering
+    num_info = detect_numbering_pattern(text)
     
+    # HARD GUARD 2: Sentence punctuation without numbering
+    # Actual headings rarely end in . ? ! unless they are very short (e.g. "Q&A.")
+    if not num_info and text.endswith(('.', '?', '!')):
+        if len(text.split()) > 4: # If it's more than a few words, it's a sentence
+            return None
+        
+    # HARD GUARD 3: Multiple sentences
+    # Presence of period followed by space and capital letter suggests a paragraph
+    if not num_info and re.search(r'\.[ \t]+[A-Z]', text):
+        return None
+        
+    # HARD GUARD 4: Starts with paragraph-typical markers (ABSOLUTE REJECTION)
+    pronoun_starters = ("this paper", "the proposed", "we propose", "our system", "it is", "in this", "we present", "this study")
+    if text.lower().startswith(pronoun_starters):
+        return None
+        
+    # HARD GUARD 5: Figure and Table captions (ABSOLUTE REJECTION)
+    caption_starters = ("figure ", "fig. ", "table ", "tab. ", "box ")
+    if text.lower().startswith(caption_starters):
+        return None
+
+    # HARD GUARD 6: Sentence-like structure (ABSOLUTE REJECTION)
+    # If it's long and contains punctuation, or has multiple sentences, it's not a heading.
+    if len(text) > 120:
+        return None
+        
+    if not num_info and (re.search(r'[\.\?\!]\s+[A-Z]', text) or len(text.split()) > 15):
+        return None
+
+    # ABSTRACT SAFETY GUARD (ABSOLUTE)
+    # If we have recently seen an "Abstract" keyword heading, all following blocks
+    # are body until we see a strong new section (numbered or major keyword).
+    
+    # 1. Scan backward to find the most recent "heading" or keyword
+    lookback_index = block_index - 1
+    recent_abstract_found = False
+    
+    while lookback_index >= 0:
+        prev_block = all_blocks[lookback_index]
+        prev_text = prev_block.text.strip().lower()
+        
+        # If we hit an "Abstract" keyword alone or as a heading
+        if prev_text == "abstract":
+            recent_abstract_found = True
+            break
+            
+        # If we hit ANY other clear heading (numbered), the abstract block has likely ended
+        if detect_numbering_pattern(prev_block.text):
+            break
+            
+        # If we hit a major section name (excluding Abstract)
+        major_keywords = {"introduction", "methods", "results", "discussion", "conclusion", "references"}
+        if prev_text in major_keywords:
+            break
+            
+        lookback_index -= 1
+        
+    if recent_abstract_found:
+        # If we found an abstract heading recently, this current block is body
+        # UNLESS it's a very clear next heading (but we already checked those in the while loop if they were prev)
+        # Actually, if the current block IS a major keyword or numbered, it's allowed.
+        # But if it's just a "likely style" match or fallback, reject it.
+        if not num_info and not matches_section_keyword(text):
+            return None
+
     reasons = []
     confidence = 0.0
     
-    # Check numbering
-    numbering_info = detect_numbering_pattern(text)
-    has_numbering = numbering_info is not None
-    if has_numbering:
-        reasons.append(f"Has numbering pattern: {numbering_info['pattern_type']}")
-        confidence += 0.4
-    
-    # Check keyword matching
-    matches_keyword = matches_section_keyword(text)
-    if matches_keyword:
-        reasons.append("Matches section keyword")
-        confidence += 0.3
-    
-    # Check style
+    # Priority 1: Numbering
+    if num_info:
+        reasons.append(f"Numbering: {num_info['number']}")
+        confidence += 0.8
+        
+    # Priority 2: Keyword
+    if matches_section_keyword(text):
+        reasons.append("Section Keyword")
+        confidence += 0.5
+        
+    # Priority 3: Style
     style_likely, style_score = is_likely_heading_by_style(block, avg_font_size)
     if style_likely:
-        reasons.append(f"Style suggests heading (score: {style_score:.2f})")
-        confidence += style_score * 0.5  # Weight style at 50%
-    
-    # Decision: is this a heading?
-    is_heading = confidence >= 0.4 or has_numbering or matches_keyword
-    
-    if not is_heading:
+        reasons.append("Heading Style")
+        confidence += style_score * 0.4
+
+    # FALLBACK LOGIC: Keyword-Independent Heading Heuristic
+    # If we haven't crossed threshold but it's short, isolated, and Title Case
+    if confidence < 0.4:
+        is_isolated = False
+        prev_block = all_blocks[block_index - 1] if block_index > 0 else None
+        if prev_block and (block.index - prev_block.index) > 1:
+            is_isolated = True
+        next_block = all_blocks[block_index + 1] if block_index < len(all_blocks) - 1 else None
+        if next_block and (next_block.index - block.index) > 1:
+            is_isolated = True
+            
+        cap_ratio = get_capitalization_ratio(text)
+        
+        if len(text) <= 60 and cap_ratio >= 0.7 and is_isolated:
+            confidence = 0.45
+            reasons.append("Fallback: Short, Isolated, Title Case")
+            
+    if confidence < 0.4:
         return None
-    
-    # Infer level
-    level = infer_heading_level(block, numbering_info)
-    
+        
+    # Level Inference
+    level = infer_heading_level(block, num_info)
+    if not num_info and not matches_section_keyword(text):
+        # Default level 2 for fallback headings
+        level = 2
+        # Promote to Level 1 if near start or isolated + large font
+        if block_index < 5 or (style_score > 0.4 and avg_font_size and block.style.font_size and block.style.font_size > avg_font_size):
+            level = 1
+        
     return {
         "is_heading": True,
         "confidence": min(confidence, 1.0),
         "level": level,
-        "has_numbering": has_numbering,
-        "numbering_info": numbering_info,
-        "matches_keyword": matches_keyword,
+        "has_numbering": num_info is not None,
+        "numbering_info": num_info,
         "reasons": reasons
     }

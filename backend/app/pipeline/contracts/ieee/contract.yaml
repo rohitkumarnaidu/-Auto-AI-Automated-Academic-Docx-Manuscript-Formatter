@@ -1,0 +1,76 @@
+publisher: "IEEE"
+description: "IEEE Standard for Conference and Journal Publications"
+
+sections:
+  required:
+    - "abstract"
+    - "introduction"
+    - "references"
+  order:
+    - "abstract"
+    - "keywords"
+    - "introduction"
+    - "background"
+    - "methodology"
+    - "results"
+    - "discussion"
+    - "conclusion"
+    - "references"
+  canonical_names:
+    "summary": "abstract"
+    "related work": "background"
+    "methods": "methodology"
+    "bibliography": "references"
+
+numbering:
+  headings:
+    1: "roman_upper"  # I., II.
+    2: "letter_upper" # A., B.
+    3: "numeric"      # 1), 2)
+  figures: "numeric"
+  tables: "roman_upper"
+
+styles:
+  TITLE: "Title"
+  AUTHOR: "Normal"
+  AFFILIATION: "Normal"
+  ABSTRACT_HEADING: "Abstract"
+  ABSTRACT_BODY: "Abstract"
+  KEYWORDS_HEADING: "Keywords"
+  KEYWORDS_BODY: "Keywords"
+  HEADING_1: "Heading 1"
+  HEADING_2: "Heading 2"
+  HEADING_3: "Heading 3"
+  HEADING_4: "Heading 4"
+  BODY: "Normal"
+  REFERENCES_HEADING: "Heading 1"
+  REFERENCE_ENTRY: "Reference"
+
+references:
+  style: "IEEE"
+  citation_format: "[N]"
+  normalization:
+    enabled: true
+    max_authors: 3
+    et_al_suffix: "et al."
+    journal_format: "{authors}, \"{title},\" {journal}, vol. {volume}, no. {issue}, pp. {pages}, {year}. {doi}"
+    conference_format: "{authors}, \"{title},\" in {conference}, {year}, pp. {pages}. {doi}"
+
+layout:
+  default_columns: 2
+  section_overrides:
+    abstract: 1
+    keywords: 1
+  margins:
+    top: 1.0
+    bottom: 1.0
+    left: 1.0
+    right: 1.0
+  page_breaks:
+    before: ["references"]
+
+equations:
+  numbering: "numeric"
+  scope: "global"
+  brackets: "()"
+  alignment: "right"

@@ -9,10 +9,9 @@ import re
 from typing import List, Optional, Tuple, Dict, Any
 from datetime import datetime
 
-from app.models import Document, Block, Figure, BlockType
+from app.pipeline.base import PipelineStage
 
-
-class CaptionMatcher:
+class CaptionMatcher(PipelineStage):
     """
     Links figures to their captions based on proximity and text patterns.
     
@@ -41,7 +40,7 @@ class CaptionMatcher:
             re.IGNORECASE
         )
 
-    def match_captions(self, document: Document) -> Document:
+    def process(self, document: Document) -> Document:
         """
         Match specific figures to captions in the document.
         
@@ -203,4 +202,4 @@ class CaptionMatcher:
 # Convenience function
 def link_figures(document: Document) -> Document:
     matcher = CaptionMatcher()
-    return matcher.match_captions(document)
+    return matcher.process(document)

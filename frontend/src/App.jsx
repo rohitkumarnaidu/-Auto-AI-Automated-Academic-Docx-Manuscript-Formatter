@@ -15,6 +15,7 @@ import Templates from './pages/Templates';
 import ForgotPassword from './pages/ForgotPassword';
 import VerifyOTP from './pages/VerifyOTP';
 import ResetPassword from './pages/ResetPassword';
+import Preview from './pages/Preview';
 
 import { DocumentProvider } from './context/DocumentContext';
 import { AuthProvider } from './context/AuthContext';
@@ -43,6 +44,7 @@ function App() {
                         <Route path="/download" element={<Download />} />
                         <Route path="/error" element={<Error />} />
                         <Route path="/compare" element={<Compare />} />
+                        <Route path="/preview" element={<Preview />} />
                         <Route path="/edit" element={<Edit />} />
                         <Route
                             path="/history"

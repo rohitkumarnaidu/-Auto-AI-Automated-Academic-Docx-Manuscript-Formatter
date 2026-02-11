@@ -24,6 +24,7 @@ class InputConverter:
         '.md': 'pandoc',
         '.html': 'pandoc',
         '.txt': 'pandoc',
+        '.tex': 'pandoc',      # LaTeX support via Pandoc
         '.pdf': 'libreoffice',
         '.odt': 'libreoffice',
         '.rtf': 'libreoffice'
@@ -60,7 +61,7 @@ class InputConverter:
         strategy = self.SUPPORTED_EXTENSIONS[ext]
         
         # Prepare Output Path
-        job_dir = os.path.join(self.temp_dir, job_id)
+        job_dir = os.path.join(self.temp_dir, str(job_id))
         os.makedirs(job_dir, exist_ok=True)
         output_path = os.path.join(job_dir, "input.docx")
         
@@ -144,7 +145,12 @@ class InputConverter:
         return output_path
 
     def _run_pandoc(self, input_path: str, output_path: str):
-        """Convert using Pandoc."""
+        """
+        Convert using Pandoc.
+        Used strictly as a format conversion layer (e.g., tex/md -> docx).
+        Structure and styles are NOT assumed to be reliable here; 
+        they are inferred later in the pipeline.
+        """
         if not shutil.which("pandoc"):
              raise ConversionError("Pandoc not installed or not in PATH")
              

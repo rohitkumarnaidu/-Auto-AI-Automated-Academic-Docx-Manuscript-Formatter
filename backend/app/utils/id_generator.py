@@ -57,6 +57,19 @@ def generate_reference_id(index: int) -> str:
     return f"ref_{index:03d}"
 
 
+def generate_equation_id(index: int) -> str:
+    """
+    Generate a unique equation ID.
+    
+    Args:
+        index: Sequential index (0-based)
+    
+    Returns:
+        Equation ID in format 'eqn_XXX' (e.g., 'eqn_001', 'eqn_021')
+    """
+    return f"eqn_{index:03d}"
+
+
 def generate_document_id(prefix: str = "doc") -> str:
     """
     Generate a unique document ID with timestamp.

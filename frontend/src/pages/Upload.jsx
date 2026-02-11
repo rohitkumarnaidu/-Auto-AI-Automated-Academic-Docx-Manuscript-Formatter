@@ -1,47 +1,42 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useDocument } from '../context/DocumentContext';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 
 export default function Upload() {
     const { isLoggedIn } = useAuth();
+    const { job, setJob } = useDocument();
     const fileInputRef = useRef(null);
     const [file, setFile] = useState(null);
     const [isDragging, setIsDragging] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [progress, setProgress] = useState(0);
     const [currentStep, setCurrentStep] = useState(0);
+    const [statusMessage, setStatusMessage] = useState('Initializing...');
     const [template, setTemplate] = useState('none');
     const [ocrEnabled, setOcrEnabled] = useState(true);
     const [aiEnabled, setAiEnabled] = useState(false);
-    const [timeRemaining, setTimeRemaining] = useState(45);
     const navigate = useNavigate();
-    const navigatedRef = useRef(false);
 
-    // Simulation resume logic
-    useEffect(() => {
-        const wasProcessing = sessionStorage.getItem('wasProcessing');
-        if (wasProcessing === 'true') {
-            setIsProcessing(true);
-            const savedProgress = parseFloat(sessionStorage.getItem('lastProgress') || '75');
-            setProgress(savedProgress);
-            sessionStorage.removeItem('wasProcessing');
-            sessionStorage.removeItem('lastProgress');
+    // Mapping backend phases to UI Steps
+    // Backend phases: UPLOAD, EXTRACTION, NLP_ANALYSIS, VALIDATION, FORMATTING, PERSISTENCE
+    const getStepFromPhase = (phase) => {
+        switch (phase) {
+            case 'UPLOAD': return 1;
+            case 'EXTRACTION': return 2; // Covers 'Converting Format' & 'Parsing Structure'
+            case 'NLP_ANALYSIS': return 4; // Covers 'Analyzing Content (AI)'
+            case 'VALIDATION': return 5;
+            case 'FORMATTING': return 6;
+            case 'PERSISTENCE': return 7;
+            default: return 1;
         }
-    }, []);
-
-    const handleReviewClick = (path) => {
-        if (isProcessing) {
-            sessionStorage.setItem('wasProcessing', 'true');
-            sessionStorage.setItem('lastProgress', progress.toString());
-        }
-        navigate(path);
     };
 
     const steps = [
-        { id: 1, title: 'Uploading Manuscript', desc: 'Source file received and secured.' },
-        { id: 2, title: 'Converting Format', desc: 'Extracting semantic layers from document...' },
+        { id: 1, title: 'Uploading Manuscript', desc: 'Sending file to server...' },
+        { id: 2, title: 'Converting Format', desc: 'Extracting text and layout...' },
         { id: 3, title: 'Parsing Structure', desc: 'Mapping sections and elements...' },
         { id: 4, title: 'Analyzing Content (AI)', desc: 'Detecting citation errors & gaps...' },
         { id: 5, title: 'Journal Validation', desc: 'Checking against template rules...' },
@@ -49,54 +44,132 @@ export default function Upload() {
         { id: 7, title: 'Exporting Result', desc: 'Generating publication-ready file...' },
     ];
 
+    // Job Restoration Logic (for page reloads)
+    useEffect(() => {
+        const checkSavedJob = async () => {
+            const savedJob = sessionStorage.getItem('scholarform_currentJob');
+            if (savedJob) {
+                try {
+                    const parsedJob = JSON.parse(savedJob);
+                    const { getJobStatus } = await import('../services/api');
+
+                    // Validate against backend - Source of Truth
+                    const statusData = await getJobStatus(parsedJob.id);
+
+                    // If we get here, job exists on backend
+                    setJob(parsedJob);
+                    setProgress(statusData.progress_percentage || 0);
+                    if (statusData.message) setStatusMessage(statusData.message);
+                    if (statusData.phase) setCurrentStep(getStepFromPhase(statusData.phase));
+
+                    if (statusData.status === 'processing' || statusData.status === 'RUNNING') {
+                        setIsProcessing(true);
+                    } else if (statusData.status === 'COMPLETED') {
+                        setIsProcessing(false);
+                        setProgress(100);
+                        setCurrentStep(7);
+                        setStatusMessage('Processing complete!');
+                    }
+                } catch (error) {
+                    console.warn("Found stale job in storage, clearing:", error);
+                    sessionStorage.removeItem('scholarform_currentJob');
+                    setJob(null);
+                    setIsProcessing(false);
+                    setProgress(0);
+                    setCurrentStep(0);
+                }
+            }
+        };
+
+        checkSavedJob();
+    }, [setJob]);
+
+    const handleReviewClick = (path) => {
+        navigate(path);
+    };
+
+    // REAL-TIME POLLING
     useEffect(() => {
         let interval;
-        if (isProcessing && progress < 100) {
-            interval = setInterval(() => {
-                setProgress((prev) => {
-                    const next = prev + (Math.random() * 3 + 1);
-                    return next > 100 ? 100 : next;
-                });
-            }, 300);
-        } else if (progress >= 100) {
-            setIsProcessing(false);
+        if (isProcessing && job?.id) {
+            interval = setInterval(async () => {
+                try {
+                    const { getJobStatus } = await import('../services/api');
+                    const statusData = await getJobStatus(job.id);
 
-            // Automatic navigation after completion
-            if (!navigatedRef.current) {
-                navigatedRef.current = true;
-                const timer = setTimeout(() => {
-                    navigate('/download');
-                }, 1000);
-                return () => clearTimeout(timer);
-            }
+                    // 1. Update Progress
+                    setProgress(statusData.progress_percentage || 0);
+
+                    // 2. Update Status Message & Step
+                    // Use backend message if available, otherwise fallback
+                    if (statusData.message) setStatusMessage(statusData.message);
+
+                    if (statusData.phase) {
+                        setCurrentStep(getStepFromPhase(statusData.phase));
+                    }
+
+                    // 3. Handle Completion
+                    if (statusData.status === 'COMPLETED' || statusData.status === 'COMPLETED_WITH_WARNINGS') {
+                        setIsProcessing(false);
+                        setProgress(100);
+                        setCurrentStep(7);
+                        setStatusMessage(statusData.status === 'COMPLETED_WITH_WARNINGS'
+                            ? `Completed with warnings: ${statusData.message}`
+                            : 'Processing complete!');
+
+                        const completedJob = {
+                            ...job,
+                            status: 'completed',
+                            progress: 100,
+                            outputPath: statusData.output_path,
+                            warnings: statusData.status === 'COMPLETED_WITH_WARNINGS' ? statusData.message : null
+                        };
+                        setJob(completedJob);
+                        sessionStorage.setItem('scholarform_currentJob', JSON.stringify(completedJob));
+
+                        // Navigate to results
+                        setTimeout(() => navigate('/download'), 500);
+                    }
+                    // 4. Handle Failure
+                    else if (statusData.status === 'FAILED') {
+                        setIsProcessing(false);
+                        console.error("Job failed:", statusData.message);
+                        setStatusMessage(`Failed: ${statusData.message}`);
+                        // Optionally navigate to error page or stay here to retry
+                        // navigate('/error'); 
+                        // Staying on page helps user see the error and retry easily.
+                        // But user request says "If FAILED: Show backend error, Keep user on Upload page, Allow retry"
+                        // But the previous code navigated to /error. I will follow "Keep user on Upload page" as per stricter 1495 prompt.
+                    }
+                } catch (error) {
+                    console.error("Polling error:", error);
+                    // Continue polling on transient network errors
+                }
+            }, 2000);
         }
         return () => clearInterval(interval);
-    }, [isProcessing, progress, navigate]);
-
-    useEffect(() => {
-        if (isProcessing) {
-            // Map progress to steps
-            const stepIndex = Math.floor((progress / 100) * steps.length);
-            setCurrentStep(stepIndex + 1);
-
-            // Dynamic time remaining estimation
-            const remaining = Math.max(0, Math.floor(45 * (1 - progress / 100)));
-            setTimeRemaining(remaining);
-        }
-    }, [progress, isProcessing]);
+    }, [isProcessing, job, navigate, setJob]);
 
     const handleFileChange = (e) => {
         const selectedFile = e.target.files[0];
         if (selectedFile) {
-            // Error handling: unsupported format or size
             const validTypes = ['.docx', '.pdf', '.tex', '.txt', '.html', '.md'];
             const fileExtension = selectedFile.name.substring(selectedFile.name.lastIndexOf('.')).toLowerCase();
 
             if (!validTypes.includes(fileExtension) || selectedFile.size > 50 * 1024 * 1024) {
+                // navigate('/error'); // User request: "If FAILED: ... Keep user on Upload page"
+                // But this is client-side validation failure. I'll stick to alert or simple return for now, or existing logic.
+                // Existing logic was navigate('/error'). I'll keep it for invalid definition, but for polling failure I removed navigate.
                 navigate('/error');
                 return;
             }
             setFile(selectedFile);
+            // Reset progress if new file selected after completion
+            if (progress === 100) {
+                setProgress(0);
+                setCurrentStep(0);
+                setStatusMessage('Ready for upload');
+            }
         }
     };
 
@@ -116,7 +189,6 @@ export default function Upload() {
         setIsDragging(false);
         const droppedFile = e.dataTransfer.files[0];
         if (droppedFile) {
-            // Error handling: unsupported format or size
             const validTypes = ['.docx', '.pdf', '.tex', '.txt', '.html', '.md'];
             const fileExtension = droppedFile.name.substring(droppedFile.name.lastIndexOf('.')).toLowerCase();
 
@@ -125,6 +197,12 @@ export default function Upload() {
                 return;
             }
             setFile(droppedFile);
+            // Reset progress if new file selected after completion
+            if (progress === 100) {
+                setProgress(0);
+                setCurrentStep(0);
+                setStatusMessage('Ready for upload');
+            }
         }
     };
 
@@ -136,21 +214,51 @@ export default function Upload() {
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
 
-    const handleProcess = () => {
-        if (file && !isProcessing && progress < 100) {
+    const handleProcess = async () => {
+        // Allow processing if file exists and NOT currently processing.
+        // Even if progress was 100% (previous job), we allow starting a new one.
+        if (file && !isProcessing) {
             setIsProcessing(true);
             setProgress(0);
             setCurrentStep(1);
-            navigatedRef.current = false;
+            setStatusMessage("Initiating upload...");
+
+            try {
+                const { uploadDocument } = await import('../services/api');
+                // Pass real options to backend
+                const result = await uploadDocument(file, template, {
+                    enableOCR: ocrEnabled,
+                    enableAI: aiEnabled
+                });
+
+                const newJob = {
+                    id: result.job_id,
+                    timestamp: new Date().toISOString(),
+                    status: 'processing',
+                    originalFileName: file.name,
+                    template: template,
+                    flags: { ai_enhanced: aiEnabled, ocr_applied: ocrEnabled },
+                    progress: 0
+                };
+                setJob(newJob);
+                sessionStorage.setItem('scholarform_currentJob', JSON.stringify(newJob));
+
+            } catch (error) {
+                console.error("Upload failed:", error);
+                setIsProcessing(false);
+                setStatusMessage(`Upload failed: ${error.message}`);
+                // navigate('/error'); // Keep user on page to retry
+            }
         }
     };
+
     return (
         <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen">
             <Navbar variant="app" activeTab="upload" />
 
             <main className="max-w-[1280px] mx-auto px-6 py-8">
                 <div className="mb-8">
-                    <h1 className="text-[#0d131b] dark:text-white text-4xl font-black leading-tight tracking-[-0.033em]">
+                    <h1 className="text-slate-900 dark:text-white text-4xl font-black leading-tight tracking-[-0.033em]">
                         Upload Manuscript
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 text-lg mt-2">
@@ -162,6 +270,7 @@ export default function Upload() {
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                     <div className="lg:col-span-7 flex flex-col gap-6">
+                        {/* 1. Document Source */}
                         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
                             <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
                                 <span className="material-symbols-outlined text-primary">upload_file</span>
@@ -205,6 +314,7 @@ export default function Upload() {
                             </div>
                         </div>
 
+                        {/* 2. Processing Parameters */}
                         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
                             <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
                                 <span className="material-symbols-outlined text-primary">tune</span>
@@ -232,17 +342,8 @@ export default function Upload() {
                                             <option value="elsevier">Elsevier Article Template</option>
                                             <option value="nature">Nature Communications</option>
                                         </select>
-
-                                        {/* Custom chevron-down SVG icon */}
                                         <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
-                                            <svg
-                                                className={`h-4 w-4 text-slate-500 dark:text-slate-400 transition-transform duration-200 ease-in-out ${!(isProcessing || progress === 100) ? 'peer-focus:rotate-180' : 'opacity-50'
-                                                    }`}
-                                                fill="none"
-                                                viewBox="0 0 24 24"
-                                                stroke="currentColor"
-                                                strokeWidth={2}
-                                            >
+                                            <svg className={`h-4 w-4 text-slate-500 dark:text-slate-400`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                                             </svg>
                                         </div>
@@ -305,27 +406,27 @@ export default function Upload() {
                             </h2>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <button
-                                    onClick={() => (progress === 100 || isProcessing) && handleReviewClick('/compare')}
-                                    disabled={!isProcessing && progress < 100}
-                                    className={`flex flex-col items-center justify-center gap-2 p-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 transition-all group ${(!isProcessing && progress < 100) ? 'opacity-50 cursor-not-allowed text-slate-500' : 'hover:border-primary hover:bg-primary/5 text-slate-900 dark:text-white'}`}
+                                    onClick={() => job?.status === 'completed' && !isProcessing && handleReviewClick('/compare')}
+                                    disabled={job?.status !== 'completed' || isProcessing}
+                                    className={`flex flex-col items-center justify-center gap-2 p-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 transition-all group ${(job?.status !== 'completed' || isProcessing) ? 'opacity-50 cursor-not-allowed text-slate-500' : 'hover:border-primary hover:bg-primary/5 text-slate-900 dark:text-white'}`}
                                 >
-                                    <span className={`material-symbols-outlined text-2xl ${(!isProcessing && progress < 100) ? 'text-slate-400' : 'text-primary'}`}>difference</span>
+                                    <span className={`material-symbols-outlined text-2xl ${(job?.status !== 'completed' || isProcessing) ? 'text-slate-400' : 'text-primary'}`}>difference</span>
                                     <span className="text-sm font-bold">Compare Results</span>
                                 </button>
                                 <button
-                                    onClick={() => (progress === 100 || isProcessing) && handleReviewClick('/edit')}
-                                    disabled={!isProcessing && progress < 100}
-                                    className={`flex flex-col items-center justify-center gap-2 p-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 transition-all group ${(!isProcessing && progress < 100) ? 'opacity-50 cursor-not-allowed text-slate-500' : 'hover:border-primary hover:bg-primary/5 text-slate-900 dark:text-white'}`}
+                                    onClick={() => job?.status === 'completed' && !isProcessing && navigate('/preview')}
+                                    disabled={job?.status !== 'completed' || isProcessing}
+                                    className={`flex flex-col items-center justify-center gap-2 p-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 transition-all group ${(job?.status !== 'completed' || isProcessing) ? 'opacity-50 cursor-not-allowed text-slate-500' : 'hover:border-primary hover:bg-primary/5 text-slate-900 dark:text-white'}`}
                                 >
-                                    <span className={`material-symbols-outlined text-2xl ${(!isProcessing && progress < 100) ? 'text-slate-400' : 'text-primary'}`}>visibility</span>
+                                    <span className={`material-symbols-outlined text-2xl ${(job?.status !== 'completed' || isProcessing) ? 'text-slate-400' : 'text-primary'}`}>visibility</span>
                                     <span className="text-sm font-bold">Preview Document</span>
                                 </button>
                                 <button
-                                    onClick={() => progress === 100 && navigate('/download')}
-                                    disabled={progress < 100}
-                                    className={`flex flex-col items-center justify-center gap-2 p-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 transition-all group ${progress < 100 ? 'opacity-50 cursor-not-allowed text-slate-500' : 'hover:border-primary hover:bg-primary/5 text-slate-900 dark:text-white'}`}
+                                    onClick={() => job?.status === 'completed' && !isProcessing && navigate('/download')}
+                                    disabled={job?.status !== 'completed' || isProcessing}
+                                    className={`flex flex-col items-center justify-center gap-2 p-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 transition-all group ${(job?.status !== 'completed' || isProcessing) ? 'opacity-50 cursor-not-allowed text-slate-500' : 'hover:border-primary hover:bg-primary/5 text-slate-900 dark:text-white'}`}
                                 >
-                                    <span className={`material-symbols-outlined text-2xl ${progress < 100 ? 'text-slate-400' : 'text-primary'}`}>download</span>
+                                    <span className={`material-symbols-outlined text-2xl ${(job?.status !== 'completed' || isProcessing) ? 'text-slate-400' : 'text-primary'}`}>download</span>
                                     <span className="text-sm font-bold">Download Final</span>
                                 </button>
                             </div>
@@ -336,28 +437,26 @@ export default function Upload() {
                         </div>
                     </div>
 
+                    {/* Progress Sidebar */}
                     <div className="lg:col-span-5">
                         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm sticky top-24">
                             <div className="p-6 border-b border-slate-100 dark:border-slate-800">
                                 <div className="flex items-center justify-between mb-4">
                                     <h2 className="text-lg font-bold text-slate-900 dark:text-white">Processing Status</h2>
-                                    <span className={`text-xs font-bold uppercase tracking-widest px-2 py-1 rounded transition-colors ${progress === 100 ? 'bg-green-100 text-green-600' :
-                                        isProcessing ? 'bg-primary/10 text-primary animate-pulse' :
-                                            'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                                    <span className={`text-xs font-bold uppercase tracking-widest px-2 py-1 rounded transition-colors ${isProcessing ? 'bg-primary/10 text-primary animate-pulse' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
                                         }`}>
-                                        {progress === 100 ? 'Completed' : isProcessing ? 'Processing' : 'Standby'}
+                                        {isProcessing ? 'Processing' : 'Standby'}
                                     </span>
                                 </div>
                                 <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
                                     <div
-                                        className="bg-primary h-full transition-all duration-500"
+                                        className="bg-primary h-full transition-all duration-500 ease-out"
                                         style={{ width: `${progress}%` }}
                                     ></div>
                                 </div>
                                 <div className="flex justify-between mt-2">
-                                    <span className="text-xs text-slate-500">
-                                        {progress === 100 ? 'Manuscript ready for review!' :
-                                            file ? `Processing: ${file.name}` : 'Awaiting document...'}
+                                    <span className="text-xs text-slate-500 truncate max-w-[200px]" title={statusMessage}>
+                                        {statusMessage}
                                     </span>
                                     <span className="text-xs font-bold text-primary">{Math.round(progress)}%</span>
                                 </div>
@@ -367,7 +466,7 @@ export default function Upload() {
                                 {steps.map((step) => {
                                     const isStepCompleted = currentStep > step.id || progress === 100;
                                     const isStepActive = currentStep === step.id && isProcessing;
-                                    const isPending = currentStep < step.id && !isStepCompleted;
+                                    const isPending = currentStep < step.id;
 
                                     return (
                                         <div key={step.id} className={`flex items-start gap-4 transition-opacity duration-500 ${isPending ? 'opacity-50' : 'opacity-100'}`}>
@@ -404,9 +503,9 @@ export default function Upload() {
                             <div className="p-6 bg-slate-50 dark:bg-slate-800/30 rounded-b-xl flex justify-center">
                                 <p className="text-xs text-slate-400 flex items-center gap-1 italic">
                                     <span className="material-symbols-outlined text-[14px]">
-                                        {progress === 100 ? 'check_circle' : 'info'}
+                                        {isProcessing ? 'sync' : 'info'}
                                     </span>
-                                    {progress === 100 ? 'Processing complete' : `Est. time remaining: ${timeRemaining} seconds`}
+                                    {isProcessing ? 'Live updates from server...' : 'Ready to process'}
                                 </p>
                             </div>
                         </div>

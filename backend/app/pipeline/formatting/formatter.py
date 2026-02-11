@@ -9,36 +9,51 @@ from docx import Document as WordDocument
 from docx.shared import Inches
 from io import BytesIO
 
-from app.models import Document, BlockType, Figure
+from app.models import PipelineDocument as Document, BlockType, Figure
+from app.pipeline.contracts.loader import ContractLoader
+from app.pipeline.formatting.style_mapper import StyleMapper
+from app.pipeline.formatting.numbering import NumberingEngine
+from app.pipeline.formatting.reference_formatter import ReferenceFormatter
 
 class Formatter:
     """
     Formats the validated Document into a python-docx object based on a template.
     """
     
-    def __init__(self, templates_dir: str = "app/templates"):
+    def __init__(self, templates_dir: str = "app/templates", contracts_dir: str = "app/pipeline/contracts"):
         self.templates_dir = templates_dir
+        self.contract_loader = ContractLoader(contracts_dir=contracts_dir)
+        self.style_mapper = StyleMapper(self.contract_loader)
+        self.numbering_engine = NumberingEngine(self.contract_loader)
+        self.reference_formatter = ReferenceFormatter(self.contract_loader)
         
-    def format(self, document: Document, template_name: str = None) -> Optional[Any]:
+    def process(self, document: Document) -> Document:
+        """Standard pipeline stage entry point."""
+        template_name = document.template.template_name if document.template else "IEEE"
+        # We store the resulting Word object in a transient field
+        document.generated_doc = self.format(document, template_name)
+        return document
+
+    def format(self, document: Document, template_name: str = "IEEE") -> Optional[Any]:
         """
-        Apply formatting.
-        
-        Args:
-            document: Processed Document model
-            template_name: Name of template folder (e.g. 'ieee')
-            
-        Returns:
-            docx.Document object if template provided, else None.
+        Apply formatting using contract-driven modular components.
         """
         if not template_name:
-            print("INFO: Template not selected. Formatting skipped.")
-            return None
+            template_name = "IEEE" # Default
             
-        # 1. Load Resources
-        template_path = os.path.join(self.templates_dir, template_name, "template.docx")
-        contract_path = os.path.join(self.templates_dir, template_name, "contract.yaml")
+        # 1. Apply rules to model before rendering
+        document = self.numbering_engine.apply_numbering(document, template_name)
         
-        if not os.path.exists(template_path):
+        # 2. Load Resources
+        # Note: template.docx is still the base for styles
+        is_none = template_name.lower() == "none"
+        template_path = os.path.join(self.templates_dir, template_name.lower(), "template.docx")
+        contract_path = os.path.join(self.templates_dir, template_name.lower(), "contract.yaml")
+        
+        if is_none:
+            print(f"INFO: No template specified (General Formatting). Using blank document.")
+            word_doc = WordDocument()
+        elif not os.path.exists(template_path):
             print(f"WARNING: Template file not found at {template_path}. Using blank.")
             word_doc = WordDocument()
         else:
@@ -48,23 +63,17 @@ class Formatter:
         style_map = contract.get("styles", {})
         
         # 2. Add Content
-        # We need to handle blocks and figures in order?
-        # The Document model splits them. `blocks` contains text logic.
-        # Figures are referenced.
-        # Simple approach: Iterate blocks. If block links to figure, insert figure?
-        # Current logic: Blocks flow. Figures are floating or inline.
-        # If we want exact position, we need to know where figures were.
-        # `parser.py` extracted figures and text separately.
-        # We lost exact figure positions in the Block stream unless we kept a placeholder or block index.
-        # We checked figure references in text.
-        # Strategy: Append figures at the end (Appendix style) or closest approximation?
-        # Better: If we have `block_index` in Figure metadata, we can insert it after that block.
-        
-        # Merge blocks and figures for insertion
         items_to_insert = []
         
         # Add Blocks
         for block in document.blocks:
+            # Special handling for references: if it's a reference entry, we might want to re-format it
+            if block.block_type == BlockType.REFERENCE_ENTRY:
+                # Find matching reference object
+                ref = next((r for r in document.references if r.block_id == block.block_id), None)
+                if ref:
+                    block.text = self.reference_formatter.format_reference(ref, template_name)
+            
             items_to_insert.append({
                 "type": "block",
                 "index": block.index,
@@ -89,17 +98,107 @@ class Formatter:
                 "number": i + 1
             })
             
+        # Add Equations
+        for i, eqn in enumerate(document.equations):
+            items_to_insert.append({
+                "type": "equation",
+                "index": eqn.index,
+                "obj": eqn
+            })
+            
         # Sort by index
         items_to_insert.sort(key=lambda x: x["index"])
         
         # 3. Render
+        self._apply_initial_layout(word_doc, template_name)
+        
+        current_columns = None
+        
         for item in items_to_insert:
             if item["type"] == "block":
-                self._render_block(word_doc, item["obj"], style_map)
+                block = item["obj"]
+                
+                # Layout logic: Check if we need a column change
+                target_cols = self._get_target_columns(block, template_name)
+                if current_columns is not None and target_cols != current_columns:
+                    # Switch layout: Add new section
+                    new_section = word_doc.add_section()
+                    self._set_columns(new_section, target_cols)
+                
+                if current_columns is None:
+                    # Initialize first section
+                    self._set_columns(word_doc.sections[0], target_cols)
+                    
+                current_columns = target_cols
+                self._render_block(word_doc, block, template_name)
+                
             elif item["type"] == "figure":
                 self._render_figure(word_doc, item["obj"], item["number"])
+            elif item["type"] == "equation":
+                self._render_equation(word_doc, item["obj"])
                 
         return word_doc
+
+    def _render_equation(self, doc, equation):
+        """Render an equation block."""
+        # Simple implementation: Use the text fallback
+        # In more advanced versions, we'd insert the OMML directly
+        p = doc.add_paragraph()
+        if equation.number:
+            # Format: [Equation Text] (Number)
+            # Use tabs for alignment if needed
+            p.text = f"{equation.text}\t\t{equation.number}"
+        else:
+            p.text = equation.text
+            
+        p.style = "Normal" # or custom Equation style
+        p.paragraph_format.alignment = 1 # Center
+
+    def _apply_initial_layout(self, doc, publisher: str):
+        """Set margins and initial properties."""
+        contract = self.contract_loader.load(publisher)
+        layout = contract.get("layout", {})
+        if not layout: return
+        
+        section = doc.sections[0]
+        # Margins (inches)
+        section.top_margin = Inches(layout.get("margins", {}).get("top", 1.0))
+        section.bottom_margin = Inches(layout.get("margins", {}).get("bottom", 1.0))
+
+    def _get_target_columns(self, block, publisher: str) -> int:
+        """Determine required column count for a block."""
+        contract = self.contract_loader.load(publisher)
+        layout = contract.get("layout", {})
+        default = layout.get("default_columns", 1)
+        
+        s_name = (block.section_name or "").lower()
+        overrides = layout.get("section_overrides", {})
+        
+        # Check canonical matching or direct matching
+        for key, val in overrides.items():
+            if key in s_name:
+                return val
+        
+        return default
+
+    def _set_columns(self, section, count: int):
+        """Helper to set column count on a python-docx section."""
+        from docx.oxml import OxmlElement
+        from docx.oxml.ns import qn
+        
+        # Access underlying XML
+        sectPr = section._sectPr
+        cols = sectPr.xpath('./w:cols')
+        if not cols:
+            cols = OxmlElement('w:cols')
+            sectPr.append(cols)
+        else:
+            cols = cols[0]
+            
+        cols.set(qn('w:num'), str(count))
+        # Ensure space between columns if > 1
+        if count > 1:
+            cols.set(qn('w:space'), '720') # 0.5 inch (720 twips)
 
     def _load_contract(self, path: str) -> dict:
         if not os.path.exists(path):
@@ -111,25 +210,14 @@ class Formatter:
             print(f"Warning: Failed to load contract {path}: {e}")
             return {}
 
-    def _render_block(self, doc, block, style_map):
-        # Determine Style
-        # Map BlockType -> Word Style
-        b_type = block.block_type
-        # Use simple string lookup from contract, default to "Normal"
-        word_style = style_map.get(b_type, "Normal")
+    def _render_block(self, doc, block, template_name):
+        # Determine Style using StyleMapper
+        word_style = self.style_mapper.get_style_name(block, template_name)
         
-        # Heuristics for defaults if not in contract
-        if word_style == "Normal":
-            if b_type == BlockType.HEADING_1: word_style = "Heading 1"
-            elif b_type == BlockType.HEADING_2: word_style = "Heading 2"
-            elif b_type == BlockType.HEADING_3: word_style = "Heading 3"
-            elif b_type == BlockType.HEADING_4: word_style = "Heading 4"
-            elif b_type == BlockType.TITLE: word_style = "Title"
-            
         try:
             doc.add_paragraph(block.text, style=word_style)
         except:
-            # Fallback if style missing
+            # Fallback if style missing in template.docx
             doc.add_paragraph(block.text)
 
     def _render_figure(self, doc, figure: Figure, number: int):

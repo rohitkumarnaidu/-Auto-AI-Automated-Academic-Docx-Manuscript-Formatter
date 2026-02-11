@@ -1,0 +1,12 @@
+publisher: "Springer"
+description: "Springer Lecture Notes in Computer Science (LNCS) Style"
+# Placeholder contract
+sections:
+  required:
+    - "abstract"
+    - "introduction"
+    - "references"
+  order:
+    - "abstract"
+    - "introduction"
+    - "references"

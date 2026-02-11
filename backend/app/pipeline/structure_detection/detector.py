@@ -12,12 +12,15 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 from statistics import mean, median
 
-from app.models import Document, Block
+from app.models import PipelineDocument as Document, Block, BlockType
+from app.pipeline.contracts.loader import ContractLoader
 from .heading_rules import analyze_heading_candidate
 from .position_rules import analyze_position, boost_heading_confidence_by_position
 
 
-class StructureDetector:
+from app.pipeline.base import PipelineStage
+
+class StructureDetector(PipelineStage):
     """
     Detects document structure through rule-based heuristics.
     
@@ -31,12 +34,13 @@ class StructureDetector:
     Only attaches metadata for later classification stage.
     """
     
-    def __init__(self):
+    def __init__(self, contracts_dir: str = "app/pipeline/contracts"):
         """Initialize the detector."""
         self.avg_font_size: Optional[float] = None
         self.detected_headings: List[Dict[str, Any]] = []
+        self.contract_loader = ContractLoader(contracts_dir=contracts_dir)
     
-    def detect(self, document: Document) -> Document:
+    def process(self, document: Document) -> Document:
         """
         Detect structure in a normalized document.
         
@@ -54,6 +58,13 @@ class StructureDetector:
         """
         start_time = datetime.utcnow()
         
+        # Step 0: ENFORCE NORMALIZATION
+        # User requirement: Normalizer must run before StructureDetector
+        # We run it here to ensure test scripts don't bypass it.
+        from app.pipeline.normalization.normalizer import Normalizer
+        normalizer = Normalizer()
+        document = normalizer.process(document)
+        
         # Step 1: Calculate average font size for comparison
         self.avg_font_size = self._calculate_avg_font_size(document.blocks)
         
@@ -65,6 +76,14 @@ class StructureDetector:
         
         # Step 4: Build parent-child relationships
         self._build_hierarchy(document.blocks, heading_candidates)
+        
+        # Step 5: Canonicalize section names based on contract
+        publisher = document.template.template_name if document.template else None
+        if publisher:
+            self._canonicalize_sections(document.blocks, publisher)
+            
+        # Step 6: Validate hierarchy (detect jumps, e.g., L1 -> L3)
+        self._validate_hierarchy(document.blocks)
         
         # Update processing history
         end_time = datetime.utcnow()
@@ -129,45 +148,69 @@ class StructureDetector:
                 "reasons": list of str
             }
         """
+        # Import local rules including new Title rule
+        from .heading_rules import analyze_heading_candidate, detect_title
+        
         candidates = []
         
-        for block in blocks:
-            # Skip empty blocks
+        for i, block in enumerate(blocks):
+            # Skip empty blocks (Normalizer should have removed them, but double check)
             if not block.text.strip():
                 continue
             
-            # Analyze heading potential (text + style)
-            heading_info = analyze_heading_candidate(block, self.avg_font_size)
+            # 1. TITLE DETECTION (Priority 1, Level 0, Constant 1.0 confidence)
+            if detect_title(block, blocks):
+                block.block_type = BlockType.TITLE
+                block.level = 0
+                block.metadata["is_heading_candidate"] = True
+                block.metadata["heading_confidence"] = 1.0
+                block.metadata["heading_reasons"] = ["Main Document Title Detected"]
+                block.metadata["semantic_intent"] = "TITLE"
+                block.metadata["level"] = 0 # FOR VISUAL TEST SCRIPT
+                
+                candidates.append({
+                    "block": block,
+                    "block_id": block.block_id,
+                    "level": 0,
+                    "confidence": 1.0,
+                    "reasons": ["Main Document Title Detected"],
+                    "position_info": {"position_hints": ["Title"]}
+                })
+                continue
+            
+            # 2. HEADING ANALYSIS (Numbered/Keyword/Style/Fallback)
+            # Pass all_blocks and index for isolation and safety guard analysis
+            heading_info = analyze_heading_candidate(block, blocks, i, self.avg_font_size)
             
             if heading_info is None:
                 continue
             
-            # Analyze position
+            # Confidence boosting by position (only for valid candidates)
             position_info = analyze_position(block, blocks)
-            
-            # Boost confidence based on position
             final_confidence = boost_heading_confidence_by_position(
                 heading_info["confidence"],
                 position_info
             )
             
-            # Combine reasons
+            # Enforce deterministic levels for major sections
+            level = heading_info["level"]
             all_reasons = heading_info["reasons"] + position_info["position_hints"]
             
-            # Update block metadata (but keep BlockType.UNKNOWN!)
-            block.level = heading_info["level"]
+            # Update block metadata (Keep UNKNOWN type until classification)
+            block.level = level
+            block.metadata["level"] = level # FOR VISUAL TEST SCRIPT
             block.metadata["is_heading_candidate"] = True
             block.metadata["heading_confidence"] = final_confidence
             block.metadata["heading_reasons"] = all_reasons
             
-            if heading_info["has_numbering"]:
+            if heading_info.get("has_numbering"):
                 block.metadata["numbering_info"] = heading_info["numbering_info"]
             
             # Store candidate
             candidates.append({
                 "block": block,
                 "block_id": block.block_id,
-                "level": heading_info["level"],
+                "level": level,
                 "confidence": final_confidence,
                 "reasons": all_reasons,
                 "position_info": position_info
@@ -259,6 +302,33 @@ class StructureDetector:
             heading_stack = [h for h in heading_stack if h["level"] < current_level]
             heading_stack.append(heading_info)
 
+    def _canonicalize_sections(self, blocks: List[Block], publisher: str) -> None:
+        """
+        Rename sections to their canonical names based on the publisher contract.
+        Example: "Related Work" -> "Background"
+        """
+        try:
+            for block in blocks:
+                if block.section_name:
+                    block.section_name = self.contract_loader.get_canonical_name(publisher, block.section_name)
+        except Exception as e:
+            print(f"Warning: Section canonicalization failed: {e}")
+
+    def _validate_hierarchy(self, blocks: List[Block]) -> None:
+        """
+        Validate heading nesting hierarchy.
+        Detects "jumping" levels (e.g., Heading 1 followed by Heading 3).
+        """
+        last_level = 0
+        for block in blocks:
+            if block.is_heading() and block.level:
+                # Level should not jump by more than 1 (except when going back up)
+                if block.level > last_level + 1:
+                    warning = f"Heading level jump detected: Level {last_level} to Level {block.level}"
+                    block.warnings.append(warning)
+                    block.is_valid = False
+                last_level = block.level
+
 
 # Convenience function
 def detect_structure(document: Document) -> Document:
@@ -287,4 +357,4 @@ def detect_structure(document: Document) -> Document:
         >>> print(f"Found {len(headings)} headings")
     """
     detector = StructureDetector()
-    return detector.detect(document)
+    return detector.process(document)

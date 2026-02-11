@@ -136,6 +136,16 @@ class Block(BaseModel):
         description="Name of the section this block belongs to (e.g., 'Introduction', 'Methods')"
     )
     
+    # Semantic information (assigned by classification)
+    semantic_intent: Optional[str] = Field(
+        default=None,
+        description="Semantic label for classification (e.g., 'ABSTRACT_BODY')"
+    )
+    classification_confidence: Optional[float] = Field(
+        default=None,
+        description="Confidence score for semantic classification"
+    )
+    
     # Cross-reference metadata (assigned by references stage)
     contains_citation: bool = Field(
         default=False,
