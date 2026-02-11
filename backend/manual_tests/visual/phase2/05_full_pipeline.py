@@ -1,11 +1,15 @@
 import os
 import sys
 from pathlib import Path
-from docx import Document
+from docx import Document as WordDoc
 from docx.enum.text import WD_COLOR_INDEX
 
 # Add backend to path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))
+# Add backend to path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../")))
+# Fallback if running from backend root
+if os.path.abspath(".").endswith("backend") and os.path.abspath(".") not in sys.path:
+    sys.path.insert(0, os.path.abspath("."))
 
 from app.pipeline.orchestrator import DocumentProcessor
 from app.models import BlockType
@@ -18,7 +22,7 @@ def annotate_visual_full(input_path, output_path):
     result = processor.run_identification_only(input_path)
     
     # 2. Annotate DOCX
-    doc = Document(input_path)
+    doc = WordDoc(input_path)
     
     # Dashboard
     p = doc.paragraphs[0].insert_paragraph_before("--- QA VISUAL DASHBOARD: PHASE 2 (FULL ASSEMBLY) ---")

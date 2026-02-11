@@ -1,14 +1,22 @@
-import os
+"""
+Visual Test - Stage 5: Full Pipeline
+Purpose: Verify the entire pipeline visually from parsing to validation
+Input: DOCX file
+Output: Annotated DOCX with all markers (Headings, Classification, Figs/Tabs, Refs)
+"""
+
 import sys
+import os
 from pathlib import Path
 from docx import Document
+from docx.shared import RGBColor
 from docx.enum.text import WD_COLOR_INDEX
 
-# Add backend to path
+# Add backend to path (Depth 3)
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))
 
 from app.pipeline.parsing.parser import DocxParser
-from app.pipeline.normalization.normalizer import Normalizer
+from app.pipeline.normalization.normalizer import Normalizer as TextNormalizer
 from app.pipeline.structure_detection.detector import StructureDetector
 from app.pipeline.classification.classifier import ContentClassifier
 from app.pipeline.figures.caption_matcher import CaptionMatcher
@@ -17,12 +25,48 @@ from app.pipeline.references.parser import ReferenceParser
 from app.pipeline.validation.validator import DocumentValidator
 from app.models.block import BlockType
 
-def annotate_visual(input_path, output_path):
-    print(f"Annotating {input_path}")
+# Comprehensive Color mapping
+COLOR_MAP = {
+    BlockType.TITLE: WD_COLOR_INDEX.PINK,
+    BlockType.AUTHOR: WD_COLOR_INDEX.BLUE,
+    BlockType.AFFILIATION: WD_COLOR_INDEX.TEAL,
+    BlockType.ABSTRACT_HEADING: WD_COLOR_INDEX.BRIGHT_GREEN,
+    BlockType.ABSTRACT_BODY: WD_COLOR_INDEX.GREEN,
+    BlockType.HEADING_1: WD_COLOR_INDEX.YELLOW,
+    BlockType.HEADING_2: WD_COLOR_INDEX.YELLOW,
+    BlockType.HEADING_3: WD_COLOR_INDEX.YELLOW,
+    BlockType.HEADING_4: WD_COLOR_INDEX.YELLOW,
+    BlockType.REFERENCES_HEADING: WD_COLOR_INDEX.YELLOW,
+    BlockType.REFERENCE_ENTRY: WD_COLOR_INDEX.GRAY_25,
+    BlockType.FIGURE_CAPTION: WD_COLOR_INDEX.TURQUOISE,
+    BlockType.TABLE_CAPTION: WD_COLOR_INDEX.TURQUOISE,
+}
+
+def add_comment_to_paragraph(paragraph, comment_text):
+    """Add inline note."""
+    run = paragraph.add_run(f" [{comment_text}]")
+    run.font.color.rgb = RGBColor(0, 0, 255) # Blue
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: python 05_full_pipeline.py <input.docx>")
+        sys.exit(1)
+        
+    input_path = sys.argv[1]
+    output_dir = Path(__file__).parent.parent.parent / "visual_outputs"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "05_full_pipeline_annotated.docx"
     
-    # 1. Full Pipeline Execution (All Stages up to Validation)
+    print("=" * 70)
+    print("VISUAL TEST - STAGE 5: FULL PIPELINE")
+    print("=" * 70)
+    print(f"Input: {input_path}")
+    print(f"Output: {output_path}")
+    
+    # Execution
+    print("[1/3] Running All Pipeline Stages...")
     parser = DocxParser()
-    normalizer = Normalizer()
+    normalizer = TextNormalizer()
     detector = StructureDetector()
     classifier = ContentClassifier()
     fig_matcher = CaptionMatcher()
@@ -30,87 +74,45 @@ def annotate_visual(input_path, output_path):
     ref_parser = ReferenceParser()
     validator = DocumentValidator()
     
-    doc = parser.parse(input_path, "visual_test")
-    doc = normalizer.process(doc)
-    doc = detector.process(doc)
-    doc = classifier.process(doc)
-    doc = fig_matcher.process(doc)
-    doc = tab_matcher.process(doc)
-    doc = ref_parser.process(doc)
-    doc = validator.process(doc)
+    doc_obj = parser.parse(input_path, "visual_test_full")
+    doc_obj = normalizer.process(doc_obj)
+    doc_obj = detector.process(doc_obj)
+    doc_obj = classifier.process(doc_obj)
+    doc_obj = fig_matcher.process(doc_obj)
+    doc_obj = tab_matcher.process(doc_obj)
+    doc_obj = ref_parser.process(doc_obj)
+    doc_obj = validator.process(doc_obj)
     
-    blocks = doc.blocks
-    figures = doc.figures
-    tables = doc.tables
-    references = doc.references
+    # Annotation
+    print("[2/3] Generating annotated DOCX...")
+    annotated_doc = Document()
     
-    # 2. Annotate DOCX
-    annotated_doc = Document(input_path)
-    
-    # Comprehensive Dashboard
-    if annotated_doc.paragraphs:
-        first_para = annotated_doc.paragraphs[0]
+    # Summary Dashboard
+    summary = annotated_doc.add_paragraph()
+    summary.add_run("=== FULL PIPELINE DASHBOARD ===\n").bold = True
+    summary.add_run(f"Validation: {'PASS' if doc_obj.is_valid else 'FAIL'}\n")
+    summary.add_run(f"Total Blocks: {len(doc_obj.blocks)}\n")
+    summary.add_run(f"Figures: {len(doc_obj.figures)}\n")
+    summary.add_run(f"Tables: {len(doc_obj.tables)}\n")
+    summary.add_run(f"Ref Entries: {len([b for b in doc_obj.blocks if b.block_type == BlockType.REFERENCE_ENTRY])}\n")
+    summary.add_run(f"Errors: {len(doc_obj.validation_errors)}\n")
+    summary.add_run(f"Warnings: {len(doc_obj.validation_warnings)}\n")
+    summary.add_run("===============================\n")
+    summary.runs[0].font.color.rgb = RGBColor(0, 128, 0)
+
+    for block in doc_obj.blocks:
+        para = annotated_doc.add_paragraph()
+        run = para.add_run(block.text)
         
-        # Type counts
-        type_counts = {}
-        for b in blocks:
-            bt = b.block_type.value if hasattr(b.block_type, 'value') else str(b.block_type)
-            type_counts[bt] = type_counts.get(bt, 0) + 1
-        
-        first_para.insert_paragraph_before("------------------------------------------------\n")
-        first_para.insert_paragraph_before(f"Validation: {'PASS' if doc.is_valid else 'FAIL'}")
-        first_para.insert_paragraph_before(f"Errors: {len(doc.validation_errors)}")
-        first_para.insert_paragraph_before(f"Warnings: {len(doc.validation_warnings)}")
-        first_para.insert_paragraph_before(f"References: {len(references)}")
-        first_para.insert_paragraph_before(f"Tables: {len(tables)}")
-        first_para.insert_paragraph_before(f"Figures: {len(figures)}")
-        first_para.insert_paragraph_before(f"Total Blocks: {len(blocks)}")
-        
-        header_p = first_para.insert_paragraph_before(
-            "--- QA VISUAL DASHBOARD: FULL PIPELINE (PHASE 1+2) ---"
-        )
-        if header_p.runs:
-            header_p.runs[0].bold = True
-    
-    # Color mapping
-    color_map = {
-        BlockType.TITLE: WD_COLOR_INDEX.PINK,
-        BlockType.AUTHOR: WD_COLOR_INDEX.BLUE,
-        BlockType.AFFILIATION: WD_COLOR_INDEX.TEAL,
-        BlockType.ABSTRACT_HEADING: WD_COLOR_INDEX.BRIGHT_GREEN,
-        BlockType.ABSTRACT_BODY: WD_COLOR_INDEX.GREEN,
-        BlockType.HEADING_1: WD_COLOR_INDEX.YELLOW,
-        BlockType.HEADING_2: WD_COLOR_INDEX.YELLOW,
-        BlockType.HEADING_3: WD_COLOR_INDEX.YELLOW,
-        BlockType.HEADING_4: WD_COLOR_INDEX.YELLOW,
-        BlockType.REFERENCES_HEADING: WD_COLOR_INDEX.YELLOW,
-        BlockType.REFERENCE_ENTRY: WD_COLOR_INDEX.GRAY_25,
-        BlockType.FIGURE_CAPTION: WD_COLOR_INDEX.TURQUOISE,
-        BlockType.TABLE_CAPTION: WD_COLOR_INDEX.TURQUOISE,
-    }
-    
-    # Highlight all blocks
-    for block in blocks:
-        idx = block.index
-        if 0 <= idx < len(annotated_doc.paragraphs):
-            para = annotated_doc.paragraphs[idx]
-            
-            if block.block_type in color_map:
-                for run in para.runs:
-                    run.font.highlight_color = color_map[block.block_type]
-                para.add_run(f" [{block.block_type.value.upper()}]").font.bold = True
-                    
-    annotated_doc.save(output_path)
-    return output_path
+        # Apply color if mapped
+        if block.block_type in COLOR_MAP:
+            run.font.highlight_color = COLOR_MAP[block.block_type]
+            add_comment_to_paragraph(para, block.block_type.value.upper())
+        elif block.block_type != BlockType.UNKNOWN:
+             add_comment_to_paragraph(para, block.block_type.value.upper())
+
+    annotated_doc.save(str(output_path))
+    print(f"\n✅ SUCCESS: Result saved to {output_path}")
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python 05_full_pipeline.py <docx_path>")
-        sys.exit(1)
-        
-    input_docx = sys.argv[1]
-    output_docx = "manual_tests/visual_outputs/05_full_pipeline_annotated.docx"
-    
-    os.makedirs("manual_tests/visual_outputs", exist_ok=True)
-    annotate_visual(input_docx, output_docx)
-    print(f"Done. Visual test saved to {output_docx}")
+    main()

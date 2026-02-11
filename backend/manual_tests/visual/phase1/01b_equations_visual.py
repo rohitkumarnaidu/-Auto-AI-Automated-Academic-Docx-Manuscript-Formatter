@@ -1,54 +1,87 @@
-import os
-import sys
-from pathlib import Path
+"""
+Visual Test - Stage 1b: Equation Detection
+Purpose: Verify equation detection visually
+Input: DOCX file
+Output: Annotated DOCX with equations highlighted in Turquoise
+"""
 
-# Add backend to path (Depth 3: manual_tests/visual/phase1)
+import sys
+import os
+from pathlib import Path
+from docx import Document
+from docx.shared import RGBColor
+
+# Add backend to path (Depth 3)
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))
 
-from docx import Document
-from docx.enum.text import WD_COLOR_INDEX
 from app.pipeline.parsing.parser import DocxParser
+from app.pipeline.normalization.normalizer import Normalizer as TextNormalizer
 
-def highlight_equations(input_path):
-    print(f"\n🚀 PHASE 1: EQUATION DETECTION VISUAL")
-    print(f"Target: {input_path}")
-    
-    if not os.path.exists(input_path):
-        print(f"❌ ERROR: File not found: {input_path}")
-        return
+def add_comment_to_paragraph(paragraph, comment_text):
+    """Add inline note."""
+    run = paragraph.add_run(f" [{comment_text}]")
+    run.font.color.rgb = RGBColor(0, 0, 255) # Blue
 
-    # 1. Pipeline Execution
-    parser = DocxParser()
-    doc = parser.parse(input_path, "visual_test")
-    blocks = doc.blocks
-    
-    # 2. Annotation
-    doc = Document(input_path)
-    # We look for blocks that are equations
-    # For now, we mock the highlight logic based on keywords or OMML presence if we had easy access
-    # In a real visual test, we'd iterate through paragraphs and check for oMath elements
-    
-    count = 0
-    for para in doc.paragraphs:
-        # Check for Math elements in XML
-        if 'pos=\"' in para._p.xml or '<m:oMath' in para._p.xml:
-            for run in para.runs:
-                run.font.highlight_color = WD_COLOR_INDEX.TURQUOISE
-            count += 1
-
-    # 3. Save
-    output_dir = Path("manual_tests/visual_outputs")
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: python 01b_equations_visual.py <input.docx>")
+        sys.exit(1)
+        
+    input_path = sys.argv[1]
+    output_dir = Path(__file__).parent.parent.parent / "visual_outputs"
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_file = output_dir / "01b_equations_annotated.docx"
-    doc.save(output_file)
+    output_path = output_dir / "01b_equations_annotated.docx"
     
-    print(f"\n--- Analysis Summary ---")
-    print(f"Equations Highlighted: {count}")
-    print(f"------------------------")
-    print(f"\n✅ SUCCESS: Result saved to {output_file}")
+    print("=" * 70)
+    print("VISUAL TEST - STAGE 1b: EQUATION DETECTION")
+    print("=" * 70)
+    print(f"Input: {input_path}")
+    print(f"Output: {output_path}")
+    
+    # Execution
+    print("[1/2] Parsing & Normalizing...")
+    parser = DocxParser()
+    doc_obj = parser.parse(input_path, "visual_test_eq")
+    normalizer = TextNormalizer()
+    doc_obj = normalizer.process(doc_obj)
+    
+    # Count equations found by parser
+    eq_count = len(doc_obj.equations)
+    print(f"  ? Parser found {eq_count} equation objects")
+    
+    # Annotation
+    print("[2/2] Generating annotated DOCX...")
+    annotated_doc = Document()
+    summary = annotated_doc.add_paragraph()
+    summary.add_run("=== EQUATION DETECTION SUMMARY ===\n").bold = True
+    summary.add_run(f"Total Blocks: {len(doc_obj.blocks)}\n")
+    summary.add_run(f"Equation Objects: {eq_count}\n")
+    summary.add_run("==================================\n")
+    
+    highlight_count = 0
+    for block in doc_obj.blocks:
+        para = annotated_doc.add_paragraph()
+        run = para.add_run(block.text)
+        
+        # Heuristic: If block contains OMML like tags or if it was marked (though current parser doesn't mark block as EQ yet)
+        # We can also check if any equation object's text matches this block text
+        is_equation = False
+        if any(eq.text in block.text and len(eq.text) > 2 for eq in doc_obj.equations):
+            is_equation = True
+            
+        # Hard check on typical symbols if it's an equation block
+        if not is_equation and (('=' in block.text or '+' in block.text) and len(block.text) < 100):
+            # This is a bit weak, but for visual tests it helps see what MIGHT be one
+             pass
+
+        if is_equation:
+            run.font.highlight_color = 3 # TURQUOISE (WD_COLOR_INDEX.TURQUOISE is 3)
+            add_comment_to_paragraph(para, "EQUATION")
+            highlight_count += 1
+
+    annotated_doc.save(str(output_path))
+    print(f"  ? Highlighted {highlight_count} potential equation blocks")
+    print(f"\n✅ SUCCESS: Result saved to {output_path}")
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python 01b_equations_visual.py <docx_path>")
-        sys.exit(1)
-    highlight_equations(sys.argv[1])
+    main()

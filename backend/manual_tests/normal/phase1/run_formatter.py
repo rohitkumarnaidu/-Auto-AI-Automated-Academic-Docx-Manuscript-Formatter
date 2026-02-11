@@ -1,9 +1,16 @@
+"""
+Normal Test: Stage 3 Formatting
+Purpose: Verify final formatted output generation and save result to JSON
+Input: DOCX file
+Output: manual_tests/outputs/formatted_result.json
+"""
+
 import os
 import sys
 import json
 from pathlib import Path
 
-# Add backend to path
+# Add backend to path (Depth 3)
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))
 
 from app.pipeline.parsing.parser import DocxParser
@@ -16,15 +23,24 @@ from app.pipeline.references.parser import ReferenceParser
 from app.pipeline.validation.validator import DocumentValidator
 from app.pipeline.formatting.formatter import Formatter
 
-def main(input_path):
-    print(f"\n🚀 PHASE 3: FORMATTING")
-    print(f"Target: {input_path}")
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: python run_formatter.py <input.docx>")
+        sys.exit(1)
+        
+    input_path = sys.argv[1]
+    output_dir = Path(__file__).parent.parent.parent / "outputs"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_file = output_dir / "formatted_result.json"
     
-    if not os.path.exists(input_path):
-        print(f"❌ ERROR: File not found: {input_path}")
-        return
-
-    # 1. Pipeline Execution (Full Pipeline + Formatting)
+    print("=" * 70)
+    print("NORMAL TEST: STAGE 3 FORMATTING")
+    print("=" * 70)
+    print(f"Input: {input_path}")
+    print(f"Output: {output_file}")
+    
+    # Execution
+    print("[1/3] Running Full Pipeline...")
     parser = DocxParser()
     normalizer = Normalizer()
     detector = StructureDetector()
@@ -35,44 +51,39 @@ def main(input_path):
     validator = DocumentValidator()
     formatter = Formatter()
     
-    doc = parser.parse(input_path, "test_job")
-    doc = normalizer.process(doc)
-    doc = detector.process(doc)
-    doc = classifier.process(doc)
-    doc = fig_matcher.process(doc)
-    doc = tab_matcher.process(doc)
-    doc = ref_parser.process(doc)
-    doc = validator.process(doc)
-    doc = formatter.process(doc)
+    doc_obj = parser.parse(input_path, "test_job_format")
+    doc_obj = normalizer.process(doc_obj)
+    doc_obj = detector.process(doc_obj)
+    doc_obj = classifier.process(doc_obj)
+    doc_obj = fig_matcher.process(doc_obj)
+    doc_obj = tab_matcher.process(doc_obj)
+    doc_obj = ref_parser.process(doc_obj)
+    doc_obj = validator.process(doc_obj)
+    doc_obj = formatter.process(doc_obj)
     
-    # 2. Analysis
-    has_formatted_doc = hasattr(doc, 'generated_doc') and doc.generated_doc is not None
+    # Analysis
+    has_formatted = hasattr(doc_obj, 'generated_doc_path') and doc_obj.generated_doc_path is not None
     
-    # 3. Save Output
-    output_dir = Path("manual_tests/outputs")
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_file = output_dir / "formatted_result.json"
-    
+    # Save Output
+    print("[2/3] Saving formatting results...")
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump({
             "summary": {
-                "formatting_successful": has_formatted_doc,
-                "template": doc.template.template_name if doc.template else None,
-                "total_blocks": len(doc.blocks),
-                "is_valid": doc.is_valid
+                "formatting_successful": has_formatted,
+                "template": doc_obj.metadata.get('template_name', 'None'),
+                "total_blocks": len(doc_obj.blocks),
+                "is_valid": doc_obj.is_valid
             },
-            "processing_history": [s.model_dump() for s in doc.processing_history]
-        }, f, indent=2)
+            "processing_history": [s.model_dump() for s in doc_obj.processing_history],
+            "formatted_doc_path": str(doc_obj.generated_doc_path) if has_formatted else None
+        }, f, indent=2, default=str)
     
-    print(f"\n--- Formatting Summary ---")
-    print(f"Formatting Successful: {has_formatted_doc}")
-    print(f"Template: {doc.template.template_name if doc.template else 'None'}")
-    print(f"Valid: {doc.is_valid}")
+    print(f"\n--- Results Summary ---")
+    print(f"Formatting Successful: {has_formatted}")
+    print(f"Template Applied:      {doc_obj.metadata.get('template_name', 'None')}")
+    print(f"Valid:                 {doc_obj.is_valid}")
     print(f"------------------------")
     print(f"\n✅ SUCCESS: Result saved to {output_file}")
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python run_formatter.py <docx_path>")
-        sys.exit(1)
-    main(sys.argv[1])
+    main()

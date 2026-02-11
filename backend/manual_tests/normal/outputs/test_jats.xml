@@ -1,0 +1,32 @@
+<article xmlns:mml="http://www.w3.org/1998/Math/MathML" xmlns:xlink="http://www.w3.org/1999/xlink" article-type="research-article" dtd-version="1.2">
+  <front>
+    <article-meta>
+      <title-group>
+        <article-title>JATS Test Paper</article-title>
+      </title-group>
+      <contrib-group>
+        <contrib contrib_type="author">
+          <name>
+            <surname>A</surname>
+            <given-names>Author</given-names>
+          </name>
+        </contrib>
+        <contrib contrib_type="author">
+          <name>
+            <surname>B</surname>
+            <given-names>Author</given-names>
+          </name>
+        </contrib>
+      </contrib-group>
+    </article-meta>
+  </front>
+  <body/>
+  <back>
+    <ref-list>
+      <title>References</title>
+      <ref id="ref_001">
+        <mixed-citation>Smith, J. (2020). Test Paper. Journal of Testing.</mixed-citation>
+      </ref>
+    </ref-list>
+  </back>
+</article>

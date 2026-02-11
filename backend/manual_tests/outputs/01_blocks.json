@@ -1,8 +1,8 @@
 {
   "summary": {
-    "input_file": "uploads/132dbdae-b6e3-4936-bdb5-bc398ed0ac19.docx",
     "total_blocks": 17,
-    "parsing_status": "success"
+    "has_figures": true,
+    "has_tables": true
   },
   "blocks": [
     {

@@ -1,100 +1,110 @@
-import os
+"""
+Visual Test - Stage 2: Semantic Classification
+Purpose: Verify block classification visually
+Input: DOCX file
+Output: Annotated DOCX with color-coded block types
+"""
+
 import sys
+import os
 from pathlib import Path
 from docx import Document
+from docx.shared import RGBColor
 from docx.enum.text import WD_COLOR_INDEX
 
-# Add backend to path
+# Add backend to path (Depth 3)
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))
 
 from app.pipeline.parsing.parser import DocxParser
-from app.pipeline.normalization.normalizer import Normalizer
+from app.pipeline.normalization.normalizer import Normalizer as TextNormalizer
 from app.pipeline.structure_detection.detector import StructureDetector
 from app.pipeline.classification.classifier import ContentClassifier
 from app.models.block import BlockType
 
-def annotate_visual(input_path, output_path):
-    print(f"Annotating {input_path}")
-    
-    # 1. Pipeline Execution: Parse -> Normalize -> Structure -> Classify
-    parser = DocxParser()
-    normalizer = Normalizer()
-    detector = StructureDetector()
-    classifier = ContentClassifier()
-    
-    doc = parser.parse(input_path, "visual_test")
-    doc = normalizer.process(doc)
-    doc = detector.process(doc)
-    doc = classifier.process(doc)
-    
-    blocks = doc.blocks
-    
-    # 2. Annotate DOCX
-    annotated_doc = Document(input_path)
-    
-    # Color mapping for BlockTypes
-    color_map = {
-        BlockType.TITLE: WD_COLOR_INDEX.PINK,
-        BlockType.AUTHOR: WD_COLOR_INDEX.BLUE,
-        BlockType.AFFILIATION: WD_COLOR_INDEX.TEAL,
-        BlockType.ABSTRACT_HEADING: WD_COLOR_INDEX.BRIGHT_GREEN,
-        BlockType.ABSTRACT_BODY: WD_COLOR_INDEX.GREEN,
-        BlockType.HEADING_1: WD_COLOR_INDEX.YELLOW,
-        BlockType.HEADING_2: WD_COLOR_INDEX.YELLOW,
-        BlockType.HEADING_3: WD_COLOR_INDEX.YELLOW,
-        BlockType.HEADING_4: WD_COLOR_INDEX.YELLOW,
-        BlockType.REFERENCES_HEADING: WD_COLOR_INDEX.YELLOW,
-        BlockType.REFERENCE_ENTRY: WD_COLOR_INDEX.GRAY_25,
-        BlockType.FIGURE_CAPTION: WD_COLOR_INDEX.TURQUOISE,
-        BlockType.TABLE_CAPTION: WD_COLOR_INDEX.TURQUOISE,
-    }
-    
-    # Dashboard insertion
-    if annotated_doc.paragraphs:
-        first_para = annotated_doc.paragraphs[0]
-        
-        # Count by type
-        type_counts = {}
-        for b in blocks:
-            bt = b.block_type
-            type_counts[bt] = type_counts.get(bt, 0) + 1
-        
-        first_para.insert_paragraph_before("------------------------------------------------\n")
-        for bt, count in sorted(type_counts.items(), key=lambda x: str(x[0])):
-            first_para.insert_paragraph_before(f"{bt.value}: {count}")
-        first_para.insert_paragraph_before(f"Total Blocks: {len(blocks)}")
-        
-        header_p = first_para.insert_paragraph_before(
-            "--- QA VISUAL DASHBOARD: PHASE 1 (CLASSIFICATION) ---"
-        )
-        if header_p.runs:
-            header_p.runs[0].bold = True
-    
-    # Highlight blocks by type
-    for block in blocks:
-        idx = block.index
-        if 0 <= idx < len(annotated_doc.paragraphs):
-            para = annotated_doc.paragraphs[idx]
-            
-            # Apply color if mapped
-            if block.block_type in color_map:
-                for run in para.runs:
-                    run.font.highlight_color = color_map[block.block_type]
-                
-                # Add type annotation
-                para.add_run(f" [TYPE: {block.block_type.value.upper()}]").font.bold = True
-                    
-    annotated_doc.save(output_path)
-    return output_path
+# Color mapping for BlockTypes
+COLOR_MAP = {
+    BlockType.TITLE: WD_COLOR_INDEX.PINK,
+    BlockType.AUTHOR: WD_COLOR_INDEX.BLUE,
+    BlockType.AFFILIATION: WD_COLOR_INDEX.TEAL,
+    BlockType.ABSTRACT_HEADING: WD_COLOR_INDEX.BRIGHT_GREEN,
+    BlockType.ABSTRACT_BODY: WD_COLOR_INDEX.GREEN,
+    BlockType.HEADING_1: WD_COLOR_INDEX.YELLOW,
+    BlockType.HEADING_2: WD_COLOR_INDEX.YELLOW,
+    BlockType.HEADING_3: WD_COLOR_INDEX.YELLOW,
+    BlockType.HEADING_4: WD_COLOR_INDEX.YELLOW,
+    BlockType.REFERENCES_HEADING: WD_COLOR_INDEX.YELLOW,
+    BlockType.REFERENCE_ENTRY: WD_COLOR_INDEX.GRAY_25,
+    BlockType.FIGURE_CAPTION: WD_COLOR_INDEX.TURQUOISE,
+    BlockType.TABLE_CAPTION: WD_COLOR_INDEX.TURQUOISE,
+}
 
-if __name__ == "__main__":
+def add_comment_to_paragraph(paragraph, comment_text):
+    """Add inline note."""
+    run = paragraph.add_run(f" [{comment_text}]")
+    run.font.color.rgb = RGBColor(0, 0, 255) # Blue
+
+def main():
     if len(sys.argv) < 2:
-        print("Usage: python 02_classification.py <docx_path>")
+        print("Usage: python 02_classification.py <input.docx>")
         sys.exit(1)
         
-    input_docx = sys.argv[1]
-    output_docx = "manual_tests/visual_outputs/02_classified_annotated.docx"
+    input_path = sys.argv[1]
+    output_dir = Path(__file__).parent.parent.parent / "visual_outputs"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "02_classified_annotated.docx"
     
-    os.makedirs("manual_tests/visual_outputs", exist_ok=True)
-    annotate_visual(input_docx, output_docx)
-    print(f"Done. Visual test saved to {output_docx}")
+    print("=" * 70)
+    print("VISUAL TEST - STAGE 2: SEMANTIC CLASSIFICATION")
+    print("=" * 70)
+    print(f"Input: {input_path}")
+    print(f"Output: {output_path}")
+    
+    # Execution
+    print("[1/4] Parsing...")
+    parser = DocxParser()
+    doc_obj = parser.parse(input_path, "visual_test_cls")
+    
+    print("[2/4] Normalizing & Structure Detection...")
+    normalizer = TextNormalizer()
+    detector = StructureDetector()
+    doc_obj = normalizer.process(doc_obj)
+    doc_obj = detector.process(doc_obj)
+    
+    print("[3/4] Running Classification...")
+    classifier = ContentClassifier()
+    doc_obj = classifier.process(doc_obj)
+    
+    # Count types
+    type_counts = {}
+    for b in doc_obj.blocks:
+        type_counts[b.block_type] = type_counts.get(b.block_type, 0) + 1
+    
+    # Annotation
+    print("[4/4] Generating annotated DOCX...")
+    annotated_doc = Document()
+    
+    # Add summary dashboard
+    summary = annotated_doc.add_paragraph()
+    summary.add_run("=== CLASSIFICATION DASHBOARD ===\n").bold = True
+    summary.add_run(f"Total Blocks: {len(doc_obj.blocks)}\n")
+    for bt, count in sorted(type_counts.items(), key=lambda x: str(x[0])):
+        summary.add_run(f"{bt.value}: {count}\n")
+    summary.add_run("================================\n")
+    summary.runs[0].font.color.rgb = RGBColor(0, 128, 0)
+
+    for block in doc_obj.blocks:
+        para = annotated_doc.add_paragraph()
+        run = para.add_run(block.text)
+        
+        # Apply color if mapped
+        if block.block_type in COLOR_MAP:
+            run.font.highlight_color = COLOR_MAP[block.block_type]
+            add_comment_to_paragraph(para, f"TYPE: {block.block_type.value.upper()}")
+        elif block.block_type != BlockType.UNKNOWN:
+             add_comment_to_paragraph(para, f"TYPE: {block.block_type.value.upper()}")
+
+    annotated_doc.save(str(output_path))
+    print(f"\n✅ SUCCESS: Result saved to {output_path}")
+
+if __name__ == "__main__":
+    main()

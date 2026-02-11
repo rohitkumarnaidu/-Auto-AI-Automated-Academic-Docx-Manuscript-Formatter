@@ -1,3 +1,4 @@
+print("--- SCRIPT EXECUTION START ---", flush=True)
 """
 Manual test script for document validation.
 """
@@ -7,9 +8,13 @@ import os
 from pathlib import Path
 
 # Add backend to path (Depth 3: manual_tests/normal/phase2_assembly)
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))
+# Add backend to path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../")))
+# Fallback if running from backend root
+if os.path.abspath(".").endswith("backend") and os.path.abspath(".") not in sys.path:
+    sys.path.insert(0, os.path.abspath("."))
 
-from app.models import Document, Block, BlockType, Figure, Reference, ReferenceType
+from app.models import PipelineDocument, DocumentMetadata, Block, BlockType, Figure, Reference, ReferenceType
 from app.pipeline.validation.validator import validate_document
 
 def test_validation():
@@ -19,7 +24,24 @@ def test_validation():
     print("=" * 70)
     
     # 1. Create a Good Document
-    doc_good = Document(document_id="good_doc", original_filename="good.docx")
+    try:
+        doc_good = PipelineDocument(
+            document_id="good_doc", 
+            original_filename="good.docx",
+            metadata=DocumentMetadata(
+                title="Good Doc",
+                authors=["Test Author"],
+                affiliations=["Test Affiliation"],
+                abstract="Abstract content",
+                keywords=["test"],
+                ai_hints={}
+            )
+        )
+    except Exception as e:
+        print(f"❌ FAILED TO CREATE doc_good: {e}")
+        if hasattr(e, 'errors'):
+            print(f"Detailed Errors: {e.errors()}")
+        raise e
     
     # Sections (Abstract, Intro, Refs)
     doc_good.blocks = [
@@ -48,7 +70,7 @@ def test_validation():
         print("  ❌ Failed (Unexpected errors)")
 
     # 2. Create a Bad Document
-    doc_bad = Document(document_id="bad_doc", original_filename="bad.docx")
+    doc_bad = PipelineDocument(document_id="bad_doc", original_filename="bad.docx")
     # No sections, Uncaptioned figure, Bad reference
     doc_bad.blocks = []
     
@@ -89,7 +111,7 @@ def test_validation():
         
     # 3. Figure Reference Logic
     print("\n[Case 3] Figure Reference Mismatch:")
-    doc_ref = Document(document_id="ref_check", original_filename="test.docx")
+    doc_ref = PipelineDocument(document_id="ref_check", original_filename="test.docx")
     
     # Text references Figure 2, but we only have 1 figure
     doc_ref.blocks = [
@@ -114,7 +136,7 @@ def test_validation():
 
     # 4. Advanced Checks (Tables, Citations)
     print("\n[Case 4] Advanced Checks:")
-    doc_adv = Document(document_id="adv_check", original_filename="adv.docx")
+    doc_adv = PipelineDocument(document_id="adv_check", original_filename="adv.docx")
     doc_adv.blocks = [
         Block(block_id="b1", text="As shown in [99] and [1]", block_type=BlockType.BODY, index=0),
         Block(block_id="b2", text="References", block_type=BlockType.REFERENCES_HEADING, index=1),
@@ -140,8 +162,13 @@ def test_validation():
     else:
         print(f"  ❌ Failed. Warnings: {res_adv.warnings}")
 
-    print("\n" + "=" * 70)
-    print("✓ TEST COMPLETE")
-
 if __name__ == "__main__":
-    test_validation()
+    try:
+        test_validation()
+        print("\n" + "=" * 70)
+        print("✓ TEST COMPLETE")
+    except Exception as e:
+        print(f"\n❌ TEST FAILED: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
