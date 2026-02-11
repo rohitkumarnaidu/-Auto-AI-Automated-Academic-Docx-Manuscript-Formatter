@@ -8,47 +8,61 @@ from docx.enum.text import WD_COLOR_INDEX
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))
 
 from app.pipeline.parsing.parser import DocxParser
+from app.pipeline.normalization.normalizer import Normalizer
 from app.pipeline.structure_detection.detector import StructureDetector
-from app.models import BlockType
+
 
 def annotate_visual(input_path, output_path):
     print(f"Annotating {input_path}")
     
     # 1. Pipeline Execution
     parser = DocxParser()
+    normalizer = Normalizer()
     detector = StructureDetector()
     
-    blocks = parser.parse_docx(input_path)
-    # Filter only blocks that the detector adds structure to
-    structured_blocks = detector.detect_structure(blocks)
+    parsed_doc = parser.parse(input_path, "visual_test")
+    normalized_doc = normalizer.process(parsed_doc)
+    structured_doc = detector.process(normalized_doc)
+    
+    structured_blocks = structured_doc.blocks
     
     # 2. Annotate DOCX
-    doc = Document(input_path)
+    annotated_doc = Document(input_path)
     
-    # Add Summary Dashboard at top
-    p = doc.paragraphs[0].insert_paragraph_before("--- QA VISUAL DASHBOARD: PHASE 1 (STRUCTURE) ---")
-    p.runs[0].bold = True
-    doc.paragraphs[1].insert_paragraph_before(f"Total Blocks: {len(structured_blocks)}")
-    doc.paragraphs[2].insert_paragraph_before(f"Headings: {sum(1 for b in structured_blocks if b.type == BlockType.HEADING)}")
-    doc.paragraphs[3].insert_paragraph_before("------------------------------------------------\n")
+    # Detect headings using metadata
+    heading_blocks = [
+        b for b in structured_blocks
+        if b.metadata.get("is_heading_candidate", False)
+    ]
+    
+    # Safe dashboard insertion
+    if annotated_doc.paragraphs:
+        first_para = annotated_doc.paragraphs[0]
+        
+        first_para.insert_paragraph_before("------------------------------------------------\n")
+        first_para.insert_paragraph_before(f"Headings: {len(heading_blocks)}")
+        first_para.insert_paragraph_before(f"Total Blocks: {len(structured_blocks)}")
+        
+        header_p = first_para.insert_paragraph_before(
+            "--- QA VISUAL DASHBOARD: PHASE 1 (STRUCTURE) ---"
+        )
+        if header_p.runs:
+            header_p.runs[0].bold = True
 
-    # Match blocks to paragraphs and highlight
-    # (Simple mapping for visual inspection)
-    heading_count = 0
-    for block in structured_blocks:
-        if block.type == BlockType.HEADING:
-            # Try to find the matching paragraph by text content
-            for para in doc.paragraphs:
-                if block.text.strip() == para.text.strip():
-                    for run in para.runs:
-                        run.font.highlight_color = WD_COLOR_INDEX.YELLOW
-                    # Add comment-like text
-                    para.add_run(f" [HEADING L{block.metadata.get('level', '?')}]").font.bold = True
-                    heading_count += 1
-                    break
+    # Highlight headings
+    for block in heading_blocks:
+        idx = block.index
+        if 0 <= idx < len(annotated_doc.paragraphs):
+            para = annotated_doc.paragraphs[idx]
+            for run in para.runs:
+                run.font.highlight_color = WD_COLOR_INDEX.YELLOW
+            
+            level = block.metadata.get("level", "?")
+            para.add_run(f" [HEADING L{level}]").font.bold = True
                     
-    doc.save(output_path)
+    annotated_doc.save(output_path)
     return output_path
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

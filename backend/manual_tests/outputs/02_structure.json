@@ -1,0 +1,56 @@
+{
+  "summary": {
+    "total_blocks": 15,
+    "headings_detected": 7,
+    "heading_levels": {
+      "L1": 6,
+      "L2": 0,
+      "L3": 0,
+      "L4": 0
+    }
+  },
+  "headings": [
+    {
+      "text": "Automated Academic Manuscript Formatter",
+      "level": 0,
+      "confidence": 1.0,
+      "index": 0
+    },
+    {
+      "text": "Rohit Kumar, Ananya Sharma, Vikram Patel",
+      "level": 1,
+      "confidence": 0.45,
+      "index": 2
+    },
+    {
+      "text": "XYZ University",
+      "level": 1,
+      "confidence": 0.45,
+      "index": 4
+    },
+    {
+      "text": "Abstract",
+      "level": 1,
+      "confidence": 0.5,
+      "index": 6
+    },
+    {
+      "text": "1 Introduction",
+      "level": 1,
+      "confidence": 1.0,
+      "index": 9
+    },
+    {
+      "text": "2 Methodology",
+      "level": 1,
+      "confidence": 1.0,
+      "index": 12
+    },
+    {
+      "text": "REFERENCES",
+      "level": 1,
+      "confidence": 0.5,
+      "index": 22
+    }
+  ]
+}

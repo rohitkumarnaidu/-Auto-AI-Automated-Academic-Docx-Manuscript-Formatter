@@ -19,7 +19,8 @@ def highlight_equations(input_path):
 
     # 1. Pipeline Execution
     parser = DocxParser()
-    blocks = parser.parse_docx(input_path)
+    doc = parser.parse(input_path, "visual_test")
+    blocks = doc.blocks
     
     # 2. Annotation
     doc = Document(input_path)

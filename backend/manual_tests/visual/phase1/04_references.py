@@ -8,40 +8,67 @@ from docx.enum.text import WD_COLOR_INDEX
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))
 
 from app.pipeline.parsing.parser import DocxParser
+from app.pipeline.normalization.normalizer import Normalizer
 from app.pipeline.structure_detection.detector import StructureDetector
 from app.pipeline.classification.classifier import ContentClassifier
-from app.models import BlockType
+from app.pipeline.references.parser import ReferenceParser
+from app.models.block import BlockType
 
 def annotate_visual(input_path, output_path):
     print(f"Annotating {input_path}")
     
     # 1. Pipeline Execution
     parser = DocxParser()
+    normalizer = Normalizer()
     detector = StructureDetector()
     classifier = ContentClassifier()
+    ref_parser = ReferenceParser()
     
-    blocks = parser.parse_docx(input_path)
-    blocks = detector.detect_structure(blocks)
-    blocks = classifier.classify_blocks(blocks)
+    doc = parser.parse(input_path, "visual_test")
+    doc = normalizer.process(doc)
+    doc = detector.process(doc)
+    doc = classifier.process(doc)
+    doc = ref_parser.process(doc)
+    
+    blocks = doc.blocks
     
     # 2. Annotate DOCX
-    doc = Document(input_path)
+    annotated_doc = Document(input_path)
     
-    # Dashboard
-    p = doc.paragraphs[0].insert_paragraph_before("--- QA VISUAL DASHBOARD: PHASE 1 (REFERENCES) ---")
-    p.runs[0].bold = True
-    ref_blocks = [b for b in blocks if b.type == BlockType.REFERENCES]
-    doc.paragraphs[1].insert_paragraph_before(f"Reference blocks detected: {len(ref_blocks)}")
-    doc.paragraphs[2].insert_paragraph_before("--------------------------------------------------\n")
-
-    for block in ref_blocks:
-        for para in doc.paragraphs:
-            if block.text.strip() == para.text.strip():
+    # Count reference entries
+    ref_blocks = [b for b in blocks if b.block_type == BlockType.REFERENCE_ENTRY]
+    
+    # Dashboard insertion
+    if annotated_doc.paragraphs:
+        first_para = annotated_doc.paragraphs[0]
+        
+        first_para.insert_paragraph_before("------------------------------------------------\n")
+        first_para.insert_paragraph_before(f"Reference Entries: {len(ref_blocks)}")
+        first_para.insert_paragraph_before(f"Total Blocks: {len(blocks)}")
+        
+        header_p = first_para.insert_paragraph_before(
+            "--- QA VISUAL DASHBOARD: PHASE 1 (REFERENCES) ---"
+        )
+        if header_p.runs:
+            header_p.runs[0].bold = True
+    
+    # Highlight reference entries
+    for block in blocks:
+        idx = block.index
+        if 0 <= idx < len(annotated_doc.paragraphs):
+            para = annotated_doc.paragraphs[idx]
+            
+            if block.block_type == BlockType.REFERENCE_ENTRY:
                 for run in para.runs:
-                    run.font.highlight_color = WD_COLOR_INDEX.PINK
-                break
+                    run.font.highlight_color = WD_COLOR_INDEX.GRAY_25
+                para.add_run(" [REF ENTRY]").font.bold = True
+            
+            elif block.block_type == BlockType.REFERENCES_HEADING:
+                for run in para.runs:
+                    run.font.highlight_color = WD_COLOR_INDEX.YELLOW
+                para.add_run(" [REF HEADING]").font.bold = True
                     
-    doc.save(output_path)
+    annotated_doc.save(output_path)
     return output_path
 
 if __name__ == "__main__":

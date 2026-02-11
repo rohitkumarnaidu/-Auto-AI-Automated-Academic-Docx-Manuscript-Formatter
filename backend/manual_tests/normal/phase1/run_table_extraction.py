@@ -3,13 +3,13 @@ import sys
 import json
 from pathlib import Path
 
-# Add backend to path (Depth 3: manual_tests/normal/phase1_identification)
+# Add backend to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))
 
 from app.pipeline.parsing.parser import DocxParser
+from app.pipeline.normalization.normalizer import Normalizer
 from app.pipeline.structure_detection.detector import StructureDetector
 from app.pipeline.classification.classifier import ContentClassifier
-from app.models import BlockType
 
 def main(input_path):
     print(f"\n🚀 PHASE 1: TABLE EXTRACTION")
@@ -18,19 +18,21 @@ def main(input_path):
     if not os.path.exists(input_path):
         print(f"❌ ERROR: File not found: {input_path}")
         return
-
+    
     # 1. Pipeline Execution
     parser = DocxParser()
+    normalizer = Normalizer()
     detector = StructureDetector()
     classifier = ContentClassifier()
     
-    blocks = parser.parse_docx(input_path)
-    blocks = detector.detect_structure(blocks)
-    blocks = classifier.classify_blocks(blocks)
-    # Extract tables
-    tables = [b for b in blocks if b.type == BlockType.TABLE]
+    doc = parser.parse(input_path, "test_job")
+    doc = normalizer.process(doc)
+    doc = detector.process(doc)
+    doc = classifier.process(doc)
     
     # 2. Analysis
+    tables = doc.tables
+    
     # 3. Save Output
     output_dir = Path("manual_tests/outputs")
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -41,7 +43,7 @@ def main(input_path):
             "summary": {
                 "tables_detected": len(tables)
             },
-            "tables": [b.model_dump() for b in tables]
+            "tables": [tab.model_dump() for tab in tables]
         }, f, indent=2)
     
     print(f"\n--- Analysis Summary ---")

@@ -8,56 +8,83 @@ from docx.enum.text import WD_COLOR_INDEX
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))
 
 from app.pipeline.parsing.parser import DocxParser
+from app.pipeline.normalization.normalizer import Normalizer
 from app.pipeline.structure_detection.detector import StructureDetector
 from app.pipeline.classification.classifier import ContentClassifier
-from app.models import BlockType
+from app.models.block import BlockType
 
 def annotate_visual(input_path, output_path):
     print(f"Annotating {input_path}")
     
-    # 1. Pipeline Execution
+    # 1. Pipeline Execution: Parse -> Normalize -> Structure -> Classify
     parser = DocxParser()
+    normalizer = Normalizer()
     detector = StructureDetector()
     classifier = ContentClassifier()
     
-    blocks = parser.parse_docx(input_path)
-    blocks = detector.detect_structure(blocks)
-    classified_blocks = classifier.classify_blocks(blocks)
+    doc = parser.parse(input_path, "visual_test")
+    doc = normalizer.process(doc)
+    doc = detector.process(doc)
+    doc = classifier.process(doc)
+    
+    blocks = doc.blocks
     
     # 2. Annotate DOCX
-    doc = Document(input_path)
+    annotated_doc = Document(input_path)
     
-    # Add Summary Dashboard at top
-    p = doc.paragraphs[0].insert_paragraph_before("--- QA VISUAL DASHBOARD: PHASE 1 (CLASSIFICATION) ---")
-    p.runs[0].bold = True
-    
-    counts = {}
-    for b in classified_blocks:
-        counts[b.type] = counts.get(b.type, 0) + 1
-        
-    for i, (btype, count) in enumerate(counts.items()):
-        doc.paragraphs[i+1].insert_paragraph_before(f"{btype}: {count}")
-    
-    # Highlights mapping
+    # Color mapping for BlockTypes
     color_map = {
-        BlockType.HEADING: WD_COLOR_INDEX.YELLOW,
-        BlockType.FIGURE_CAPTION: WD_COLOR_INDEX.RED,
-        BlockType.TABLE_CAPTION: WD_COLOR_INDEX.BLUE,
-        BlockType.AFFILIATION: WD_COLOR_INDEX.GRAY_25,
-        BlockType.AUTHOR: WD_COLOR_INDEX.BRIGHT_GREEN,
-        BlockType.ABSTRACT: WD_COLOR_INDEX.TURQUOISE,
-        BlockType.REFERENCES: WD_COLOR_INDEX.PINK
+        BlockType.TITLE: WD_COLOR_INDEX.PINK,
+        BlockType.AUTHOR: WD_COLOR_INDEX.BLUE,
+        BlockType.AFFILIATION: WD_COLOR_INDEX.TEAL,
+        BlockType.ABSTRACT_HEADING: WD_COLOR_INDEX.BRIGHT_GREEN,
+        BlockType.ABSTRACT_BODY: WD_COLOR_INDEX.GREEN,
+        BlockType.HEADING_1: WD_COLOR_INDEX.YELLOW,
+        BlockType.HEADING_2: WD_COLOR_INDEX.YELLOW,
+        BlockType.HEADING_3: WD_COLOR_INDEX.YELLOW,
+        BlockType.HEADING_4: WD_COLOR_INDEX.YELLOW,
+        BlockType.REFERENCES_HEADING: WD_COLOR_INDEX.YELLOW,
+        BlockType.REFERENCE_ENTRY: WD_COLOR_INDEX.GRAY_25,
+        BlockType.FIGURE_CAPTION: WD_COLOR_INDEX.TURQUOISE,
+        BlockType.TABLE_CAPTION: WD_COLOR_INDEX.TURQUOISE,
     }
-
-    for block in classified_blocks:
-        if block.type in color_map:
-            for para in doc.paragraphs:
-                if block.text.strip() == para.text.strip():
-                    for run in para.runs:
-                        run.font.highlight_color = color_map[block.type]
-                    break
+    
+    # Dashboard insertion
+    if annotated_doc.paragraphs:
+        first_para = annotated_doc.paragraphs[0]
+        
+        # Count by type
+        type_counts = {}
+        for b in blocks:
+            bt = b.block_type
+            type_counts[bt] = type_counts.get(bt, 0) + 1
+        
+        first_para.insert_paragraph_before("------------------------------------------------\n")
+        for bt, count in sorted(type_counts.items(), key=lambda x: str(x[0])):
+            first_para.insert_paragraph_before(f"{bt.value}: {count}")
+        first_para.insert_paragraph_before(f"Total Blocks: {len(blocks)}")
+        
+        header_p = first_para.insert_paragraph_before(
+            "--- QA VISUAL DASHBOARD: PHASE 1 (CLASSIFICATION) ---"
+        )
+        if header_p.runs:
+            header_p.runs[0].bold = True
+    
+    # Highlight blocks by type
+    for block in blocks:
+        idx = block.index
+        if 0 <= idx < len(annotated_doc.paragraphs):
+            para = annotated_doc.paragraphs[idx]
+            
+            # Apply color if mapped
+            if block.block_type in color_map:
+                for run in para.runs:
+                    run.font.highlight_color = color_map[block.block_type]
+                
+                # Add type annotation
+                para.add_run(f" [TYPE: {block.block_type.value.upper()}]").font.bold = True
                     
-    doc.save(output_path)
+    annotated_doc.save(output_path)
     return output_path
 
 if __name__ == "__main__":

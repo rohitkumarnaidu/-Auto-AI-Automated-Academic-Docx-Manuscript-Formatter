@@ -8,49 +8,66 @@ from docx.enum.text import WD_COLOR_INDEX
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))
 
 from app.pipeline.parsing.parser import DocxParser
+from app.pipeline.normalization.normalizer import Normalizer
 from app.pipeline.structure_detection.detector import StructureDetector
 from app.pipeline.classification.classifier import ContentClassifier
 from app.pipeline.tables.caption_matcher import TableCaptionMatcher
-from app.pipeline.tables.numbering import TableNumbering
-from app.models import BlockType
+from app.models.block import BlockType
 
 def annotate_visual(input_path, output_path):
     print(f"Annotating {input_path}")
     
     # 1. Pipeline Execution
     parser = DocxParser()
+    normalizer = Normalizer()
     detector = StructureDetector()
     classifier = ContentClassifier()
     matcher = TableCaptionMatcher()
-    numberer = TableNumbering()
     
-    blocks = parser.parse_docx(input_path)
-    blocks = detector.detect_structure(blocks)
-    blocks = classifier.classify_blocks(blocks)
-    tables = [b for b in blocks if b.type == BlockType.TABLE]
-    tables = matcher.match_captions(blocks, tables)
-    numbered_tables = numberer.number_tables(tables)
+    doc = parser.parse(input_path, "visual_test")
+    doc = normalizer.process(doc)
+    doc = detector.process(doc)
+    doc = classifier.process(doc)
+    doc = matcher.process(doc)
+    
+    blocks = doc.blocks
+    tables = doc.tables
+    
+    # Apply numbering
+    for i, tab in enumerate(tables, 1):
+        tab.number = i
+        tab.metadata["table_number"] = i
     
     # 2. Annotate DOCX
-    doc = Document(input_path)
+    annotated_doc = Document(input_path)
     
-    # Dashboard
-    p = doc.paragraphs[0].insert_paragraph_before("--- QA VISUAL DASHBOARD: PHASE 1 (TABLE NUMBERING) ---")
-    p.runs[0].bold = True
-    doc.paragraphs[1].insert_paragraph_before(f"Tables numbered: {len(numbered_tables)}")
-    doc.paragraphs[2].insert_paragraph_before("------------------------------------------------------\n")
-
-    for tab in numbered_tables:
-        caption_text = tab.metadata.get('caption')
-        if caption_text:
-            for para in doc.paragraphs:
-                if caption_text.strip() == para.text.strip():
+    # Dashboard insertion
+    if annotated_doc.paragraphs:
+        first_para = annotated_doc.paragraphs[0]
+        
+        first_para.insert_paragraph_before("------------------------------------------------\n")
+        first_para.insert_paragraph_before(f"Tables Numbered: {len(tables)}")
+        first_para.insert_paragraph_before(f"Total Blocks: {len(blocks)}")
+        
+        header_p = first_para.insert_paragraph_before(
+            "--- QA VISUAL DASHBOARD: PHASE 1 (TABLE NUMBERING) ---"
+        )
+        if header_p.runs:
+            header_p.runs[0].bold = True
+    
+    # Highlight table captions with numbers
+    for tab in tables:
+        if tab.caption_block_id:
+            caption_block = next((b for b in blocks if b.block_id == tab.caption_block_id), None)
+            if caption_block:
+                idx = caption_block.index
+                if 0 <= idx < len(annotated_doc.paragraphs):
+                    para = annotated_doc.paragraphs[idx]
                     for run in para.runs:
-                        run.font.highlight_color = WD_COLOR_INDEX.BLUE
-                    para.add_run(f" [TABLE {tab.metadata.get('table_number')}]").font.bold = True
-                    break
+                        run.font.highlight_color = WD_COLOR_INDEX.TURQUOISE
+                    para.add_run(f" [TABLE {tab.number}]").font.bold = True
                     
-    doc.save(output_path)
+    annotated_doc.save(output_path)
     return output_path
 
 if __name__ == "__main__":
@@ -59,7 +76,7 @@ if __name__ == "__main__":
         sys.exit(1)
         
     input_docx = sys.argv[1]
-    output_docx = "manual_tests/visual_outputs/06b_table_numbering.docx"
+    output_docx = "manual_tests/visual_outputs/06b_table_numbering_annotated.docx"
     
     os.makedirs("manual_tests/visual_outputs", exist_ok=True)
     annotate_visual(input_docx, output_docx)

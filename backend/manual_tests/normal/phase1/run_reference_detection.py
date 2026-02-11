@@ -52,7 +52,8 @@ def main(input_path=None):
             print(f"❌ ERROR: File not found: {input_path}")
         else:
             parser = DocxParser()
-            blocks = parser.parse_docx(input_path)
+            doc = parser.parse(input_path, "active_test")
+            blocks = doc.blocks
             doc = Document(document_id="active_test", original_filename=input_path, blocks=blocks)
             doc = parse_references(doc)
             print(f"✅ Parsed {len(doc.references)} references from file.")
