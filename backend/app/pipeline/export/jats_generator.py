@@ -52,7 +52,7 @@ class JATSGenerator:
             
             # Mixed citation (simple text representation)
             mixed_citation = etree.SubElement(ref_elem, "mixed-citation")
-            mixed_citation.text = ref.text or "Reference text unavailable"
+            mixed_citation.text = ref.raw_text or "Reference text unavailable"
             
             # Add structured metadata if available
             if ref.metadata:

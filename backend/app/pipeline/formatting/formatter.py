@@ -39,7 +39,7 @@ class Formatter:
         Apply formatting using contract-driven modular components.
         """
         if not template_name:
-            template_name = "IEEE" # Default
+            template_name = "none" # No default template - use neutral formatting
             
         # 1. Apply rules to model before rendering
         document = self.numbering_engine.apply_numbering(document, template_name)
@@ -67,6 +67,10 @@ class Formatter:
         
         # Add Blocks
         for block in document.blocks:
+            # SKIP figure captions - they will be rendered via document.figures
+            if block.block_type == BlockType.FIGURE_CAPTION:
+                continue
+            
             # Special handling for references: if it's a reference entry, we might want to re-format it
             if block.block_type == BlockType.REFERENCE_ENTRY:
                 # Find matching reference object
