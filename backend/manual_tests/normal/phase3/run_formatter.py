@@ -85,10 +85,14 @@ def main():
         
         # Apply formatting
         print("[2/2] Applying formatting...")
-        formatter = Formatter(template=template)
-        formatted_path = formatter.format(doc_obj, str(output_path))
+        formatter = Formatter()
+        word_doc = formatter.format(doc_obj, template_name=template)
         
-        print(f"      Formatted DOCX created")
+        if word_doc:
+            word_doc.save(str(output_path))
+            print(f"      Formatted DOCX created at {output_path}")
+        else:
+            print(f"      Formatting returned None")
         
     except Exception as e:
         print(f"\n❌ FORMATTING FAILED: {e}")

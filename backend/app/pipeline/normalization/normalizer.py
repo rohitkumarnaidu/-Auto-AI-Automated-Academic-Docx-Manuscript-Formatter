@@ -63,12 +63,25 @@ class Normalizer(PipelineStage):
         """
         start_time = datetime.utcnow()
         
+        # Track initial block count for audit logging
+        initial_block_count = len(document.blocks)
+
         # Normalize metadata
         document.metadata = self._normalize_metadata(document.metadata)
         
         # Normalize blocks
         document.blocks = self._normalize_blocks(document.blocks)
         
+        # SAFE EXTENSION: Index Invariant Restoration
+        # After duplicate suppression and splitting, we MUST rescale indices linearly.
+        # This prevents gaps or duplicate indices from breaking downstream caption matching
+        # and document assembly (which depend on absolute index proximity).
+        for i, block in enumerate(document.blocks):
+            block.index = i
+            
+        # Mandatory Structural Audit Assertion
+        assert all(block.index == i for i, block in enumerate(document.blocks))
+
         # Normalize tables
         document.tables = self._normalize_tables(document.tables)
         
@@ -81,7 +94,7 @@ class Normalizer(PipelineStage):
         document.add_processing_stage(
             stage_name="normalization",
             status="success",
-            message=f"Normalized {len(document.blocks)} blocks, {len(document.tables)} tables, metadata",
+            message=f"Normalized {len(document.blocks)} blocks (suppressed {initial_block_count - len(document.blocks)}), {len(document.tables)} tables, metadata",
             duration_ms=duration_ms
         )
         
