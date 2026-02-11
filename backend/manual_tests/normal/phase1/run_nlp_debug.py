@@ -14,7 +14,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))
 
 from app.pipeline.nlp.analyzer import ContentAnalyzer
-from app.models.document import PipelineDocument
+from app.models import PipelineDocument
 from app.models.block import Block, BlockType
 
 def main():

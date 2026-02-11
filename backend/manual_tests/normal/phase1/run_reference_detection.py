@@ -37,7 +37,7 @@ def test_mock_references():
             block_type=BlockType.REFERENCE_ENTRY
         ))
     
-    from app.models.document import PipelineDocument
+    from app.models import PipelineDocument
     doc_obj = PipelineDocument(document_id="ref_test", filename="refs.docx", blocks=blocks)
     doc_obj = parser.process(doc_obj)
     

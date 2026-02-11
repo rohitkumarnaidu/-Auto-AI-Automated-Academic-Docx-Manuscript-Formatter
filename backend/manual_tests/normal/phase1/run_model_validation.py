@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 
 # Import all models
 from app.models.block import Block, BlockType
-from app.models.document import PipelineDocument
+from app.models import PipelineDocument
 
 def test_block_model():
     print("\n[1/3] Testing Block Model...")

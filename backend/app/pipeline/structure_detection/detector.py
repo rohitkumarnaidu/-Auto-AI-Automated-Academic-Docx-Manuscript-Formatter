@@ -156,6 +156,10 @@ class StructureDetector(PipelineStage):
         potential_author_count = 0 
         
         for i, block in enumerate(blocks):
+            # 1. HARD ISOLATION RULE: Skip Header/Footer blocks
+            if block.metadata.get("is_header") or block.metadata.get("is_footer"):
+                continue
+
             # Skip empty blocks (Normalizer should have removed them, but double check)
             if not block.text.strip():
                 continue
@@ -203,40 +207,10 @@ class StructureDetector(PipelineStage):
                             block.metadata["is_affiliation_block"] = True
             
             # 2. HEADING ANALYSIS (Numbered/Keyword/Style/Fallback)
-            # Multi-line heading support (Strict Heuristic)
-            next_block = blocks[i+1] if i + 1 < len(blocks) else None
-            is_multiline = False
-            
-            if next_block and next_block.text.strip():
-                # Block A short (<60), no punct
-                # Block B follows, starts uppercase
-                # Both bold or larger font
-                # Combined < 120
-                if (len(block.text.strip()) < 60 and 
-                    not block.text.strip().endswith(('.', '?', '!')) and
-                    next_block.text.strip()[0].isupper() and
-                    (block.style.bold or (block.style.font_size and self.avg_font_size and block.style.font_size > self.avg_font_size)) and
-                    (next_block.style.bold or (next_block.style.font_size and self.avg_font_size and next_block.style.font_size > self.avg_font_size)) and
-                    len(block.text.strip()) + len(next_block.text.strip()) < 120):
-                    
-                    is_multiline = True
-
-            # Use combined text for analysis if multiline
-            if is_multiline:
-                # Merge virtually (Concatenate just for the candidate analysis)
-                temp_text = f"{block.text.strip()} {next_block.text.strip()}"
-                temp_block = block.model_copy(update={"text": temp_text})
-                heading_info = analyze_heading_candidate(temp_block, blocks, i, self.avg_font_size)
-            else:
-                heading_info = analyze_heading_candidate(block, blocks, i, self.avg_font_size)
+            heading_info = analyze_heading_candidate(block, blocks, i, self.avg_font_size)
             
             if heading_info is None:
                 continue
-            
-            # Post-analysis check for multiline markers
-            if is_multiline:
-                block.metadata["multiline_heading"] = True
-                block.metadata["multiline_continuation_block_id"] = next_block.block_id
             
             # Confidence boosting by position (only for valid candidates)
             position_info = analyze_position(block, blocks)
@@ -291,6 +265,11 @@ class StructureDetector(PipelineStage):
         current_section = None
         
         for block in blocks:
+            # 1. HARD ISOLATION RULE: Headers/Footers never inherit section_name
+            if block.metadata.get("is_header") or block.metadata.get("is_footer"):
+                block.section_name = None
+                continue
+
             # If this block is a heading, update current section
             if block.block_id in heading_map:
                 heading = heading_map[block.block_id]
@@ -329,6 +308,10 @@ class StructureDetector(PipelineStage):
         heading_stack: List[Dict[str, Any]] = []
         
         for block in blocks:
+            # 1. HARD ISOLATION RULE: Skip Header/Footer blocks
+            if block.metadata.get("is_header") or block.metadata.get("is_footer"):
+                continue
+
             # Check if this block is a heading
             heading_info = next(
                 (h for h in heading_candidates if h["block_id"] == block.block_id),
@@ -374,6 +357,10 @@ class StructureDetector(PipelineStage):
         """
         last_level = 0
         for block in blocks:
+            # 1. HARD ISOLATION RULE: Skip Header/Footer blocks
+            if block.metadata.get("is_header") or block.metadata.get("is_footer"):
+                continue
+
             if block.is_heading() and block.level:
                 # Level should not jump by more than 1 (except when going back up)
                 if block.level > last_level + 1:

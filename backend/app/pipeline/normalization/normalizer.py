@@ -66,11 +66,14 @@ class Normalizer(PipelineStage):
         # Track initial block count for audit logging
         initial_block_count = len(document.blocks)
 
+        # Calculate median font size for consolidation rules
+        median_font = self._calculate_median_font_size(document.blocks)
+
         # Normalize metadata
         document.metadata = self._normalize_metadata(document.metadata)
         
         # Normalize blocks
-        document.blocks = self._normalize_blocks(document.blocks)
+        document.blocks = self._normalize_blocks(document.blocks, median_font)
         
         # SAFE EXTENSION: Index Invariant Restoration
         # After duplicate suppression and splitting, we MUST rescale indices linearly.
@@ -158,7 +161,7 @@ class Normalizer(PipelineStage):
         
         return metadata
     
-    def _normalize_blocks(self, blocks: List[Block]) -> List[Block]:
+    def _normalize_blocks(self, blocks: List[Block], median_font: Optional[float] = None) -> List[Block]:
         """
         Normalize text in all blocks with strict sequential logic.
         
@@ -258,10 +261,48 @@ class Normalizer(PipelineStage):
                 if text.strip():
                     normalized_blocks.append(block.model_copy(update={"text": text}))
         
-        # SAFE EXTENSION: Duplicate Consecutive Block Filter
+        # 5. PHYSICAL CONSOLIDATION of Multi-line Headings
+        consolidated_blocks = []
+        idx = 0
+        while idx < len(normalized_blocks):
+            block_a = normalized_blocks[idx]
+            if idx + 1 < len(normalized_blocks):
+                block_b = normalized_blocks[idx+1]
+                
+                text_a = block_a.text.strip()
+                text_b = block_b.text.strip()
+                
+                # Consolidation Rules
+                is_a_heading = block_a.style.bold or (median_font and block_a.style.font_size and block_a.style.font_size > median_font)
+                is_b_heading = block_b.style.bold or (median_font and block_b.style.font_size and block_b.style.font_size > median_font)
+                
+                if (len(text_a) < 80 and len(text_b) < 80 and
+                    is_a_heading and is_b_heading and
+                    not re.search(r'[\.\?\!]$', text_a) and
+                    text_b and text_b[0].isupper() and
+                    len(text_a) + len(text_b) < 150):
+                    
+                    # Merge
+                    merged_text = f"{text_a} {text_b}"
+                    merged_block = block_a.model_copy(update={
+                        "text": merged_text,
+                        "metadata": {
+                            **block_a.metadata,
+                            "merged_multiline_heading": True,
+                            "merged_from": block_b.block_id
+                        }
+                    })
+                    consolidated_blocks.append(merged_block)
+                    idx += 2
+                    continue
+            
+            consolidated_blocks.append(block_a)
+            idx += 1
+
+        # 6. SAFE EXTENSION: Duplicate Consecutive Block Filter
         # Remove identical consecutive blocks (text, style, metadata)
         final_blocks = []
-        for i, b in enumerate(normalized_blocks):
+        for i, b in enumerate(consolidated_blocks):
             if i == 0:
                 final_blocks.append(b)
                 continue
@@ -279,6 +320,12 @@ class Normalizer(PipelineStage):
             final_blocks.append(b)
             
         return final_blocks
+
+    def _calculate_median_font_size(self, blocks: List[Block]) -> Optional[float]:
+        """Calculate median font size for outlier detection."""
+        from statistics import median
+        font_sizes = [b.style.font_size for b in blocks if b.style.font_size and b.text.strip()]
+        return median(font_sizes) if font_sizes else None
 
     def _repair_common_corruptions(self, text: str) -> str:
         """
