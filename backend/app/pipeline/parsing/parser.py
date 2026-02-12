@@ -479,24 +479,40 @@ class DocxParser:
         return links
 
     def _get_list_info(self, paragraph: DocxParagraph) -> Optional[Dict[str, Any]]:
-        """Detect list level and status using w:ilvl."""
+        """Detect list level and status using w:ilvl and w:numId, with style fallback."""
         try:
             pPr = paragraph._element.find(qn('w:pPr'))
             if pPr is not None:
+                # 1. Check explicit numbering properties
                 numPr = pPr.find(qn('w:numPr'))
                 if numPr is not None:
+                    info = {"is_list_item": True}
                     ilvl = numPr.find(qn('w:ilvl'))
                     if ilvl is not None:
-                        depth = int(ilvl.get(qn('w:val'), 0))
+                        info["list_level"] = int(ilvl.get(qn('w:val'), 0))
+                    else:
+                        info["list_level"] = 0
+                    
+                    numId = numPr.find(qn('w:numId'))
+                    if numId is not None:
+                        info["list_id"] = numId.get(qn('w:val'))
+                    
+                    return info
+                
+                # 2. Fallback: Check style name
+                pStyle = pPr.find(qn('w:pStyle'))
+                if pStyle is not None:
+                    style_val = pStyle.get(qn('w:val'), "").lower()
+                    if "list" in style_val or "bullet" in style_val or "number" in style_val:
+                        # Infer level from trailing number if present (e.g., ListBullet2 -> level 1)
+                        import re
+                        match = re.search(r'(\d+)$', style_val)
+                        level = int(match.group(1)) - 1 if match else 0
                         return {
-                            "list_level": depth,
-                            "is_list_item": True
+                            "is_list_item": True,
+                            "list_level": max(0, level),
+                            "list_id": f"style_{style_val}"
                         }
-                    # If numPr exists but no ilvl, it's still a list item (level 0)
-                    return {
-                        "list_level": 0,
-                        "is_list_item": True
-                    }
         except Exception:
             pass
         return None

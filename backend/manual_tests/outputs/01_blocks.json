@@ -1,22 +1,22 @@
 {
   "summary": {
-    "total_blocks": 16,
-    "has_figures": false,
-    "has_tables": false
+    "total_blocks": 19,
+    "has_figures": true,
+    "has_tables": true
   },
   "blocks": [
     {
       "block_id": "blk_000",
-      "text": "Automated Document Processing System",
+      "text": "Automated Academic Manuscript Formatter",
       "block_type": "unknown",
       "index": 0,
       "page_number": null,
       "style": {
-        "bold": false,
+        "bold": true,
         "italic": false,
         "underline": false,
         "font_name": null,
-        "font_size": null,
+        "font_size": 18.0,
         "color": null
       },
       "level": null,
@@ -31,14 +31,14 @@
       "is_valid": true,
       "warnings": [],
       "metadata": {
-        "style_name": "Title"
+        "style_name": "Normal"
       }
     },
     {
       "block_id": "blk_001",
-      "text": "This is the abstract-like section but without the keyword.",
+      "text": "Rohit Kumar, Ananya Sharma, Vikram Patel",
       "block_type": "unknown",
-      "index": 1,
+      "index": 100,
       "page_number": null,
       "style": {
         "bold": false,
@@ -65,9 +65,9 @@
     },
     {
       "block_id": "blk_002",
-      "text": "1 System Overview",
+      "text": "Department of Computer Science",
       "block_type": "unknown",
-      "index": 2,
+      "index": 200,
       "page_number": null,
       "style": {
         "bold": false,
@@ -89,14 +89,14 @@
       "is_valid": true,
       "warnings": [],
       "metadata": {
-        "style_name": "Heading 1"
+        "style_name": "Normal"
       }
     },
     {
       "block_id": "blk_003",
-      "text": "Content for section 1. This system uses advanced heuristics.",
+      "text": "XYZ University",
       "block_type": "unknown",
-      "index": 3,
+      "index": 300,
       "page_number": null,
       "style": {
         "bold": false,
@@ -123,12 +123,12 @@
     },
     {
       "block_id": "blk_004",
-      "text": "2 Technical Approach",
+      "text": "Abstract",
       "block_type": "unknown",
-      "index": 4,
+      "index": 400,
       "page_number": null,
       "style": {
-        "bold": false,
+        "bold": true,
         "italic": false,
         "underline": false,
         "font_name": null,
@@ -147,14 +147,14 @@
       "is_valid": true,
       "warnings": [],
       "metadata": {
-        "style_name": "Heading 1"
+        "style_name": "Normal"
       }
     },
     {
       "block_id": "blk_005",
-      "text": "Content for section 2. We utilize a multi-layered pipeline.",
+      "text": "This paper presents an automated system for converting poorly formatted academic manuscripts into publication-ready documents. The system reconstructs documents using deterministic rules and predefined templates, eliminating manual formatting effort and reducing submission errors.",
       "block_type": "unknown",
-      "index": 5,
+      "index": 500,
       "page_number": null,
       "style": {
         "bold": false,
@@ -181,9 +181,9 @@
     },
     {
       "block_id": "blk_006",
-      "text": "2.1 Design Considerations",
+      "text": "1 IntroductionAcademic publishing requires strict adherence to formatting guidelines imposed by journals and conferences. Researchers often spend significant time manually adjusting fonts, margins, headings, and references. This process is time-consuming, error-prone, and distracts from core research activities.",
       "block_type": "unknown",
-      "index": 6,
+      "index": 600,
       "page_number": null,
       "style": {
         "bold": false,
@@ -205,14 +205,14 @@
       "is_valid": true,
       "warnings": [],
       "metadata": {
-        "style_name": "Heading 2"
+        "style_name": "Normal"
       }
     },
     {
       "block_id": "blk_007",
-      "text": "Content for section 2.1. Handling edge cases is priority.",
+      "text": "2ethodology",
       "block_type": "unknown",
-      "index": 7,
+      "index": 700,
       "page_number": null,
       "style": {
         "bold": false,
@@ -239,9 +239,9 @@
     },
     {
       "block_id": "blk_008",
-      "text": "3 Experimental Evaluation",
+      "text": "The proposed system uses a pipeline-based architecture in which each stage performs a specific responsibility such as document parsing, structure detection, semantic classification, ad formatting. This modular approach ensures scalability, correctness, and maintainability.",
       "block_type": "unknown",
-      "index": 8,
+      "index": 800,
       "page_number": null,
       "style": {
         "bold": false,
@@ -263,14 +263,14 @@
       "is_valid": true,
       "warnings": [],
       "metadata": {
-        "style_name": "Heading 1"
+        "style_name": "Normal"
       }
     },
     {
       "block_id": "blk_009",
-      "text": "Content for section 3. We tested on various datasets.",
+      "text": "Figure 1: college logo",
       "block_type": "unknown",
-      "index": 9,
+      "index": 900,
       "page_number": null,
       "style": {
         "bold": false,
@@ -297,9 +297,9 @@
     },
     {
       "block_id": "blk_010",
-      "text": "4 Observations and Insights",
+      "text": "",
       "block_type": "unknown",
-      "index": 10,
+      "index": 1000,
       "page_number": null,
       "style": {
         "bold": false,
@@ -321,14 +321,15 @@
       "is_valid": true,
       "warnings": [],
       "metadata": {
-        "style_name": "Heading 1"
+        "style_name": "Normal",
+        "has_figure": true
       }
     },
     {
       "block_id": "blk_011",
-      "text": "Content for section 4. The system is extremely robust.",
+      "text": "Table 1: Comparison of Formatting Methods",
       "block_type": "unknown",
-      "index": 11,
+      "index": 1100,
       "page_number": null,
       "style": {
         "bold": false,
@@ -355,9 +356,9 @@
     },
     {
       "block_id": "blk_012",
-      "text": "5 Closing Remarks",
+      "text": "",
       "block_type": "unknown",
-      "index": 12,
+      "index": 1201,
       "page_number": null,
       "style": {
         "bold": false,
@@ -379,14 +380,14 @@
       "is_valid": true,
       "warnings": [],
       "metadata": {
-        "style_name": "Heading 1"
+        "style_name": "Normal"
       }
     },
     {
       "block_id": "blk_013",
-      "text": "Content for section 5. Future work includes Stage 2 implementation.",
+      "text": "",
       "block_type": "unknown",
-      "index": 13,
+      "index": 1301,
       "page_number": null,
       "style": {
         "bold": false,
@@ -413,9 +414,9 @@
     },
     {
       "block_id": "blk_014",
-      "text": "",
+      "text": "REFERENCES",
       "block_type": "unknown",
-      "index": 14,
+      "index": 1401,
       "page_number": null,
       "style": {
         "bold": false,
@@ -437,16 +438,103 @@
       "is_valid": true,
       "warnings": [],
       "metadata": {
-        "style_name": "Header",
+        "style_name": "Normal"
+      }
+    },
+    {
+      "block_id": "blk_015",
+      "text": "[1] John Smith, Automated Document Processing, Journal of Artificial Intelligence, 2021",
+      "block_type": "unknown",
+      "index": 1501,
+      "page_number": null,
+      "style": {
+        "bold": false,
+        "italic": false,
+        "underline": false,
+        "font_name": null,
+        "font_size": null,
+        "color": null
+      },
+      "level": null,
+      "parent_id": null,
+      "list_type": null,
+      "list_level": null,
+      "section_name": null,
+      "semantic_intent": null,
+      "classification_confidence": null,
+      "contains_citation": false,
+      "citation_keys": [],
+      "is_valid": true,
+      "warnings": [],
+      "metadata": {
+        "style_name": "Normal"
+      }
+    },
+    {
+      "block_id": "blk_016",
+      "text": "[2] Alice Brown, Acaic Formatting Tools and Systems, Publishing Technologies, 2020.",
+      "block_type": "unknown",
+      "index": 1601,
+      "page_number": null,
+      "style": {
+        "bold": false,
+        "italic": false,
+        "underline": false,
+        "font_name": null,
+        "font_size": null,
+        "color": null
+      },
+      "level": null,
+      "parent_id": null,
+      "list_type": null,
+      "list_level": null,
+      "section_name": null,
+      "semantic_intent": null,
+      "classification_confidence": null,
+      "contains_citation": false,
+      "citation_keys": [],
+      "is_valid": true,
+      "warnings": [],
+      "metadata": {
+        "style_name": "Normal"
+      }
+    },
+    {
+      "block_id": "blk_017",
+      "text": "",
+      "block_type": "unknown",
+      "index": 1701,
+      "page_number": null,
+      "style": {
+        "bold": false,
+        "italic": false,
+        "underline": false,
+        "font_name": null,
+        "font_size": null,
+        "color": null
+      },
+      "level": null,
+      "parent_id": null,
+      "list_type": null,
+      "list_level": null,
+      "section_name": null,
+      "semantic_intent": null,
+      "classification_confidence": null,
+      "contains_citation": false,
+      "citation_keys": [],
+      "is_valid": true,
+      "warnings": [],
+      "metadata": {
+        "style_name": "Normal",
         "is_header": true,
         "section_index": 0
       }
     },
     {
-      "block_id": "blk_015",
+      "block_id": "blk_018",
       "text": "",
       "block_type": "unknown",
-      "index": 15,
+      "index": 1801,
       "page_number": null,
       "style": {
         "bold": false,
@@ -468,7 +556,7 @@
       "is_valid": true,
       "warnings": [],
       "metadata": {
-        "style_name": "Footer",
+        "style_name": "Normal",
         "is_footer": true,
         "section_index": 0
       }

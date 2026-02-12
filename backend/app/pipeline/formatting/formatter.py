@@ -158,6 +158,23 @@ class Formatter:
             elif item["type"] == "table":
                 self.table_renderer.render(word_doc, item["obj"])
                 
+        # 4. Render Footnotes (Supplemental)
+        footnotes = [b for b in document.blocks if b.block_type == BlockType.FOOTNOTE]
+        if footnotes:
+            word_doc.add_section() # New page or section for footnotes? 
+            # Usually footnotes are at bottom of page, but for simple formatter, append at end.
+            p = word_doc.add_paragraph()
+            p.add_run("FOOTNOTES").bold = True
+            p.alignment = 1 # Center
+            
+            for fn in footnotes:
+                fn_p = word_doc.add_paragraph(style="Normal")
+                # Format: [ID] Text
+                fn_id = fn.metadata.get("footnote_id", "")
+                prefix = f"[{fn_id}] " if fn_id else "* "
+                fn_p.add_run(prefix).italic = True
+                fn_p.add_run(fn.text)
+                
         return word_doc
 
     def _render_equation(self, doc, equation):
@@ -258,6 +275,26 @@ class Formatter:
                 if template_name == "none":
                     p.paragraph_format.space_before = 0
                     p.paragraph_format.space_after = 0
+                    
+            # Render text with safety
+            p = doc.add_paragraph() # Create a paragraph even if style failed
+        p.text = block.text if block.text else ""
+        
+        # PROACTIVE FIX: Render Hyperlinks extracted in Stage 1
+        # Since native DOCX hyperlink insertion is complex, we use a robust
+        # text-based representation [Label](URL) to ensure URL data is preserved.
+        hyperlinks = block.metadata.get("hyperlinks", [])
+        if hyperlinks:
+            p.add_run(" (Links: ")
+            for i, hl in enumerate(hyperlinks):
+                label = hl.get("text", "Link")
+                url = hl.get("url", "")
+                p.add_run(f"[{label}]({url})").font.italic = True
+                if i < len(hyperlinks) - 1:
+                    p.add_run(", ")
+            p.add_run(")")
+            
+        return p
 
     def _render_figure(self, doc, figure: Figure, number: int):
         # 1. Image

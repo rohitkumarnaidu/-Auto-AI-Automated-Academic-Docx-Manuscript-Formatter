@@ -137,6 +137,12 @@ def main():
             level = block.metadata.get('level', '?')
             add_comment_to_paragraph(para, f"HEADING Level {level}")
             
+        elif block.metadata.get('is_footnote', False):
+            # Highlight footnotes in GRAY (WD_COLOR_INDEX.GRAY_25 is 16, let's use GRAY_25)
+            run.font.highlight_color = 16 
+            fn_id = block.metadata.get('footnote_id', '?')
+            add_comment_to_paragraph(para, f"FOOTNOTE (ID: {fn_id})")
+            
         elif is_split:
              # Just note it's split, maybe green highlight or just note? user says "Expected", so maybe no highlight or just note
              # User requirement: "Acceptance criteria: '1 IntroductionAcademic...' appears split correctly"

@@ -28,8 +28,14 @@ class TableCell(BaseModel):
         description="Text alignment (left, center, right)"
     )
     
+    # Extensibility
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Additional metadata (e.g., nested tables)"
+    )
+    
     class Config:
-        frozen = True
+        frozen = False # Allow metadata updates during extraction phase
 
 
 class Table(BaseModel):

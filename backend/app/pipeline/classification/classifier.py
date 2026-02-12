@@ -29,8 +29,9 @@ class ContentClassifier(PipelineStage):
     def __init__(self):
         """Initialize the classifier."""
         # Keywords that indentify specific section types
-        self.abstract_keywords = {"abstract"}
-        self.keywords_keywords = {"keywords", "key words"}
+        self.abstract_keywords = ["abstract", "summary", "resumen", "résumé"]
+        self.keywords_keywords = ["keywords", "key words", "palabras clave", "mots-clés"]
+        self.acknowledgements_keywords = ["acknowledgements", "acknowledgments", "funding", "conflicts of interest", "author contributions", "declaration of interest"]
         self.references_keywords = {"references", "bibliography", "works cited"}
         
         # Heuristics for affiliation detection
@@ -211,6 +212,21 @@ class ContentClassifier(PipelineStage):
                         block.semantic_intent = "KEYWORDS_HEADING"
                         block.metadata["semantic_intent"] = "KEYWORDS_HEADING"
                         current_section_type = "keywords"
+                    elif any(k in section_name for k in self.acknowledgements_keywords):
+                        # Specialized classification for supplemental sections
+                        text_lower = block.text.lower()
+                        if "funding" in text_lower or "grant" in text_lower:
+                            block.block_type = BlockType.FUNDING
+                            block.semantic_intent = "FUNDING"
+                            current_section_type = "funding"
+                        elif "conflict" in text_lower or "interest" in text_lower:
+                            block.block_type = BlockType.CONFLICT_OF_INTEREST
+                            block.semantic_intent = "CONFLICT_OF_INTEREST"
+                            current_section_type = "conflict"
+                        else:
+                            block.block_type = BlockType.ACKNOWLEDGEMENTS
+                            block.semantic_intent = "ACKNOWLEDGEMENTS"
+                            current_section_type = "acknowledgements"
                     else:
                         if level == 1:
                             block.block_type = BlockType.HEADING_1
@@ -234,6 +250,13 @@ class ContentClassifier(PipelineStage):
                     block.metadata["classification_confidence"] = 1.0
                     block.metadata["classification_method"] = "structure_heading"
                 else:
+                    # PROACTIVE FIX: Propagate Footnote status from Parser
+                    if block.metadata.get("is_footnote"):
+                        block.block_type = BlockType.FOOTNOTE
+                        block.semantic_intent = "FOOTNOTE"
+                        block.metadata["semantic_intent"] = "FOOTNOTE"
+                        continue
+
                     if current_section_type == "abstract":
                         block.block_type = BlockType.ABSTRACT_BODY
                         block.semantic_intent = "ABSTRACT_BODY"

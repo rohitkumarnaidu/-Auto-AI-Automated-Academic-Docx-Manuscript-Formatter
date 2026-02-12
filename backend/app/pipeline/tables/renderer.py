@@ -47,12 +47,25 @@ class TableRenderer:
             pass
         
         # 3. Populate Cells
-        for r, row_data in enumerate(table_model.rows):
-            row_cells = word_table.rows[r].cells
-            for c, cell_text in enumerate(row_data):
-                # Safety check for ragged rows
-                if c < len(row_cells):
-                    row_cells[c].text = str(cell_text) if cell_text else ""
+        # We iterate over model cells to handle metadata and potentially nested content
+        for cell_model in table_model.cells:
+            r, c = cell_model.row, cell_model.col
+            if r < len(word_table.rows) and c < len(word_table.rows[r].cells):
+                word_cell = word_table.rows[r].cells[c]
+                
+                # Set text
+                word_cell.text = cell_model.text if cell_model.text else ""
+                
+                # RECURSIVE RENDERING: Check for nested tables
+                nested_tables = cell_model.metadata.get("nested_tables", [])
+                for nested_tbl in nested_tables:
+                    # python-docx cells support add_table in modern versions
+                    try:
+                        self.render(word_cell, nested_tbl)
+                    except Exception as e:
+                        # Fallback: maybe add as text if rendering fails
+                        word_cell.add_paragraph(f"[Nested Table: {nested_tbl.table_id}]")
+                        print(f"  [Warning] Nested table rendering failed: {e}")
                     
         # 3. Add Caption (after table generally in Word, or before depending on style)
         # Academic standard: Table captions usually ABOVE

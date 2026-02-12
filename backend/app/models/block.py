@@ -48,6 +48,12 @@ class BlockType(str, Enum):
     TABLE_CAPTION = "table_caption"
     EQUATION = "equation"
     
+    # Supplemental Academic Sections
+    ACKNOWLEDGEMENTS = "acknowledgements"
+    FUNDING = "funding"
+    CONFLICT_OF_INTEREST = "conflict_of_interest"
+    FOOTNOTE = "footnote"
+    
     # Unclassified
     UNKNOWN = "unknown"
     

@@ -60,23 +60,50 @@ class TableExtractor:
         
         for r_idx, row_text_list in enumerate(raw_data):
             for c_idx, text in enumerate(row_text_list):
-                # Try to get the original cell for formatting hints
-                # Note: row.cells can be index-accessed
-                is_bold = False
-                try:
-                    original_cell = docx_table.rows[r_idx].cells[c_idx]
-                    is_bold = self._is_cell_bold(original_cell)
-                    if is_bold and r_idx == 0:
-                        row_has_bold_first = True
-                except:
-                    pass
-                    
-                cells.append(TableCell(
+                # Try to get the original cell for formatting hints and children
+                original_cell = docx_table.rows[r_idx].cells[c_idx]
+                
+                is_bold = self._is_cell_bold(original_cell)
+                if is_bold and r_idx == 0:
+                    row_has_bold_first = True
+                
+                cell_obj = TableCell(
                     row=r_idx,
                     col=c_idx,
                     text=text,
                     bold=is_bold
-                ))
+                )
+                
+                # RECURSIVE EXTRACTION: Check for nested tables
+                nested_tables = []
+                # Accessing _element.findall(qn('w:tbl')) inside cell XML is more robust
+                from docx.oxml.ns import qn
+                for tbl_xml in original_cell._element.findall(qn('w:tbl')):
+                    # We need to wrap this CT_Tbl in a Table object for python-docx
+                    from docx.table import Table as DocxTableWrapper
+                    # This is slightly tricky as python-docx doesn't expose a clean CT_Tbl -> Table 
+                    # out of context, but we can usually find it in parent.tables 
+                    # Or we just create a temporary wrapper if we know the parent
+                    doc_parent = original_cell._parent._parent._parent
+                    # Recursive call
+                    nested_tbl_id = f"{table_id}_n{len(nested_tables)}"
+                    # Use a fresh DocxTableWrapper if possible
+                    nested_docx_tbl = DocxTableWrapper(tbl_xml, doc_parent)
+                    
+                    # Recurse: Use incremented block index for relative ordering
+                    # Note: We use block_index + delta to keep them 'inside' the parent's domain
+                    nested_table = self.extract(
+                        nested_docx_tbl, 
+                        nested_tbl_id, 
+                        index=index + len(nested_tables) + 1, 
+                        block_index=block_index + len(nested_tables) + 1
+                    )
+                    nested_tables.append(nested_table)
+                
+                if nested_tables:
+                    cell_obj.metadata["nested_tables"] = nested_tables
+
+                cells.append(cell_obj)
             
             # Header detection
             if r_idx == 0:
@@ -87,6 +114,7 @@ class TableExtractor:
         print(f"\n--- [Table Extraction Debug] ---")
         print(f"Table ID:  {table_id}")
         print(f"Dimension: {num_rows}x{num_cols}")
+        print(f"Nested:    {sum(len(c.metadata.get('nested_tables', [])) for c in cells)} tables found")
         if raw_data:
             print(f"Sample:    {raw_data[0][:3]}...")
         print(f"--------------------------------\n")

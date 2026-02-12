@@ -60,13 +60,13 @@ manual_tests/
 
 - **Normal (JSON Output)**:
   ```bash
-  python manual_tests/normal/phase1/run_input_conversion.py uploads/test.docx
+  python manual_tests/normal/phase1/run_input_conversion.py uploads/132dbdae-b6e3-4936-bdb5-bc398ed0ac19.docx
   ```
   *(Output: `manual_tests/outputs/01_blocks.json`)*
 
 - **Visual (DOCX Output)**:
   ```bash
-  python manual_tests/visual/phase1/01_parse_and_structure.py uploads/test.docx
+  python manual_tests/visual/phase1/01_parse_and_structure.py uploads/132dbdae-b6e3-4936-bdb5-bc398ed0ac19.docx
   ```
   *(Output: `manual_tests/visual_outputs/01_structure_annotated.docx`)*
 
@@ -77,7 +77,7 @@ manual_tests/
 
 - **Visual (DOCX Output)**:
   ```bash
-  python manual_tests/visual/phase1/01b_equations_visual.py uploads/test.docx
+  python manual_tests/visual/phase1/01b_equations_visual.py uploads/132dbdae-b6e3-4936-bdb5-bc398ed0ac19.docx
   ```
   *(Output: `manual_tests/visual_outputs/01b_equations_annotated.docx`)*
 
@@ -119,7 +119,7 @@ manual_tests/
 
 - **Normal (JSON Output)**:
   ```bash
-  python manual_tests/normal/phase1/run_structure.py uploads/test.docx
+  python manual_tests/normal/phase1/run_structure.py uploads/132dbdae-b6e3-4936-bdb5-bc398ed0ac19.docx
   ```
   *(Output: `manual_tests/outputs/02_structure.json`)*
 
@@ -133,13 +133,13 @@ manual_tests/
 
 - **Normal (JSON Output)**:
   ```bash
-  python manual_tests/normal/phase1/run_classifier.py uploads/test.docx
+  python manual_tests/normal/phase1/run_classifier.py uploads/132dbdae-b6e3-4936-bdb5-bc398ed0ac19.docx
   ```
   *(Output: `manual_tests/outputs/03_classified.json`)*
 
 - **Visual (DOCX Output)**:
   ```bash
-  python manual_tests/visual/phase1/02_classification.py uploads/test.docx
+  python manual_tests/visual/phase1/02_classification.py uploads/132dbdae-b6e3-4936-bdb5-bc398ed0ac19.docx
   ```
   *(Output: `manual_tests/visual_outputs/02_classified_annotated.docx`)*
 
@@ -150,13 +150,13 @@ manual_tests/
 
 - **Normal (JSON Output)**:
   ```bash
-  python manual_tests/normal/phase1/run_figure_detection.py uploads/test.docx
+  python manual_tests/normal/phase1/run_figure_detection.py uploads/132dbdae-b6e3-4936-bdb5-bc398ed0ac19.docx
   ```
   *(Output: `manual_tests/outputs/04_figures.json`)*
 
 - **Visual (DOCX Output)**:
   ```bash
-  python manual_tests/visual/phase1/03_figures_tables.py uploads/test.docx
+  python manual_tests/visual/phase1/03_figures_tables.py uploads/132dbdae-b6e3-4936-bdb5-bc398ed0ac19.docx
   ```
   *(Output: `manual_tests/visual_outputs/03_figures_tables_annotated.docx`)*
 
@@ -167,7 +167,7 @@ manual_tests/
 
 - **Normal (JSON Output)**:
   ```bash
-  python manual_tests/normal/phase1/run_caption_matching.py uploads/test.docx
+  python manual_tests/normal/phase1/run_caption_matching.py uploads/132dbdae-b6e3-4936-bdb5-bc398ed0ac19.docx
   ```
   *(Output: `manual_tests/outputs/05_figures_with_captions.json`)*
 
@@ -181,13 +181,13 @@ manual_tests/
 
 - **Normal (JSON Output)**:
   ```bash
-  python manual_tests/normal/phase1/run_figure_numbering.py uploads/test.docx
+  python manual_tests/normal/phase1/run_figure_numbering.py uploads/132dbdae-b6e3-4936-bdb5-bc398ed0ac19.docx
   ```
   *(Output: `manual_tests/outputs/05b_figures_numbered.json`)*
 
 - **Visual (DOCX Output)**:
   ```bash
-  python manual_tests/visual/phase1/05b_figure_numbering.py uploads/test.docx
+  python manual_tests/visual/phase1/05b_figure_numbering.py uploads/132dbdae-b6e3-4936-bdb5-bc398ed0ac19.docx
   ```
   *(Output: `manual_tests/visual_outputs/05b_figure_numbering_annotated.docx`)*
 
@@ -198,13 +198,13 @@ manual_tests/
 
 - **Normal (JSON Output)**:
   ```bash
-  python manual_tests/normal/phase1/run_figure_insertion.py uploads/test.docx
+  python manual_tests/normal/phase1/run_figure_insertion.py uploads/132dbdae-b6e3-4936-bdb5-bc398ed0ac19.docx
   ```
   *(Output: `manual_tests/outputs/05c_figures_insertion.json`)*
 
 - **Visual (DOCX Output)**:
   ```bash
-  python manual_tests/visual/phase1/05c_figure_insertion.py uploads/test.docx
+  python manual_tests/visual/phase1/05c_figure_insertion.py uploads/132dbdae-b6e3-4936-bdb5-bc398ed0ac19.docx
   ```
   *(Output: `manual_tests/visual_outputs/05c_figure_insertion_annotated.docx`)*
 
@@ -215,7 +215,7 @@ manual_tests/
 
 - **Normal (JSON Output)**:
   ```bash
-  python manual_tests/normal/phase1/run_table_extraction.py uploads/test.docx
+  python manual_tests/normal/phase1/run_table_extraction.py uploads/132dbdae-b6e3-4936-bdb5-bc398ed0ac19.docx
   ```
   *(Output: `manual_tests/outputs/06_tables.json`)*
 
@@ -229,7 +229,7 @@ manual_tests/
 
 - **Normal (JSON Output)**:
   ```bash
-  python manual_tests/normal/phase1/run_table_caption_matching.py uploads/test.docx
+  python manual_tests/normal/phase1/run_table_caption_matching.py uploads/132dbdae-b6e3-4936-bdb5-bc398ed0ac19.docx
   ```
   *(Output: `manual_tests/outputs/07_tables_with_captions.json`)*
 
@@ -243,13 +243,13 @@ manual_tests/
 
 - **Normal (JSON Output)**:
   ```bash
-  python manual_tests/normal/phase1/run_table_numbering.py uploads/test.docx
+  python manual_tests/normal/phase1/run_table_numbering.py uploads/132dbdae-b6e3-4936-bdb5-bc398ed0ac19.docx
   ```
   *(Output: `manual_tests/outputs/06b_tables_numbered.json`)*
 
 - **Visual (DOCX Output)**:
   ```bash
-  python manual_tests/visual/phase1/06b_table_numbering.py uploads/test.docx
+  python manual_tests/visual/phase1/06b_table_numbering.py uploads/132dbdae-b6e3-4936-bdb5-bc398ed0ac19.docx
   ```
   *(Output: `manual_tests/visual_outputs/06b_table_numbering_annotated.docx`)*
 
@@ -260,13 +260,13 @@ manual_tests/
 
 - **Normal (JSON Output)**:
   ```bash
-  python manual_tests/normal/phase1/run_table_insertion.py uploads/test.docx
+  python manual_tests/normal/phase1/run_table_insertion.py uploads/132dbdae-b6e3-4936-bdb5-bc398ed0ac19.docx
   ```
   *(Output: `manual_tests/outputs/06c_tables_insertion.json`)*
 
 - **Visual (DOCX Output)**:
   ```bash
-  python manual_tests/visual/phase1/06c_table_insertion.py uploads/test.docx
+  python manual_tests/visual/phase1/06c_table_insertion.py uploads/132dbdae-b6e3-4936-bdb5-bc398ed0ac19.docx
   ```
   *(Output: `manual_tests/visual_outputs/06c_table_insertion_annotated.docx`)*
 
@@ -277,13 +277,13 @@ manual_tests/
 
 - **Normal (JSON Output)**:
   ```bash
-  python manual_tests/normal/phase1/run_reference_detection.py uploads/test.docx
+  python manual_tests/normal/phase1/run_reference_detection.py uploads/132dbdae-b6e3-4936-bdb5-bc398ed0ac19.docx
   ```
   *(Output: `manual_tests/outputs/12_references.json`)*
 
 - **Visual (DOCX Output)**:
   ```bash
-  python manual_tests/visual/phase1/04_references.py uploads/test.docx
+  python manual_tests/visual/phase1/04_references.py uploads/132dbdae-b6e3-4936-bdb5-bc398ed0ac19.docx
   ```
   *(Output: `manual_tests/visual_outputs/04_references_annotated.docx`)*
 
@@ -296,7 +296,7 @@ manual_tests/
 
 - **Normal (JSON Output)**:
   ```bash
-  python manual_tests/normal/phase2/run_validation.py uploads/test.docx
+  python manual_tests/normal/phase2/run_validation.py uploads/132dbdae-b6e3-4936-bdb5-bc398ed0ac19.docx
   ```
   *(Output: `manual_tests/outputs/08_validation_report.json`)*
 
@@ -305,13 +305,13 @@ manual_tests/
 
 - **Normal (JSON Output)**:
   ```bash
-  python manual_tests/normal/phase2/run_pipeline.py uploads/test.docx
+  python manual_tests/normal/phase2/run_pipeline.py uploads/132dbdae-b6e3-4936-bdb5-bc398ed0ac19.docx
   ```
   *(Output: `manual_tests/outputs/09_pipeline_document.json`)*
 
 - **Visual (DOCX Output)**:
   ```bash
-  python manual_tests/visual/phase2/05_full_pipeline.py uploads/test.docx
+  python manual_tests/visual/phase2/05_full_pipeline.py uploads/132dbdae-b6e3-4936-bdb5-bc398ed0ac19.docx
   ```
   *(Output: `manual_tests/visual_outputs/05_full_pipeline_annotated.docx` - Check specifically for RED duplicate warnings)*
 
@@ -324,12 +324,12 @@ manual_tests/
 
 - **Normal (Produces Final DOCX)**:
   ```bash
-  python manual_tests/normal/phase3/run_formatter.py uploads/test.docx --template IEEE
+  python manual_tests/normal/phase3/run_formatter.py uploads/132dbdae-b6e3-4936-bdb5-bc398ed0ac19.docx --template IEEE
   ```
   *(Output: `manual_tests/visual_outputs/06_formatted.docx`)*
 
 - **Visual Test (Annotated Final Check)**:
   ```bash
-  python manual_tests/visual/phase3/06_formatted.py uploads/test.docx --template IEEE
+  python manual_tests/visual/phase3/06_formatted.py uploads/132dbdae-b6e3-4936-bdb5-bc398ed0ac19.docx --template IEEE
   ```
   *(Output: `manual_tests/visual_outputs/06_final_IEEE.docx`)*
