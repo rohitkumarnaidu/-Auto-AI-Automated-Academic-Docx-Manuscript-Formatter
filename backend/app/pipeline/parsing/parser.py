@@ -362,6 +362,9 @@ class DocxParser:
                 if block:
                     for figure in inline_figures:
                         figure.metadata["block_index"] = block.index
+                    # FORENSIC FIX: Mark block as container to prevent Normalizer dropping it
+                    if inline_figures:
+                        block.metadata["has_figure"] = True
                 
                 figures.extend(inline_figures)
 
@@ -370,6 +373,10 @@ class DocxParser:
                 for eqn in paragraph_equations:
                     if block:
                         eqn.block_id = block.block_id
+                        # FORENSIC FIX: Anchor equation to block index for correct sorting
+                        eqn.metadata["block_index"] = block.index
+                        # FORENSIC FIX: Mark block as container
+                        block.metadata["has_equation"] = True
                 equations.extend(paragraph_equations)
             
             elif isinstance(element, CT_Tbl):

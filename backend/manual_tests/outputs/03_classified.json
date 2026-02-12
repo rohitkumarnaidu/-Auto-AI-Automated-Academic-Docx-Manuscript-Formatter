@@ -1,0 +1,110 @@
+{
+  "summary": {
+    "total_blocks": 15,
+    "type_distribution": {
+      "title": 1,
+      "author": 1,
+      "affiliation": 2,
+      "abstract_heading": 1,
+      "abstract_body": 1,
+      "heading_1": 2,
+      "body": 2,
+      "figure_caption": 1,
+      "table_caption": 1,
+      "references_heading": 1,
+      "reference_entry": 2
+    }
+  },
+  "blocks": [
+    {
+      "index": 0,
+      "text": "Automated Academic Manuscript Formatter",
+      "block_type": "title",
+      "confidence": 1.0
+    },
+    {
+      "index": 1,
+      "text": "Rohit Kumar, Ananya Sharma, Vikram Patel",
+      "block_type": "author",
+      "confidence": 1.0
+    },
+    {
+      "index": 2,
+      "text": "Department of Computer Science",
+      "block_type": "affiliation",
+      "confidence": 1.0
+    },
+    {
+      "index": 3,
+      "text": "XYZ University",
+      "block_type": "affiliation",
+      "confidence": 1.0
+    },
+    {
+      "index": 4,
+      "text": "Abstract",
+      "block_type": "abstract_heading",
+      "confidence": 1.0
+    },
+    {
+      "index": 5,
+      "text": "This paper presents an automated system for converting poorly formatted academic manuscripts into pu",
+      "block_type": "abstract_body",
+      "confidence": 0.95
+    },
+    {
+      "index": 6,
+      "text": "1 Introduction",
+      "block_type": "heading_1",
+      "confidence": 1.0
+    },
+    {
+      "index": 7,
+      "text": "Academic publishing requires strict adherence to formatting guidelines imposed by journals and confe",
+      "block_type": "body",
+      "confidence": 0.95
+    },
+    {
+      "index": 8,
+      "text": "2 Methodology",
+      "block_type": "heading_1",
+      "confidence": 1.0
+    },
+    {
+      "index": 9,
+      "text": "The proposed system uses a pipeline-based architecture in which each stage performs a specific respo",
+      "block_type": "body",
+      "confidence": 0.95
+    },
+    {
+      "index": 10,
+      "text": "Figure 1: college logo",
+      "block_type": "figure_caption",
+      "confidence": 1.0
+    },
+    {
+      "index": 11,
+      "text": "Table 1: Comparison of Formatting Methods",
+      "block_type": "table_caption",
+      "confidence": 1.0
+    },
+    {
+      "index": 12,
+      "text": "REFERENCES",
+      "block_type": "references_heading",
+      "confidence": 1.0
+    },
+    {
+      "index": 13,
+      "text": "[1] John Smith, Automated Document Processing, Journal of Artificial Intelligence, 2021",
+      "block_type": "reference_entry",
+      "confidence": 0.95
+    },
+    {
+      "index": 14,
+      "text": "[2] Alice Brown, Acaic Formatting Tools and Systems, Publishing Technologies, 2020.",
+      "block_type": "reference_entry",
+      "confidence": 0.95
+    }
+  ]
+}

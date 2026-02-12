@@ -74,7 +74,16 @@ class ContentClassifier(PipelineStage):
         
         # 2. Main Classification Loop
         for i, block in enumerate(blocks):
-            # ABSOLUTE PRESERVATION RULE: Title fixed per structure detector
+            # A) HARD ISOLATION GUARD: Skip protected structural blocks
+            # These must never receive semantic semantic BlockType assignments
+            if (block.metadata.get("is_header") or 
+                block.metadata.get("is_footer") or 
+                block.metadata.get("is_footnote") or 
+                block.metadata.get("is_endnote")):
+                continue
+
+            # B) PROTECTED TYPE GUARD: Title fixed per structure detector
+            # TITLE is authoritative from Stage 1/Structure Detection
             if block.block_type == BlockType.TITLE:
                 block.semantic_intent = "TITLE"
                 block.classification_confidence = 1.0
@@ -244,8 +253,15 @@ class ContentClassifier(PipelineStage):
         # 3. NLP Fallback for UNKNOWNs
         self._nlp_classify_fallback(blocks)
                 
-        # 4. Final Fallback
+        # 4. Final Fallback (Respect Isolation)
         for block in blocks:
+            # Skip protected structural blocks
+            if (block.metadata.get("is_header") or 
+                block.metadata.get("is_footer") or 
+                block.metadata.get("is_footnote") or 
+                block.metadata.get("is_endnote")):
+                continue
+
             if block.block_type == BlockType.UNKNOWN:
                 block.block_type = BlockType.BODY
                 block.semantic_intent = "BODY"
@@ -269,11 +285,29 @@ class ContentClassifier(PipelineStage):
         return document
     
     def _find_first_section_index(self, blocks: List[Block]) -> int:
-        """Find the index of the first heading block."""
+        """
+        Find the index of the first heading block with safety limits.
+        
+        If no headings exist, we limit the front-matter zone to 20 blocks
+        or until we hit a clear body paragraph (>300 chars).
+        """
         for i, block in enumerate(blocks):
+            # Guard: Limit front matter search to reasonable document start
+            # or until we hit something that is definitely body text.
+            if i >= 20:
+                break
+            if len(block.text.strip()) > 300:
+                break
+                
             if block.metadata.get("is_heading_candidate"):
+                # Fix: Title is not a section start, so don't let it close the front matter zone
+                if block.block_type == BlockType.TITLE:
+                    continue
                 return i
-        return len(blocks)  # No sections found
+        
+        # If no heading found within safety limits, return the end of 
+        # the potential metadata zone (not the end of the document).
+        return min(20, len(blocks))
         
     def _find_references_start_index(self, blocks: List[Block]) -> Optional[int]:
         """Find the index of the References heading."""
@@ -306,6 +340,13 @@ class ContentClassifier(PipelineStage):
         Only applies if confidence is high (simulated).
         """
         for block in blocks:
+            # Skip protected structural blocks from NLP fallback
+            if (block.metadata.get("is_header") or 
+                block.metadata.get("is_footer") or 
+                block.metadata.get("is_footnote") or 
+                block.metadata.get("is_endnote")):
+                continue
+
             if block.block_type == BlockType.UNKNOWN:
                 text = block.text.strip()
                 if not text:
@@ -313,7 +354,9 @@ class ContentClassifier(PipelineStage):
                 
                 # NLP Simulation: Check for Equation-like content
                 if re.search(r'[=+\-]{2,}|\\sum|\\alpha', text):
-                    block.block_type = BlockType.BODY # Or EQUATION if we had it as a BlockType
+                    # FORENSIC FIX: Enable BlockType.EQUATION support
+                    block.block_type = BlockType.EQUATION
+                    block.semantic_intent = "EQUATION"
                     block.metadata["classification_method"] = "nlp_bert_high_confidence"
                     block.metadata["confidence"] = 0.92
                 

@@ -257,8 +257,13 @@ class Normalizer(PipelineStage):
                     was_split = True
 
             if not was_split:
-                # 4. FILTER EMPTY (Finally append if not empty)
-                if text.strip():
+                # 4. FILTER EMPTY (Finally append if not empty OR if it holds content)
+                has_content = (
+                    text.strip() or 
+                    block.metadata.get("has_figure") or 
+                    block.metadata.get("has_equation")
+                )
+                if has_content:
                     normalized_blocks.append(block.model_copy(update={"text": text}))
         
         # 5. PHYSICAL CONSOLIDATION of Multi-line Headings

@@ -14,6 +14,7 @@ from app.pipeline.contracts.loader import ContractLoader
 from app.pipeline.formatting.style_mapper import StyleMapper
 from app.pipeline.formatting.numbering import NumberingEngine
 from app.pipeline.formatting.reference_formatter import ReferenceFormatter
+from app.pipeline.tables.renderer import TableRenderer
 
 class Formatter:
     """
@@ -25,7 +26,9 @@ class Formatter:
         self.contract_loader = ContractLoader(contracts_dir=contracts_dir)
         self.style_mapper = StyleMapper(self.contract_loader)
         self.numbering_engine = NumberingEngine(self.contract_loader)
+        self.numbering_engine = NumberingEngine(self.contract_loader)
         self.reference_formatter = ReferenceFormatter(self.contract_loader)
+        self.table_renderer = TableRenderer()
         
     def process(self, document: Document) -> Document:
         """Standard pipeline stage entry point."""
@@ -105,10 +108,21 @@ class Formatter:
             
         # Add Equations
         for i, eqn in enumerate(document.equations):
+            # FORENSIC FIX: Sort by block_index (position in text) not equation index (creation order)
+            # Use small offset (+0.2) to place immediately after parent block
+            sort_index = eqn.metadata.get("block_index", eqn.index)
             items_to_insert.append({
                 "type": "equation",
-                "index": eqn.index,
+                "index": sort_index + 0.2,
                 "obj": eqn
+            })
+            
+        # Add Tables (FORENSIC FIX: Missing Logic)
+        for i, table in enumerate(document.tables):
+             items_to_insert.append({
+                "type": "table",
+                "index": table.index, # Tables have global element index
+                "obj": table
             })
             
         # Sort by index
@@ -141,6 +155,8 @@ class Formatter:
                 self._render_figure(word_doc, item["obj"], item["number"])
             elif item["type"] == "equation":
                 self._render_equation(word_doc, item["obj"])
+            elif item["type"] == "table":
+                self.table_renderer.render(word_doc, item["obj"])
                 
         return word_doc
 

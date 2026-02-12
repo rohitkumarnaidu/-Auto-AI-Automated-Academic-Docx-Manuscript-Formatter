@@ -120,10 +120,10 @@ class CaptionMatcher(PipelineStage):
 
     def _find_caption_candidates(self, blocks: List[Block]) -> List[int]:
         """
-        Find indices of blocks that look like captions.
+        Find parser indices of blocks that look like captions.
         """
         candidates = []
-        for i, block in enumerate(blocks):
+        for block in blocks:
             # Captions are usually BODY or UNKNOWN (if missed), but rarely HEADINGS.
             # We skip headings to reduce false positives (e.g. "Figure 1 Analysis" as a section title).
             if block.is_heading():
@@ -131,7 +131,7 @@ class CaptionMatcher(PipelineStage):
                 
             text = block.text.strip()
             if self.caption_pattern.match(text):
-                candidates.append(i)
+                candidates.append(block.index)
         return candidates
 
     def _match_candidates(self, 
@@ -144,11 +144,16 @@ class CaptionMatcher(PipelineStage):
         matches = []
         assigned_figures: Dict[str, bool] = {} # Keep track of matched figures
         
+        # Create block_map for O(1) lookup by parser index
+        block_map: Dict[int, Block] = {block.index: block for block in blocks}
+        
         # Sort candidates to handle document flow
         candidate_indices.sort()
         
         for cap_idx in candidate_indices:
-            caption_block = blocks[cap_idx]
+            caption_block = block_map.get(cap_idx)
+            if not caption_block:
+                continue
             
             # Find nearest figure
             # We look for figures that:
