@@ -34,9 +34,19 @@ class TableRenderer:
             return
             
         word_table = doc.add_table(rows=rows, cols=cols)
-        word_table.style = 'Table Grid' # Standard style
         
-        # 2. Populate Cells
+        # 2. Apply Style safely
+        try:
+            # Check if 'Table Grid' exists in the document styles
+            if 'Table Grid' in doc.styles:
+                word_table.style = 'Table Grid'
+            else:
+                # Fallback to a basic internal style or none
+                pass
+        except:
+            pass
+        
+        # 3. Populate Cells
         for r, row_data in enumerate(table_model.rows):
             row_cells = word_table.rows[r].cells
             for c, cell_text in enumerate(row_data):

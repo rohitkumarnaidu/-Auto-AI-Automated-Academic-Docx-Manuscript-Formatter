@@ -117,11 +117,11 @@ class Formatter:
                 "obj": eqn
             })
             
-        # Add Tables (FORENSIC FIX: Missing Logic)
+        # Add Tables
         for i, table in enumerate(document.tables):
              items_to_insert.append({
                 "type": "table",
-                "index": table.index, # Tables have global element index
+                "index": table.block_index, # Fixed: Tables have global block_index
                 "obj": table
             })
             

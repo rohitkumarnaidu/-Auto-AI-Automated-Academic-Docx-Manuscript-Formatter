@@ -75,15 +75,15 @@ class Normalizer(PipelineStage):
         # Normalize blocks
         document.blocks = self._normalize_blocks(document.blocks, median_font)
         
-        # SAFE EXTENSION: Index Invariant Restoration
-        # After duplicate suppression and splitting, we MUST rescale indices linearly.
-        # This prevents gaps or duplicate indices from breaking downstream caption matching
-        # and document assembly (which depend on absolute index proximity).
-        for i, block in enumerate(document.blocks):
-            block.index = i
-            
-        # Mandatory Structural Audit Assertion
-        assert all(block.index == i for i, block in enumerate(document.blocks))
+        
+        # SAFE INVARIANT CHECK: Verify index uniqueness (NOT continuity)
+        # Parser assigns global indices. Normalizer may drop blocks, creating gaps.
+        # Anchors (figures/tables/equations) rely on parser indices remaining stable.
+        # We verify uniqueness to prevent duplicate indices, but DO NOT enforce continuity.
+        indices = [block.index for block in document.blocks]
+        assert len(indices) == len(set(indices)), "Duplicate block indices detected"
+        assert all(isinstance(idx, int) for idx in indices), "Non-integer block index detected"
+
 
         # Normalize tables
         document.tables = self._normalize_tables(document.tables)
@@ -208,6 +208,7 @@ class Normalizer(PipelineStage):
                     normalized_blocks.append(block.model_copy(update={
                         "block_id": f"{block.block_id}_body",
                         "text": body_text,
+                        "index": block.index + 1,  # SAFE: Gap provided by Parser Step 100
                         "metadata": {**block.metadata, "split_from_original": True, "split_reason": "abstract_split"}
                     }))
                     was_split = True
@@ -231,6 +232,7 @@ class Normalizer(PipelineStage):
                     normalized_blocks.append(block.model_copy(update={
                         "block_id": f"{block.block_id}_body",
                         "text": body_part,
+                        "index": block.index + 1,  # SAFE Gap
                         "metadata": {**block.metadata, "split_from_original": True, "split_reason": "numbered_split"}
                     }))
                     was_split = True
@@ -252,6 +254,7 @@ class Normalizer(PipelineStage):
                     normalized_blocks.append(block.model_copy(update={
                         "block_id": f"{block.block_id}_body",
                         "text": body_part,
+                        "index": block.index + 1,  # SAFE Gap
                         "metadata": {**block.metadata, "split_from_original": True, "split_reason": "keyword_split"}
                     }))
                     was_split = True

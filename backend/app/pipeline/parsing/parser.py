@@ -204,10 +204,11 @@ class DocxParser:
                             block = Block(
                                 block_id=block_id,
                                 text=text,
-                                index=self.block_counter - 1, # Continue sequence
+                                index=self.element_counter,
                                 block_type=BlockType.UNKNOWN,
                                 style=style
                             )
+                            self.element_counter += 100
                             block.metadata["is_footnote"] = True
                             block.metadata["footnote_id"] = fn_id
                             note_blocks.append(block)
@@ -244,10 +245,11 @@ class DocxParser:
                             block = Block(
                                 block_id=block_id,
                                 text=text,
-                                index=self.block_counter - 1,
+                                index=self.element_counter,
                                 block_type=BlockType.UNKNOWN,
                                 style=style
                             )
+                            self.element_counter += 100
                             block.metadata["is_endnote"] = True
                             block.metadata["endnote_id"] = en_id
                             note_blocks.append(block)
@@ -268,6 +270,8 @@ class DocxParser:
                     for p in section.header.paragraphs:
                         block = self._extract_paragraph(p)
                         if block:
+                            block.index = self.element_counter
+                            self.element_counter += 100
                             block.metadata["is_header"] = True
                             block.metadata["section_index"] = i
                             hf_blocks.append(block)
@@ -277,6 +281,8 @@ class DocxParser:
                     for p in section.footer.paragraphs:
                         block = self._extract_paragraph(p)
                         if block:
+                            block.index = self.element_counter
+                            self.element_counter += 100
                             block.metadata["is_footer"] = True
                             block.metadata["section_index"] = i
                             hf_blocks.append(block)
@@ -352,7 +358,7 @@ class DocxParser:
                 block = self._extract_paragraph(paragraph)
                 if block:  # Only add if not None (skip certain empties)
                     block.index = self.element_counter
-                    self.element_counter += 1
+                    self.element_counter += 100
                     blocks.append(block)
                 
                 # Check for inline images
@@ -382,6 +388,13 @@ class DocxParser:
             elif isinstance(element, CT_Tbl):
                 # Table element
                 table = DocxTable(element, docx)
+                # CRITICAL FORENSIC FIX: Pass current counter to extractor, THEN increment.
+                # Table extraction MUST capture the index before incrementing.
+                # And we must ensure no other block claims this index.
+                # CRITICAL FORENSIC FIX: Pass current counter to extractor, THEN increment.
+                # CRITICAL FORENSIC FIX: Pass current counter to extractor, THEN increment.
+                # Table extraction MUST capture the index before incrementing.
+                # And we must ensure no other block claims this index.
                 extracted_table = self._extract_table(table, self.element_counter)
                 self.element_counter += 1
                 tables.append(extracted_table)

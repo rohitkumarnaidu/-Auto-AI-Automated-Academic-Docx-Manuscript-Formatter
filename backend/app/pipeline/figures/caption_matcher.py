@@ -147,47 +147,36 @@ class CaptionMatcher(PipelineStage):
         # Create block_map for O(1) lookup by parser index
         block_map: Dict[int, Block] = {block.index: block for block in blocks}
         
+        # Create a list index map to calculate "Logical Distance" (number of blocks between)
+        # This makes the matcher resilient to arbitrary index steps (e.g. 100)
+        list_index_map: Dict[int, int] = {block.index: i for i, block in enumerate(blocks)}
+        
         # Sort candidates to handle document flow
         candidate_indices.sort()
         
         for cap_idx in candidate_indices:
             caption_block = block_map.get(cap_idx)
-            if not caption_block:
+            if not caption_block or cap_idx not in list_index_map:
                 continue
-            
-            # Find nearest figure
-            # We look for figures that:
-            # 1. Are close to this block (within max_distance)
-            # 2. Ideally appear BEFORE the caption (typical for academic papers)
-            # 3. Are not yet assigned
             
             best_figure = None
             min_distance = float('inf')
+            
+            cap_list_idx = list_index_map[cap_idx]
             
             for figure in figures:
                 if figure.figure_id in assigned_figures:
                     continue
                     
-                #Get figure location (requires parser to have set this metadata)
                 fig_block_idx = figure.metadata.get("block_index")
-                if fig_block_idx is None:
+                if fig_block_idx is None or fig_block_idx not in list_index_map:
                     continue
                 
-                # Calculated distance (signed) -> negative means figure is above
-                # distance = caption_index - figure_block_index
-                distance = cap_idx - fig_block_idx
+                # Logical distance = caption_list_pos - figure_list_pos
+                distance = cap_list_idx - list_index_map[fig_block_idx]
                 
-                # Check absolute distance
+                # Check absolute distance against max_distance (threshold in blocks)
                 if abs(distance) <= self.max_distance:
-                    # Prefer figures ABOVE (positive distance)
-                    # If distance is negative (figure is below caption), penalty?
-                    # Some styles have caption above. But mostly below.
-                    # We prefer matched proximity first.
-                    
-                    # Logic: We want the *closest* available figure.
-                    # If multiple are equidistant? e.g. Fig A [-1] Caption [+1] Fig B
-                    # Usually caption follows figure. distance > 0.
-                    
                     current_dist_abs = abs(distance)
                     
                     if current_dist_abs < min_distance:

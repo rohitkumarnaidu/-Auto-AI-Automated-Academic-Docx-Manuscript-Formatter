@@ -76,19 +76,56 @@ def main():
     summary.add_run("==================================\n")
     summary.runs[0].font.color.rgb = RGBColor(0, 128, 0)
 
-    highlight_count = 0
-    for block in doc_obj.blocks:
-        para = annotated_doc.add_paragraph()
-        run = para.add_run(block.text)
+    # Sort all elements by index for accurate representation
+    all_elements = []
+    for b in doc_obj.blocks:
+        all_elements.append({"type": "block", "index": b.index, "obj": b})
+    for f in doc_obj.figures:
+        # Use +0.1 for consistency with formatter
+        all_elements.append({"type": "figure", "index": f.metadata.get("block_index", -1) + 0.1, "obj": f})
+    for t in doc_obj.tables:
+        all_elements.append({"type": "table", "index": t.block_index, "obj": t})
         
-        if block.block_type == BlockType.FIGURE_CAPTION:
-            run.font.highlight_color = WD_COLOR_INDEX.TURQUOISE
-            add_comment_to_paragraph(para, "FIGURE CAPTION")
-            highlight_count += 1
-        elif block.block_type == BlockType.TABLE_CAPTION:
-            run.font.highlight_color = WD_COLOR_INDEX.TURQUOISE
-            add_comment_to_paragraph(para, "TABLE CAPTION")
-            highlight_count += 1
+    all_elements.sort(key=lambda x: x["index"])
+
+    from docx.shared import Inches
+    from io import BytesIO
+    from app.pipeline.tables.renderer import TableRenderer
+    tbl_renderer = TableRenderer()
+
+    highlight_count = 0
+    for item in all_elements:
+        if item["type"] == "block":
+            block = item["obj"]
+            para = annotated_doc.add_paragraph()
+            run = para.add_run(block.text)
+            
+            if block.block_type == BlockType.FIGURE_CAPTION:
+                run.font.highlight_color = WD_COLOR_INDEX.TURQUOISE
+                add_comment_to_paragraph(para, "FIGURE CAPTION")
+                highlight_count += 1
+            elif block.block_type == BlockType.TABLE_CAPTION:
+                run.font.highlight_color = WD_COLOR_INDEX.TURQUOISE
+                add_comment_to_paragraph(para, "TABLE CAPTION")
+                highlight_count += 1
+        
+        elif item["type"] == "figure":
+            fig = item["obj"]
+            if fig.image_data:
+                try:
+                    annotated_doc.add_picture(BytesIO(fig.image_data), width=Inches(3.0))
+                    para = annotated_doc.add_paragraph()
+                    add_comment_to_paragraph(para, f"RENDERED FIGURE: {fig.figure_id}")
+                except Exception as e:
+                    annotated_doc.add_paragraph(f"[Render Error: {e}]")
+            else:
+                annotated_doc.add_paragraph(f"[MISSING IMAGE DATA: {fig.figure_id}]")
+        
+        elif item["type"] == "table":
+            tbl = item["obj"]
+            para = annotated_doc.add_paragraph()
+            add_comment_to_paragraph(para, f"RENDERED TABLE: {tbl.table_id}")
+            tbl_renderer.render(annotated_doc, tbl)
 
     annotated_doc.save(str(output_path))
     print(f"  ? Highlighted {highlight_count} captions")

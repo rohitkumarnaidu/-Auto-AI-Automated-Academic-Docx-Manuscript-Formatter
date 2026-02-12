@@ -1,0 +1,31 @@
+{
+  "summary": {
+    "figures_detected": 1
+  },
+  "figures": [
+    {
+      "figure_id": "fig_000",
+      "number": null,
+      "image_format": "jpeg",
+      "width": 174.0,
+      "height": 180.0,
+      "page_number": null,
+      "index": 0,
+      "caption_text": null,
+      "caption_block_id": null,
+      "label": null,
+      "title": null,
+      "figure_type": "unknown",
+      "referenced_by": [],
+      "section_name": null,
+      "is_valid": true,
+      "warnings": [],
+      "placement": null,
+      "export_filename": null,
+      "export_path": null,
+      "metadata": {
+        "block_index": 1000
+      }
+    }
+  ]
+}
