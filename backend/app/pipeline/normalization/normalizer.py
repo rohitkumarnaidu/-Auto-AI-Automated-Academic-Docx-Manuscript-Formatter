@@ -194,6 +194,19 @@ class Normalizer(PipelineStage):
             # 3. SPLIT MERGED BLOCKS
             was_split = False
             
+            # HARDENING FIX: Prevent image-only paragraphs from entering split logic
+            # Blocks with figures must remain atomic to preserve anchor stability
+            if block.metadata.get("has_figure"):
+                # Skip all split logic for blocks containing figures
+                has_content = (
+                    text.strip() or 
+                    block.metadata.get("has_figure") or 
+                    block.metadata.get("has_equation")
+                )
+                if has_content:
+                    normalized_blocks.append(block.model_copy(update={"text": text}))
+                continue
+            
             # Pattern A: ABSTRACT SPLIT (ABSOLUTE PRIORITY)
             # Matches "AbstractThe system..." or "Abstract: This paper..."
             abstract_match = re.match(r'^Abstract[:\.\—\-]?\s*(.+)$', text, flags=re.IGNORECASE)
@@ -219,23 +232,28 @@ class Normalizer(PipelineStage):
             # Pattern B: Numbered Headings + Body
             # Match "1 IntroductionScientific..." or "1 Introduction: Scientific..."
             # The [A-Z] guard ensures we are splitting at a potential sentence boundary.
-            numbered_merged_match = re.match(rf'^(\d+(?:\.\d+)*\.?\s*(?:{kw_regex}|[A-Z][a-z]+))[:\.\—\-]?\s*([A-Z].+)$', text)
-            if numbered_merged_match:
-                heading_part = numbered_merged_match.group(1).strip()
-                body_part = numbered_merged_match.group(2).strip()
-                
-                if len(body_part) > 20 or re.search(r'[\.\?\!]\s', body_part):
-                    normalized_blocks.append(block.model_copy(update={
-                        "text": heading_part,
-                        "metadata": {**block.metadata, "split_from_original": True, "split_reason": "numbered_split"}
-                    }))
-                    normalized_blocks.append(block.model_copy(update={
-                        "block_id": f"{block.block_id}_body",
-                        "text": body_part,
-                        "index": block.index + 1,  # SAFE Gap
-                        "metadata": {**block.metadata, "split_from_original": True, "split_reason": "numbered_split"}
-                    }))
-                    was_split = True
+            
+            # HARDENING FIX: Prevent list items from being misclassified as numbered headings
+            # List items (e.g., "1. Introduction" in a list) must not trigger split logic
+            if block.metadata.get("list_level") is None:
+                # Only apply numbered heading split if NOT a list item
+                numbered_merged_match = re.match(rf'^(\d+(?:\.\d+)*\.?\s*(?:{kw_regex}|[A-Z][a-z]+))[:\.\—\-]?\s*([A-Z].+)$', text)
+                if numbered_merged_match:
+                    heading_part = numbered_merged_match.group(1).strip()
+                    body_part = numbered_merged_match.group(2).strip()
+                    
+                    if len(body_part) > 20 or re.search(r'[\.\?\!]\s', body_part):
+                        normalized_blocks.append(block.model_copy(update={
+                            "text": heading_part,
+                            "metadata": {**block.metadata, "split_from_original": True, "split_reason": "numbered_split"}
+                        }))
+                        normalized_blocks.append(block.model_copy(update={
+                            "block_id": f"{block.block_id}_body",
+                            "text": body_part,
+                            "index": block.index + 1,  # SAFE Gap
+                            "metadata": {**block.metadata, "split_from_original": True, "split_reason": "numbered_split"}
+                        }))
+                        was_split = True
 
             if was_split:
                 continue

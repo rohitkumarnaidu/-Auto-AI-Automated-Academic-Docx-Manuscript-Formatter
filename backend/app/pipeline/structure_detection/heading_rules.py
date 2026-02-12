@@ -334,14 +334,16 @@ def analyze_heading_candidate(
     # FALLBACK LOGIC: Keyword-Independent Heading Heuristic
     # If we haven't crossed threshold but it's short, isolated, and Title Case
     if confidence < 0.4:
+        # FORENSIC FIX: Disable raw index gap isolation heuristic
+        # With Step-100 sparse indices, (block.index - prev_block.index) > 1 is ALWAYS true
+        # This causes over-classification of short paragraphs as headings
+        # Conservative approach: Rely on other signals (style, keywords, numbering)
         is_isolated = False
-        prev_block = all_blocks[block_index - 1] if block_index > 0 else None
-        if prev_block and (block.index - prev_block.index) > 1:
-            is_isolated = True
-        next_block = all_blocks[block_index + 1] if block_index < len(all_blocks) - 1 else None
-        if next_block and (next_block.index - block.index) > 1:
-            is_isolated = True
-            
+        
+        # Alternative: Could use logical adjacency check if needed
+        # is_isolated = (block_index > 0 and block_index < len(all_blocks) - 1)
+        # But for now, disable isolation signal entirely
+        
         cap_ratio = get_capitalization_ratio(text)
         
         if len(text) <= 60 and cap_ratio >= 0.7 and is_isolated:

@@ -99,12 +99,18 @@ class Formatter:
             
             # We insert figure AFTER the block it was attached to
             # Use small offset to ensure it comes after the block
+            # HARDENING FIX: Deterministic sub-offset for multiple figures same paragraph
+            # If multiple figures share same block_index, add sub-offset based on position
+            # Example: 3 figures at index 100 → 100.1, 100.101, 100.102
+            # Maintains base offset (+0.1) and avoids equation collision (+0.2)
+            sub_offset = i * 0.001  # Position-based sub-offset
             items_to_insert.append({
                 "type": "figure",
-                "index": b_idx + 0.1, 
+                "index": b_idx + 0.1 + sub_offset, 
                 "obj": fig,
                 "number": i + 1
             })
+
             
         # Add Equations
         for i, eqn in enumerate(document.equations):

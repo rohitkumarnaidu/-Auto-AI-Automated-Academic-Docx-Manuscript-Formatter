@@ -76,7 +76,12 @@ class TableCaptionMatcher(PipelineStage):
                 
             block_map[block.index] = block
 
-        # 2. Sequential Matching Logic
+        # FORENSIC FIX: Use logical position search instead of raw index arithmetic
+        # With Step-100 sparse indices, raw arithmetic fails (e.g., caption at 1100, table at 1201)
+        # Create list_index_map to convert parser indices to logical positions
+        list_index_map: Dict[int, int] = {block.index: i for i, block in enumerate(blocks)}
+        
+        # Initialize matching state
         assigned_block_ids: Dict[str, bool] = {}
         match_count = 0
         
@@ -86,9 +91,21 @@ class TableCaptionMatcher(PipelineStage):
         for table in tables:
             table_idx = table.block_index
             
+            # Convert table index to logical position
+            if table_idx not in list_index_map:
+                # Table index not in blocks list (expected - tables are separate)
+                # Find nearest block position for window calculation
+                table_list_pos = None
+                for i, block in enumerate(blocks):
+                    if block.index >= table_idx:
+                        table_list_pos = i
+                        break
+                if table_list_pos is None:
+                    table_list_pos = len(blocks) - 1
+            else:
+                table_list_pos = list_index_map[table_idx]
+            
             # Find bounds for this table (do not cross another table)
-            # This is slow if tables are many? 
-            # Optimization: since table_indices is small and sorted, we can find neighbors.
             prev_table_idx = -1
             next_table_idx = float('inf')
             curr_pos = table_indices.index(table_idx)
@@ -97,32 +114,43 @@ class TableCaptionMatcher(PipelineStage):
             if curr_pos < len(table_indices) - 1:
                 next_table_idx = table_indices[curr_pos + 1]
             
-            # Search window bounds
-            lower_bound = max(prev_table_idx + 1, table_idx - self.search_window_above)
-            upper_bound = min(next_table_idx - 1, table_idx + self.search_window_below)
+            # Calculate search window in LOGICAL POSITIONS (not raw indices)
+            lower_pos = max(0, table_list_pos - self.search_window_above)
+            upper_pos = min(len(blocks) - 1, table_list_pos + self.search_window_below)
             
             best_caption = None
             min_dist = float('inf')
             
-            # Scan candidates in window
-            for b_idx in range(lower_bound, upper_bound + 1):
-                if b_idx == table_idx: continue # The table block itself (if applicable)
+            # Scan candidates in logical position window
+            for pos in range(lower_pos, upper_pos + 1):
+                candidate = blocks[pos]
                 
-                candidate = block_map.get(b_idx)
-                if not candidate: continue
-                if candidate.block_id in assigned_block_ids: continue
+                # Skip if already assigned
+                if candidate.block_id in assigned_block_ids:
+                    continue
+                
+                # Skip headings and references (already filtered in block_map, but double-check)
+                if candidate.is_heading() or candidate.block_type == BlockType.REFERENCES_HEADING:
+                    continue
+                
+                # Skip if inside References section
+                if ref_start_idx is not None and candidate.index >= ref_start_idx:
+                    continue
+                
+                # Skip if candidate index is beyond table boundaries (cross-table protection)
+                if candidate.index <= prev_table_idx or candidate.index >= next_table_idx:
+                    continue
                 
                 text = candidate.text.strip()
                 if self.caption_regex.match(text):
-                    dist = abs(b_idx - table_idx)
+                    # Calculate logical distance (position-based, not index-based)
+                    dist = abs(pos - table_list_pos)
                     
                     # Tie-breaker: Prefer Above (standard for tables) if equidistant
-                    # Actually range is -2, +1. If b_idx is dist 1 below and dist 1 above?
-                    # We pick closest first.
                     if dist < min_dist:
                         min_dist = dist
                         best_caption = candidate
-                    elif dist == min_dist and b_idx < table_idx:
+                    elif dist == min_dist and pos < table_list_pos:
                         # Prefer Above
                         best_caption = candidate
 
