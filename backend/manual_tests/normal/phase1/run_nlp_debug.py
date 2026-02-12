@@ -37,10 +37,10 @@ def main():
         Block(block_id="b2", text="This paper presents results. Background is distinct.", block_type=BlockType.ABSTRACT_BODY, index=1),
         
         # Caption candidate (Good)
-        Block(block_id="b3", text="Figure 1: Performance comparison of methods.", block_type=Block_TYPE_FIGURE_CAPTION, index=2),
+        Block(block_id="b3", text="Figure 1: Performance comparison of methods.", block_type=BlockType.FIGURE_CAPTION, index=2),
         
         # Caption candidate (Vague)
-        Block(block_id="b4", text="Figure 2: Chart below.", block_type=Block_TYPE_FIGURE_CAPTION, index=3),
+        Block(block_id="b4", text="Figure 2: Chart below.", block_type=BlockType.FIGURE_CAPTION, index=3),
         
         # Header candidate
         Block(block_id="b5", text="1. Introduction", block_type=BlockType.UNKNOWN, index=4)

@@ -276,7 +276,9 @@ class ContentClassifier(PipelineStage):
         # 3. NLP Fallback for UNKNOWNs
         self._nlp_classify_fallback(blocks)
                 
-        # 4. Final Fallback (Respect Isolation)
+        # 4. NLP-Enhanced Fallback (Integrate SemanticParser Confidence)
+        # ARCHITECTURAL INTEGRATION: Use NLP confidence to improve scoring
+        # while preserving deterministic structural classification.
         for block in blocks:
             # Skip protected structural blocks
             if (block.metadata.get("is_header") or 
@@ -286,12 +288,25 @@ class ContentClassifier(PipelineStage):
                 continue
 
             if block.block_type == BlockType.UNKNOWN:
+                # Structural fallback (deterministic, unchanged)
                 block.block_type = BlockType.BODY
                 block.semantic_intent = "BODY"
-                block.classification_confidence = 0.5
-                block.metadata["semantic_intent"] = "BODY"
-                block.metadata["classification_confidence"] = 0.5
-                block.metadata["classification_method"] = "fallback_last_resort"
+                
+                # CONFIDENCE INTEGRATION: Use NLP confidence if available
+                # This does NOT change block_type, only improves confidence scoring
+                nlp_confidence = block.metadata.get("nlp_confidence", 0.0)
+                
+                if nlp_confidence > 0:
+                    # Use NLP confidence (with minimum floor of 0.5)
+                    confidence = max(nlp_confidence, 0.5)
+                    block.classification_confidence = confidence
+                    block.metadata["classification_confidence"] = confidence
+                    block.metadata["classification_method"] = "fallback_with_nlp"
+                else:
+                    # No NLP data available, use baseline fallback
+                    block.classification_confidence = 0.5
+                    block.metadata["classification_confidence"] = 0.5
+                    block.metadata["classification_method"] = "fallback_last_resort"
                 
         # Update processing history
         end_time = datetime.utcnow()

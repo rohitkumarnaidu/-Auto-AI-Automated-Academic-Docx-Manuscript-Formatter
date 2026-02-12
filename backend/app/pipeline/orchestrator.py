@@ -160,7 +160,8 @@ class PipelineOrchestrator:
             doc_obj = normalizer.process(doc_obj)
             
             # Layer 2: NLP Foundation (Semantic Parser)
-            # This is heavy (SciBERT load). No DB session is held.
+            # PHASE 2: AI Intelligence Stack (SciBERT Semantic Analysis)
+            # NOTE: This runs BEFORE structure detection to provide semantic hints
             semantic_parser = get_semantic_parser()
             semantic_blocks = []
             try:
@@ -170,7 +171,17 @@ class PipelineOrchestrator:
                 
                 if hasattr(semantic_parser, "reconcile_fragmented_headings"):
                     doc_obj.blocks = semantic_parser.reconcile_fragmented_headings(doc_obj.blocks)
-                
+            except Exception as e:
+                print(f"AI ERROR (Layer 2 - Preprocessing): {e}. Continuing with structure detection.")
+
+            # Back to deterministic processing
+            detector = StructureDetector(contracts_dir=self.contracts_dir)
+            self._check_stage_interface(detector, "process", "StructureDetector")
+            doc_obj = detector.process(doc_obj)
+            
+            # CRITICAL: SemanticParser NLP predictions MUST run AFTER structure detection
+            # and BEFORE classification to populate metadata["nlp_confidence"]
+            try:
                 semantic_blocks = semantic_parser.analyze_blocks(doc_obj.blocks)
                 
                 # Update block metadata with AI predictions
@@ -179,12 +190,7 @@ class PipelineOrchestrator:
                         b.metadata["semantic_intent"] = semantic_blocks[i]["predicted_section_type"]
                         b.metadata["nlp_confidence"] = semantic_blocks[i]["confidence_score"]
             except Exception as e:
-                print(f"AI ERROR (Layer 2): {e}. Falling back to Phase-1 Heuristics.")
-
-            # Back to deterministic processing
-            detector = StructureDetector(contracts_dir=self.contracts_dir)
-            self._check_stage_interface(detector, "process", "StructureDetector")
-            doc_obj = detector.process(doc_obj)
+                print(f"AI ERROR (Layer 2 - NLP Analysis): {e}. Falling back to Phase-1 Heuristics.")
             
             with SessionLocal() as db:
                 self._update_status(db, job_id, "NLP_ANALYSIS", "IN_PROGRESS", "Classifying content...", progress=40)

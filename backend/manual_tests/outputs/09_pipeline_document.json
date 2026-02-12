@@ -1,0 +1,160 @@
+{
+  "document_id": "pipeline_test",
+  "original_filename": "132dbdae-b6e3-4936-bdb5-bc398ed0ac19.docx",
+  "blocks": [
+    {
+      "block_id": "blk_000",
+      "index": 0,
+      "text": "Automated Academic Manuscript Formatter",
+      "block_type": "title",
+      "section_name": "Automated Academic Manuscript Formatter"
+    },
+    {
+      "block_id": "blk_001",
+      "index": 100,
+      "text": "Rohit Kumar, Ananya Sharma, Vikram Patel",
+      "block_type": "author",
+      "section_name": "Automated Academic Manuscript Formatter"
+    },
+    {
+      "block_id": "blk_002",
+      "index": 200,
+      "text": "Department of Computer Science",
+      "block_type": "affiliation",
+      "section_name": "Automated Academic Manuscript Formatter"
+    },
+    {
+      "block_id": "blk_003",
+      "index": 300,
+      "text": "XYZ University",
+      "block_type": "affiliation",
+      "section_name": "Automated Academic Manuscript Formatter"
+    },
+    {
+      "block_id": "blk_004",
+      "index": 400,
+      "text": "Abstract",
+      "block_type": "abstract_heading",
+      "section_name": "Abstract"
+    },
+    {
+      "block_id": "blk_005",
+      "index": 500,
+      "text": "This paper presents an automated system for converting poorly formatted academic manuscripts into pu...",
+      "block_type": "abstract_body",
+      "section_name": "Abstract"
+    },
+    {
+      "block_id": "blk_006",
+      "index": 600,
+      "text": "1 Introduction",
+      "block_type": "heading_1",
+      "section_name": "Introduction"
+    },
+    {
+      "block_id": "blk_006_body",
+      "index": 601,
+      "text": "Academic publishing requires strict adherence to formatting guidelines imposed by journals and confe...",
+      "block_type": "body",
+      "section_name": "Introduction"
+    },
+    {
+      "block_id": "blk_007",
+      "index": 700,
+      "text": "2 Methodology",
+      "block_type": "heading_1",
+      "section_name": "Methodology"
+    },
+    {
+      "block_id": "blk_008",
+      "index": 800,
+      "text": "The proposed system uses a pipeline-based architecture in which each stage performs a specific respo...",
+      "block_type": "body",
+      "section_name": "Methodology"
+    },
+    {
+      "block_id": "blk_009",
+      "index": 900,
+      "text": "Figure 1: college logo",
+      "block_type": "figure_caption",
+      "section_name": "Methodology"
+    },
+    {
+      "block_id": "blk_010",
+      "index": 1000,
+      "text": "",
+      "block_type": "body",
+      "section_name": "Methodology"
+    },
+    {
+      "block_id": "blk_011",
+      "index": 1100,
+      "text": "Table 1: Comparison of Formatting Methods",
+      "block_type": "table_caption",
+      "section_name": "Methodology"
+    },
+    {
+      "block_id": "blk_014",
+      "index": 1401,
+      "text": "REFERENCES",
+      "block_type": "references_heading",
+      "section_name": "REFERENCES"
+    },
+    {
+      "block_id": "blk_015",
+      "index": 1501,
+      "text": "[1] John Smith, Automated Document Processing, Journal of Artificial Intelligence, 2021",
+      "block_type": "reference_entry",
+      "section_name": "REFERENCES"
+    },
+    {
+      "block_id": "blk_016",
+      "index": 1601,
+      "text": "[2] Alice Brown, Acaic Formatting Tools and Systems, Publishing Technologies, 2020.",
+      "block_type": "reference_entry",
+      "section_name": "REFERENCES"
+    }
+  ],
+  "figures": [
+    {
+      "figure_id": "fig_000",
+      "caption_text": "Figure 1: college logo",
+      "caption_block_id": "blk_009",
+      "number": null,
+      "metadata": {
+        "block_index": 1000
+      }
+    }
+  ],
+  "tables": [
+    {
+      "table_id": "tbl_000",
+      "block_index": 1200,
+      "caption_text": "Table 1: Comparison of Formatting Methods",
+      "caption_block_id": "blk_011",
+      "number": null,
+      "num_rows": 6,
+      "num_cols": 6
+    }
+  ],
+  "references": [],
+  "summary": {
+    "total_blocks": 16,
+    "total_figures": 1,
+    "total_tables": 1,
+    "total_references": 0,
+    "block_types": {
+      "title": 1,
+      "author": 1,
+      "affiliation": 2,
+      "abstract_heading": 1,
+      "abstract_body": 1,
+      "heading_1": 2,
+      "body": 3,
+      "figure_caption": 1,
+      "table_caption": 1,
+      "references_heading": 1,
+      "reference_entry": 2
+    }
+  }
+}

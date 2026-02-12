@@ -1,21 +1,20 @@
 """
-Visual Test - Stage 2: Semantic Classification
+Visual Test - Phase 2: Classification Verification After Assembly
 
-Purpose: Verify semantic classification visually
+Purpose: Re-verify classification after assembly
 Input: DOCX file
-Output: Annotated DOCX with section labels
+Output: Annotated DOCX with block type labels
 
 Usage:
-    python manual_tests/visual/02_classification.py uploads/input.docx
+    python manual_tests/visual/phase2/02_classification.py uploads/input.docx
 
 Output:
-    manual_tests/visual_outputs/02_classified_annotated.docx
+    manual_tests/visual_outputs/phase2_02_classification_annotated.docx
 
 Visual Inspection:
     - Open output DOCX in Microsoft Word
-    - Blue annotations = Section labels (Abstract, Introduction, etc.)
-    - Green highlights = High confidence classifications
-    - Orange highlights = Low confidence (needs review)
+    - Color-coded annotations show block types
+    - Verify no classification corruption after assembly
 """
 
 import sys
@@ -27,8 +26,9 @@ from docx.shared import RGBColor
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 
 from app.pipeline.parsing.parser import DocxParser
+from app.pipeline.normalization.normalizer import Normalizer as TextNormalizer
 from app.pipeline.structure_detection.detector import StructureDetector
-from app.pipeline.intelligence.semantic_parser import SemanticParser
+from app.pipeline.classification.classifier import ContentClassifier
 
 def add_annotation(paragraph, text, color_rgb):
     """Add colored annotation to paragraph."""
@@ -43,91 +43,106 @@ def main():
     
     input_path = sys.argv[1]
     output_dir = Path(__file__).parent.parent / "visual_outputs"
-    output_path = output_dir / "02_classified_annotated.docx"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "phase2_02_classification_annotated.docx"
     
     print("=" * 70)
-    print("VISUAL TEST - STAGE 2: SEMANTIC CLASSIFICATION")
+    print("VISUAL TEST - PHASE 2: CLASSIFICATION VERIFICATION")
     print("=" * 70)
     print(f"Input:  {input_path}")
     print(f"Output: {output_path}")
     print()
     
-    # Run pipeline stages 1-2
+    # Run full Phase 1 pipeline
     print("[1/4] Parsing DOCX...")
     parser = DocxParser()
-    doc_obj = parser.parse(input_path, document_id="visual_test_stage2")
+    doc_obj = parser.parse(input_path, document_id="phase2_classification_test")
+    print(f"  ✓ Extracted {len(doc_obj.blocks)} blocks")
     
-    print("[2/4] Detecting structure...")
+    print("[2/4] Normalizing...")
+    normalizer = TextNormalizer()
+    doc_obj = normalizer.process(doc_obj)
+    print(f"  ✓ Normalized to {len(doc_obj.blocks)} blocks")
+    
+    print("[3/4] Detecting structure...")
     detector = StructureDetector()
     doc_obj = detector.process(doc_obj)
     
-    print("[3/4] Running semantic classification...")
-    semantic_parser = SemanticParser()
-    doc_obj.blocks = semantic_parser.detect_boundaries(doc_obj.blocks)
+    print("[4/4] Classifying blocks...")
+    classifier = ContentClassifier()
+    doc_obj = classifier.process(doc_obj)
     
     # Count classifications
-    sections = {}
+    type_counts = {}
     for block in doc_obj.blocks:
-        intent = block.metadata.get('semantic_intent', 'UNKNOWN')
-        sections[intent] = sections.get(intent, 0) + 1
+        block_type = block.block_type.value
+        type_counts[block_type] = type_counts.get(block_type, 0) + 1
     
-    print(f"      ✓ Classified into {len(sections)} section types")
+    print(f"  ✓ Classified {len(doc_obj.blocks)} blocks into {len(type_counts)} types")
     
     # Create annotated DOCX
-    print("[4/4] Creating annotated DOCX...")
-    annotated_doc = Document(input_path)
-    
-    para_index = 0
-    for block in doc_obj.blocks:
-        if para_index >= len(annotated_doc.paragraphs):
-            break
-        
-        para = annotated_doc.paragraphs[para_index]
-        
-        intent = block.metadata.get('semantic_intent', 'UNKNOWN')
-        confidence = block.metadata.get('nlp_confidence', 0.0)
-        
-        # Color code by confidence
-        if confidence >= 0.85:
-            color = (0, 128, 0)  # Green - high confidence
-        elif confidence >= 0.70:
-            color = (0, 0, 255)  # Blue - medium confidence
-        else:
-            color = (255, 140, 0)  # Orange - low confidence
-        
-        add_annotation(para, f"{intent} ({confidence:.2f})", color)
-        
-        para_index += 1
+    print()
+    print("Creating annotated DOCX...")
+    annotated_doc = Document()
     
     # Add summary
-    summary = (
-        f"=== CLASSIFICATION SUMMARY ===\n"
+    summary_para = annotated_doc.add_paragraph()
+    summary_run = summary_para.add_run(
+        f"=== PHASE 2 CLASSIFICATION VERIFICATION ===\n"
         f"Total Blocks: {len(doc_obj.blocks)}\n"
+        f"Block Types: {len(type_counts)}\n"
     )
-    for section, count in sorted(sections.items()):
-        summary += f"{section}: {count}\n"
-    summary += "==============================\n"
+    for block_type, count in sorted(type_counts.items()):
+        summary_run.add_text(f"{block_type}: {count}\n")
+    summary_run.add_text("=" * 43 + "\n")
+    summary_run.font.color.rgb = RGBColor(0, 128, 0)
+    summary_run.bold = True
     
-    summary_para = annotated_doc.paragraphs[0].insert_paragraph_before(summary)
-    summary_para.runs[0].font.color.rgb = RGBColor(0, 128, 0)
-    summary_para.runs[0].bold = True
+    # Color map for block types
+    color_map = {
+        'title': (0, 0, 255),           # Blue
+        'author': (0, 128, 128),        # Teal
+        'affiliation': (128, 0, 128),   # Purple
+        'abstract_heading': (255, 0, 0),  # Red
+        'abstract_body': (255, 100, 100), # Light red
+        'heading_1': (0, 128, 0),       # Green
+        'heading_2': (0, 200, 0),       # Light green
+        'body': (0, 0, 0),              # Black
+        'figure_caption': (255, 140, 0), # Orange
+        'table_caption': (255, 165, 0),  # Light orange
+        'references_heading': (128, 0, 0), # Dark red
+        'reference_entry': (150, 50, 50),  # Brown
+    }
     
+    # Add annotated blocks
+    for block in doc_obj.blocks:
+        para = annotated_doc.add_paragraph()
+        
+        # Add block text
+        text_run = para.add_run(block.text)
+        
+        # Add annotation
+        block_type = block.block_type.value
+        color = color_map.get(block_type, (128, 128, 128))  # Gray for unknown
+        
+        annotation_run = para.add_run(f" [{block_type.upper()}]")
+        annotation_run.font.color.rgb = RGBColor(*color)
+        annotation_run.bold = True
+    
+    # Save
     annotated_doc.save(str(output_path))
     
     print()
     print("=" * 70)
-    print("✅ STAGE 2 COMPLETE")
+    print("✅ PHASE 2 CLASSIFICATION VERIFICATION COMPLETE")
     print("=" * 70)
     print(f"Output saved to: {output_path}")
     print()
-    print("NEXT STEP:")
+    print("VERIFICATION CHECKLIST:")
     print("1. Open the output DOCX in Microsoft Word")
-    print("2. Look for:")
-    print("   - Green annotations = High confidence sections")
-    print("   - Blue annotations = Medium confidence")
-    print("   - Orange annotations = Low confidence (review needed)")
-    print("3. Verify section labels are correct")
-    print("4. Report any misclassifications before proceeding to Stage 3")
+    print("2. Verify block types are correctly classified")
+    print("3. Confirm no classification corruption after assembly")
+    print("4. Check that all sections are properly labeled")
     print()
 
 if __name__ == "__main__":

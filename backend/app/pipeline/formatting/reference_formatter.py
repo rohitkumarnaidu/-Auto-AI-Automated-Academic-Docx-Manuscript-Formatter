@@ -9,9 +9,12 @@ class ReferenceFormatter:
         self.contract_loader = contract_loader
 
     def format_reference(self, reference: Reference, publisher: str) -> str:
-        """
-        Produce a formatted string for a specific reference based on style.
-        """
+        """Format a reference according to publisher guidelines."""
+        # SAFE BYPASS: Skip contract loading for "none" publisher (general formatting)
+        if publisher.lower() == "none":
+            # Return original reference text unchanged
+            return reference.raw_text if hasattr(reference, 'raw_text') and reference.raw_text else str(reference)
+        
         contract = self.contract_loader.load(publisher)
         style_rule = contract.get("references", {}).get("style", "IEEE")
         

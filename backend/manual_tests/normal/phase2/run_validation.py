@@ -149,7 +149,7 @@ def test_validation():
     # We need to import Table? It might be available via Document models
     from app.models import Table
     doc_adv.tables = [
-        Table(table_id="t1", index=0, rows=[["A"]], caption_text="", num_rows=1, num_cols=1) 
+        Table(table_id="t1", block_index=0, index=0, rows=[["A"]], caption_text="", num_rows=1, num_cols=1) 
     ]
     
     res_adv = validate_document(doc_adv)

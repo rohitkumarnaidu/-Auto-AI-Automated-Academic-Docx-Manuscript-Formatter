@@ -1,0 +1,196 @@
+{
+  "document_id": "test_nlp",
+  "original_filename": null,
+  "source_path": null,
+  "blocks": [
+    {
+      "block_id": "b1",
+      "text": "Abstract",
+      "block_type": "unknown",
+      "index": 0,
+      "page_number": null,
+      "style": {
+        "bold": false,
+        "italic": false,
+        "underline": false,
+        "font_name": null,
+        "font_size": null,
+        "color": null
+      },
+      "level": null,
+      "parent_id": null,
+      "list_type": null,
+      "list_level": null,
+      "section_name": null,
+      "semantic_intent": null,
+      "classification_confidence": null,
+      "contains_citation": false,
+      "citation_keys": [],
+      "is_valid": true,
+      "warnings": [],
+      "metadata": {
+        "ai_hints": {
+          "predicted_section": "Abstract",
+          "confidence": 0.95,
+          "notes": [
+            "Keyword match"
+          ]
+        }
+      }
+    },
+    {
+      "block_id": "b2",
+      "text": "This paper presents results. Background is distinct.",
+      "block_type": "abstract_body",
+      "index": 1,
+      "page_number": null,
+      "style": {
+        "bold": false,
+        "italic": false,
+        "underline": false,
+        "font_name": null,
+        "font_size": null,
+        "color": null
+      },
+      "level": null,
+      "parent_id": null,
+      "list_type": null,
+      "list_level": null,
+      "section_name": null,
+      "semantic_intent": null,
+      "classification_confidence": null,
+      "contains_citation": false,
+      "citation_keys": [],
+      "is_valid": true,
+      "warnings": [],
+      "metadata": {
+        "ai_hints": {
+          "readability": "Simple (Short Sentences)"
+        }
+      }
+    },
+    {
+      "block_id": "b3",
+      "text": "Figure 1: Performance comparison of methods.",
+      "block_type": "figure_caption",
+      "index": 2,
+      "page_number": null,
+      "style": {
+        "bold": false,
+        "italic": false,
+        "underline": false,
+        "font_name": null,
+        "font_size": null,
+        "color": null
+      },
+      "level": null,
+      "parent_id": null,
+      "list_type": null,
+      "list_level": null,
+      "section_name": null,
+      "semantic_intent": null,
+      "classification_confidence": null,
+      "contains_citation": false,
+      "citation_keys": [],
+      "is_valid": true,
+      "warnings": [],
+      "metadata": {
+        "ai_hints": {
+          "caption_quality": "Good"
+        }
+      }
+    },
+    {
+      "block_id": "b4",
+      "text": "Figure 2: Chart below.",
+      "block_type": "figure_caption",
+      "index": 3,
+      "page_number": null,
+      "style": {
+        "bold": false,
+        "italic": false,
+        "underline": false,
+        "font_name": null,
+        "font_size": null,
+        "color": null
+      },
+      "level": null,
+      "parent_id": null,
+      "list_type": null,
+      "list_level": null,
+      "section_name": null,
+      "semantic_intent": null,
+      "classification_confidence": null,
+      "contains_citation": false,
+      "citation_keys": [],
+      "is_valid": true,
+      "warnings": [],
+      "metadata": {
+        "ai_hints": {
+          "caption_quality": "Short"
+        }
+      }
+    },
+    {
+      "block_id": "b5",
+      "text": "1. Introduction",
+      "block_type": "unknown",
+      "index": 4,
+      "page_number": null,
+      "style": {
+        "bold": false,
+        "italic": false,
+        "underline": false,
+        "font_name": null,
+        "font_size": null,
+        "color": null
+      },
+      "level": null,
+      "parent_id": null,
+      "list_type": null,
+      "list_level": null,
+      "section_name": null,
+      "semantic_intent": null,
+      "classification_confidence": null,
+      "contains_citation": false,
+      "citation_keys": [],
+      "is_valid": true,
+      "warnings": [],
+      "metadata": {
+        "ai_hints": {
+          "predicted_section": "Introduction",
+          "confidence": 0.9,
+          "notes": [
+            "Keyword match"
+          ]
+        }
+      }
+    }
+  ],
+  "figures": [],
+  "tables": [],
+  "references": [],
+  "equations": [],
+  "metadata": {
+    "title": null,
+    "authors": [],
+    "affiliations": [],
+    "abstract": null,
+    "keywords": [],
+    "publication_date": null,
+    "journal": null,
+    "doi": null,
+    "corresponding_author": null,
+    "email": null,
+    "ai_hints": {}
+  },
+  "template": null,
+  "is_valid": true,
+  "validation_errors": [],
+  "validation_warnings": [],
+  "review": null,
+  "output_path": null,
+  "processing_history": [],
+  "created_at": "2026-02-12 17:27:13.439151",
+  "updated_at": "2026-02-12 17:27:13.439153"
+}

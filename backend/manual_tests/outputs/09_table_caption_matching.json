@@ -1,0 +1,13 @@
+{
+  "summary": {
+    "total_tables": 1,
+    "matched_captions": 1
+  },
+  "tables": [
+    {
+      "table_id": "tbl_000",
+      "caption_block_id": "blk_011",
+      "anchor_index": null
+    }
+  ]
+}

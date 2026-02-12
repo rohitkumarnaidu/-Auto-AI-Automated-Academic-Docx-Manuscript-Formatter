@@ -40,7 +40,15 @@ def annotate_visual(input_path, output_path):
     doc = tab_matcher.process(doc)
     doc = ref_parser.process(doc)
     doc = validator.process(doc)
-    doc = formatter.process(doc)
+    
+    # Try to format (requires publisher contract, optional)
+    try:
+        doc = formatter.process(doc)
+        print("✓ Formatter applied successfully")
+    except FileNotFoundError as e:
+        print(f"⚠ Formatter skipped (no contract): {e}")
+    except Exception as e:
+        print(f"⚠ Formatter skipped (error): {e}")
     
     blocks = doc.blocks
     figures = doc.figures

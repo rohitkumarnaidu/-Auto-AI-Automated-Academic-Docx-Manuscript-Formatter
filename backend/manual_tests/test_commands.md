@@ -300,6 +300,17 @@ manual_tests/
   ```
   *(Output: `manual_tests/outputs/08_validation_report.json`)*
 
+### Step 9b: Classification Verification (Phase 2)
+**Goal**: Re-verify classification after assembly.
+
+- **Visual (DOCX Output)**:
+  ```bash
+  python manual_tests/visual/phase2/02_classification.py uploads/132dbdae-b6e3-4936-bdb5-bc398ed0ac19.docx
+  ```
+  *(Output: `manual_tests/visual_outputs/phase2_02_classification_annotated.docx`)*
+
+---
+
 ### Step 10: Full Pipeline Assembly
 **Goal**: Verify complete document structure without formatting.
 

@@ -1,0 +1,15 @@
+{
+  "summary": {
+    "tables_numbered": 1,
+    "sequence_generated": [
+      1
+    ]
+  },
+  "tables": [
+    {
+      "table_id": "tbl_000",
+      "number": 1,
+      "caption_block_id": "blk_011"
+    }
+  ]
+}

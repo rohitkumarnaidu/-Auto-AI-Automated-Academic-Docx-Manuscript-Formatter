@@ -1,10 +1,10 @@
 {
   "summary": {
-    "total_blocks": 14,
-    "headings_detected": 7,
+    "total_blocks": 16,
+    "headings_detected": 5,
     "heading_levels": {
-      "L1": 5,
-      "L2": 1,
+      "L1": 4,
+      "L2": 0,
       "L3": 0,
       "L4": 0,
       "L5": 0,
@@ -16,52 +16,38 @@
   },
   "headings": [
     {
-      "text": "Automated Document Processing System",
+      "text": "Automated Academic Manuscript Formatter",
       "level": 0,
       "confidence": 1.0,
       "index": 0,
       "reasons": []
     },
     {
-      "text": "1 System Overview",
+      "text": "Abstract",
       "level": 1,
-      "confidence": 0.8,
-      "index": 2,
+      "confidence": 0.5,
+      "index": 400,
       "reasons": []
     },
     {
-      "text": "2 Technical Approach",
+      "text": "1 Introduction",
       "level": 1,
-      "confidence": 0.8,
-      "index": 4,
+      "confidence": 1.0,
+      "index": 600,
       "reasons": []
     },
     {
-      "text": "2.1 Design Considerations",
-      "level": 2,
-      "confidence": 0.8,
-      "index": 6,
+      "text": "2 Methodology",
+      "level": 1,
+      "confidence": 1.0,
+      "index": 700,
       "reasons": []
     },
     {
-      "text": "3 Experimental Evaluation",
+      "text": "REFERENCES",
       "level": 1,
-      "confidence": 0.8,
-      "index": 8,
-      "reasons": []
-    },
-    {
-      "text": "4 Observations and Insights",
-      "level": 1,
-      "confidence": 0.8,
-      "index": 10,
-      "reasons": []
-    },
-    {
-      "text": "5 Closing Remarks",
-      "level": 1,
-      "confidence": 0.8,
-      "index": 12,
+      "confidence": 0.5,
+      "index": 1401,
       "reasons": []
     }
   ]

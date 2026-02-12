@@ -1,131 +1,162 @@
-[DONE]"[DONE]"[DONE]"[DONE]
-[DONE]P[DONE]h[DONE]a[DONE]s[DONE]e[DONE] [DONE]2[DONE] [DONE]-[DONE] [DONE]S[DONE]t[DONE]e[DONE]p[DONE] [DONE]9[DONE]:[DONE] [DONE]F[DONE]u[DONE]l[DONE]l[DONE] [DONE]P[DONE]i[DONE]p[DONE]e[DONE]l[DONE]i[DONE]n[DONE]e[DONE] [DONE]T[DONE]e[DONE]s[DONE]t[DONE] [DONE]([DONE]N[DONE]O[DONE] [DONE]F[DONE]O[DONE]R[DONE]M[DONE]A[DONE]T[DONE]T[DONE]I[DONE]N[DONE]G[DONE])[DONE]
-[DONE]
-[DONE]P[DONE]u[DONE]r[DONE]p[DONE]o[DONE]s[DONE]e[DONE]:[DONE] [DONE]R[DONE]u[DONE]n[DONE] [DONE]f[DONE]u[DONE]l[DONE]l[DONE] [DONE]p[DONE]i[DONE]p[DONE]e[DONE]l[DONE]i[DONE]n[DONE]e[DONE] [DONE]([DONE]i[DONE]d[DONE]e[DONE]n[DONE]t[DONE]i[DONE]f[DONE]i[DONE]c[DONE]a[DONE]t[DONE]i[DONE]o[DONE]n[DONE] [DONE]o[DONE]n[DONE]l[DONE]y[DONE],[DONE] [DONE]n[DONE]o[DONE] [DONE]f[DONE]o[DONE]r[DONE]m[DONE]a[DONE]t[DONE]t[DONE]i[DONE]n[DONE]g[DONE])[DONE]
-[DONE]T[DONE]e[DONE]s[DONE]t[DONE]s[DONE]:[DONE] [DONE]C[DONE]o[DONE]m[DONE]p[DONE]l[DONE]e[DONE]t[DONE]e[DONE] [DONE]p[DONE]i[DONE]p[DONE]e[DONE]l[DONE]i[DONE]n[DONE]e[DONE] [DONE]u[DONE]p[DONE] [DONE]t[DONE]o[DONE] [DONE]P[DONE]i[DONE]p[DONE]e[DONE]l[DONE]i[DONE]n[DONE]e[DONE]D[DONE]o[DONE]c[DONE]u[DONE]m[DONE]e[DONE]n[DONE]t[DONE] [DONE]a[DONE]s[DONE]s[DONE]e[DONE]m[DONE]b[DONE]l[DONE]y[DONE]
-[DONE]
-[DONE]U[DONE]s[DONE]a[DONE]g[DONE]e[DONE]:[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]y[DONE]t[DONE]h[DONE]o[DONE]n[DONE] [DONE]m[DONE]a[DONE]n[DONE]u[DONE]a[DONE]l[DONE]_[DONE]t[DONE]e[DONE]s[DONE]t[DONE]s[DONE]/[DONE]p[DONE]h[DONE]a[DONE]s[DONE]e[DONE]2[DONE]_[DONE]a[DONE]s[DONE]s[DONE]e[DONE]m[DONE]b[DONE]l[DONE]y[DONE]/[DONE]r[DONE]u[DONE]n[DONE]_[DONE]p[DONE]i[DONE]p[DONE]e[DONE]l[DONE]i[DONE]n[DONE]e[DONE].[DONE]p[DONE]y[DONE] [DONE]s[DONE]a[DONE]m[DONE]p[DONE]l[DONE]e[DONE]_[DONE]i[DONE]n[DONE]p[DONE]u[DONE]t[DONE]s[DONE]/[DONE]s[DONE]i[DONE]m[DONE]p[DONE]l[DONE]e[DONE].[DONE]d[DONE]o[DONE]c[DONE]x[DONE]
-[DONE]
-[DONE]O[DONE]u[DONE]t[DONE]p[DONE]u[DONE]t[DONE]:[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]m[DONE]a[DONE]n[DONE]u[DONE]a[DONE]l[DONE]_[DONE]t[DONE]e[DONE]s[DONE]t[DONE]s[DONE]/[DONE]o[DONE]u[DONE]t[DONE]p[DONE]u[DONE]t[DONE]s[DONE]/[DONE]0[DONE]9[DONE]_[DONE]p[DONE]i[DONE]p[DONE]e[DONE]l[DONE]i[DONE]n[DONE]e[DONE]_[DONE]d[DONE]o[DONE]c[DONE]u[DONE]m[DONE]e[DONE]n[DONE]t[DONE].[DONE]j[DONE]s[DONE]o[DONE]n[DONE]
-[DONE]
-[DONE]S[DONE]u[DONE]c[DONE]c[DONE]e[DONE]s[DONE]s[DONE] [DONE]C[DONE]r[DONE]i[DONE]t[DONE]e[DONE]r[DONE]i[DONE]a[DONE]:[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]-[DONE] [DONE]A[DONE]l[DONE]l[DONE] [DONE]c[DONE]o[DONE]n[DONE]t[DONE]e[DONE]n[DONE]t[DONE] [DONE]i[DONE]d[DONE]e[DONE]n[DONE]t[DONE]i[DONE]f[DONE]i[DONE]e[DONE]d[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]-[DONE] [DONE]N[DONE]o[DONE] [DONE]c[DONE]r[DONE]a[DONE]s[DONE]h[DONE]e[DONE]s[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]-[DONE] [DONE]J[DONE]S[DONE]O[DONE]N[DONE] [DONE]o[DONE]u[DONE]t[DONE]p[DONE]u[DONE]t[DONE] [DONE]i[DONE]s[DONE] [DONE]v[DONE]a[DONE]l[DONE]i[DONE]d[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]-[DONE] [DONE]R[DONE]e[DONE]a[DONE]d[DONE]y[DONE] [DONE]f[DONE]o[DONE]r[DONE] [DONE]f[DONE]o[DONE]r[DONE]m[DONE]a[DONE]t[DONE]t[DONE]i[DONE]n[DONE]g[DONE] [DONE]s[DONE]t[DONE]a[DONE]g[DONE]e[DONE]
-[DONE]"[DONE]"[DONE]"[DONE]
-[DONE]
-[DONE]i[DONE]m[DONE]p[DONE]o[DONE]r[DONE]t[DONE] [DONE]s[DONE]y[DONE]s[DONE]
-[DONE]i[DONE]m[DONE]p[DONE]o[DONE]r[DONE]t[DONE] [DONE]o[DONE]s[DONE]
-[DONE]i[DONE]m[DONE]p[DONE]o[DONE]r[DONE]t[DONE] [DONE]j[DONE]s[DONE]o[DONE]n[DONE]
-[DONE]f[DONE]r[DONE]o[DONE]m[DONE] [DONE]p[DONE]a[DONE]t[DONE]h[DONE]l[DONE]i[DONE]b[DONE] [DONE]i[DONE]m[DONE]p[DONE]o[DONE]r[DONE]t[DONE] [DONE]P[DONE]a[DONE]t[DONE]h[DONE]
-[DONE]
-[DONE]#[DONE] [DONE]A[DONE]d[DONE]d[DONE] [DONE]b[DONE]a[DONE]c[DONE]k[DONE]e[DONE]n[DONE]d[DONE] [DONE]t[DONE]o[DONE] [DONE]p[DONE]a[DONE]t[DONE]h[DONE]
-[DONE]s[DONE]y[DONE]s[DONE].[DONE]p[DONE]a[DONE]t[DONE]h[DONE].[DONE]i[DONE]n[DONE]s[DONE]e[DONE]r[DONE]t[DONE]([DONE]0[DONE],[DONE] [DONE]o[DONE]s[DONE].[DONE]p[DONE]a[DONE]t[DONE]h[DONE].[DONE]a[DONE]b[DONE]s[DONE]p[DONE]a[DONE]t[DONE]h[DONE]([DONE]o[DONE]s[DONE].[DONE]p[DONE]a[DONE]t[DONE]h[DONE].[DONE]j[DONE]o[DONE]i[DONE]n[DONE]([DONE]o[DONE]s[DONE].[DONE]p[DONE]a[DONE]t[DONE]h[DONE].[DONE]d[DONE]i[DONE]r[DONE]n[DONE]a[DONE]m[DONE]e[DONE]([DONE]_[DONE]_[DONE]f[DONE]i[DONE]l[DONE]e[DONE]_[DONE]_[DONE])[DONE],[DONE] [DONE]"[DONE].[DONE].[DONE]/[DONE].[DONE].[DONE]/[DONE].[DONE].[DONE]/[DONE]"[DONE])[DONE])[DONE])[DONE]
-[DONE]#[DONE] [DONE]F[DONE]a[DONE]l[DONE]l[DONE]b[DONE]a[DONE]c[DONE]k[DONE] [DONE]i[DONE]f[DONE] [DONE]r[DONE]u[DONE]n[DONE]n[DONE]i[DONE]n[DONE]g[DONE] [DONE]f[DONE]r[DONE]o[DONE]m[DONE] [DONE]b[DONE]a[DONE]c[DONE]k[DONE]e[DONE]n[DONE]d[DONE] [DONE]r[DONE]o[DONE]o[DONE]t[DONE]
-[DONE]i[DONE]f[DONE] [DONE]o[DONE]s[DONE].[DONE]p[DONE]a[DONE]t[DONE]h[DONE].[DONE]a[DONE]b[DONE]s[DONE]p[DONE]a[DONE]t[DONE]h[DONE]([DONE]"[DONE].[DONE]"[DONE])[DONE].[DONE]e[DONE]n[DONE]d[DONE]s[DONE]w[DONE]i[DONE]t[DONE]h[DONE]([DONE]"[DONE]b[DONE]a[DONE]c[DONE]k[DONE]e[DONE]n[DONE]d[DONE]"[DONE])[DONE] [DONE]a[DONE]n[DONE]d[DONE] [DONE]o[DONE]s[DONE].[DONE]p[DONE]a[DONE]t[DONE]h[DONE].[DONE]a[DONE]b[DONE]s[DONE]p[DONE]a[DONE]t[DONE]h[DONE]([DONE]"[DONE].[DONE]"[DONE])[DONE] [DONE]n[DONE]o[DONE]t[DONE] [DONE]i[DONE]n[DONE] [DONE]s[DONE]y[DONE]s[DONE].[DONE]p[DONE]a[DONE]t[DONE]h[DONE]:[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]s[DONE]y[DONE]s[DONE].[DONE]p[DONE]a[DONE]t[DONE]h[DONE].[DONE]i[DONE]n[DONE]s[DONE]e[DONE]r[DONE]t[DONE]([DONE]0[DONE],[DONE] [DONE]o[DONE]s[DONE].[DONE]p[DONE]a[DONE]t[DONE]h[DONE].[DONE]a[DONE]b[DONE]s[DONE]p[DONE]a[DONE]t[DONE]h[DONE]([DONE]"[DONE].[DONE]"[DONE])[DONE])[DONE]
-[DONE]
-[DONE]f[DONE]r[DONE]o[DONE]m[DONE] [DONE]a[DONE]p[DONE]p[DONE].[DONE]p[DONE]i[DONE]p[DONE]e[DONE]l[DONE]i[DONE]n[DONE]e[DONE].[DONE]p[DONE]a[DONE]r[DONE]s[DONE]i[DONE]n[DONE]g[DONE].[DONE]p[DONE]a[DONE]r[DONE]s[DONE]e[DONE]r[DONE] [DONE]i[DONE]m[DONE]p[DONE]o[DONE]r[DONE]t[DONE] [DONE]D[DONE]o[DONE]c[DONE]x[DONE]P[DONE]a[DONE]r[DONE]s[DONE]e[DONE]r[DONE]
-[DONE]f[DONE]r[DONE]o[DONE]m[DONE] [DONE]a[DONE]p[DONE]p[DONE].[DONE]p[DONE]i[DONE]p[DONE]e[DONE]l[DONE]i[DONE]n[DONE]e[DONE].[DONE]i[DONE]n[DONE]t[DONE]e[DONE]l[DONE]l[DONE]i[DONE]g[DONE]e[DONE]n[DONE]c[DONE]e[DONE].[DONE]s[DONE]e[DONE]m[DONE]a[DONE]n[DONE]t[DONE]i[DONE]c[DONE]_[DONE]p[DONE]a[DONE]r[DONE]s[DONE]e[DONE]r[DONE] [DONE]i[DONE]m[DONE]p[DONE]o[DONE]r[DONE]t[DONE] [DONE]S[DONE]e[DONE]m[DONE]a[DONE]n[DONE]t[DONE]i[DONE]c[DONE]P[DONE]a[DONE]r[DONE]s[DONE]e[DONE]r[DONE]
-[DONE]f[DONE]r[DONE]o[DONE]m[DONE] [DONE]a[DONE]p[DONE]p[DONE].[DONE]p[DONE]i[DONE]p[DONE]e[DONE]l[DONE]i[DONE]n[DONE]e[DONE].[DONE]v[DONE]a[DONE]l[DONE]i[DONE]d[DONE]a[DONE]t[DONE]i[DONE]o[DONE]n[DONE].[DONE]v[DONE]a[DONE]l[DONE]i[DONE]d[DONE]a[DONE]t[DONE]o[DONE]r[DONE] [DONE]i[DONE]m[DONE]p[DONE]o[DONE]r[DONE]t[DONE] [DONE]D[DONE]o[DONE]c[DONE]u[DONE]m[DONE]e[DONE]n[DONE]t[DONE]V[DONE]a[DONE]l[DONE]i[DONE]d[DONE]a[DONE]t[DONE]o[DONE]r[DONE]
-[DONE]
-[DONE]d[DONE]e[DONE]f[DONE] [DONE]m[DONE]a[DONE]i[DONE]n[DONE]([DONE])[DONE]:[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]i[DONE]f[DONE] [DONE]l[DONE]e[DONE]n[DONE]([DONE]s[DONE]y[DONE]s[DONE].[DONE]a[DONE]r[DONE]g[DONE]v[DONE])[DONE] [DONE]<[DONE] [DONE]2[DONE]:[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]([DONE]"[DONE]U[DONE]s[DONE]a[DONE]g[DONE]e[DONE]:[DONE] [DONE]p[DONE]y[DONE]t[DONE]h[DONE]o[DONE]n[DONE] [DONE]r[DONE]u[DONE]n[DONE]_[DONE]p[DONE]i[DONE]p[DONE]e[DONE]l[DONE]i[DONE]n[DONE]e[DONE].[DONE]p[DONE]y[DONE] [DONE]<[DONE]i[DONE]n[DONE]p[DONE]u[DONE]t[DONE].[DONE]d[DONE]o[DONE]c[DONE]x[DONE]>[DONE]"[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]s[DONE]y[DONE]s[DONE].[DONE]e[DONE]x[DONE]i[DONE]t[DONE]([DONE]1[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]i[DONE]n[DONE]p[DONE]u[DONE]t[DONE]_[DONE]p[DONE]a[DONE]t[DONE]h[DONE] [DONE]=[DONE] [DONE]s[DONE]y[DONE]s[DONE].[DONE]a[DONE]r[DONE]g[DONE]v[DONE][[DONE]1[DONE]][DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]o[DONE]u[DONE]t[DONE]p[DONE]u[DONE]t[DONE]_[DONE]d[DONE]i[DONE]r[DONE] [DONE]=[DONE] [DONE]P[DONE]a[DONE]t[DONE]h[DONE]([DONE]_[DONE]_[DONE]f[DONE]i[DONE]l[DONE]e[DONE]_[DONE]_[DONE])[DONE].[DONE]p[DONE]a[DONE]r[DONE]e[DONE]n[DONE]t[DONE].[DONE]p[DONE]a[DONE]r[DONE]e[DONE]n[DONE]t[DONE] [DONE]/[DONE] [DONE]"[DONE]o[DONE]u[DONE]t[DONE]p[DONE]u[DONE]t[DONE]s[DONE]"[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]o[DONE]u[DONE]t[DONE]p[DONE]u[DONE]t[DONE]_[DONE]p[DONE]a[DONE]t[DONE]h[DONE] [DONE]=[DONE] [DONE]o[DONE]u[DONE]t[DONE]p[DONE]u[DONE]t[DONE]_[DONE]d[DONE]i[DONE]r[DONE] [DONE]/[DONE] [DONE]"[DONE]0[DONE]9[DONE]_[DONE]p[DONE]i[DONE]p[DONE]e[DONE]l[DONE]i[DONE]n[DONE]e[DONE]_[DONE]d[DONE]o[DONE]c[DONE]u[DONE]m[DONE]e[DONE]n[DONE]t[DONE].[DONE]j[DONE]s[DONE]o[DONE]n[DONE]"[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]([DONE]"[DONE]=[DONE]"[DONE] [DONE]*[DONE] [DONE]6[DONE]0[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]([DONE]"[DONE]P[DONE]H[DONE]A[DONE]S[DONE]E[DONE] [DONE]2[DONE] [DONE]-[DONE] [DONE]S[DONE]T[DONE]E[DONE]P[DONE] [DONE]9[DONE]:[DONE] [DONE]F[DONE]U[DONE]L[DONE]L[DONE] [DONE]P[DONE]I[DONE]P[DONE]E[DONE]L[DONE]I[DONE]N[DONE]E[DONE] [DONE]T[DONE]E[DONE]S[DONE]T[DONE] [DONE]([DONE]N[DONE]O[DONE] [DONE]F[DONE]O[DONE]R[DONE]M[DONE]A[DONE]T[DONE]T[DONE]I[DONE]N[DONE]G[DONE])[DONE]"[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]([DONE]"[DONE]=[DONE]"[DONE] [DONE]*[DONE] [DONE]6[DONE]0[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]([DONE]f[DONE]"[DONE]I[DONE]n[DONE]p[DONE]u[DONE]t[DONE]:[DONE] [DONE]{[DONE]i[DONE]n[DONE]p[DONE]u[DONE]t[DONE]_[DONE]p[DONE]a[DONE]t[DONE]h[DONE]}[DONE]"[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]([DONE]f[DONE]"[DONE]O[DONE]u[DONE]t[DONE]p[DONE]u[DONE]t[DONE]:[DONE] [DONE]{[DONE]o[DONE]u[DONE]t[DONE]p[DONE]u[DONE]t[DONE]_[DONE]p[DONE]a[DONE]t[DONE]h[DONE]}[DONE]"[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]([DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]t[DONE]r[DONE]y[DONE]:[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]#[DONE] [DONE]S[DONE]t[DONE]e[DONE]p[DONE] [DONE]1[DONE]:[DONE] [DONE]P[DONE]a[DONE]r[DONE]s[DONE]e[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]([DONE]"[DONE][[DONE]1[DONE]/[DONE]3[DONE]][DONE] [DONE]P[DONE]a[DONE]r[DONE]s[DONE]i[DONE]n[DONE]g[DONE] [DONE]D[DONE]O[DONE]C[DONE]X[DONE].[DONE].[DONE].[DONE]"[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]a[DONE]r[DONE]s[DONE]e[DONE]r[DONE] [DONE]=[DONE] [DONE]D[DONE]o[DONE]c[DONE]x[DONE]P[DONE]a[DONE]r[DONE]s[DONE]e[DONE]r[DONE]([DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]d[DONE]o[DONE]c[DONE]_[DONE]o[DONE]b[DONE]j[DONE] [DONE]=[DONE] [DONE]p[DONE]a[DONE]r[DONE]s[DONE]e[DONE]r[DONE].[DONE]p[DONE]a[DONE]r[DONE]s[DONE]e[DONE]([DONE]i[DONE]n[DONE]p[DONE]u[DONE]t[DONE]_[DONE]p[DONE]a[DONE]t[DONE]h[DONE],[DONE] [DONE]d[DONE]o[DONE]c[DONE]u[DONE]m[DONE]e[DONE]n[DONE]t[DONE]_[DONE]i[DONE]d[DONE]=[DONE]"[DONE]t[DONE]e[DONE]s[DONE]t[DONE]_[DONE]m[DONE]a[DONE]n[DONE]u[DONE]a[DONE]l[DONE]"[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]([DONE]f[DONE]"[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]E[DONE]x[DONE]t[DONE]r[DONE]a[DONE]c[DONE]t[DONE]e[DONE]d[DONE] [DONE]{[DONE]l[DONE]e[DONE]n[DONE]([DONE]d[DONE]o[DONE]c[DONE]_[DONE]o[DONE]b[DONE]j[DONE].[DONE]b[DONE]l[DONE]o[DONE]c[DONE]k[DONE]s[DONE])[DONE]}[DONE] [DONE]b[DONE]l[DONE]o[DONE]c[DONE]k[DONE]s[DONE],[DONE] [DONE]{[DONE]l[DONE]e[DONE]n[DONE]([DONE]d[DONE]o[DONE]c[DONE]_[DONE]o[DONE]b[DONE]j[DONE].[DONE]f[DONE]i[DONE]g[DONE]u[DONE]r[DONE]e[DONE]s[DONE])[DONE]}[DONE] [DONE]f[DONE]i[DONE]g[DONE]u[DONE]r[DONE]e[DONE]s[DONE],[DONE] [DONE]{[DONE]l[DONE]e[DONE]n[DONE]([DONE]d[DONE]o[DONE]c[DONE]_[DONE]o[DONE]b[DONE]j[DONE].[DONE]t[DONE]a[DONE]b[DONE]l[DONE]e[DONE]s[DONE])[DONE]}[DONE] [DONE]t[DONE]a[DONE]b[DONE]l[DONE]e[DONE]s[DONE]"[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]#[DONE] [DONE]S[DONE]t[DONE]e[DONE]p[DONE] [DONE]2[DONE]:[DONE] [DONE]S[DONE]e[DONE]m[DONE]a[DONE]n[DONE]t[DONE]i[DONE]c[DONE] [DONE]A[DONE]n[DONE]a[DONE]l[DONE]y[DONE]s[DONE]i[DONE]s[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]([DONE]"[DONE][[DONE]2[DONE]/[DONE]3[DONE]][DONE] [DONE]R[DONE]u[DONE]n[DONE]n[DONE]i[DONE]n[DONE]g[DONE] [DONE]s[DONE]e[DONE]m[DONE]a[DONE]n[DONE]t[DONE]i[DONE]c[DONE] [DONE]a[DONE]n[DONE]a[DONE]l[DONE]y[DONE]s[DONE]i[DONE]s[DONE].[DONE].[DONE].[DONE]"[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]s[DONE]e[DONE]m[DONE]a[DONE]n[DONE]t[DONE]i[DONE]c[DONE]_[DONE]p[DONE]a[DONE]r[DONE]s[DONE]e[DONE]r[DONE] [DONE]=[DONE] [DONE]S[DONE]e[DONE]m[DONE]a[DONE]n[DONE]t[DONE]i[DONE]c[DONE]P[DONE]a[DONE]r[DONE]s[DONE]e[DONE]r[DONE]([DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]d[DONE]o[DONE]c[DONE]_[DONE]o[DONE]b[DONE]j[DONE].[DONE]b[DONE]l[DONE]o[DONE]c[DONE]k[DONE]s[DONE] [DONE]=[DONE] [DONE]s[DONE]e[DONE]m[DONE]a[DONE]n[DONE]t[DONE]i[DONE]c[DONE]_[DONE]p[DONE]a[DONE]r[DONE]s[DONE]e[DONE]r[DONE].[DONE]d[DONE]e[DONE]t[DONE]e[DONE]c[DONE]t[DONE]_[DONE]b[DONE]o[DONE]u[DONE]n[DONE]d[DONE]a[DONE]r[DONE]i[DONE]e[DONE]s[DONE]([DONE]d[DONE]o[DONE]c[DONE]_[DONE]o[DONE]b[DONE]j[DONE].[DONE]b[DONE]l[DONE]o[DONE]c[DONE]k[DONE]s[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]([DONE]f[DONE]"[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]C[DONE]l[DONE]a[DONE]s[DONE]s[DONE]i[DONE]f[DONE]i[DONE]e[DONE]d[DONE] [DONE]s[DONE]e[DONE]c[DONE]t[DONE]i[DONE]o[DONE]n[DONE]s[DONE]"[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]#[DONE] [DONE]S[DONE]t[DONE]e[DONE]p[DONE] [DONE]3[DONE]:[DONE] [DONE]V[DONE]a[DONE]l[DONE]i[DONE]d[DONE]a[DONE]t[DONE]i[DONE]o[DONE]n[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]([DONE]"[DONE][[DONE]3[DONE]/[DONE]3[DONE]][DONE] [DONE]V[DONE]a[DONE]l[DONE]i[DONE]d[DONE]a[DONE]t[DONE]i[DONE]n[DONE]g[DONE].[DONE].[DONE].[DONE]"[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]v[DONE]a[DONE]l[DONE]i[DONE]d[DONE]a[DONE]t[DONE]o[DONE]r[DONE] [DONE]=[DONE] [DONE]D[DONE]o[DONE]c[DONE]u[DONE]m[DONE]e[DONE]n[DONE]t[DONE]V[DONE]a[DONE]l[DONE]i[DONE]d[DONE]a[DONE]t[DONE]o[DONE]r[DONE]([DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]v[DONE]a[DONE]l[DONE]i[DONE]d[DONE]a[DONE]t[DONE]i[DONE]o[DONE]n[DONE]_[DONE]r[DONE]e[DONE]s[DONE]u[DONE]l[DONE]t[DONE] [DONE]=[DONE] [DONE]v[DONE]a[DONE]l[DONE]i[DONE]d[DONE]a[DONE]t[DONE]o[DONE]r[DONE].[DONE]v[DONE]a[DONE]l[DONE]i[DONE]d[DONE]a[DONE]t[DONE]e[DONE]([DONE]d[DONE]o[DONE]c[DONE]_[DONE]o[DONE]b[DONE]j[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]([DONE]f[DONE]"[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]V[DONE]a[DONE]l[DONE]i[DONE]d[DONE]a[DONE]t[DONE]i[DONE]o[DONE]n[DONE] [DONE]c[DONE]o[DONE]m[DONE]p[DONE]l[DONE]e[DONE]t[DONE]e[DONE]"[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]e[DONE]x[DONE]c[DONE]e[DONE]p[DONE]t[DONE] [DONE]E[DONE]x[DONE]c[DONE]e[DONE]p[DONE]t[DONE]i[DONE]o[DONE]n[DONE] [DONE]a[DONE]s[DONE] [DONE]e[DONE]:[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]([DONE]f[DONE]"[DONE]\[DONE]n[DONE]‚[DONE]ù[DONE]å[DONE] [DONE]P[DONE]I[DONE]P[DONE]E[DONE]L[DONE]I[DONE]N[DONE]E[DONE] [DONE]F[DONE]A[DONE]I[DONE]L[DONE]E[DONE]D[DONE]:[DONE] [DONE]{[DONE]e[DONE]}[DONE]"[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]i[DONE]m[DONE]p[DONE]o[DONE]r[DONE]t[DONE] [DONE]t[DONE]r[DONE]a[DONE]c[DONE]e[DONE]b[DONE]a[DONE]c[DONE]k[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]t[DONE]r[DONE]a[DONE]c[DONE]e[DONE]b[DONE]a[DONE]c[DONE]k[DONE].[DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]_[DONE]e[DONE]x[DONE]c[DONE]([DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]s[DONE]y[DONE]s[DONE].[DONE]e[DONE]x[DONE]i[DONE]t[DONE]([DONE]1[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]#[DONE] [DONE]S[DONE]e[DONE]r[DONE]i[DONE]a[DONE]l[DONE]i[DONE]z[DONE]e[DONE] [DONE]P[DONE]i[DONE]p[DONE]e[DONE]l[DONE]i[DONE]n[DONE]e[DONE]D[DONE]o[DONE]c[DONE]u[DONE]m[DONE]e[DONE]n[DONE]t[DONE] [DONE]f[DONE]o[DONE]r[DONE] [DONE]i[DONE]n[DONE]s[DONE]p[DONE]e[DONE]c[DONE]t[DONE]i[DONE]o[DONE]n[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]o[DONE]u[DONE]t[DONE]p[DONE]u[DONE]t[DONE]_[DONE]d[DONE]a[DONE]t[DONE]a[DONE] [DONE]=[DONE] [DONE]{[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]"[DONE]d[DONE]o[DONE]c[DONE]u[DONE]m[DONE]e[DONE]n[DONE]t[DONE]_[DONE]i[DONE]d[DONE]"[DONE]:[DONE] [DONE]d[DONE]o[DONE]c[DONE]_[DONE]o[DONE]b[DONE]j[DONE].[DONE]d[DONE]o[DONE]c[DONE]u[DONE]m[DONE]e[DONE]n[DONE]t[DONE]_[DONE]i[DONE]d[DONE],[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]"[DONE]m[DONE]e[DONE]t[DONE]a[DONE]d[DONE]a[DONE]t[DONE]a[DONE]"[DONE]:[DONE] [DONE]{[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]"[DONE]t[DONE]i[DONE]t[DONE]l[DONE]e[DONE]"[DONE]:[DONE] [DONE]d[DONE]o[DONE]c[DONE]_[DONE]o[DONE]b[DONE]j[DONE].[DONE]m[DONE]e[DONE]t[DONE]a[DONE]d[DONE]a[DONE]t[DONE]a[DONE].[DONE]t[DONE]i[DONE]t[DONE]l[DONE]e[DONE],[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]"[DONE]a[DONE]u[DONE]t[DONE]h[DONE]o[DONE]r[DONE]s[DONE]"[DONE]:[DONE] [DONE]d[DONE]o[DONE]c[DONE]_[DONE]o[DONE]b[DONE]j[DONE].[DONE]m[DONE]e[DONE]t[DONE]a[DONE]d[DONE]a[DONE]t[DONE]a[DONE].[DONE]a[DONE]u[DONE]t[DONE]h[DONE]o[DONE]r[DONE]s[DONE],[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]"[DONE]a[DONE]b[DONE]s[DONE]t[DONE]r[DONE]a[DONE]c[DONE]t[DONE]"[DONE]:[DONE] [DONE]d[DONE]o[DONE]c[DONE]_[DONE]o[DONE]b[DONE]j[DONE].[DONE]m[DONE]e[DONE]t[DONE]a[DONE]d[DONE]a[DONE]t[DONE]a[DONE].[DONE]a[DONE]b[DONE]s[DONE]t[DONE]r[DONE]a[DONE]c[DONE]t[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]}[DONE],[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]"[DONE]t[DONE]o[DONE]t[DONE]a[DONE]l[DONE]_[DONE]b[DONE]l[DONE]o[DONE]c[DONE]k[DONE]s[DONE]"[DONE]:[DONE] [DONE]l[DONE]e[DONE]n[DONE]([DONE]d[DONE]o[DONE]c[DONE]_[DONE]o[DONE]b[DONE]j[DONE].[DONE]b[DONE]l[DONE]o[DONE]c[DONE]k[DONE]s[DONE])[DONE],[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]"[DONE]t[DONE]o[DONE]t[DONE]a[DONE]l[DONE]_[DONE]f[DONE]i[DONE]g[DONE]u[DONE]r[DONE]e[DONE]s[DONE]"[DONE]:[DONE] [DONE]l[DONE]e[DONE]n[DONE]([DONE]d[DONE]o[DONE]c[DONE]_[DONE]o[DONE]b[DONE]j[DONE].[DONE]f[DONE]i[DONE]g[DONE]u[DONE]r[DONE]e[DONE]s[DONE])[DONE],[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]"[DONE]t[DONE]o[DONE]t[DONE]a[DONE]l[DONE]_[DONE]t[DONE]a[DONE]b[DONE]l[DONE]e[DONE]s[DONE]"[DONE]:[DONE] [DONE]l[DONE]e[DONE]n[DONE]([DONE]d[DONE]o[DONE]c[DONE]_[DONE]o[DONE]b[DONE]j[DONE].[DONE]t[DONE]a[DONE]b[DONE]l[DONE]e[DONE]s[DONE])[DONE],[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]"[DONE]t[DONE]o[DONE]t[DONE]a[DONE]l[DONE]_[DONE]e[DONE]q[DONE]u[DONE]a[DONE]t[DONE]i[DONE]o[DONE]n[DONE]s[DONE]"[DONE]:[DONE] [DONE]l[DONE]e[DONE]n[DONE]([DONE]d[DONE]o[DONE]c[DONE]_[DONE]o[DONE]b[DONE]j[DONE].[DONE]e[DONE]q[DONE]u[DONE]a[DONE]t[DONE]i[DONE]o[DONE]n[DONE]s[DONE])[DONE],[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]"[DONE]t[DONE]o[DONE]t[DONE]a[DONE]l[DONE]_[DONE]r[DONE]e[DONE]f[DONE]e[DONE]r[DONE]e[DONE]n[DONE]c[DONE]e[DONE]s[DONE]"[DONE]:[DONE] [DONE]l[DONE]e[DONE]n[DONE]([DONE]d[DONE]o[DONE]c[DONE]_[DONE]o[DONE]b[DONE]j[DONE].[DONE]r[DONE]e[DONE]f[DONE]e[DONE]r[DONE]e[DONE]n[DONE]c[DONE]e[DONE]s[DONE])[DONE],[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]"[DONE]p[DONE]r[DONE]o[DONE]c[DONE]e[DONE]s[DONE]s[DONE]i[DONE]n[DONE]g[DONE]_[DONE]h[DONE]i[DONE]s[DONE]t[DONE]o[DONE]r[DONE]y[DONE]"[DONE]:[DONE] [DONE][[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]{[DONE]"[DONE]s[DONE]t[DONE]a[DONE]g[DONE]e[DONE]"[DONE]:[DONE] [DONE]s[DONE]t[DONE]a[DONE]g[DONE]e[DONE].[DONE]s[DONE]t[DONE]a[DONE]g[DONE]e[DONE]_[DONE]n[DONE]a[DONE]m[DONE]e[DONE],[DONE] [DONE]"[DONE]s[DONE]t[DONE]a[DONE]t[DONE]u[DONE]s[DONE]"[DONE]:[DONE] [DONE]s[DONE]t[DONE]a[DONE]g[DONE]e[DONE].[DONE]s[DONE]t[DONE]a[DONE]t[DONE]u[DONE]s[DONE],[DONE] [DONE]"[DONE]m[DONE]e[DONE]s[DONE]s[DONE]a[DONE]g[DONE]e[DONE]"[DONE]:[DONE] [DONE]s[DONE]t[DONE]a[DONE]g[DONE]e[DONE].[DONE]m[DONE]e[DONE]s[DONE]s[DONE]a[DONE]g[DONE]e[DONE]}[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]f[DONE]o[DONE]r[DONE] [DONE]s[DONE]t[DONE]a[DONE]g[DONE]e[DONE] [DONE]i[DONE]n[DONE] [DONE]d[DONE]o[DONE]c[DONE]_[DONE]o[DONE]b[DONE]j[DONE].[DONE]p[DONE]r[DONE]o[DONE]c[DONE]e[DONE]s[DONE]s[DONE]i[DONE]n[DONE]g[DONE]_[DONE]h[DONE]i[DONE]s[DONE]t[DONE]o[DONE]r[DONE]y[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]][DONE],[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]"[DONE]b[DONE]l[DONE]o[DONE]c[DONE]k[DONE]s[DONE]_[DONE]s[DONE]a[DONE]m[DONE]p[DONE]l[DONE]e[DONE]"[DONE]:[DONE] [DONE][[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]{[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]"[DONE]b[DONE]l[DONE]o[DONE]c[DONE]k[DONE]_[DONE]i[DONE]d[DONE]"[DONE]:[DONE] [DONE]b[DONE].[DONE]b[DONE]l[DONE]o[DONE]c[DONE]k[DONE]_[DONE]i[DONE]d[DONE],[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]"[DONE]t[DONE]e[DONE]x[DONE]t[DONE]_[DONE]p[DONE]r[DONE]e[DONE]v[DONE]i[DONE]e[DONE]w[DONE]"[DONE]:[DONE] [DONE]b[DONE].[DONE]t[DONE]e[DONE]x[DONE]t[DONE][[DONE]:[DONE]6[DONE]0[DONE]][DONE] [DONE]+[DONE] [DONE]"[DONE].[DONE].[DONE].[DONE]"[DONE] [DONE]i[DONE]f[DONE] [DONE]l[DONE]e[DONE]n[DONE]([DONE]b[DONE].[DONE]t[DONE]e[DONE]x[DONE]t[DONE])[DONE] [DONE]>[DONE] [DONE]6[DONE]0[DONE] [DONE]e[DONE]l[DONE]s[DONE]e[DONE] [DONE]b[DONE].[DONE]t[DONE]e[DONE]x[DONE]t[DONE],[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]"[DONE]b[DONE]l[DONE]o[DONE]c[DONE]k[DONE]_[DONE]t[DONE]y[DONE]p[DONE]e[DONE]"[DONE]:[DONE] [DONE]b[DONE].[DONE]b[DONE]l[DONE]o[DONE]c[DONE]k[DONE]_[DONE]t[DONE]y[DONE]p[DONE]e[DONE].[DONE]v[DONE]a[DONE]l[DONE]u[DONE]e[DONE] [DONE]i[DONE]f[DONE] [DONE]b[DONE].[DONE]b[DONE]l[DONE]o[DONE]c[DONE]k[DONE]_[DONE]t[DONE]y[DONE]p[DONE]e[DONE] [DONE]e[DONE]l[DONE]s[DONE]e[DONE] [DONE]N[DONE]o[DONE]n[DONE]e[DONE],[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]"[DONE]s[DONE]e[DONE]m[DONE]a[DONE]n[DONE]t[DONE]i[DONE]c[DONE]_[DONE]i[DONE]n[DONE]t[DONE]e[DONE]n[DONE]t[DONE]"[DONE]:[DONE] [DONE]b[DONE].[DONE]m[DONE]e[DONE]t[DONE]a[DONE]d[DONE]a[DONE]t[DONE]a[DONE].[DONE]g[DONE]e[DONE]t[DONE]([DONE]'[DONE]s[DONE]e[DONE]m[DONE]a[DONE]n[DONE]t[DONE]i[DONE]c[DONE]_[DONE]i[DONE]n[DONE]t[DONE]e[DONE]n[DONE]t[DONE]'[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]}[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]f[DONE]o[DONE]r[DONE] [DONE]b[DONE] [DONE]i[DONE]n[DONE] [DONE]d[DONE]o[DONE]c[DONE]_[DONE]o[DONE]b[DONE]j[DONE].[DONE]b[DONE]l[DONE]o[DONE]c[DONE]k[DONE]s[DONE][[DONE]:[DONE]1[DONE]0[DONE]][DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]][DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]}[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]w[DONE]i[DONE]t[DONE]h[DONE] [DONE]o[DONE]p[DONE]e[DONE]n[DONE]([DONE]o[DONE]u[DONE]t[DONE]p[DONE]u[DONE]t[DONE]_[DONE]p[DONE]a[DONE]t[DONE]h[DONE],[DONE] [DONE]'[DONE]w[DONE]'[DONE],[DONE] [DONE]e[DONE]n[DONE]c[DONE]o[DONE]d[DONE]i[DONE]n[DONE]g[DONE]=[DONE]'[DONE]u[DONE]t[DONE]f[DONE]-[DONE]8[DONE]'[DONE])[DONE] [DONE]a[DONE]s[DONE] [DONE]f[DONE]:[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE] [DONE]j[DONE]s[DONE]o[DONE]n[DONE].[DONE]d[DONE]u[DONE]m[DONE]p[DONE]([DONE]o[DONE]u[DONE]t[DONE]p[DONE]u[DONE]t[DONE]_[DONE]d[DONE]a[DONE]t[DONE]a[DONE],[DONE] [DONE]f[DONE],[DONE] [DONE]i[DONE]n[DONE]d[DONE]e[DONE]n[DONE]t[DONE]=[DONE]2[DONE],[DONE] [DONE]e[DONE]n[DONE]s[DONE]u[DONE]r[DONE]e[DONE]_[DONE]a[DONE]s[DONE]c[DONE]i[DONE]i[DONE]=[DONE]F[DONE]a[DONE]l[DONE]s[DONE]e[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]([DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]([DONE]"[DONE]=[DONE]"[DONE] [DONE]*[DONE] [DONE]6[DONE]0[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]([DONE]"[DONE]R[DONE]E[DONE]S[DONE]U[DONE]L[DONE]T[DONE]S[DONE]"[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]([DONE]"[DONE]=[DONE]"[DONE] [DONE]*[DONE] [DONE]6[DONE]0[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]([DONE]f[DONE]"[DONE]‚[DONE]ú[DONE]Ö[DONE] [DONE]P[DONE]i[DONE]p[DONE]e[DONE]l[DONE]i[DONE]n[DONE]e[DONE] [DONE]c[DONE]o[DONE]m[DONE]p[DONE]l[DONE]e[DONE]t[DONE]e[DONE]d[DONE] [DONE]s[DONE]u[DONE]c[DONE]c[DONE]e[DONE]s[DONE]s[DONE]f[DONE]u[DONE]l[DONE]l[DONE]y[DONE]"[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]([DONE]f[DONE]"[DONE] [DONE] [DONE] [DONE]B[DONE]l[DONE]o[DONE]c[DONE]k[DONE]s[DONE]:[DONE] [DONE]{[DONE]l[DONE]e[DONE]n[DONE]([DONE]d[DONE]o[DONE]c[DONE]_[DONE]o[DONE]b[DONE]j[DONE].[DONE]b[DONE]l[DONE]o[DONE]c[DONE]k[DONE]s[DONE])[DONE]}[DONE]"[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]([DONE]f[DONE]"[DONE] [DONE] [DONE] [DONE]F[DONE]i[DONE]g[DONE]u[DONE]r[DONE]e[DONE]s[DONE]:[DONE] [DONE]{[DONE]l[DONE]e[DONE]n[DONE]([DONE]d[DONE]o[DONE]c[DONE]_[DONE]o[DONE]b[DONE]j[DONE].[DONE]f[DONE]i[DONE]g[DONE]u[DONE]r[DONE]e[DONE]s[DONE])[DONE]}[DONE]"[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]([DONE]f[DONE]"[DONE] [DONE] [DONE] [DONE]T[DONE]a[DONE]b[DONE]l[DONE]e[DONE]s[DONE]:[DONE] [DONE]{[DONE]l[DONE]e[DONE]n[DONE]([DONE]d[DONE]o[DONE]c[DONE]_[DONE]o[DONE]b[DONE]j[DONE].[DONE]t[DONE]a[DONE]b[DONE]l[DONE]e[DONE]s[DONE])[DONE]}[DONE]"[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]([DONE]f[DONE]"[DONE] [DONE] [DONE] [DONE]E[DONE]q[DONE]u[DONE]a[DONE]t[DONE]i[DONE]o[DONE]n[DONE]s[DONE]:[DONE] [DONE]{[DONE]l[DONE]e[DONE]n[DONE]([DONE]d[DONE]o[DONE]c[DONE]_[DONE]o[DONE]b[DONE]j[DONE].[DONE]e[DONE]q[DONE]u[DONE]a[DONE]t[DONE]i[DONE]o[DONE]n[DONE]s[DONE])[DONE]}[DONE]"[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]([DONE]f[DONE]"[DONE] [DONE] [DONE] [DONE]R[DONE]e[DONE]f[DONE]e[DONE]r[DONE]e[DONE]n[DONE]c[DONE]e[DONE]s[DONE]:[DONE] [DONE]{[DONE]l[DONE]e[DONE]n[DONE]([DONE]d[DONE]o[DONE]c[DONE]_[DONE]o[DONE]b[DONE]j[DONE].[DONE]r[DONE]e[DONE]f[DONE]e[DONE]r[DONE]e[DONE]n[DONE]c[DONE]e[DONE]s[DONE])[DONE]}[DONE]"[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]([DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]([DONE]f[DONE]"[DONE]O[DONE]u[DONE]t[DONE]p[DONE]u[DONE]t[DONE] [DONE]s[DONE]a[DONE]v[DONE]e[DONE]d[DONE] [DONE]t[DONE]o[DONE]:[DONE] [DONE]{[DONE]o[DONE]u[DONE]t[DONE]p[DONE]u[DONE]t[DONE]_[DONE]p[DONE]a[DONE]t[DONE]h[DONE]}[DONE]"[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]([DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]([DONE]"[DONE]M[DONE]A[DONE]N[DONE]U[DONE]A[DONE]L[DONE] [DONE]I[DONE]N[DONE]S[DONE]P[DONE]E[DONE]C[DONE]T[DONE]I[DONE]O[DONE]N[DONE] [DONE]R[DONE]E[DONE]Q[DONE]U[DONE]I[DONE]R[DONE]E[DONE]D[DONE]:[DONE]"[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]([DONE]"[DONE]1[DONE].[DONE] [DONE]O[DONE]p[DONE]e[DONE]n[DONE] [DONE]0[DONE]9[DONE]_[DONE]p[DONE]i[DONE]p[DONE]e[DONE]l[DONE]i[DONE]n[DONE]e[DONE]_[DONE]d[DONE]o[DONE]c[DONE]u[DONE]m[DONE]e[DONE]n[DONE]t[DONE].[DONE]j[DONE]s[DONE]o[DONE]n[DONE]"[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]([DONE]"[DONE]2[DONE].[DONE] [DONE]V[DONE]e[DONE]r[DONE]i[DONE]f[DONE]y[DONE] [DONE]a[DONE]l[DONE]l[DONE] [DONE]c[DONE]o[DONE]n[DONE]t[DONE]e[DONE]n[DONE]t[DONE] [DONE]i[DONE]s[DONE] [DONE]p[DONE]r[DONE]e[DONE]s[DONE]e[DONE]n[DONE]t[DONE]"[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]([DONE]"[DONE]3[DONE].[DONE] [DONE]C[DONE]h[DONE]e[DONE]c[DONE]k[DONE] [DONE]p[DONE]r[DONE]o[DONE]c[DONE]e[DONE]s[DONE]s[DONE]i[DONE]n[DONE]g[DONE]_[DONE]h[DONE]i[DONE]s[DONE]t[DONE]o[DONE]r[DONE]y[DONE] [DONE]f[DONE]o[DONE]r[DONE] [DONE]e[DONE]r[DONE]r[DONE]o[DONE]r[DONE]s[DONE]"[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]([DONE]"[DONE]4[DONE].[DONE] [DONE]C[DONE]o[DONE]n[DONE]f[DONE]i[DONE]r[DONE]m[DONE] [DONE]r[DONE]e[DONE]a[DONE]d[DONE]y[DONE] [DONE]f[DONE]o[DONE]r[DONE] [DONE]f[DONE]o[DONE]r[DONE]m[DONE]a[DONE]t[DONE]t[DONE]i[DONE]n[DONE]g[DONE] [DONE]s[DONE]t[DONE]a[DONE]g[DONE]e[DONE]"[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]([DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]([DONE]"[DONE]‚[DONE]ö[DONE]†[DONE]Ô[DONE]∏[DONE]è[DONE] [DONE] [DONE]N[DONE]O[DONE] [DONE]F[DONE]O[DONE]R[DONE]M[DONE]A[DONE]T[DONE]T[DONE]I[DONE]N[DONE]G[DONE] [DONE]H[DONE]A[DONE]S[DONE] [DONE]B[DONE]E[DONE]E[DONE]N[DONE] [DONE]A[DONE]P[DONE]P[DONE]L[DONE]I[DONE]E[DONE]D[DONE] [DONE]Y[DONE]E[DONE]T[DONE]"[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]([DONE]"[DONE] [DONE] [DONE] [DONE] [DONE]T[DONE]h[DONE]i[DONE]s[DONE] [DONE]o[DONE]u[DONE]t[DONE]p[DONE]u[DONE]t[DONE] [DONE]r[DONE]e[DONE]p[DONE]r[DONE]e[DONE]s[DONE]e[DONE]n[DONE]t[DONE]s[DONE] [DONE]I[DONE]D[DONE]E[DONE]N[DONE]T[DONE]I[DONE]F[DONE]I[DONE]E[DONE]D[DONE] [DONE]c[DONE]o[DONE]n[DONE]t[DONE]e[DONE]n[DONE]t[DONE] [DONE]o[DONE]n[DONE]l[DONE]y[DONE]"[DONE])[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]p[DONE]r[DONE]i[DONE]n[DONE]t[DONE]([DONE])[DONE]
-[DONE]
-[DONE]i[DONE]f[DONE] [DONE]_[DONE]_[DONE]n[DONE]a[DONE]m[DONE]e[DONE]_[DONE]_[DONE] [DONE]=[DONE]=[DONE] [DONE]"[DONE]_[DONE]_[DONE]m[DONE]a[DONE]i[DONE]n[DONE]_[DONE]_[DONE]"[DONE]:[DONE]
-[DONE] [DONE] [DONE] [DONE] [DONE]m[DONE]a[DONE]i[DONE]n[DONE]([DONE])[DONE]
+"""
+Manual test script for full pipeline assembly.
+
+Tests: Complete pipeline execution from parsing to assembly
+Output: 09_pipeline_document.json
+"""
+
+import sys
+import os
+import json
+from pathlib import Path
+
+# Add backend to path (Depth 3: manual_tests/normal/phase2)
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../")))
+
+from app.pipeline.parsing.parser import DocxParser
+from app.pipeline.normalization.normalizer import Normalizer as TextNormalizer
+from app.pipeline.structure_detection.detector import StructureDetector
+from app.pipeline.classification.classifier import ContentClassifier
+from app.pipeline.figures.caption_matcher import CaptionMatcher
+from app.pipeline.tables.caption_matcher import TableCaptionMatcher
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: python run_pipeline.py <input.docx>")
+        sys.exit(1)
+        
+    input_path = sys.argv[1]
+    output_dir = Path(__file__).parent.parent.parent / "outputs"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "09_pipeline_document.json"
+    
+    print("=" * 70)
+    print("FULL PIPELINE ASSEMBLY TEST")
+    print("=" * 70)
+    print(f"Input: {input_path}")
+    print(f"Output: {output_path}")
+    print()
+    
+    # Stage 1: Parse
+    print("[1/6] Parsing DOCX...")
+    parser = DocxParser()
+    doc_obj = parser.parse(input_path, document_id="pipeline_test")
+    print(f"  ‚úì Extracted {len(doc_obj.blocks)} blocks")
+    print(f"  ‚úì Extracted {len(doc_obj.figures)} figures")
+    print(f"  ‚úì Extracted {len(doc_obj.tables)} tables")
+    
+    # Stage 2: Normalize
+    print("[2/6] Normalizing text...")
+    normalizer = TextNormalizer()
+    doc_obj = normalizer.process(doc_obj)
+    print(f"  ‚úì Normalized to {len(doc_obj.blocks)} blocks")
+    
+    # Stage 3: Structure Detection
+    print("[3/6] Detecting structure...")
+    detector = StructureDetector()
+    doc_obj = detector.process(doc_obj)
+    heading_count = sum(1 for b in doc_obj.blocks if b.metadata.get('is_heading_candidate', False))
+    print(f"  ‚úì Detected {heading_count} headings")
+    
+    # Stage 4: Classification
+    print("[4/6] Classifying blocks...")
+    classifier = ContentClassifier()
+    doc_obj = classifier.process(doc_obj)
+    type_counts = {}
+    for b in doc_obj.blocks:
+        type_counts[b.block_type.value] = type_counts.get(b.block_type.value, 0) + 1
+    print(f"  ‚úì Classified {len(doc_obj.blocks)} blocks into {len(type_counts)} types")
+    
+    # Stage 5: Caption Matching
+    print("[5/6] Matching captions...")
+    fig_matcher = CaptionMatcher()
+    tab_matcher = TableCaptionMatcher()
+    doc_obj = fig_matcher.process(doc_obj)
+    doc_obj = tab_matcher.process(doc_obj)
+    
+    fig_matched = sum(1 for f in doc_obj.figures if f.caption_block_id)
+    tab_matched = sum(1 for t in doc_obj.tables if t.caption_block_id)
+    print(f"  ‚úì Matched {fig_matched}/{len(doc_obj.figures)} figure captions")
+    print(f"  ‚úì Matched {tab_matched}/{len(doc_obj.tables)} table captions")
+    
+    # Stage 6: Save assembled document
+    print("[6/6] Saving assembled document...")
+    
+    # Serialize to JSON
+    output_data = {
+        "document_id": doc_obj.document_id,
+        "original_filename": doc_obj.original_filename,
+        "blocks": [
+            {
+                "block_id": b.block_id,
+                "index": b.index,
+                "text": b.text[:100] + "..." if len(b.text) > 100 else b.text,
+                "block_type": b.block_type.value,
+                "section_name": b.section_name
+            }
+            for b in doc_obj.blocks
+        ],
+        "figures": [
+            {
+                "figure_id": f.figure_id,
+                "caption_text": f.caption_text,
+                "caption_block_id": f.caption_block_id,
+                "number": f.number,
+                "metadata": {"block_index": f.metadata.get("block_index")}
+            }
+            for f in doc_obj.figures
+        ],
+        "tables": [
+            {
+                "table_id": t.table_id,
+                "block_index": t.block_index,
+                "caption_text": t.caption_text,
+                "caption_block_id": t.caption_block_id,
+                "number": t.number,
+                "num_rows": t.num_rows,
+                "num_cols": t.num_cols
+            }
+            for t in doc_obj.tables
+        ],
+        "references": [
+            {
+                "reference_id": r.reference_id,
+                "citation_key": r.citation_key,
+                "raw_text": r.raw_text[:100] + "..." if len(r.raw_text) > 100 else r.raw_text
+            }
+            for r in doc_obj.references
+        ],
+        "summary": {
+            "total_blocks": len(doc_obj.blocks),
+            "total_figures": len(doc_obj.figures),
+            "total_tables": len(doc_obj.tables),
+            "total_references": len(doc_obj.references),
+            "block_types": type_counts
+        }
+    }
+    
+    with open(output_path, 'w', encoding='utf-8') as f:
+        json.dump(output_data, f, indent=2, ensure_ascii=False)
+    
+    print(f"  ‚úì Saved to {output_path}")
+    
+    print()
+    print("=" * 70)
+    print("‚úì PIPELINE ASSEMBLY COMPLETE")
+    print("=" * 70)
+    print()
+    print("Summary:")
+    print(f"  Blocks: {len(doc_obj.blocks)}")
+    print(f"  Figures: {len(doc_obj.figures)} ({fig_matched} with captions)")
+    print(f"  Tables: {len(doc_obj.tables)} ({tab_matched} with captions)")
+    print(f"  References: {len(doc_obj.references)}")
+    print()
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as e:
+        print(f"\n‚ùå PIPELINE TEST FAILED: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)

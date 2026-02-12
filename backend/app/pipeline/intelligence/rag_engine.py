@@ -12,6 +12,11 @@ class RagEngine:
     """
     
     def __init__(self, persist_directory: Optional[str] = None):
+        # Suppress ChromaDB Pydantic compatibility warnings
+        import warnings
+        warnings.filterwarnings("ignore", message=".*Core Pydantic V1 functionality.*")
+        warnings.filterwarnings("ignore", category=UserWarning, module="chromadb")
+        
         if persist_directory is None:
             base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
             self.persist_directory = os.path.join(base_dir, "db", "semantic_store")
@@ -44,11 +49,15 @@ class RagEngine:
             self.backend = "chromadb"
             print(f"RagEngine: Initialized with backend={self.backend}")
         except Exception as e:
-            # Detect Pydantic/Environment conflicts (e.g. chroma_server_nofile)
+            # Graceful fallback - don't spam logs with expected compatibility issues
             error_msg = str(e)
-            if "chroma_server_nofile" in error_msg:
-                print(f"RagEngine: Standard environment fallback active (ChromaDB conflict mitigated).")
+            if "unable to infer type" in error_msg or "chroma_db_impl" in error_msg:
+                # Expected Pydantic compatibility issue - use native store silently
+                pass
+            elif "chroma_server_nofile" in error_msg:
+                print(f"RagEngine: Using native store (ChromaDB environment conflict).")
             else:
+                # Unexpected error - log it
                 print(f"RagEngine: ChromaDB unavailable ({error_msg}). Using native store.")
             
             self.client = None

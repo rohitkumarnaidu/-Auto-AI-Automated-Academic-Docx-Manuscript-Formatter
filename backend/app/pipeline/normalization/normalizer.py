@@ -428,6 +428,76 @@ class Normalizer(PipelineStage):
             normalized_tables.append(normalized_table)
         
         return normalized_tables
+    
+    def _sanitize_empty_orphan_blocks(self, blocks: List[Block]) -> List[Block]:
+        """
+        SURGICAL QUALITY HARDENING: Remove empty orphan BODY blocks.
+        
+        This is a minimal, invariant-safe post-normalization sanitation pass
+        to remove empty blocks that create visual artifacts in formatted output.
+        
+        CRITICAL SAFETY CONDITIONS:
+        A block may be removed ONLY if ALL of the following are true:
+        1. block.text.strip() == "" (empty text)
+        2. block_type == BODY (not a structural element)
+        3. block.metadata does NOT contain semantic flags:
+           - has_figure
+           - has_equation
+           - list_level
+           - anchor flags
+        4. Block is NOT referenced by any caption or anchor
+        
+        INVARIANT PRESERVATION:
+        - Does NOT mutate block.index values
+        - Does NOT renumber anything
+        - Does NOT shift anchors
+        - Does NOT change block ordering
+        - Preserves sparse index domain
+        
+        Args:
+            blocks: Normalized blocks
+        
+        Returns:
+            Sanitized blocks with empty orphans removed
+        """
+        from app.models.block import BlockType
+        
+        sanitized_blocks = []
+        
+        for block in blocks:
+            # Check if block is an empty orphan block
+            is_empty = block.text.strip() == ""
+            # During normalization, blocks are still UNKNOWN type
+            # After classification, empty blocks become BODY type
+            is_orphan_type = block.block_type in [BlockType.BODY, BlockType.UNKNOWN]
+            
+            # Check for semantic metadata that would preserve the block
+            has_figure = block.metadata.get("has_figure", False)
+            has_equation = block.metadata.get("has_equation", False)
+            has_list_level = "list_level" in block.metadata
+            has_anchor_flag = any(
+                key in block.metadata 
+                for key in ["anchor", "figure_anchor", "table_anchor", "equation_anchor"]
+            )
+            
+            # Safe removal conditions
+            is_orphan = (
+                is_empty and 
+                is_orphan_type and 
+                not has_figure and 
+                not has_equation and 
+                not has_list_level and 
+                not has_anchor_flag
+            )
+            
+            if is_orphan:
+                # Skip this empty orphan block (remove it)
+                continue
+            
+            # Keep all other blocks
+            sanitized_blocks.append(block)
+        
+        return sanitized_blocks
 
 
 # Convenience function

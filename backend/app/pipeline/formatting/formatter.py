@@ -200,6 +200,10 @@ class Formatter:
 
     def _apply_initial_layout(self, doc, publisher: str):
         """Set margins and initial properties."""
+        # SAFE BYPASS: Skip contract loading for "none" publisher
+        if publisher.lower() == "none":
+            return  # Use default Word layout
+        
         contract = self.contract_loader.load(publisher)
         layout = contract.get("layout", {})
         if not layout: return
@@ -211,6 +215,10 @@ class Formatter:
 
     def _get_target_columns(self, block, publisher: str) -> int:
         """Determine required column count for a block."""
+        # SAFE BYPASS: Skip contract loading for "none" publisher
+        if publisher.lower() == "none":
+            return 1  # Default single column
+        
         contract = self.contract_loader.load(publisher)
         layout = contract.get("layout", {})
         default = layout.get("default_columns", 1)
@@ -261,8 +269,16 @@ class Formatter:
         try:
             # Clean text to prevent empty lines/whitespace
             clean_text = block.text.strip()
-            if not clean_text:
-                 # Skip empty blocks to prevent "Massive White Space"
+            
+            # SURGICAL QUALITY HARDENING: Skip empty anchor blocks
+            # Empty blocks with has_figure or has_equation are anchor placeholders
+            # that should not appear as visible paragraphs in formatted output.
+            # This preserves anchor stability while fixing visual artifacts.
+            has_figure_anchor = block.metadata.get("has_figure", False)
+            has_equation_anchor = block.metadata.get("has_equation", False)
+            
+            if not clean_text or has_figure_anchor or has_equation_anchor:
+                 # Skip empty blocks and anchor placeholders to prevent "Massive White Space"
                  return
 
             p = doc.add_paragraph(clean_text, style=word_style)
