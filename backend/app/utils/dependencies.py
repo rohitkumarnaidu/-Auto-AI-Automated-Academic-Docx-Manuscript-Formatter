@@ -3,6 +3,11 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.services.auth_service import AuthService
 from app.schemas.user import User
+import logging
+import jwt
+
+# Set up logging for authentication monitoring
+logger = logging.getLogger(__name__)
 
 security = HTTPBearer()
 
@@ -37,5 +42,11 @@ def get_optional_user(credentials: Optional[HTTPAuthorizationCredentials] = Depe
         email = payload.get("email")
         role = payload.get("role", "authenticated")
         return User(id=user_id, email=email, role=role)
-    except:
+    except (HTTPException, jwt.InvalidTokenError, jwt.ExpiredSignatureError, jwt.InvalidIssuerError) as e:
+        # Log authentication failures for security monitoring
+        logger.warning(f"Token validation failed in optional auth: {type(e).__name__}: {str(e)}")
+        return None
+    except Exception as e:
+        # Catch any other unexpected errors but log them
+        logger.error(f"Unexpected error in optional auth: {type(e).__name__}: {str(e)}", exc_info=True)
         return None

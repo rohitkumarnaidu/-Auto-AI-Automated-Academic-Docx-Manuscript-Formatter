@@ -68,6 +68,22 @@ layout:
     bottom: 1.0
     left: 1.0
     right: 1.0
+  spacing:
+    paragraph:
+      before: 0
+      after: 0  # APA uses double spacing
+    heading:
+      before: 0
+      after: 0
+    title:
+      before: 0
+      after: 12
+    figure:
+      before: 12
+      after: 12
+    table:
+      before: 12
+      after: 12
   page_breaks:
     before: []
 

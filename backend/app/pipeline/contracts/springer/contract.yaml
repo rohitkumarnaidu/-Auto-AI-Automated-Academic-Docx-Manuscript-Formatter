@@ -67,6 +67,22 @@ layout:
     bottom: 0.75
     left: 0.75
     right: 0.75
+  spacing:
+    paragraph:
+      before: 0
+      after: 6
+    heading:
+      before: 12
+      after: 6
+    title:
+      before: 0
+      after: 12
+    figure:
+      before: 12
+      after: 12
+    table:
+      before: 12
+      after: 12
   page_breaks:
     before: []
 

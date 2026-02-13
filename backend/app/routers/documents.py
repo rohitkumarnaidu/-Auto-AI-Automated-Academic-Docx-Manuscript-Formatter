@@ -95,35 +95,88 @@ async def upload_document(
     Handle document upload and trigger async background processing.
     Note: This project intentionally avoids automated pipeline testing at this stage.
     """
+    
+    # Configuration for file upload validation
+    MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
+    ALLOWED_EXTENSIONS = {'.docx', '.pdf', '.doc', '.txt'}
+    
     db = SessionLocal()
     try:
+        # ===== FILE VALIDATION =====
+        
+        # 1. Validate file extension
+        file_ext = os.path.splitext(file.filename)[1].lower()
+        if file_ext not in ALLOWED_EXTENSIONS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid file type '{file_ext}'. Allowed types: {', '.join(ALLOWED_EXTENSIONS)}"
+            )
+        
+        # 2. Validate filename (prevent path traversal)
+        safe_filename = os.path.basename(file.filename)
+        if safe_filename != file.filename or '..' in file.filename:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid filename. Path traversal detected."
+            )
+        
+        # 3. Validate file size
+        # Read file content to check size
+        file_content = await file.read()
+        file_size = len(file_content)
+        
+        if file_size > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File too large ({file_size / 1024 / 1024:.1f}MB). Maximum size is {MAX_FILE_SIZE / 1024 / 1024}MB"
+            )
+        
+        if file_size == 0:
+            raise HTTPException(
+                status_code=400,
+                detail="File is empty. Please upload a valid document."
+            )
+        
+        # ===== FILE PROCESSING =====
+        
         # 1. Create Job Entry
         job_id = uuid.uuid4()
         
-        # Save file to local storage
-        file_ext = os.path.splitext(file.filename)[1]
+        # 2. Save file to local storage with validated path
         file_path = os.path.join(UPLOAD_DIR, f"{job_id}{file_ext}")
+        file_path = os.path.abspath(file_path)
         
+        # 3. Ensure file path is within UPLOAD_DIR (prevent directory traversal)
+        upload_dir_abs = os.path.abspath(UPLOAD_DIR)
+        if not file_path.startswith(upload_dir_abs):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid file path detected"
+            )
+        
+        # 4. Write file content (we already read it for size validation)
         with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+            buffer.write(file_content)
         
         # Create Document record with RUNNING status initially
         new_doc = Document(
             id=job_id,
             user_id=current_user.id if current_user else None,
-            filename=file.filename,
+            filename=safe_filename,  # Use sanitized filename
             template=template,
             status="RUNNING",
-            original_file_path=os.path.abspath(file_path)
+            original_file_path=file_path
         )
         db.add(new_doc)
         db.commit()
         
-        # Offload logic to background
+        # Offload logic to background with timeout protection
+        from app.utils.background_tasks import run_pipeline_with_timeout
         orchestrator = PipelineOrchestrator()
         background_tasks.add_task(
-            orchestrator.run_pipeline,
-            input_path=os.path.abspath(file_path),
+            run_pipeline_with_timeout,
+            orchestrator=orchestrator,
+            input_path=file_path,
             job_id=job_id,
             template_name=template
         )

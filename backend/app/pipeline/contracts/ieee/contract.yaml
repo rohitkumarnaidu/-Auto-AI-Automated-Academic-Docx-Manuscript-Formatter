@@ -66,6 +66,22 @@ layout:
     bottom: 1.0
     left: 1.0
     right: 1.0
+  spacing:
+    paragraph:
+      before: 0
+      after: 6
+    heading:
+      before: 12
+      after: 6
+    title:
+      before: 0
+      after: 12
+    figure:
+      before: 12
+      after: 12
+    table:
+      before: 12
+      after: 12
   page_breaks:
     before: ["references"]
 

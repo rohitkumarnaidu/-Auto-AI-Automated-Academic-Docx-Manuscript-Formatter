@@ -4,7 +4,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.routers import auth, documents
 from app.config.settings import settings
 from app.middleware.rate_limit import RateLimitMiddleware
-import logging
+
+# Initialize logging FIRST (before any other imports that might log)
+from app.config.logging_config import setup_logging
+logger = setup_logging()
 
 # Phase 2: Silence Global AI Startup Noise
 import os
@@ -38,6 +41,10 @@ app.add_middleware(RateLimitMiddleware, requests_per_minute=60)
 # Include Routers
 app.include_router(auth.router)
 app.include_router(documents.router)
+
+# Metrics and Monitoring
+from app.routers import metrics
+app.include_router(metrics.router)
 
 @app.on_event("startup")
 async def startup_event():

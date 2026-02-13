@@ -6,7 +6,7 @@ import os
 import yaml
 from typing import Optional, Any
 from docx import Document as WordDocument
-from docx.shared import Inches
+from docx.shared import Inches, Pt
 from io import BytesIO
 
 from app.models import PipelineDocument as Document, BlockType, Figure

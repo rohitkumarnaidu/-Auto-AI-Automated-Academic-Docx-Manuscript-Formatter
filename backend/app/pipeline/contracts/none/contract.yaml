@@ -1,5 +1,5 @@
-publisher: "none"
-description: "General Formatting (No Publisher-Specific Rules)"
+publisher: "General"
+description: "Professional General Formatting (Publisher-Neutral)"
 
 sections:
   required: []
@@ -8,34 +8,34 @@ sections:
 
 numbering:
   headings:
-    1: "none"
-    2: "none"
-    3: "none"
+    1: "numeric"      # 1, 2, 3
+    2: "decimal"      # 1.1, 1.2
+    3: "decimal_deep" # 1.1.1, 1.1.2
   figures: "numeric"  # Figure 1, Figure 2
   tables: "numeric"   # Table 1, Table 2
   equations: "numeric" # (1), (2)
 
 styles:
-  TITLE: "Normal"
-  AUTHOR: "Normal"
-  AFFILIATION: "Normal"
-  ABSTRACT_HEADING: "Normal"
+  TITLE: "Title"              # Centered, bold, large
+  AUTHOR: "Subtitle"          # Centered, medium
+  AFFILIATION: "Subtitle"     # Centered, italic
+  ABSTRACT_HEADING: "Heading 1"
   ABSTRACT_BODY: "Normal"
-  KEYWORDS_HEADING: "Normal"
+  KEYWORDS_HEADING: "Heading 2"
   KEYWORDS_BODY: "Normal"
-  HEADING_1: "Normal"
-  HEADING_2: "Normal"
-  HEADING_3: "Normal"
-  HEADING_4: "Normal"
-  BODY: "Normal"
-  REFERENCES_HEADING: "Normal"
+  HEADING_1: "Heading 1"      # Bold, 16pt
+  HEADING_2: "Heading 2"      # Bold, 14pt
+  HEADING_3: "Heading 3"      # Bold, 12pt
+  HEADING_4: "Heading 4"      # Bold, 11pt
+  BODY: "Normal"              # Regular text
+  REFERENCES_HEADING: "Heading 1"
   REFERENCE_ENTRY: "Normal"
-  FIGURE_CAPTION: "Normal"
-  TABLE_CAPTION: "Normal"
+  FIGURE_CAPTION: "Caption"   # Italic, smaller
+  TABLE_CAPTION: "Caption"    # Italic, smaller
 
 references:
-  style: "none"
-  citation_format: "original"
+  style: "numeric"
+  citation_format: "[N]"
   normalization:
     enabled: false
 
@@ -49,11 +49,14 @@ layout:
     right: 1.0
   spacing:
     paragraph:
-      before: 6
-      after: 6
+      before: 0
+      after: 10
     heading:
-      before: 12
+      before: 18
       after: 6
+    title:
+      before: 0
+      after: 12
     figure:
       before: 12
       after: 12
@@ -68,3 +71,4 @@ equations:
   scope: "global"
   brackets: "()"
   alignment: "center"
+
