@@ -10,11 +10,6 @@ class ReferenceFormatter:
 
     def format_reference(self, reference: Reference, publisher: str) -> str:
         """Format a reference according to publisher guidelines."""
-        # SAFE BYPASS: Skip contract loading for "none" publisher (general formatting)
-        if publisher.lower() == "none":
-            # Return original reference text unchanged
-            return reference.raw_text if hasattr(reference, 'raw_text') and reference.raw_text else str(reference)
-        
         contract = self.contract_loader.load(publisher)
         style_rule = contract.get("references", {}).get("style", "IEEE")
         
@@ -23,5 +18,11 @@ class ReferenceFormatter:
             authors = reference.get_author_list(max_authors=3)
             title = f'"{reference.title}"' if reference.title else "Untitled"
             return f"[{reference.number}] {authors}, {title}, {reference.journal or reference.conference or ''}, {reference.year or ''}."
+        
+        # Light cleanup for "none" style: preserve original, normalize whitespace
+        if style_rule == "none":
+            text = reference.raw_text if hasattr(reference, 'raw_text') and reference.raw_text else str(reference)
+            text = ' '.join(text.split())  # Remove duplicate spaces
+            return text.strip()
             
         return reference.raw_text

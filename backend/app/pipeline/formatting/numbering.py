@@ -14,17 +14,6 @@ class NumberingEngine:
         """
         Walk through the document and apply numbering to headings, figs, and tables.
         """
-        # PRODUCTION FIX: Skip contract-based numbering for 'none' template
-        if publisher.lower() == "none":
-            # Apply simple sequential numbering without contract
-            for i, fig in enumerate(document.figures):
-                fig.number = i + 1
-            for i, tbl in enumerate(document.tables):
-                tbl.number = i + 1
-            for i, eqn in enumerate(document.equations):
-                eqn.number = str(i + 1)
-            return document
-        
         contract = self.contract_loader.load(publisher)
         rules = contract.get("numbering", {})
         

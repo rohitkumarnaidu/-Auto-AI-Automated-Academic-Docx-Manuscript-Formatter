@@ -14,10 +14,6 @@ class StyleMapper:
         """
         Determine the Word style name for a block based on its type.
         """
-        # SAFE BYPASS: Skip contract loading for "none" publisher
-        if publisher.lower() == "none":
-            return "Normal"  # Default Word style
-        
         contract = self.contract_loader.load(publisher)
         style_map = contract.get("styles", {})
         

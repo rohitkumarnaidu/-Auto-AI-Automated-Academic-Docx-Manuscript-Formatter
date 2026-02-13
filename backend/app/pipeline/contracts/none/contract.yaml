@@ -1,0 +1,70 @@
+publisher: "none"
+description: "General Formatting (No Publisher-Specific Rules)"
+
+sections:
+  required: []
+  order: []
+  canonical_names: {}
+
+numbering:
+  headings:
+    1: "none"
+    2: "none"
+    3: "none"
+  figures: "numeric"  # Figure 1, Figure 2
+  tables: "numeric"   # Table 1, Table 2
+  equations: "numeric" # (1), (2)
+
+styles:
+  TITLE: "Normal"
+  AUTHOR: "Normal"
+  AFFILIATION: "Normal"
+  ABSTRACT_HEADING: "Normal"
+  ABSTRACT_BODY: "Normal"
+  KEYWORDS_HEADING: "Normal"
+  KEYWORDS_BODY: "Normal"
+  HEADING_1: "Normal"
+  HEADING_2: "Normal"
+  HEADING_3: "Normal"
+  HEADING_4: "Normal"
+  BODY: "Normal"
+  REFERENCES_HEADING: "Normal"
+  REFERENCE_ENTRY: "Normal"
+  FIGURE_CAPTION: "Normal"
+  TABLE_CAPTION: "Normal"
+
+references:
+  style: "none"
+  citation_format: "original"
+  normalization:
+    enabled: false
+
+layout:
+  default_columns: 1
+  section_overrides: {}
+  margins:
+    top: 1.0
+    bottom: 1.0
+    left: 1.0
+    right: 1.0
+  spacing:
+    paragraph:
+      before: 6
+      after: 6
+    heading:
+      before: 12
+      after: 6
+    figure:
+      before: 12
+      after: 12
+    table:
+      before: 12
+      after: 12
+  page_breaks:
+    before: []
+
+equations:
+  numbering: "numeric"
+  scope: "global"
+  brackets: "()"
+  alignment: "center"

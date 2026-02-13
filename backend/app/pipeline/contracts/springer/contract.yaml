@@ -1,6 +1,6 @@
 publisher: "Springer"
 description: "Springer Lecture Notes in Computer Science (LNCS) Style"
-# Placeholder contract
+
 sections:
   required:
     - "abstract"
@@ -8,5 +8,70 @@ sections:
     - "references"
   order:
     - "abstract"
+    - "keywords"
     - "introduction"
+    - "related work"
+    - "methodology"
+    - "results"
+    - "discussion"
+    - "conclusion"
     - "references"
+  canonical_names:
+    "background": "related work"
+    "literature review": "related work"
+    "methods": "methodology"
+    "findings": "results"
+    "bibliography": "references"
+
+numbering:
+  headings:
+    1: "numeric"        # 1, 2, 3
+    2: "decimal"        # 1.1, 1.2
+    3: "decimal_deep"   # 1.1.1, 1.1.2
+  figures: "numeric"    # Figure 1, Figure 2
+  tables: "numeric"     # Table 1, Table 2
+  equations: "numeric"  # (1), (2)
+
+styles:
+  TITLE: "Title"
+  AUTHOR: "Normal"
+  AFFILIATION: "Normal"
+  ABSTRACT_HEADING: "Abstract"
+  ABSTRACT_BODY: "Abstract"
+  KEYWORDS_HEADING: "Keywords"
+  KEYWORDS_BODY: "Keywords"
+  HEADING_1: "Heading 1"
+  HEADING_2: "Heading 2"
+  HEADING_3: "Heading 3"
+  HEADING_4: "Heading 4"
+  BODY: "Normal"
+  REFERENCES_HEADING: "Heading 1"
+  REFERENCE_ENTRY: "Reference"
+
+references:
+  style: "Springer"
+  citation_format: "[N]"
+  normalization:
+    enabled: true
+    max_authors: 10
+    et_al_suffix: "et al."
+    journal_format: "{authors}: {title}. {journal} {volume}({issue}), {pages} ({year})"
+    book_format: "{authors}: {title}. {publisher} ({year})"
+    conference_format: "{authors}: {title}. In: {conference}, pp. {pages} ({year})"
+
+layout:
+  default_columns: 1
+  section_overrides: {}
+  margins:
+    top: 0.75
+    bottom: 0.75
+    left: 0.75
+    right: 0.75
+  page_breaks:
+    before: []
+
+equations:
+  numbering: "numeric"
+  scope: "global"
+  brackets: "()"
+  alignment: "right"

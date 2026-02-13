@@ -13,10 +13,6 @@ class SectionOrderValidator:
         """
         Identify out-of-order or missing sections.
         """
-        # SAFE BYPASS: Skip contract loading for "none" publisher
-        if publisher.lower() == "none":
-            return []  # No validation for general formatting
-        
         contract = self.contract_loader.load(publisher)
         expected_order = contract.get("sections", {}).get("order", [])
         

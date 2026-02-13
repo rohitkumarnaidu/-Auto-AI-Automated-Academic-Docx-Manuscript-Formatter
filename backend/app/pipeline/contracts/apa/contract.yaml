@@ -1,12 +1,78 @@
 publisher: "APA"
 description: "American Psychological Association Style (7th Edition)"
-# Placeholder contract
+
 sections:
   required:
     - "abstract"
     - "introduction"
+    - "method"
+    - "results"
+    - "discussion"
     - "references"
   order:
+    - "title"
     - "abstract"
     - "introduction"
+    - "method"
+    - "results"
+    - "discussion"
+    - "conclusion"
     - "references"
+  canonical_names:
+    "methods": "method"
+    "methodology": "method"
+    "findings": "results"
+    "bibliography": "references"
+
+numbering:
+  headings:
+    1: "none"  # APA doesn't number headings
+    2: "none"
+    3: "none"
+  figures: "numeric"  # Figure 1, Figure 2
+  tables: "numeric"   # Table 1, Table 2
+  equations: "numeric" # (1), (2)
+
+styles:
+  TITLE: "Title"
+  AUTHOR: "Normal"
+  AFFILIATION: "Normal"
+  ABSTRACT_HEADING: "Heading 1"
+  ABSTRACT_BODY: "Normal"
+  KEYWORDS_HEADING: "Heading 1"
+  KEYWORDS_BODY: "Normal"
+  HEADING_1: "Heading 1"
+  HEADING_2: "Heading 2"
+  HEADING_3: "Heading 3"
+  HEADING_4: "Heading 4"
+  BODY: "Normal"
+  REFERENCES_HEADING: "Heading 1"
+  REFERENCE_ENTRY: "Reference"
+
+references:
+  style: "APA"
+  citation_format: "(Author, Year)"
+  normalization:
+    enabled: true
+    max_authors: 20
+    et_al_suffix: "et al."
+    journal_format: "{authors} ({year}). {title}. {journal}, {volume}({issue}), {pages}. {doi}"
+    book_format: "{authors} ({year}). {title}. {publisher}."
+    conference_format: "{authors} ({year}). {title}. In {conference} (pp. {pages}). {publisher}."
+
+layout:
+  default_columns: 1
+  section_overrides: {}
+  margins:
+    top: 1.0
+    bottom: 1.0
+    left: 1.0
+    right: 1.0
+  page_breaks:
+    before: []
+
+equations:
+  numbering: "numeric"
+  scope: "global"
+  brackets: "()"
+  alignment: "center"

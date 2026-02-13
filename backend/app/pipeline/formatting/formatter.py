@@ -200,10 +200,6 @@ class Formatter:
 
     def _apply_initial_layout(self, doc, publisher: str):
         """Set margins and initial properties."""
-        # SAFE BYPASS: Skip contract loading for "none" publisher
-        if publisher.lower() == "none":
-            return  # Use default Word layout
-        
         contract = self.contract_loader.load(publisher)
         layout = contract.get("layout", {})
         if not layout: return
@@ -215,10 +211,6 @@ class Formatter:
 
     def _get_target_columns(self, block, publisher: str) -> int:
         """Determine required column count for a block."""
-        # SAFE BYPASS: Skip contract loading for "none" publisher
-        if publisher.lower() == "none":
-            return 1  # Default single column
-        
         contract = self.contract_loader.load(publisher)
         layout = contract.get("layout", {})
         default = layout.get("default_columns", 1)
@@ -263,48 +255,38 @@ class Formatter:
             return {}
 
     def _render_block(self, doc, block, template_name):
+        """Render a block with contract-driven spacing and formatting."""
+        # Skip rendering empty anchor blocks (preserve in pipeline)
+        # This prevents empty paragraphs for figure/equation anchors in visual output
+        if block.text.strip() == "" and block.metadata.get("has_figure", False):
+            return  # Block remains in pipeline for anchor stability
+        
+        if block.text.strip() == "" and block.metadata.get("has_equation", False):
+            return  # Block remains in pipeline for anchor stability
+        
         # Determine Style using StyleMapper
         word_style = self.style_mapper.get_style_name(block, template_name)
         
         try:
-            # Clean text to prevent empty lines/whitespace
             clean_text = block.text.strip()
+            if not clean_text:
+                return  # Skip empty blocks
             
-            # SURGICAL QUALITY HARDENING: Skip empty anchor blocks
-            # Empty blocks with has_figure or has_equation are anchor placeholders
-            # that should not appear as visible paragraphs in formatted output.
-            # This preserves anchor stability while fixing visual artifacts.
-            has_figure_anchor = block.metadata.get("has_figure", False)
-            has_equation_anchor = block.metadata.get("has_equation", False)
-            
-            if not clean_text or has_figure_anchor or has_equation_anchor:
-                 # Skip empty blocks and anchor placeholders to prevent "Massive White Space"
-                 return
-
             p = doc.add_paragraph(clean_text, style=word_style)
             
-            # Reset spacing to prevent massive gaps (issue #2)
-            # Default to 12pt after unless strictly overriden by style
-            if template_name == "none":
-                p.paragraph_format.space_before = 0
-                p.paragraph_format.space_after = 0 # Let Word default handle or be compact
+            # Apply contract-driven spacing
+            self._apply_spacing_from_contract(p, block, template_name)
             
         except:
             # Fallback if style missing
             clean_text = block.text.strip()
             if clean_text:
                 p = doc.add_paragraph(clean_text)
-                if template_name == "none":
-                    p.paragraph_format.space_before = 0
-                    p.paragraph_format.space_after = 0
-                    
-            # Render text with safety
-            p = doc.add_paragraph() # Create a paragraph even if style failed
-        p.text = block.text if block.text else ""
+                self._apply_spacing_from_contract(p, block, template_name)
+            else:
+                return
         
         # PROACTIVE FIX: Render Hyperlinks extracted in Stage 1
-        # Since native DOCX hyperlink insertion is complex, we use a robust
-        # text-based representation [Label](URL) to ensure URL data is preserved.
         hyperlinks = block.metadata.get("hyperlinks", [])
         if hyperlinks:
             p.add_run(" (Links: ")
@@ -315,8 +297,36 @@ class Formatter:
                 if i < len(hyperlinks) - 1:
                     p.add_run(", ")
             p.add_run(")")
-            
+        
         return p
+
+    def _apply_spacing_from_contract(self, paragraph, block, template_name):
+        """Apply spacing rules from contract to paragraph."""
+        contract = self.contract_loader.load(template_name)
+        layout = contract.get("layout", {})
+        spacing_rules = layout.get("spacing", {})
+        
+        if not spacing_rules:
+            return  # No spacing rules in contract
+        
+        # Determine block type and get appropriate spacing
+        if hasattr(block, 'is_heading') and block.is_heading():
+            spacing = spacing_rules.get("heading", {})
+        elif str(block.block_type).upper() in ["FIGURE_CAPTION", "TABLE_CAPTION"]:
+            # Use figure or table spacing for captions
+            if "FIGURE" in str(block.block_type).upper():
+                spacing = spacing_rules.get("figure", {})
+            else:
+                spacing = spacing_rules.get("table", {})
+        else:
+            spacing = spacing_rules.get("paragraph", {})
+        
+        # Apply spacing if defined
+        if spacing:
+            before = spacing.get("before", 0)
+            after = spacing.get("after", 0)
+            paragraph.paragraph_format.space_before = Pt(before)
+            paragraph.paragraph_format.space_after = Pt(after)
 
     def _render_figure(self, doc, figure: Figure, number: int):
         # 1. Image
@@ -337,8 +347,14 @@ class Formatter:
             
         # 2. Caption
         # Format: "Figure {number}: {caption_text}"
+        # Prevent duplication if caption already has numbering
         if figure.caption_text:
-            caption_str = f"Figure {number}: {figure.caption_text}"
+            caption_base = figure.caption_text.strip()
+            # Check if caption already starts with "Figure N:"
+            if caption_base.lower().startswith(f"figure {number}:"):
+                caption_str = caption_base  # Already numbered, use as-is
+            else:
+                caption_str = f"Figure {number}: {caption_base}"
             try:
                 doc.add_paragraph(caption_str, style="Caption")
             except:
