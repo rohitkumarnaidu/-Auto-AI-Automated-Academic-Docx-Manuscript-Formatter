@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import auth, documents
 from app.config.settings import settings
+from app.middleware.rate_limit import RateLimitMiddleware
 import logging
 
 # Phase 2: Silence Global AI Startup Noise
@@ -17,11 +18,10 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS Configuration
-origins = [
+# CORS Configuration (from environment)
+origins = settings.CORS_ORIGINS.split(",") if hasattr(settings, 'CORS_ORIGINS') and settings.CORS_ORIGINS else [
     "http://localhost:5173",  # Vite dev server
     "http://localhost:3000",
-    # Add production domains here
 ]
 
 app.add_middleware(
@@ -31,6 +31,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Rate Limiting Middleware (DoS Protection)
+app.add_middleware(RateLimitMiddleware, requests_per_minute=60)
 
 # Include Routers
 app.include_router(auth.router)
@@ -93,3 +96,54 @@ async def startup_event():
 @app.get("/")
 async def root():
     return {"message": "ScholarForm AI Backend is running"}
+
+@app.get("/health")
+async def health_check():
+    """
+    Health check endpoint for monitoring.
+    Returns status of database, AI models, and Ollama server.
+    """
+    from app.db.session import SessionLocal
+    from app.pipeline.intelligence.reasoning_engine import get_reasoning_engine
+    import requests
+    
+    health_status = {
+        "status": "healthy",
+        "version": "1.0.0",
+        "components": {}
+    }
+    
+    # Check database
+    try:
+        db = SessionLocal()
+        from sqlalchemy import text
+        db.execute(text("SELECT 1"))
+        db.close()
+        health_status["components"]["database"] = "healthy"
+    except Exception as e:
+        health_status["components"]["database"] = f"unhealthy: {str(e)}"
+        health_status["status"] = "degraded"
+    
+    # Check Ollama server
+    try:
+        response = requests.get("http://localhost:11434/api/tags", timeout=2)
+        if response.status_code == 200:
+            health_status["components"]["ollama"] = "healthy"
+        else:
+            health_status["components"]["ollama"] = "unhealthy"
+            health_status["status"] = "degraded"
+    except (requests.RequestException, Exception) as e:
+        health_status["components"]["ollama"] = "unavailable (fallback active)"
+        health_status["status"] = "degraded"
+    
+    # Check AI models
+    try:
+        from app.services.model_store import model_store
+        if model_store.get_model("scibert_model") is not None:
+            health_status["components"]["ai_models"] = "loaded"
+        else:
+            health_status["components"]["ai_models"] = "not_loaded"
+    except Exception as e:
+        health_status["components"]["ai_models"] = "error"
+    
+    return health_status
