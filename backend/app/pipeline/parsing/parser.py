@@ -52,7 +52,10 @@ from app.utils.id_generator import (
 )
 
 
-class DocxParser:
+from app.pipeline.parsing.base_parser import BaseParser
+
+
+class DocxParser(BaseParser):
     """
     Parses DOCX files into Document model instances.
     
@@ -68,6 +71,10 @@ class DocxParser:
         self.table_counter = 0
         self.equation_counter = 0
         self.current_page = None  # DOCX doesn't provide reliable page numbers
+    
+    def supports_format(self, file_extension: str) -> bool:
+        """Check if this parser supports DOCX format."""
+        return file_extension.lower() in ['.docx', '.doc']
     
     def parse(self, docx_path: str, document_id: str) -> Document:
         """

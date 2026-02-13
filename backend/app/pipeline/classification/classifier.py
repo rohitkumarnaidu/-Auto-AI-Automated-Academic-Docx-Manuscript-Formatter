@@ -14,6 +14,7 @@ from datetime import datetime
 
 from app.models import PipelineDocument as Document, Block, BlockType
 from app.pipeline.base import PipelineStage
+from app.config.settings import settings  # Import settings for dynamic thresholds
 
 class ContentClassifier(PipelineStage):
     """
@@ -166,8 +167,8 @@ class ContentClassifier(PipelineStage):
                         block.block_type = BlockType.AUTHOR
                         block.semantic_intent = "AUTHOR"
                         block.metadata["semantic_intent"] = "AUTHOR"
-                    block.classification_confidence = 0.9
-                    block.metadata["classification_confidence"] = 0.9
+                    block.classification_confidence = settings.HEURISTIC_CONFIDENCE_MEDIUM
+                    block.metadata["classification_confidence"] = settings.HEURISTIC_CONFIDENCE_MEDIUM
                     block.metadata["classification_method"] = "heuristic_front"
 
             # --- ZONE 3: References ---
@@ -191,9 +192,9 @@ class ContentClassifier(PipelineStage):
                     
                     block.block_type = BlockType.REFERENCE_ENTRY
                     block.semantic_intent = "REFERENCE_ENTRY"
-                    block.classification_confidence = 0.95
+                    block.classification_confidence = settings.HEURISTIC_CONFIDENCE_HIGH
                     block.metadata["semantic_intent"] = "REFERENCE_ENTRY"
-                    block.metadata["classification_confidence"] = 0.95
+                    block.metadata["classification_confidence"] = settings.HEURISTIC_CONFIDENCE_HIGH
                     block.metadata["classification_method"] = "structure_ref_entry"
 
             # --- ZONE 2: Body ---
@@ -269,8 +270,8 @@ class ContentClassifier(PipelineStage):
                         block.block_type = BlockType.BODY
                         block.semantic_intent = "BODY"
                         block.metadata["semantic_intent"] = "BODY"
-                    block.classification_confidence = 0.95
-                    block.metadata["classification_confidence"] = 0.95
+                    block.classification_confidence = settings.HEURISTIC_CONFIDENCE_HIGH
+                    block.metadata["classification_confidence"] = settings.HEURISTIC_CONFIDENCE_HIGH
                     block.metadata["classification_method"] = "structure_context"
 
         # 3. NLP Fallback for UNKNOWNs
@@ -304,8 +305,8 @@ class ContentClassifier(PipelineStage):
                     block.metadata["classification_method"] = "fallback_with_nlp"
                 else:
                     # No NLP data available, use baseline fallback
-                    block.classification_confidence = 0.5
-                    block.metadata["classification_confidence"] = 0.5
+                    block.classification_confidence = settings.HEURISTIC_CONFIDENCE_LOW
+                    block.metadata["classification_confidence"] = settings.HEURISTIC_CONFIDENCE_LOW
                     block.metadata["classification_method"] = "fallback_last_resort"
                 
         # Update processing history

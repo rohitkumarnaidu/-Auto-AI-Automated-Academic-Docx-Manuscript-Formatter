@@ -12,6 +12,7 @@ This module contains rule-based logic to detect heading candidates based on:
 import re
 from typing import Optional, Dict, Any, Tuple, List
 from app.models import Block
+from app.config.settings import settings  # Import settings for dynamic thresholds
 
 
 # Common academic section headings (case-insensitive)
@@ -167,7 +168,7 @@ def is_likely_heading_by_style(block: Block, avg_font_size: Optional[float] = No
     if text.endswith('.'):
         score -= 0.3
         
-    return score >= 0.4, min(score, 1.0)
+    return score >= settings.HEADING_STYLE_THRESHOLD, min(score, 1.0)  # Dynamic threshold
 
 
 def infer_heading_level(block: Block, numbering_info: Optional[Dict] = None) -> int:
@@ -347,10 +348,10 @@ def analyze_heading_candidate(
         cap_ratio = get_capitalization_ratio(text)
         
         if len(text) <= 60 and cap_ratio >= 0.7 and is_isolated:
-            confidence = 0.45
+            confidence = settings.HEADING_FALLBACK_CONFIDENCE  # Dynamic fallback confidence
             reasons.append("Fallback: Short, Isolated, Title Case")
             
-    if confidence < 0.4:
+    if confidence < settings.HEADING_STYLE_THRESHOLD:  # Dynamic threshold
         return None
         
     # Level Inference

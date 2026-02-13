@@ -15,18 +15,31 @@ class TableRenderer:
     def __init__(self):
         pass
         
-    def render(self, doc, table_model: Table):
+    def render(self, doc, table_model: Table, number: int = None):
         """
-        Render a Table model into the document.
+        Render a Table model into the document with caption.
         
         Args:
             doc: python-docx Document object
             table_model: Table model instance
+            number: Sequential table number (1, 2, 3...) for caption
         """
         if not table_model.rows:
             return
 
-        # 1. Create Table
+        # 1. ADD CAPTION FIRST (if exists) - Academic standard: caption ABOVE table
+        if table_model.caption_text:
+            caption_p = doc.add_paragraph(style="Caption")
+            # Use sequential number if provided, otherwise fall back to index+1
+            table_num = number if number is not None else (table_model.index + 1)
+            # Bold prefix: "Table 1: "
+            run = caption_p.add_run(f"Table {table_num}: ")
+            run.bold = True
+            # Regular caption text
+            caption_p.add_run(table_model.caption_text)
+            caption_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+        # 2. CREATE TABLE
         rows = len(table_model.rows)
         cols = len(table_model.rows[0]) if rows > 0 else 0
         
@@ -35,7 +48,7 @@ class TableRenderer:
             
         word_table = doc.add_table(rows=rows, cols=cols)
         
-        # 2. Apply Style safely
+        # 3. APPLY STYLE SAFELY
         try:
             # Check if 'Table Grid' exists in the document styles
             if 'Table Grid' in doc.styles:
@@ -46,7 +59,7 @@ class TableRenderer:
         except:
             pass
         
-        # 3. Populate Cells
+        # 4. POPULATE CELLS
         # We iterate over model cells to handle metadata and potentially nested content
         for cell_model in table_model.cells:
             r, c = cell_model.row, cell_model.col
@@ -66,47 +79,4 @@ class TableRenderer:
                         # Fallback: maybe add as text if rendering fails
                         word_cell.add_paragraph(f"[Nested Table: {nested_tbl.table_id}]")
                         print(f"  [Warning] Nested table rendering failed: {e}")
-                    
-        # 3. Add Caption (after table generally in Word, or before depending on style)
-        # Academic standard: Table captions usually ABOVE
-        # But we inserted table at 'index'. If we want caption, we should check style.
-        # For simple renderer, we'll put it before if it exists.
-        
-        # NOTE: In the Formatter loop, we insert the object.
-        # If we want the caption to be part of this 'item', we must render it here.
-        if table_model.caption_text:
-            # Insert caption paragraph BEFORE table?
-            # doc.add_table appends to end.
-            # To insert before, we'd need to manipulate the element tree.
-            # Simplest approach for "append" mode:
-            # Just add paragraph after? Or rely on the fact that we are appending sequentially.
-            # Wait, if we are appending, we should add caption then table?
-            # But doc.add_table appends.
-            # If we want caption on top, we have to add paragraph, then add table.
-            # But `word_table` is created inside `doc`.
-            
-            # Implementation:
-            # 1. Insert Caption (Paragraph)
-            # 2. Move Table (which was just added at end) ? No.
-            
-            # Correct: Just add paragraph first, then table.
-            # BUT `doc.add_table` creates it at the end.
-            # So:
-            # p = doc.add_paragraph(f"Table {table_model.index}: {table_model.caption_text}", style="Caption")
-            # table = doc.add_table(...)
-            
-            # However, `render` is called inside a loop that expects to just "render item".
-            # The Formatter loop appends to `doc`.
-            pass
 
-        # Since we just appended the table, if we want a caption *above* it, 
-        # we strictly should have added it before `doc.add_table`.
-        # However, `doc.add_table` adds to the end.
-        # So effective order:
-        # Pre-existing content...
-        # [We are here]
-        
-        # Visual improvement: Add spacer before?
-        # doc.add_paragraph("")
-        
-        pass

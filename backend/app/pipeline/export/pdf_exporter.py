@@ -2,6 +2,7 @@ import subprocess
 import os
 import platform
 from typing import Optional
+from app.config.settings import settings  # Import settings for dynamic path
 
 class PDFExporter:
     """
@@ -9,10 +10,10 @@ class PDFExporter:
     """
     
     def __init__(self, libreoffice_path: Optional[str] = None):
-        self.libreoffice_path = libreoffice_path or self._find_libreoffice()
+        self.libreoffice_path = libreoffice_path or settings.LIBREOFFICE_PATH or self._find_libreoffice()
 
     def _find_libreoffice(self) -> Optional[str]:
-        """Attempt to find LibreOffice executable based on OS."""
+        """Attempt to find LibreOffice executable based on OS (dynamic cross-platform)."""
         if platform.system() == "Windows":
             paths = [
                 "C:\\Program Files\\LibreOffice\\program\\soffice.exe",
@@ -21,8 +22,11 @@ class PDFExporter:
             for p in paths:
                 if os.path.exists(p):
                     return p
-            return None # Do NOT assume on PATH if not found in common dirs
-        return "libreoffice" # Linux/Mac default
+            return None  # Do NOT assume on PATH if not found in common dirs
+        elif platform.system() == "Darwin":  # macOS
+            return "/Applications/LibreOffice.app/Contents/MacOS/soffice"
+        else:  # Linux
+            return "libreoffice"  # Usually on PATH
 
     def convert_to_pdf(self, docx_path: str, output_dir: str) -> Optional[str]:
         """

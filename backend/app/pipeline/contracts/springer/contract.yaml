@@ -70,18 +70,24 @@ layout:
   spacing:
     paragraph:
       before: 0
-      after: 6
+      after: 10
     heading:
-      before: 12
+      before: 18
       after: 6
     title:
       before: 0
       after: 12
     figure:
-      before: 12
+      before: 18
       after: 12
     table:
-      before: 12
+      before: 18
+      after: 18  # Increased from 12 to 18 for better separation
+    caption:
+      before: 6
+      after: 12
+    references:  # NEW: Specific spacing for references section
+      before: 24
       after: 12
   page_breaks:
     before: []

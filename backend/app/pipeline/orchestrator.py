@@ -16,7 +16,7 @@ from app.models import (
     BlockType,
     DocumentVersion
 )
-from app.pipeline.parsing.parser import DocxParser
+from app.pipeline.parsing.parser_factory import ParserFactory
 from app.pipeline.normalization.normalizer import Normalizer as TextNormalizer
 from app.pipeline.structure_detection.detector import StructureDetector
 from app.pipeline.nlp.analyzer import ContentAnalyzer
@@ -132,7 +132,9 @@ class PipelineOrchestrator:
             # Extraction can be long; do not hold DB session here
             docx_path = self.converter.convert_to_docx(input_path, job_id, enable_ocr=enable_ocr)
             
-            parser = DocxParser()
+            # Use ParserFactory to auto-select correct parser based on file extension
+            factory = ParserFactory()
+            parser = factory.get_parser(docx_path)
             doc_obj = parser.parse(docx_path, job_id)
             raw_text = "\n".join([b.text for b in doc_obj.blocks])
             

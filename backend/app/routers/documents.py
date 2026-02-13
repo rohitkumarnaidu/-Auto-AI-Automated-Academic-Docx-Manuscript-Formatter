@@ -11,6 +11,7 @@ from app.db.session import SessionLocal
 from app.models import Document, ProcessingStatus, DocumentResult
 from app.pipeline.orchestrator import PipelineOrchestrator
 from app.pipeline.export.pdf_exporter import PDFExporter
+from app.config.settings import settings  # Import settings for dynamic defaults
 
 router = APIRouter(prefix="/api/documents", tags=["Documents"])
 
@@ -88,7 +89,7 @@ async def list_documents(
 async def upload_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    template: str = "IEEE",
+    template: str = settings.DEFAULT_TEMPLATE,  # Dynamic default from settings
     current_user: Optional[User] = Depends(get_optional_user)
 ):
     """
@@ -98,7 +99,7 @@ async def upload_document(
     
     # Configuration for file upload validation
     MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
-    ALLOWED_EXTENSIONS = {'.docx', '.pdf', '.doc', '.txt'}
+    ALLOWED_EXTENSIONS = {'.docx', '.pdf', '.tex', '.txt', '.html', '.htm', '.md', '.markdown', '.doc'}
     
     db = SessionLocal()
     try:

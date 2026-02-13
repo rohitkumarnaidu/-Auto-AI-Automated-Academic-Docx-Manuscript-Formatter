@@ -128,7 +128,8 @@ class Formatter:
              items_to_insert.append({
                 "type": "table",
                 "index": table.block_index, # Fixed: Tables have global block_index
-                "obj": table
+                "obj": table,
+                "number": i + 1  # Sequential number for caption (Table 1, Table 2, ...)
             })
             
         # Sort by index
@@ -162,7 +163,7 @@ class Formatter:
             elif item["type"] == "equation":
                 self._render_equation(word_doc, item["obj"])
             elif item["type"] == "table":
-                self.table_renderer.render(word_doc, item["obj"])
+                self.table_renderer.render(word_doc, item["obj"], item.get("number"))
                 
         # 4. Render Footnotes (Supplemental)
         footnotes = [b for b in document.blocks if b.block_type == BlockType.FOOTNOTE]
@@ -254,32 +255,39 @@ class Formatter:
             print(f"Warning: Failed to load contract {path}: {e}")
             return {}
 
+
     def _render_block(self, doc, block, template_name):
-        """Render a block with contract-driven spacing and formatting."""
+        """Render a block with contract-driven spacing, formatting, and dynamic list detection."""
         # Skip rendering empty anchor blocks (preserve in pipeline)
-        # This prevents empty paragraphs for figure/equation anchors in visual output
         if block.text.strip() == "" and block.metadata.get("has_figure", False):
             return  # Block remains in pipeline for anchor stability
         
         if block.text.strip() == "" and block.metadata.get("has_equation", False):
             return  # Block remains in pipeline for anchor stability
         
-        # Determine Style using StyleMapper
-        word_style = self.style_mapper.get_style_name(block, template_name)
+        # DYNAMIC LIST DETECTION
+        clean_text = block.text.strip()
+        if not clean_text:
+            return  # Skip empty blocks
         
         try:
-            clean_text = block.text.strip()
-            if not clean_text:
-                return  # Skip empty blocks
-            
-            p = doc.add_paragraph(clean_text, style=word_style)
+            # Check if this is a list item
+            if self._is_bullet_list_item(clean_text):
+                # Render as bullet list
+                p = doc.add_paragraph(self._clean_list_text(clean_text), style="List Bullet")
+            elif self._is_numbered_list_item(clean_text):
+                # Render as numbered list
+                p = doc.add_paragraph(self._clean_list_text(clean_text), style="List Number")
+            else:
+                # Normal paragraph rendering
+                word_style = self.style_mapper.get_style_name(block, template_name)
+                p = doc.add_paragraph(clean_text, style=word_style)
             
             # Apply contract-driven spacing
             self._apply_spacing_from_contract(p, block, template_name)
             
         except:
             # Fallback if style missing
-            clean_text = block.text.strip()
             if clean_text:
                 p = doc.add_paragraph(clean_text)
                 self._apply_spacing_from_contract(p, block, template_name)
@@ -300,6 +308,7 @@ class Formatter:
         
         return p
 
+
     def _apply_spacing_from_contract(self, paragraph, block, template_name):
         """Apply spacing rules from contract to paragraph."""
         contract = self.contract_loader.load(template_name)
@@ -318,6 +327,9 @@ class Formatter:
                 spacing = spacing_rules.get("figure", {})
             else:
                 spacing = spacing_rules.get("table", {})
+        elif "REFERENCES" in str(block.block_type).upper():
+            # Special spacing for references section
+            spacing = spacing_rules.get("references", spacing_rules.get("heading", {}))
         else:
             spacing = spacing_rules.get("paragraph", {})
         
@@ -328,35 +340,122 @@ class Formatter:
             paragraph.paragraph_format.space_before = Pt(before)
             paragraph.paragraph_format.space_after = Pt(after)
 
-    def _render_figure(self, doc, figure: Figure, number: int):
-        # 1. Image
-        if figure.image_data:
-            try:
-                image_stream = BytesIO(figure.image_data)
-                # Apply layout constraints: Center, 4.0 inches often good default
-                doc.add_picture(image_stream, width=Inches(4.0)) 
-                
-                # Center alignment
-                last_p = doc.paragraphs[-1]
-                last_p.alignment = 1 # 1 = CENTER
-                
-            except Exception as e:
-                doc.add_paragraph(f"[Image Error: {e}]")
-        else:
-            doc.add_paragraph(f"[Figure {number} Placeholder]")
+    def _calculate_image_size(self, figure: Figure):
+        """
+        Calculate optimal image size based on actual dimensions and page constraints.
+        
+        Strategy:
+        1. Use figure.width/height if available (from Figure model)
+        2. Constrain to page width (6.5 inches for standard letter with 1" margins)
+        3. Maintain aspect ratio
+        4. Set reasonable min/max bounds
+        """
+        # Page constraints (standard letter: 8.5" wide, 1" margins each side = 6.5" usable)
+        MAX_WIDTH = Inches(6.5)
+        MAX_HEIGHT = Inches(9.0)  # Standard letter: 11" tall, 1" margins = 9" usable
+        MIN_WIDTH = Inches(2.0)   # Minimum for readability
+        DEFAULT_WIDTH = Inches(5.0)  # Good default for most images
+        
+        # If figure has dimensions, use them
+        if figure.width and figure.height:
+            # Convert to inches (assuming pixels at 96 DPI)
+            img_width_inches = Inches(figure.width / 96.0)
+            img_height_inches = Inches(figure.height / 96.0)
             
-        # 2. Caption
-        # Format: "Figure {number}: {caption_text}"
-        # Prevent duplication if caption already has numbering
-        if figure.caption_text:
-            caption_base = figure.caption_text.strip()
-            # Check if caption already starts with "Figure N:"
-            if caption_base.lower().startswith(f"figure {number}:"):
-                caption_str = caption_base  # Already numbered, use as-is
+            # Calculate aspect ratio
+            aspect_ratio = figure.width / figure.height
+            
+            # Scale to fit within page width
+            if img_width_inches > MAX_WIDTH:
+                final_width = MAX_WIDTH
+                final_height = Inches(MAX_WIDTH.inches / aspect_ratio)
+            elif img_width_inches < MIN_WIDTH:
+                # Small images: scale up to minimum width
+                final_width = MIN_WIDTH
+                final_height = Inches(MIN_WIDTH.inches / aspect_ratio)
             else:
-                caption_str = f"Figure {number}: {caption_base}"
+                # Image fits naturally
+                final_width = img_width_inches
+                final_height = img_height_inches
+            
+            # Ensure height doesn't exceed page
+            if final_height > MAX_HEIGHT:
+                final_height = MAX_HEIGHT
+                final_width = Inches(MAX_HEIGHT.inches * aspect_ratio)
+            
+            return final_width, final_height
+        else:
+            # No dimensions available: use smart default
+            # Default to 5 inches wide (good for most academic figures)
+            return DEFAULT_WIDTH, None  # Let python-docx maintain aspect ratio
+
+    def _render_figure(self, doc, figure: Figure, number: int):
+        """Render a figure with dynamic sizing based on image dimensions."""
+        # 1. Add image with dynamic sizing
+        if figure.export_path and os.path.exists(figure.export_path):
             try:
-                doc.add_paragraph(caption_str, style="Caption")
-            except:
-                 doc.add_paragraph(caption_str)
+                # Calculate optimal size based on image dimensions
+                width, height = self._calculate_image_size(figure)
+                doc.add_picture(figure.export_path, width=width, height=height)
+            except Exception as e:
+                print(f"⚠️  Failed to render figure from export_path: {e}")
+                # Fallback: add placeholder text if image fails
+                p = doc.add_paragraph(f"[Image: {figure.export_path}]")
+                p.alignment = 1  # Center
+        elif figure.image_data:
+            # If we have image_data, use BytesIO (more reliable than temp files)
+            try:
+                from io import BytesIO
+                image_stream = BytesIO(figure.image_data)
+                # Calculate optimal size
+                width, height = self._calculate_image_size(figure)
+                if height:
+                    doc.add_picture(image_stream, width=width, height=height)
+                else:
+                    doc.add_picture(image_stream, width=width)
+                print(f"✅ Rendered figure {number} from image_data ({len(figure.image_data)} bytes)")
+            except Exception as e:
+                print(f"⚠️  Failed to render figure from image_data: {e}")
+                # Fallback: add placeholder
+                p = doc.add_paragraph(f"[Figure {number} - Image rendering failed: {str(e)[:50]}]")
+                p.alignment = 1  # Center
+        else:
+            # If no image data or path, add a placeholder
+            p = doc.add_paragraph(f"[Figure {number} Placeholder - No image data]")
+            p.alignment = 1  # Center the placeholder too
+        
+        # 2. Add caption with bold prefix
+        if figure.caption_text:
+            caption_p = doc.add_paragraph(style="Caption")
+            # Bold prefix: "Figure N: "
+            run = caption_p.add_run(f"Figure {number}: ")
+            run.bold = True
+            # Regular caption text
+            caption_p.add_run(figure.caption_text)
+            caption_p.alignment = 1  # Center
+
+    def _is_bullet_list_item(self, text: str) -> bool:
+        """Dynamically detect if text is a bullet list item."""
+        if not text:
+            return False
+        stripped = text.lstrip()
+        # Check for common bullet markers
+        return stripped.startswith(('•', '-', '*', '·', '◦', '▪', '▫'))
+    
+    def _is_numbered_list_item(self, text: str) -> bool:
+        """Dynamically detect if text is a numbered list item."""
+        if not text:
+            return False
+        import re
+        # Match patterns like "1. ", "1) ", "a. ", "a) ", "i. ", "i) "
+        return bool(re.match(r'^\s*([0-9]+|[a-z]|[ivxlcdm]+)[\.)\s]\s+', text, re.IGNORECASE))
+    
+    def _clean_list_text(self, text: str) -> str:
+        """Remove list markers from text for proper Word list rendering."""
+        import re
+        # Remove bullet markers
+        text = re.sub(r'^\s*[•\-\*·◦▪▫]\s+', '', text)
+        # Remove numbered markers
+        text = re.sub(r'^\s*([0-9]+|[a-z]|[ivxlcdm]+)[\.)\s]\s+', '', text, flags=re.IGNORECASE)
+        return text
 
