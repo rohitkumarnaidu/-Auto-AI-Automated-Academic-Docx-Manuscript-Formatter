@@ -4,7 +4,7 @@ import uuid
 from typing import Optional, List
 from datetime import datetime
 from sqlalchemy import exc
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, BackgroundTasks, Query
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, BackgroundTasks, Query, Form
 from app.utils.dependencies import get_current_user, get_optional_user
 from app.schemas.user import User
 from app.db.session import SessionLocal
@@ -89,7 +89,7 @@ async def list_documents(
 async def upload_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    template: str = settings.DEFAULT_TEMPLATE,  # Dynamic default from settings
+    template: str = Form(settings.DEFAULT_TEMPLATE),  # Dynamic default from settings
     current_user: Optional[User] = Depends(get_optional_user)
 ):
     """
@@ -97,6 +97,10 @@ async def upload_document(
     Note: This project intentionally avoids automated pipeline testing at this stage.
     """
     
+    
+    # DEBUG LOG
+    print(f"DEBUG: upload_document received template='{template}' from request.")
+
     # Configuration for file upload validation
     MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
     ALLOWED_EXTENSIONS = {'.docx', '.pdf', '.tex', '.txt', '.html', '.htm', '.md', '.markdown', '.doc'}

@@ -14,7 +14,7 @@ export default function Footer({ variant = 'app' }) {
                                 <span className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">ScholarForm AI</span>
                             </div>
                             <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6">
-                                Providing specialized technical writing and formatting infrastructure for global academia and scientific institutions since 2021.
+                                Providing specialized technical writing and formatting.
                             </p>
                             <div className="flex gap-4">
                                 <a href="#" className="text-slate-400 hover:text-primary"><span className="material-symbols-outlined">share</span></a>
@@ -50,7 +50,7 @@ export default function Footer({ variant = 'app' }) {
                         </div>
                     </div>
                     <div className="pt-8 border-t border-slate-200 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4 text-center md:text-left">
-                        <p className="text-xs text-slate-400">© 2024 ManuscriptFormatter SaaS Platform. All Rights Reserved. ISO 27001 Certified.</p>
+                        <p className="text-xs text-slate-400">© ManuscriptFormatter SaaS Platform. All Rights Reserved.</p>
                         <div className="flex items-center gap-6">
                             <div className="flex items-center gap-1 opacity-50 grayscale">
                                 <span className="material-symbols-outlined text-xs">shield</span>
@@ -73,7 +73,7 @@ export default function Footer({ variant = 'app' }) {
             <div className="flex flex-col md:flex-row justify-between items-center gap-6">
                 <div className="flex items-center gap-2 text-slate-400">
                     <span className="material-symbols-outlined text-xl">auto_stories</span>
-                    <span className="text-sm font-medium">© 2024 ScholarForm AI. Built for Researchers.</span>
+                    <span className="text-sm font-medium">© ScholarForm AI. Built for Academics.</span>
                 </div>
                 <div className="flex gap-6">
                     <a href="#" className="text-sm text-slate-500 hover:text-primary">Terms of Service</a>

@@ -18,7 +18,7 @@ export default function Landing() {
                             </div>
                             <div className="flex flex-col gap-4">
                                 <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-slate-900 dark:text-white leading-[1.1] tracking-tight">
-                                    Validate, structure, and format academic papers <span className="text-primary">automatically.</span>
+                                    Write and Rewrite, Validate, structure, and format academic papers <span className="text-primary">automatically.</span>
                                 </h1>
                                 <p className="text-lg text-slate-600 dark:text-slate-400 max-w-xl leading-relaxed">
                                     Save hours on manual bibliography and style adjustments. Our engine handles APA, IEEE, Springer, and more so you can focus on your research.
@@ -32,15 +32,6 @@ export default function Landing() {
                                 <div className="flex flex-col px-2">
                                     <span className="text-sm font-semibold text-slate-500">Supported formats:</span>
                                     <span class="text-xs text-slate-400">.docx, .pdf, .tex, .txt, .html, .md</span>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-6 pt-4 grayscale opacity-60">
-                                <span className="text-sm font-bold text-slate-400">TRUSTED BY RESEARCHERS AT:</span>
-                                <div className="flex gap-6 items-center">
-                                    <span className="text-xs font-serif font-bold italic">OXFORD</span>
-                                    <span className="text-xs font-serif font-bold italic">MIT</span>
-                                    <span className="text-xs font-serif font-bold italic">STANFORD</span>
-                                    <span className="text-xs font-serif font-bold italic">ETH ZÜRICH</span>
                                 </div>
                             </div>
                         </div>

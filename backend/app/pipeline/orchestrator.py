@@ -14,7 +14,8 @@ from app.models import (
     PipelineDocument, 
     Block, 
     BlockType,
-    DocumentVersion
+    DocumentVersion,
+    TemplateInfo
 )
 from app.pipeline.parsing.parser_factory import ParserFactory
 from app.pipeline.normalization.normalizer import Normalizer as TextNormalizer
@@ -110,6 +111,9 @@ class PipelineOrchestrator:
         """
         Execute full pipeline sequentially in the background.
         """
+        # DEBUG LOG
+        print(f"DEBUG: Orchestrator.run_pipeline started with template_name='{template_name}'")
+
         # NO long-lived 'db' session at the start.
         response = {
             "status": "processing",
@@ -149,6 +153,10 @@ class PipelineOrchestrator:
                 doc_obj = parser.parse(docx_path, job_id)
             
             raw_text = "\n".join([b.text for b in doc_obj.blocks])
+
+            # CRITICAL FIX: Set Template Info for Formatter
+            if template_name:
+                doc_obj.template = TemplateInfo(template_name=template_name)
             
             with SessionLocal() as db:
                 document_rec = db.query(Document).filter_by(id=job_id).first()

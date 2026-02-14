@@ -5,7 +5,23 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
  */
 const handleRequest = async (endpoint, options = {}) => {
     try {
-        const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
+        // --- AUTH INJECTION ---
+        // Dynamically import supabase to avoid circular dependencies if any
+        const { supabase } = await import('../lib/supabaseClient');
+        const { data: { session } } = await supabase.auth.getSession();
+
+        const headers = { ...options.headers };
+
+        if (session?.access_token) {
+            headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+
+        const finalOptions = {
+            ...options,
+            headers
+        };
+
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, finalOptions);
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
@@ -49,10 +65,8 @@ const handleRequest = async (endpoint, options = {}) => {
 export const uploadDocument = async (file, template, options = {}) => {
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('template_name', template);
+    formData.append('template', template);
     formData.append('enable_ocr', options.enableOCR || false);
-    formData.append('enable_ai', options.enableAI || false);
-
     formData.append('enable_ai', options.enableAI || false);
 
     return handleRequest('/api/documents/upload', {
@@ -123,7 +137,7 @@ export const downloadFile = async (jobId, format = 'docx') => {
  * Payload: { full_name, email, institution, password, terms_accepted }
  */
 export const signup = async (data) => {
-    return handleRequest('/auth/signup', {
+    return handleRequest('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -135,7 +149,7 @@ export const signup = async (data) => {
  * Payload: { email, password }
  */
 export const login = async (data) => {
-    return handleRequest('/auth/login', {
+    return handleRequest('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -147,7 +161,7 @@ export const login = async (data) => {
  * Payload: { email }
  */
 export const forgotPassword = async (data) => {
-    return handleRequest('/auth/forgot-password', {
+    return handleRequest('/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -159,7 +173,7 @@ export const forgotPassword = async (data) => {
  * Payload: { email, otp }
  */
 export const verifyOtp = async (data) => {
-    return handleRequest('/auth/verify-otp', {
+    return handleRequest('/api/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -171,7 +185,7 @@ export const verifyOtp = async (data) => {
  * Payload: { email, otp, new_password }
  */
 export const resetPassword = async (data) => {
-    return handleRequest('/auth/reset-password', {
+    return handleRequest('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),

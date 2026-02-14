@@ -1,12 +1,13 @@
 /* eslint-disable react/prop-types */
 import { useState, useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function Navbar({ variant = 'app', activeTab = '' }) {
-    const { isLoggedIn, logout, loading } = useAuth();
+    const { isLoggedIn, signOut, loading } = useAuth();
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const profileRef = useRef(null);
+    const navigate = useNavigate();
 
     // Click-away listener for profile dropdown
     useEffect(() => {
@@ -142,13 +143,14 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
                                     </Link>
                                     <div className="border-t border-slate-100 dark:border-slate-800 my-1"></div>
                                     <button
-                                        onClick={() => {
-                                            logout();
+                                        onClick={async () => {
+                                            await signOut();
                                             setIsProfileOpen(false);
+                                            navigate('/');
                                         }}
                                         className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                                     >
-                                        Logout
+                                        Sign out
                                     </button>
                                 </div>
                             )}

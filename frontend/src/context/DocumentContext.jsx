@@ -15,6 +15,18 @@ export const DocumentProvider = ({ children }) => {
         if (savedHistory) {
             setHistory(JSON.parse(savedHistory));
         }
+
+        // HYDRATION FIX: Restore active job from session storage
+        const savedJob = sessionStorage.getItem('scholarform_currentJob');
+        if (savedJob) {
+            try {
+                const parsedJob = JSON.parse(savedJob);
+                setJob(parsedJob);
+            } catch (e) {
+                console.error("Failed to hydrate job:", e);
+                sessionStorage.removeItem('scholarform_currentJob');
+            }
+        }
     }, []);
 
     const addToHistory = (newJob) => {

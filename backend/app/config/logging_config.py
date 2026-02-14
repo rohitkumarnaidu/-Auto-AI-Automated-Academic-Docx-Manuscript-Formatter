@@ -28,7 +28,7 @@ LOGGING_CONFIG = {
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
-            "level": "WARNING",  # Only show warnings and errors in console
+            "level": "INFO",  # Show INFO, WARNING, and ERROR in console
             "formatter": "default",
             "stream": "ext://sys.stdout"
         },

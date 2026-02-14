@@ -65,10 +65,10 @@ export default function Upload() {
                     if (statusData.status === 'processing' || statusData.status === 'RUNNING') {
                         setIsProcessing(true);
                     } else if (statusData.status === 'COMPLETED') {
+                        // Job is finished. ensure UI reflects this without clearing state.
                         setIsProcessing(false);
                         setProgress(100);
                         setCurrentStep(7);
-                        setStatusMessage('Processing complete!');
                     }
                 } catch (error) {
                     console.warn("Found stale job in storage, clearing:", error);
@@ -151,9 +151,10 @@ export default function Upload() {
     }, [isProcessing, job, navigate, setJob]);
 
     const handleFileChange = (e) => {
+
         const selectedFile = e.target.files[0];
         if (selectedFile) {
-            const validTypes = ['.docx', '.pdf', '.tex', '.txt', '.html', '.md'];
+            const validTypes = ['.docx', '.doc', '.pdf', '.tex', '.txt', '.html', '.htm', '.md', '.markdown'];
             const fileExtension = selectedFile.name.substring(selectedFile.name.lastIndexOf('.')).toLowerCase();
 
             if (!validTypes.includes(fileExtension) || selectedFile.size > 50 * 1024 * 1024) {
@@ -189,7 +190,7 @@ export default function Upload() {
         setIsDragging(false);
         const droppedFile = e.dataTransfer.files[0];
         if (droppedFile) {
-            const validTypes = ['.docx', '.pdf', '.tex', '.txt', '.html', '.md'];
+            const validTypes = ['.docx', '.doc', '.pdf', '.tex', '.txt', '.html', '.htm', '.md', '.markdown'];
             const fileExtension = droppedFile.name.substring(droppedFile.name.lastIndexOf('.')).toLowerCase();
 
             if (!validTypes.includes(fileExtension) || droppedFile.size > 50 * 1024 * 1024) {
@@ -301,7 +302,7 @@ export default function Upload() {
                                     ref={fileInputRef}
                                     className="hidden"
                                     onChange={handleFileChange}
-                                    accept=".docx,.pdf,.tex,.txt,.html,.md"
+                                    accept=".docx,.doc,.pdf,.tex,.txt,.html,.htm,.md,.markdown"
                                     disabled={isProcessing}
                                 />
                                 <button
@@ -332,15 +333,22 @@ export default function Upload() {
                                     <div className="relative w-full group">
                                         <select
                                             value={template}
-                                            onChange={(e) => setTemplate(e.target.value)}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                if (val === 'browse_more') {
+                                                    navigate('/templates');
+                                                } else {
+                                                    setTemplate(val);
+                                                }
+                                            }}
                                             disabled={isProcessing || progress === 100}
                                             className="peer w-full h-12 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 pl-4 pr-10 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none appearance-none disabled:opacity-50 transition-all duration-200 ease-in-out font-medium cursor-pointer disabled:cursor-not-allowed"
                                         >
                                             <option value="none">None (General Formatting)</option>
                                             <option value="ieee">IEEE Conference / Journal</option>
                                             <option value="springer">Springer Nature (Standard)</option>
-                                            <option value="elsevier">Elsevier Article Template</option>
-                                            <option value="nature">Nature Communications</option>
+                                            <option value="apa">APA Style (7th Edition)</option>
+                                            <option value="browse_more" className="text-primary font-bold">Browse More Templates...</option>
                                         </select>
                                         <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
                                             <svg className={`h-4 w-4 text-slate-500 dark:text-slate-400`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

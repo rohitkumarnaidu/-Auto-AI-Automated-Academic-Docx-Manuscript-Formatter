@@ -37,7 +37,7 @@ export default function Signup() {
 
         if (signupError) {
             console.error(signupError);
-            setError(signupError); // Already a string
+            setError(signupError.message || String(signupError));
             setLocalLoading(false);
         } else {
             setLocalLoading(false);
@@ -45,6 +45,10 @@ export default function Signup() {
                 setSuccessMessage("Account created! Please check your email to verify your account.");
             } else {
                 setSuccessMessage("Account created! Redirecting...");
+                // Short delay to let user see the success message, then navigate
+                setTimeout(() => {
+                    window.location.href = '/dashboard'; // Hard reload to ensure fresh state or use navigate if available
+                }, 1000);
             }
         }
     };

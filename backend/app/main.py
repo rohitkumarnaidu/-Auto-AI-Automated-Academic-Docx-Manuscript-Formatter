@@ -6,8 +6,8 @@ from app.config.settings import settings
 from app.middleware.rate_limit import RateLimitMiddleware
 
 # Initialize logging FIRST (before any other imports that might log)
-from app.config.logging_config import setup_logging
-logger = setup_logging()
+#from app.config.logging_config import setup_logging
+# logger = setup_logging()
 
 # Phase 2: Silence Global AI Startup Noise
 import os

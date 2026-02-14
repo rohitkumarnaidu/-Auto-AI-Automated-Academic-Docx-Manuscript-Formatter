@@ -92,10 +92,31 @@ export const AuthProvider = ({ children }) => {
     const signUp = async (signupData) => {
         const { signup: apiSignup } = await import('../services/api');
         try {
+            setLoading(true);
             const data = await apiSignup(signupData);
+
+            if (data?.session) {
+                const { error: sessionError } = await supabase.auth.setSession({
+                    access_token: data.session.access_token,
+                    refresh_token: data.session.refresh_token
+                });
+
+                if (sessionError) {
+                    console.error("Auth: setSession failed during signup", sessionError);
+                    // We don't fail the whole signup if session set fails, but we can't auto-login
+                } else {
+                    const userToSet = data.user || data.session.user;
+                    if (userToSet) {
+                        setUser(userToSet);
+                        setIsLoggedIn(true);
+                    }
+                }
+            }
             return { data, error: null };
         } catch (error) {
-            return { data: null, error };
+            return { data: null, error: error.message || String(error) };
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -127,7 +148,17 @@ export const AuthProvider = ({ children }) => {
     };
 
     const signOut = async () => {
-        return await supabase.auth.signOut();
+        try {
+            await supabase.auth.signOut();
+        } catch (error) {
+            console.error("Error signing out:", error);
+        } finally {
+            // Force local cleanup regardless of server response
+            setUser(null);
+            setIsLoggedIn(false);
+            sessionStorage.clear();
+            localStorage.removeItem('scholarform_job');
+        }
     };
 
     const forgotPassword = async (email) => {

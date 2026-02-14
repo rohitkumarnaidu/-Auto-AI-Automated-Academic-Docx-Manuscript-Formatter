@@ -1,11 +1,15 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import { useAuth } from '../context/AuthContext';
 
 export default function Profile() {
     const [darkMode, setDarkMode] = useState(false);
     const [statusUpdates, setStatusUpdates] = useState(true);
     const [newsletter, setNewsletter] = useState(false);
+    const { signOut } = useAuth();
+    const navigate = useNavigate();
 
     return (
         <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
@@ -76,12 +80,18 @@ export default function Profile() {
                             </div>
                             <span className="material-symbols-outlined text-slate-400 group-hover:text-primary transition-colors">chevron_right</span>
                         </button>
-                        <button className="flex items-center justify-between p-5 bg-white dark:bg-slate-900 border border-red-100 dark:border-red-900/20 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/10 transition-all group text-left">
+                        <button
+                            onClick={async () => {
+                                await signOut();
+                                navigate('/');
+                            }}
+                            className="flex items-center justify-between p-5 bg-white dark:bg-slate-900 border border-red-100 dark:border-red-900/20 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/10 transition-all group text-left"
+                        >
                             <div className="flex items-center gap-4">
                                 <div className="p-2.5 bg-red-100 dark:bg-red-900/20 rounded-xl text-red-600 group-hover:bg-red-600 group-hover:text-white transition-colors">
-                                    <span className="material-symbols-outlined">logout</span>
+                                    <span className="material-symbols-outlined">Sign out</span>
                                 </div>
-                                <span className="font-bold text-red-600">Logout</span>
+                                <span className="font-bold text-red-600">Sign out</span>
                             </div>
                         </button>
                     </div>
