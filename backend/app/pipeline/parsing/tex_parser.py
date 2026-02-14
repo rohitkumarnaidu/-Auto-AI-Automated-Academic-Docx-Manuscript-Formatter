@@ -95,8 +95,12 @@ class TexParser(BaseParser):
         
         return document
     
+    
     def _extract_metadata(self, content: str) -> DocumentMetadata:
         """Extract metadata from LaTeX preamble."""
+        # Remove comments first to avoid false matches
+        content = self._remove_comments(content)
+        
         metadata = DocumentMetadata()
         
         # Extract title
@@ -119,6 +123,9 @@ class TexParser(BaseParser):
     
     def _extract_content(self, content: str) -> List[Block]:
         """Extract blocks from LaTeX content."""
+        # Remove comments first
+        content = self._remove_comments(content)
+        
         blocks = []
         
         # Extract document body
@@ -127,6 +134,115 @@ class TexParser(BaseParser):
             body = doc_match.group(1)
         else:
             body = content
+        
+        # Extract lists (itemize and enumerate)
+        itemize_pattern = r'\\begin\{(itemize|enumerate)\}(.*?)\\end\{\1\}'
+        for match in re.finditer(itemize_pattern, body, re.DOTALL):
+            list_type = match.group(1)  # itemize or enumerate
+            list_content = match.group(2)
+            
+            # Extract items
+            item_pattern = r'\\item\s+([^\\]+)'
+            for item_match in re.finditer(item_pattern, list_content):
+                item_text = self._clean_latex(item_match.group(1)).strip()
+                if item_text:
+                    block_id = generate_block_id(self.block_counter)
+                    self.block_counter += 1
+                    
+                    block = Block(
+                        block_id=block_id,
+                        text=item_text,
+                        index=self.block_counter * 100,
+                        block_type=BlockType.UNKNOWN,
+                        style=TextStyle()
+                    )
+                    block.metadata["is_list_item"] = True
+                    block.metadata["list_type"] = "ordered" if list_type == "enumerate" else "unordered"
+                    blocks.append(block)
+        
+        # Extract tables
+        table_pattern = r'\\begin\{(table|tabular)\}(.*?)\\end\{\1\}'
+        for match in re.finditer(table_pattern, body, re.DOTALL):
+            table_content = match.group(2)
+            
+            # Extract rows (separated by \\)
+            rows = [r.strip() for r in table_content.split('\\\\') if r.strip()]
+            table_text_rows = []
+            
+            for row in rows:
+                # Split cells by &
+                cells = [self._clean_latex(c.strip()) for c in row.split('&')]
+                table_text_rows.append(" | ".join(cells))
+            
+            if table_text_rows:
+                block_id = generate_block_id(self.block_counter)
+                self.block_counter += 1
+                
+                block = Block(
+                    block_id=block_id,
+                    text="\n".join(table_text_rows),
+                    index=self.block_counter * 100,
+                    block_type=BlockType.UNKNOWN,
+                    style=TextStyle()
+                )
+                block.metadata["is_table"] = True
+                blocks.append(block)
+        
+        # Extract images (\includegraphics)
+        img_pattern = r'\\includegraphics(?:\[[^\]]*\])?\{([^\}]+)\}'
+        for match in re.finditer(img_pattern, body):
+            img_filename = match.group(1)
+            
+            block_id = generate_block_id(self.block_counter)
+            self.block_counter += 1
+            
+            block = Block(
+                block_id=block_id,
+                text=f"Image: {img_filename}",
+                index=self.block_counter * 100,
+                block_type=BlockType.UNKNOWN,
+                style=TextStyle()
+            )
+            block.metadata["is_image_reference"] = True
+            block.metadata["image_source"] = img_filename
+            blocks.append(block)
+        
+        # Extract equations (display math: \[ \], equation environment)
+        # Display math: \[ ... \]
+        disp_math_pattern = r'\\\[(.*?)\\\]'
+        for match in re.finditer(disp_math_pattern, body, re.DOTALL):
+            math_content = match.group(1).strip()
+            if math_content:
+                block_id = generate_block_id(self.block_counter)
+                self.block_counter += 1
+                
+                block = Block(
+                    block_id=block_id,
+                    text=math_content,
+                    index=self.block_counter * 100,
+                    block_type=BlockType.UNKNOWN,
+                    style=TextStyle()
+                )
+                block.metadata["is_equation"] = True
+                blocks.append(block)
+        
+        # Equation environment
+        eq_pattern = r'\\begin\{equation\}(.*?)\\end\{equation\}'
+        for match in re.finditer(eq_pattern, body, re.DOTALL):
+            math_content = match.group(1).strip()
+            if math_content:
+                block_id = generate_block_id(self.block_counter)
+                self.block_counter += 1
+                
+                block = Block(
+                    block_id=block_id,
+                    text=math_content,
+                    index=self.block_counter * 100,
+                    block_type=BlockType.UNKNOWN,
+                    style=TextStyle()
+                )
+                block.metadata["is_equation"] = True
+                blocks.append(block)
         
         # Extract sections
         section_pattern = r'\\(section|subsection|subsubsection)\{([^}]+)\}'
@@ -175,10 +291,17 @@ class TexParser(BaseParser):
         
         return blocks
     
+    def _remove_comments(self, text: str) -> str:
+        """Remove LaTeX comments (starting with %) but keep escaped \%."""
+        # Simple regex: match % that is NOT preceded by \
+        return re.sub(r'(?<!\\)%.*', '', text)
+
     def _clean_latex(self, text: str) -> str:
         """Remove LaTeX commands and keep plain text."""
-        # Remove comments
-        text = re.sub(r'%.*', '', text)
+        # Comments are handled by _remove_comments separately
+        # but _clean_latex might be called on snippets too, so we keep a basic check?
+        # Ideally, we clean structure FIRST, then clean commands.
+        # But for 'clean latex', we just want text.
         
         # Remove common environments
         text = re.sub(r'\\begin\{[^}]+\}', '', text)

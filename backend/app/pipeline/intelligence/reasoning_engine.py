@@ -197,22 +197,39 @@ class ReasoningEngine:
     
     def _generate_with_nvidia(self, semantic_blocks: List[Dict[str, Any]], rules: str) -> Dict[str, Any]:
         """Generate instruction set using NVIDIA Llama 3.3 70B."""
-        # Prepare prompt
-        # For NVIDIA, we might need a more concise prompt due to context window or specific API expectations.
-        # The provided snippet uses a summary of blocks.
-        blocks_summary = "\n".join([
-            f"Block {i}: {b.get('text', '')[:100]}..."
-            for i, b in enumerate(semantic_blocks[:10])  # Limit to first 10 for context
-        ])
+        # Prepare prompt with rich metadata
+        blocks_summary = []
+        for i, b in enumerate(semantic_blocks[:15]):  # Increased context to 15 blocks
+            text = b.get('text', '')[:150]  # Increased text length
+            
+            # Add metadata hints
+            hints = []
+            if b.get('metadata', {}).get('heading_level'):
+                hints.append(f"H{b['metadata']['heading_level']}")
+            if b.get('metadata', {}).get('is_code_block'):
+                hints.append(f"CODE({b['metadata']['code_language']})")
+            if b.get('metadata', {}).get('is_table'):
+                hints.append("TABLE")
+            if b.get('metadata', {}).get('is_list_item'):
+                hints.append("LIST_ITEM")
+            if b.get('metadata', {}).get('font_size'):
+                hints.append(f"Size:{b['metadata']['font_size']:.1f}")
+            if b.get('style', {}).get('bold'):
+                hints.append("BOLD")
+                
+            hint_str = f" [{', '.join(hints)}]" if hints else ""
+            blocks_summary.append(f"Block {i}: {text}{hint_str}")
+            
+        blocks_summary_str = "\n".join(blocks_summary)
         
         messages = [
             {
                 "role": "system",
-                "content": "You are an expert at analyzing academic manuscript structure. Classify each block as HEADING_1, ABSTRACT_BODY, BODY_TEXT, REFERENCE_ENTRY, etc. Return JSON only."
+                "content": """You are an expert academic manuscript structure analyzer. Your task is to classify document blocks with HIGH CONFIDENCE.\n\n**Available Block Types:**\n- TITLE: Main paper title\n- AUTHOR: Author names\n- AFFILIATION: Institutional affiliations\n- ABSTRACT_HEADING: \"Abstract\" heading\n- ABSTRACT_BODY: Abstract content\n- HEADING_1: Main sections (Introduction, Methods, Results, Discussion, Conclusion)\n- HEADING_2: Subsections\n- BODY: Regular paragraph text\n- FIGURE_CAPTION: \"Figure X:\" captions\n- TABLE_CAPTION: \"Table X:\" captions\n- REFERENCES_HEADING: \"References\" heading\n- REFERENCE_ENTRY: Individual citations\n\n**Confidence Guidelines:**\n- Use 0.95-1.0 for OBVIOUS cases (e.g., \"Abstract\", numbered references)\n- Use 0.80-0.94 for CLEAR cases with minor ambiguity\n- Use 0.70-0.79 for PROBABLE cases with some uncertainty\n- Use 0.50-0.69 ONLY when genuinely unsure\n\n**Examples:**\n1. \"Abstract\" → ABSTRACT_HEADING (confidence: 0.98)\n2. \"This paper proposes a novel method...\" → ABSTRACT_BODY (confidence: 0.92)\n3. \"1 Introduction\" → HEADING_1 (confidence: 0.95)\n4. \"Figure 1: System architecture\" → FIGURE_CAPTION (confidence: 0.96)\n5. \"[1] Smith, J. et al.\" → REFERENCE_ENTRY (confidence: 0.94)\n\n**Malformed Text Handling:**\n- \"2ethodology\" → HEADING_1 (interpret as \"Methodology\", confidence: 0.88)\n- Partial/corrupted text → Use context to infer, reduce confidence accordingly\n\nReturn ONLY valid JSON. Be decisive - aim for 0.85+ confidence when possible."""
             },
             {
                 "role": "user",
-                "content": f"Analyze these document blocks and classify them:\n\n{blocks_summary}\n\nReturn JSON with format: {{\"blocks\": [{{\"block_id\": \"...\", \"semantic_type\": \"...\", \"confidence\": 0.9}}]}}"
+                "content": f"""Analyze and classify each block. Be confident in your classifications.\n\n**Document Blocks:**\n{blocks_summary}\n\n**Output Format (JSON only):**\n{{{{\n  \"blocks\": [\n    {{{{\"block_id\": \"0\", \"semantic_type\": \"ABSTRACT_HEADING\", \"confidence\": 0.95}}}},\n    {{{{\"block_id\": \"1\", \"semantic_type\": \"ABSTRACT_BODY\", \"confidence\": 0.90}}}}\n  ]\n}}}}\n\nClassify all blocks with high confidence. Use context clues."""
             }
         ]
         

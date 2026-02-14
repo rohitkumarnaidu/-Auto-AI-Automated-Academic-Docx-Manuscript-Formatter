@@ -75,6 +75,7 @@ class TextStyle(BaseModel):
     bold: bool = False
     italic: bool = False
     underline: bool = False
+    strikethrough: bool = False
     font_name: Optional[str] = None
     font_size: Optional[float] = None  # in points
     color: Optional[str] = None  # hex color code

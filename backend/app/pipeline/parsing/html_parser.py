@@ -138,11 +138,15 @@ class HtmlParser(BaseParser):
         blocks = []
         figures = []
         
+        # Security/Cleanliness: Remove script and style tags
+        for script in soup(["script", "style"]):
+            script.decompose()
+            
         # Find body or use whole document
         body = soup.find('body') or soup
         
         # Extract content in order
-        for element in body.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'li', 'img']):
+        for element in body.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'li', 'img', 'pre', 'code', 'table']):
             if element.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
                 # Heading
                 text = element.get_text().strip()
@@ -164,19 +168,34 @@ class HtmlParser(BaseParser):
                     blocks.append(block)
             
             elif element.name == 'p':
-                # Paragraph
+                # Paragraph - check for formatting
                 text = element.get_text().strip()
                 if text:
                     block_id = generate_block_id(self.block_counter)
                     self.block_counter += 1
+                    
+                    # Detect formatting
+                    has_bold = element.find(['b', 'strong']) is not None
+                    has_italic = element.find(['i', 'em']) is not None
+                    
+                    # Extract links
+                    links = []
+                    for link in element.find_all('a'):
+                        href = link.get('href', '')
+                        if href:
+                            links.append(href)
                     
                     block = Block(
                         block_id=block_id,
                         text=text,
                         index=self.block_counter * 100,
                         block_type=BlockType.UNKNOWN,
-                        style=TextStyle()
+                        style=TextStyle(bold=has_bold, italic=has_italic)
                     )
+                    
+                    if links:
+                        block.metadata["links"] = links
+                    
                     blocks.append(block)
             
             elif element.name == 'li':
@@ -186,6 +205,10 @@ class HtmlParser(BaseParser):
                     block_id = generate_block_id(self.block_counter)
                     self.block_counter += 1
                     
+                    # Check if parent is ordered or unordered
+                    parent = element.parent
+                    is_ordered = parent.name == 'ol' if parent else False
+                    
                     block = Block(
                         block_id=block_id,
                         text=text,
@@ -194,6 +217,57 @@ class HtmlParser(BaseParser):
                         style=TextStyle()
                     )
                     block.metadata["is_list_item"] = True
+                    block.metadata["list_type"] = "ordered" if is_ordered else "unordered"
+                    blocks.append(block)
+            
+            elif element.name in ['pre', 'code']:
+                # Code block
+                text = element.get_text()
+                if text.strip():
+                    block_id = generate_block_id(self.block_counter)
+                    self.block_counter += 1
+                    
+                    # Try to detect language from class (e.g., class="language-python")
+                    code_lang = "plaintext"
+                    classes = element.get('class', [])
+                    for cls in classes:
+                        if cls.startswith('language-'):
+                            code_lang = cls.replace('language-', '')
+                            break
+                    
+                    block = Block(
+                        block_id=block_id,
+                        text=text,
+                        index=self.block_counter * 100,
+                        block_type=BlockType.UNKNOWN,
+                        style=TextStyle()
+                    )
+                    block.metadata["is_code_block"] = True
+                    block.metadata["code_language"] = code_lang
+                    blocks.append(block)
+            
+            elif element.name == 'table':
+                # Table extraction
+                table_text_rows = []
+                
+                for row in element.find_all('tr'):
+                    cells = row.find_all(['th', 'td'])
+                    row_text = " | ".join([cell.get_text().strip() for cell in cells])
+                    if row_text:
+                        table_text_rows.append(row_text)
+                
+                if table_text_rows:
+                    block_id = generate_block_id(self.block_counter)
+                    self.block_counter += 1
+                    
+                    block = Block(
+                        block_id=block_id,
+                        text="\n".join(table_text_rows),
+                        index=self.block_counter * 100,
+                        block_type=BlockType.UNKNOWN,
+                        style=TextStyle()
+                    )
+                    block.metadata["is_table"] = True
                     blocks.append(block)
             
             elif element.name == 'img':

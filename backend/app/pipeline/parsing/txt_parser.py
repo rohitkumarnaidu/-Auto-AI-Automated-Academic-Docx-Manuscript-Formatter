@@ -8,6 +8,7 @@ Converts plain text files to internal Document model by:
 """
 
 import os
+import re
 from typing import List
 from datetime import datetime
 from pathlib import Path
@@ -107,22 +108,55 @@ class TxtParser(BaseParser):
             block_id = generate_block_id(self.block_counter)
             self.block_counter += 1
             
+            # Detect bullet lists (-, *, •, ◦)
+            is_bullet_list = re.match(r'^\s*[-\*•◦]\s+', para)
+            
+            # Detect numbered lists (1., 1), a), (1), etc.)
+            # STRICT LOGIC:
+            # 1. Must have space after the delimiter
+            # 2. Number must be reasonable (1-99) to avoid years like "1990."
+            is_numbered_list = False
+            num_match = re.match(r'^\s*(\d+)(\.|\))\s+', para)
+            if num_match:
+                number = int(num_match.group(1))
+                if 0 < number < 100:  # Valid list range
+                    is_numbered_list = True
+            else:
+                # Check for letter markers a), (1)
+                is_numbered_list = re.match(r'^\s*(?:[a-z]\)|\(\d+\))\s+', para)
+            
             # Detect potential headings
             is_potential_heading = (
                 para.isupper() or  # ALL CAPS
-                (len(para) < 100 and not para.endswith('.'))  # Short and no period
+                (len(para) < 100 and not para.endswith('.') and not is_bullet_list and not is_numbered_list)  # Short and no period
             )
+            
+            # Preserve emails and URLs by detecting them
+            has_email = re.search(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', para)
+            has_url = re.search(r'https?://[^\s]+', para)
+            
+            style = TextStyle(bold=is_potential_heading)
             
             block = Block(
                 block_id=block_id,
                 text=para,
                 index=self.block_counter * 100,
                 block_type=BlockType.UNKNOWN,
-                style=TextStyle(bold=is_potential_heading)
+                style=style
             )
             
             if is_potential_heading:
                 block.metadata["potential_heading"] = True
+            
+            if is_bullet_list or is_numbered_list:
+                block.metadata["is_list_item"] = True
+                block.metadata["list_type"] = "ordered" if is_numbered_list else "unordered"
+            
+            if has_email:
+                block.metadata["contains_email"] = True
+            
+            if has_url:
+                block.metadata["contains_url"] = True
             
             blocks.append(block)
         

@@ -122,33 +122,235 @@ class PdfParser(BaseParser):
         
         return metadata
     
+        return blocks, figures
+
+    def _calculate_font_stats(self, pdf_doc) -> float:
+        """
+        Calculate the most frequent font size (body text size) in the document.
+        
+        Returns:
+            float: The body text font size (default 11.0 if detection fails)
+        """
+        font_sizes = {}
+        
+        # Scan a subset of pages (up to 5) to estimate font statistics
+        # Scanning all pages might be too slow for large docs
+        pages_to_scan = min(5, len(pdf_doc))
+        
+        for i in range(pages_to_scan):
+            try:
+                page = pdf_doc[i]
+                text_dict = page.get_text("dict")
+                
+                for block in text_dict.get("blocks", []):
+                    if block.get("type") == 0:  # Text block
+                        for line in block.get("lines", []):
+                            for span in line.get("spans", []):
+                                size = round(span.get("size", 0), 1)
+                                if size > 0:
+                                    font_sizes[size] = font_sizes.get(size, 0) + len(span.get("text", ""))
+            except Exception:
+                continue
+                
+        if not font_sizes:
+            return 11.0
+            
+        # Return the font size with the most characters (weighted mode)
+        body_size = max(font_sizes.items(), key=lambda x: x[1])[0]
+        return body_size
+
+    def _is_header_footer(self, block_bbox: list, page_rect: list) -> bool:
+        """
+        Check if a block is likely a header or footer based on position.
+        """
+        if not block_bbox or not page_rect:
+            return False
+            
+        page_height = page_rect[3] - page_rect[1]
+        if page_height <= 0: return False
+        
+        y0, y1 = block_bbox[1], block_bbox[3]
+        
+        # Thresholds: Top 7% or Bottom 7%
+        top_threshold = page_rect[1] + (page_height * 0.07)
+        bottom_threshold = page_rect[3] - (page_height * 0.07)
+        
+        # If block is strictly within top or bottom margins
+        is_top = y1 <= top_threshold
+        is_bottom = y0 >= bottom_threshold
+        
+        return is_top or is_bottom
+
     def _extract_content(self, pdf_doc) -> Tuple[List[Block], List[Figure]]:
-        """Extract text blocks and images from PDF."""
+        """Extract text blocks, tables, and images from PDF."""
         blocks = []
         figures = []
         
+        # 0. Content Analysis (Dynamic Font Sizing)
+        # ------------------------------------------------
+        body_font_size = self._calculate_font_stats(pdf_doc)
+        
+        # Define adaptive thresholds
+        h1_threshold = body_font_size * 1.6     # e.g., 11 * 1.6 = 17.6
+        h2_threshold = body_font_size * 1.3     # e.g., 11 * 1.3 = 14.3
+        h3_threshold = body_font_size * 1.1     # e.g., 11 * 1.1 = 12.1 (+ bold usually)
+        
+        print(f"PDF Analysis: Body Size={body_font_size}pt, H1>{h1_threshold:.1f}pt, H2>{h2_threshold:.1f}pt")
+        
         for page_num, page in enumerate(pdf_doc):
-            # Extract text blocks
-            text_blocks = page.get_text("blocks")  # Returns (x0, y0, x1, y1, text, block_no, block_type)
+            # 1. Extract Tables first (PyMuPDF find_tables)
+            # ------------------------------------------------
+            table_rects = []
+            try:
+                tables = page.find_tables()
+                for table in tables:
+                    # Get table bounding box to exclude raw text later
+                    table_rects.append(table.bbox)
+                    
+                    # Extract table content as list of lists
+                    header = table.header
+                    rows = table.extract()
+                    
+                    # Convert to Markdown-like table text
+                    table_lines = []
+                    if header:
+                        table_lines.append(" | ".join([str(h) if h else "" for h in header]))
+                        table_lines.append(" | ".join(["---"] * len(header)))
+                    
+                    for row in rows:
+                        # Clean cell content (remove newlines within cells)
+                        cleaned_row = [str(cell).replace('\n', ' ').strip() if cell else "" for cell in row]
+                        table_lines.append(" | ".join(cleaned_row))
+                        
+                    if table_lines:
+                        block_id = generate_block_id(self.block_counter)
+                        self.block_counter += 1
+                        
+                        block = Block(
+                            block_id=block_id,
+                            text="\n".join(table_lines),
+                            index=self.block_counter * 100,
+                            block_type=BlockType.UNKNOWN,
+                            style=TextStyle(),
+                            page_number=page_num + 1
+                        )
+                        block.metadata["is_table"] = True
+                        blocks.append(block)
+            except Exception as e:
+                print(f"Warning: PDF table extraction failed on page {page_num + 1}: {e}")
+
+            # 2. Extract Text (excluding tables)
+            # ------------------------------------------------
+            # Extract text with formatting details
+            text_dict = page.get_text("dict")
             
-            for block_data in text_blocks:
-                if len(block_data) >= 5:
-                    text = block_data[4].strip()
+            # Process each block in the page
+            for block in text_dict.get("blocks", []):
+                if block.get("type") == 0:  # Text block
+                    # Check if block overlaps significantly with any table
+                    block_bbox = block.get("bbox")
+                    is_in_table = False
+                    
+                    if block_bbox:
+                        # Check for header/footer
+                        if self._is_header_footer(block_bbox, page.rect):
+                            # Mark it but don't skip yet? Or skip?
+                            # For now, mark it in metadata so LLM can decide, 
+                            # BUT user wants "clean" text. 
+                            # If I skip it, it's gone.
+                            # If I mark it, I need to add it to block logic.
+                            pass # Will add metadata later when creating block
+                        
+                        # specific logic: check if center of block is inside a table rect
+                        b_x0, b_y0, b_x1, b_y1 = block_bbox
+                        b_center_x = (b_x0 + b_x1) / 2
+                        b_center_y = (b_y0 + b_y1) / 2
+                        
+                        for t_rect in table_rects:
+                            # t_rect is (x0, y0, x1, y1)
+                            if (t_rect[0] <= b_center_x <= t_rect[2] and 
+                                t_rect[1] <= b_center_y <= t_rect[3]):
+                                is_in_table = True
+                                break
+                    
+                    if is_in_table:
+                        continue  # Skip text that is part of a table
+
+                    block_text_parts = []
+                    avg_font_size = 0
+                    font_sizes = []
+                    is_bold = False
+                    is_italic = False
+                    
+                    # Extract text and analyze styles from spans
+                    for line in block.get("lines", []):
+                        line_text = ""
+                        for span in line.get("spans", []):
+                            span_text = span.get("text", "")
+                            line_text += span_text
+                            
+                            # Track font size for heading detection
+                            font_size = span.get("size", 0)
+                            if font_size > 0:
+                                font_sizes.append(font_size)
+                            
+                            # Check font flags for bold/italic
+                            flags = span.get("flags", 0)
+                            if flags & 16:  # Bold
+                                is_bold = True
+                            if flags & 2:   # Italic
+                                is_italic = True
+                        
+                        if line_text.strip():
+                            block_text_parts.append(line_text.strip())
+                    
+                    text = " ".join(block_text_parts).strip()
+                    
                     if text:
                         block_id = generate_block_id(self.block_counter)
                         self.block_counter += 1
+                        
+                        # Calculate average font size
+                        if font_sizes:
+                            avg_font_size = sum(font_sizes) / len(font_sizes)
+                        
+                        # Create text style
+                        style = TextStyle(
+                            bold=is_bold,
+                            italic=is_italic
+                        )
                         
                         block = Block(
                             block_id=block_id,
                             text=text,
                             index=self.block_counter * 100,
                             block_type=BlockType.UNKNOWN,
-                            style=TextStyle(),
+                            style=style,
                             page_number=page_num + 1
                         )
+                        
+                        # Detect potential headings using ADAPTIVE thresholds
+                        # Logic: 
+                        # - H1: Significantly larger than body (e.g. > 1.6x)
+                        # - H2: Moderately larger (e.g. > 1.3x)
+                        # - H3: Slightly larger (> 1.1x) OR (Bold AND Same Size)
+                        
+                        if avg_font_size >= h3_threshold or (is_bold and avg_font_size >= body_font_size):
+                            block.metadata["potential_heading"] = True
+                            
+                            if avg_font_size >= h1_threshold:
+                                block.metadata["heading_level"] = 1
+                            elif avg_font_size >= h2_threshold:
+                                block.metadata["heading_level"] = 2
+                            else:
+                                block.metadata["heading_level"] = 3
+                        
+                        block.metadata["font_size"] = avg_font_size
+                        block.metadata["relative_size"] = avg_font_size / body_font_size if body_font_size else 1.0
                         blocks.append(block)
             
-            # Extract images
+            # 3. Extract Images
+            # ------------------------------------------------
             image_list = page.get_images()
             for img_index, img in enumerate(image_list):
                 try:

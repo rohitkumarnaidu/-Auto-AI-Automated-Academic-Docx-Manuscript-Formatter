@@ -142,8 +142,105 @@ class MarkdownParser(BaseParser):
         while i < len(lines):
             line = lines[i]
             
+            # Code block (```language)
+            if line.strip().startswith('```'):
+                # Save previous paragraph
+                if current_paragraph:
+                    blocks.append(self._create_paragraph_block('\n'.join(current_paragraph)))
+                    current_paragraph = []
+                
+                # Extract code block
+                code_lang = line.strip()[3:].strip()  # Language after ```
+                code_lines = []
+                i += 1
+                
+                # Collect until closing ```
+                while i < len(lines) and not lines[i].strip().startswith('```'):
+                    code_lines.append(lines[i])
+                    i += 1
+                
+                # Create code block
+                block_id = generate_block_id(self.block_counter)
+                self.block_counter += 1
+                
+                block = Block(
+                    block_id=block_id,
+                    text='\n'.join(code_lines),
+                    index=self.block_counter * 100,
+                    block_type=BlockType.UNKNOWN,
+                    style=TextStyle()
+                )
+                block.metadata["is_code_block"] = True
+                block.metadata["code_language"] = code_lang or "plaintext"
+                blocks.append(block)
+                
+                i += 1  # Skip closing ```
+                continue
+            
+            # Table (| Col | Col |)
+            elif line.strip().startswith('|') and '|' in line.strip()[1:]:
+                # Save previous paragraph
+                if current_paragraph:
+                    blocks.append(self._create_paragraph_block('\n'.join(current_paragraph)))
+                    current_paragraph = []
+                
+                # Extract table
+                table_lines = [line]
+                i += 1
+                
+                # Collect table rows
+                while i < len(lines) and lines[i].strip().startswith('|'):
+                    table_lines.append(lines[i])
+                    i += 1
+                
+                # Create table block (simplified - just store as text)
+                block_id = generate_block_id(self.block_counter)
+                self.block_counter += 1
+                
+                block = Block(
+                    block_id=block_id,
+                    text='\n'.join(table_lines),
+                    index=self.block_counter * 100,
+                    block_type=BlockType.UNKNOWN,
+                    style=TextStyle()
+                )
+                block.metadata["is_table"] = True
+                blocks.append(block)
+                continue
+            
+            # Blockquote (> quote)
+            elif line.strip().startswith('>'):
+                # Save previous paragraph
+                if current_paragraph:
+                    blocks.append(self._create_paragraph_block('\n'.join(current_paragraph)))
+                    current_paragraph = []
+                
+                # Extract blockquote
+                quote_lines = [line.strip()[1:].strip()]  # Remove >
+                i += 1
+                
+                # Collect consecutive quote lines
+                while i < len(lines) and lines[i].strip().startswith('>'):
+                    quote_lines.append(lines[i].strip()[1:].strip())
+                    i += 1
+                
+                # Create blockquote block
+                block_id = generate_block_id(self.block_counter)
+                self.block_counter += 1
+                
+                block = Block(
+                    block_id=block_id,
+                    text=' '.join(quote_lines),
+                    index=self.block_counter * 100,
+                    block_type=BlockType.UNKNOWN,
+                    style=TextStyle(italic=True)
+                )
+                block.metadata["is_blockquote"] = True
+                blocks.append(block)
+                continue
+            
             # Heading
-            if line.startswith('#'):
+            elif line.startswith('#'):
                 # Save previous paragraph
                 if current_paragraph:
                     blocks.append(self._create_paragraph_block('\n'.join(current_paragraph)))
@@ -165,6 +262,40 @@ class MarkdownParser(BaseParser):
                 )
                 block.metadata["heading_level"] = level
                 block.metadata["potential_heading"] = True
+                blocks.append(block)
+            
+            # Horizontal rule (---, ***, ___)
+            elif re.match(r'^[\-\*_]{3,}\s*$', line.strip()):
+                # Save previous paragraph
+                if current_paragraph:
+                    blocks.append(self._create_paragraph_block('\n'.join(current_paragraph)))
+                    current_paragraph = []
+                # Skip horizontal rules entirely - don't create a block
+            
+            # Footnote Definition ([^ref]: text)
+            elif re.match(r'^\[\^[^\]]+\]:', line.strip()):
+                # Save previous paragraph
+                if current_paragraph:
+                    blocks.append(self._create_paragraph_block('\n'.join(current_paragraph)))
+                    current_paragraph = []
+                
+                # Extract footnote
+                footnote_text = line.strip()
+                # If subsequent lines are indented, they belong to the footnote (simplified: just take one line or until next block)
+                # Helper: just take the line for now, or accumulate if strictly indented? 
+                # Markdown footnotes can be multi-line if indented 4 spaces.
+                # For simplicity/robustness, we'll treat it as a block.
+                
+                block_id = generate_block_id(self.block_counter)
+                self.block_counter += 1
+                
+                block = Block(
+                    block_id=block_id,
+                    text=footnote_text, # Keep the definition marker or strip it? keep for now
+                    index=self.block_counter * 100,
+                    block_type=BlockType.FOOTNOTE,
+                    style=TextStyle(font_size=10.0) # Usually smaller
+                )
                 blocks.append(block)
             
             # Image ![alt](url)
@@ -210,20 +341,77 @@ class MarkdownParser(BaseParser):
         
         return blocks, figures
     
+    def _strip_markdown(self, text: str) -> str:
+        """
+        Strip markdown syntax and return clean text.
+        
+        Note: This removes markdown formatting but preserves emails and URLs.
+        
+        Returns:
+            cleaned_text (string only, no style info)
+        """
+        cleaned = text
+
+        # Protect Math (replace with placeholder)
+        math_blocks = []
+        def replace_math(match):
+            math_blocks.append(match.group(0))
+            return f"{{{{MATH_BLOCK_{len(math_blocks)-1}}}}}"
+            
+        # Protect code blocks within text too (if any remaining)
+        cleaned = re.sub(r'(\$\$[\s\S]*?\$\$|\$[^\$]*?\$)', replace_math, cleaned)
+        
+        # Remove bold (**text** or __text__)
+        cleaned = re.sub(r'\*\*(.+?)\*\*', r'\1', cleaned)
+        cleaned = re.sub(r'__(.+?)__', r'\1', cleaned)
+        
+        # Remove italic (*text* or _text_) - but avoid underscores in emails/URLs
+        cleaned = re.sub(r'\*([^\*]+?)\*', r'\1', cleaned)
+        cleaned = re.sub(r'(?<!\S)_([^_]+?)_(?!\S)', r'\1', cleaned)
+        
+        # Remove strikethrough (~~text~~)
+        cleaned = re.sub(r'~~(.+?)~~', r'\1', cleaned)
+        
+        # Remove inline code (`code`)
+        cleaned = re.sub(r'`(.+?)`', r'\1', cleaned)
+        
+        # Remove links [text](url) -> keep text, but preserve bare URLs
+        cleaned = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', cleaned)
+        
+        # Remove footnote refs [^1]
+        cleaned = re.sub(r'\[\^[^\]]+\]', '', cleaned)
+        
+        # Remove list markers (but keep the text)
+        cleaned = re.sub(r'^\s*[\*\-\+]\s+', '', cleaned)  # Unordered lists
+        cleaned = re.sub(r'^\s*\d+\.\s+', '', cleaned)     # Ordered lists
+        
+        # Restore Math
+        for i, block in enumerate(math_blocks):
+            cleaned = cleaned.replace(f"{{{{MATH_BLOCK_{i}}}}}", block)
+        
+        return cleaned.strip()
+    
+    
     def _create_paragraph_block(self, text: str) -> Block:
         """Create a paragraph block from text."""
         block_id = generate_block_id(self.block_counter)
         self.block_counter += 1
         
-        # Detect list items
+        # Detect list items (before stripping)
         is_list = text.strip().startswith(('-', '*', '+')) or re.match(r'^\d+\.', text.strip())
+        
+        # Strip markdown syntax (returns plain text only)
+        cleaned_text = self._strip_markdown(text)
+        
+        # Don't apply block-level formatting - let Word handle it
+        style = TextStyle()
         
         block = Block(
             block_id=block_id,
-            text=text.strip(),
+            text=cleaned_text,  # Use cleaned text without markdown syntax
             index=self.block_counter * 100,
             block_type=BlockType.UNKNOWN,
-            style=TextStyle()
+            style=style
         )
         
         if is_list:

@@ -6,10 +6,12 @@ them with the nearest Figure object.
 """
 
 import re
+import os
 from typing import List, Optional, Tuple, Dict, Any
 from datetime import datetime
 
 from app.pipeline.base import PipelineStage
+from app.models import PipelineDocument as Document, Block, Figure
 
 class CaptionMatcher(PipelineStage):
     """
@@ -25,20 +27,35 @@ class CaptionMatcher(PipelineStage):
        - Block gets `BlockType.FIGURE_CAPTION` (if semantic update is allowed/safe).
     """
     
-    def __init__(self, max_distance: int = 2):
+    def __init__(self, max_distance: int = 2, enable_vision: bool = False):
         """
         Initialize the matcher.
         
         Args:
             max_distance: Max number of blocks between figure and caption to consider a match.
+            enable_vision: Whether to use NVIDIA Vision for caption enhancement.
         """
         self.max_distance = max_distance
+        self.enable_vision = enable_vision
+        
         # Regex for common caption patterns (case-insensitive)
         # Matches: "Figure 1.", "Fig. 2:", "Figure 3-a"
         self.caption_pattern = re.compile(
             r'^(?:Figure|Fig\.?)\s+\d+[a-zA-Z0-9\.]*', 
             re.IGNORECASE
         )
+        
+        # Initialize vision client if enabled
+        self.vision_client = None
+        if self.enable_vision:
+            try:
+                from app.services.nvidia_client import get_nvidia_client
+                self.vision_client = get_nvidia_client()
+                if self.vision_client:
+                    print("✅ Vision analysis enabled for figure captions")
+            except Exception as e:
+                print(f"⚠️ Vision analysis unavailable: {e}")
+                self.vision_client = None
 
     def process(self, document: Document) -> Document:
         """
@@ -100,6 +117,52 @@ class CaptionMatcher(PipelineStage):
         document.updated_at = datetime.utcnow()
         
         return document
+
+    def _enhance_captions_with_vision(self, figures: List[Figure]) -> int:
+        """
+        Use NVIDIA Llama 3.2 Vision to enhance figure captions.
+        
+        Args:
+            figures: List of figures to analyze
+        
+        Returns:
+            Number of figures enhanced
+        """
+        enhanced_count = 0
+        
+        for figure in figures:
+            # Skip if no image path
+            if not figure.export_path or not os.path.exists(figure.export_path):
+                continue
+            
+            try:
+                # Analyze figure with vision model
+                vision_description = self.vision_client.analyze_figure(
+                    image_path=figure.export_path,
+                    caption=figure.caption_text
+                )
+                
+                if vision_description:
+                    # Store vision analysis in metadata
+                    figure.metadata["vision_analysis"] = vision_description
+                    
+                    # If no caption exists, use vision analysis as caption
+                    if not figure.caption_text or figure.caption_text.strip() == "":
+                        figure.caption_text = f"Figure {figure.figure_id}: {vision_description}"
+                        figure.metadata["caption_source"] = "vision_generated"
+                        print(f"✅ Generated caption for Figure {figure.figure_id} using vision")
+                    else:
+                        # Caption exists, just store analysis for reference
+                        figure.metadata["caption_source"] = "manual_with_vision"
+                        print(f"✅ Enhanced Figure {figure.figure_id} with vision analysis")
+                    
+                    enhanced_count += 1
+            
+            except Exception as e:
+                print(f"⚠️ Vision analysis failed for Figure {figure.figure_id}: {e}")
+                continue
+        
+        return enhanced_count
 
     def _find_caption_candidates(self, blocks: List[Block]) -> List[int]:
         """
@@ -177,6 +240,6 @@ class CaptionMatcher(PipelineStage):
         return matches
 
 # Convenience function
-def link_figures(document: Document) -> Document:
-    matcher = CaptionMatcher()
+def link_figures(document: Document, enable_vision: bool = True) -> Document:
+    matcher = CaptionMatcher(enable_vision=enable_vision)
     return matcher.process(document)
