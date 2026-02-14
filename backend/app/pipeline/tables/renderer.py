@@ -32,11 +32,21 @@ class TableRenderer:
             caption_p = doc.add_paragraph(style="Caption")
             # Use sequential number if provided, otherwise fall back to index+1
             table_num = number if number is not None else (table_model.index + 1)
-            # Bold prefix: "Table 1: "
-            run = caption_p.add_run(f"Table {table_num}: ")
-            run.bold = True
-            # Regular caption text
-            caption_p.add_run(table_model.caption_text)
+            
+            # Check if caption already starts with "Table N:" to avoid duplication
+            caption_lower = table_model.caption_text.lower().strip()
+            if caption_lower.startswith(f"table {table_num}:"):
+                # Caption already has prefix, just add it as-is with bold prefix
+                run = caption_p.add_run(f"Table {table_num}: ")
+                run.bold = True
+                # Add the rest after the prefix
+                rest_text = table_model.caption_text[len(f"Table {table_num}:"):].strip()
+                caption_p.add_run(rest_text)
+            else:
+                # Caption doesn't have prefix, add it
+                run = caption_p.add_run(f"Table {table_num}: ")
+                run.bold = True
+                caption_p.add_run(table_model.caption_text)
             caption_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
         # 2. CREATE TABLE

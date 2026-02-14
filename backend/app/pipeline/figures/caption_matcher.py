@@ -66,51 +66,34 @@ class CaptionMatcher(PipelineStage):
         
         # 3. Apply Links
         match_count = 0
+        vision_enhanced = 0
+        
         for fig, cap_block in matches:
             # Update Figure
             fig.caption_text = cap_block.text.strip()
             fig.caption_block_id = cap_block.block_id
             
-            # Update Block (Semantic refinement)
-            # The prompt says "Do NOT change BlockType". 
-            # Wait, "Do NOT change BlockType" is a Rule.
-            # But the metadata responsibilities in previous task implied FIGURE_CAPTION exists.
-            # And current task checklist says "Update BlockType to FIGURE_CAPTION (optional)".
-            # Strict Rule: "Do NOT change BlockType".
-            # I will Respect the Rule "Do NOT change BlockType" strictly unless I can justify it.
-            # However, semantic correctness suggests it SHOULD be FIGURE_CAPTION.
-            # The prompt says "Output: The same Document model with figures linked to captions".
-            # Responsibilities: "Attach caption text and block ID to Figure objects".
-            # Deliverables section doesn't explicit mention updating BlockType.
-            # Rules: "Do NOT change BlockType".
-            # OK, checking previous prompt... BlockType enum HAS `FIGURE_CAPTION`.
-            # If I leave it as BODY, it's ambiguous.
-            # But the Rule is explicit.
-            # Maybe the user meant "Don't change types derived from Structure stage UNLESS it's a caption"?
-            # Re-reading: "Do NOT change BlockType". This is a negative constraint.
-            # I will ONLY update metadata on the Block, and update the Figure object.
-            # I will NOT change the BlockType of the caption block itself to avoid violating the rule.
-            # Wait, if I don't change BlockType, future stages won't know it's a caption easily.
-            # But maybe the Figure object holding the link is enough.
-            
-            # Correction: Looking at "Responsibilities":
-            # "Attach caption text and block ID to Figure objects"
-            # It does NOT say "Update block type".
-            # I will stick to the rules. I will NOT change BlockType.
-            # I will add metadata to the block though.
-            
+            # Update Block metadata
             cap_block.metadata["is_figure_caption"] = True
             cap_block.metadata["linked_figure_id"] = fig.figure_id
             match_count += 1
-
+        
+        # 4. (NEW) Vision Analysis Enhancement
+        if self.enable_vision and self.vision_client:
+            vision_enhanced = self._enhance_captions_with_vision(figures)
+        
         # Update processing history
         end_time = datetime.utcnow()
         duration_ms = int((end_time - start_time).total_seconds() * 1000)
         
+        message = f"Linked {match_count} captions to figures"
+        if vision_enhanced > 0:
+            message += f", enhanced {vision_enhanced} with vision analysis"
+        
         document.add_processing_stage(
             stage_name="figure_linking",
             status="success",
-            message=f"Linked {match_count} captions to figures",
+            message=message,
             duration_ms=duration_ms
         )
         

@@ -129,13 +129,25 @@ class PipelineOrchestrator:
             with SessionLocal() as db:
                 self._update_status(db, job_id, "EXTRACTION", "IN_PROGRESS", progress=10)
             
-            # Extraction can be long; do not hold DB session here
-            docx_path = self.converter.convert_to_docx(input_path, job_id, enable_ocr=enable_ocr)
-            
-            # Use ParserFactory to auto-select correct parser based on file extension
+            # Check if we can parse the file directly without conversion
             factory = ParserFactory()
-            parser = factory.get_parser(docx_path)
-            doc_obj = parser.parse(docx_path, job_id)
+            file_ext = os.path.splitext(input_path)[1].lower()
+            
+            # Formats our parsers support directly (no conversion needed)
+            parser_supported_formats = ['.pdf', '.txt', '.html', '.htm', '.md', '.markdown', '.tex', '.latex']
+            
+            if file_ext in parser_supported_formats:
+                # Parse original file directly (no Pandoc/LibreOffice needed!)
+                print(f"✅ Parsing {file_ext} directly with ParserFactory (no conversion)")
+                parser = factory.get_parser(input_path)
+                doc_obj = parser.parse(input_path, job_id)
+                docx_path = input_path  # Keep original path for reference
+            else:
+                # For .docx or other formats, use converter then parser
+                docx_path = self.converter.convert_to_docx(input_path, job_id, enable_ocr=enable_ocr)
+                parser = factory.get_parser(docx_path)
+                doc_obj = parser.parse(docx_path, job_id)
+            
             raw_text = "\n".join([b.text for b in doc_obj.blocks])
             
             with SessionLocal() as db:
@@ -203,7 +215,7 @@ class PipelineOrchestrator:
             self._check_stage_interface(self.analyzer, "process", "ContentAnalyzer")
             doc_obj = self.analyzer.process(doc_obj)
             
-            caption_matcher = CaptionMatcher()
+            caption_matcher = CaptionMatcher(enable_vision=True)
             self._check_stage_interface(caption_matcher, "process", "CaptionMatcher")
             doc_obj = caption_matcher.process(doc_obj)
             

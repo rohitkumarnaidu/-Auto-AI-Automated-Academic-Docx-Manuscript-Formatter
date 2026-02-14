@@ -396,7 +396,11 @@ class Formatter:
             try:
                 # Calculate optimal size based on image dimensions
                 width, height = self._calculate_image_size(figure)
-                doc.add_picture(figure.export_path, width=width, height=height)
+                # Add image and get the paragraph containing it
+                paragraph = doc.add_paragraph()
+                run = paragraph.add_run()
+                run.add_picture(figure.export_path, width=width, height=height)
+                paragraph.alignment = 1  # Center the image
             except Exception as e:
                 print(f"⚠️  Failed to render figure from export_path: {e}")
                 # Fallback: add placeholder text if image fails
@@ -409,10 +413,14 @@ class Formatter:
                 image_stream = BytesIO(figure.image_data)
                 # Calculate optimal size
                 width, height = self._calculate_image_size(figure)
+                # Add image to a paragraph and center it
+                paragraph = doc.add_paragraph()
+                run = paragraph.add_run()
                 if height:
-                    doc.add_picture(image_stream, width=width, height=height)
+                    run.add_picture(image_stream, width=width, height=height)
                 else:
-                    doc.add_picture(image_stream, width=width)
+                    run.add_picture(image_stream, width=width)
+                paragraph.alignment = 1  # Center the image
                 print(f"✅ Rendered figure {number} from image_data ({len(figure.image_data)} bytes)")
             except Exception as e:
                 print(f"⚠️  Failed to render figure from image_data: {e}")
@@ -424,14 +432,23 @@ class Formatter:
             p = doc.add_paragraph(f"[Figure {number} Placeholder - No image data]")
             p.alignment = 1  # Center the placeholder too
         
-        # 2. Add caption with bold prefix
+        # 2. Add caption with bold prefix (check if prefix already exists)
         if figure.caption_text:
             caption_p = doc.add_paragraph(style="Caption")
-            # Bold prefix: "Figure N: "
-            run = caption_p.add_run(f"Figure {number}: ")
-            run.bold = True
-            # Regular caption text
-            caption_p.add_run(figure.caption_text)
+            # Check if caption already starts with "Figure N:" to avoid duplication
+            caption_lower = figure.caption_text.lower().strip()
+            if caption_lower.startswith(f"figure {number}:"):
+                # Caption already has prefix, just add it as-is with bold prefix
+                run = caption_p.add_run(f"Figure {number}: ")
+                run.bold = True
+                # Add the rest after the prefix
+                rest_text = figure.caption_text[len(f"Figure {number}:"):].strip()
+                caption_p.add_run(rest_text)
+            else:
+                # Caption doesn't have prefix, add it
+                run = caption_p.add_run(f"Figure {number}: ")
+                run.bold = True
+                caption_p.add_run(figure.caption_text)
             caption_p.alignment = 1  # Center
 
     def _is_bullet_list_item(self, text: str) -> bool:
