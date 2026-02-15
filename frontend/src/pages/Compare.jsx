@@ -13,6 +13,7 @@ export default function Compare() {
 
     // Generate aligned diffs for side-by-side view
     const [diffData, setDiffData] = useState({ left: [], right: [] });
+    const [structuredData, setStructuredData] = useState(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -21,6 +22,10 @@ export default function Compare() {
                 try {
                     const { getComparison } = await import('../services/api');
                     const data = await getComparison(job.id);
+
+                    if (data.formatted?.structured_data) {
+                        setStructuredData(data.formatted.structured_data);
+                    }
 
                     const originalText = data.original?.raw_text || "";
 
@@ -119,7 +124,7 @@ export default function Compare() {
                                 Text View
                             </button>
                             {/* Only show Structured view if data exists */}
-                            {job.structuredData && (
+                            {structuredData && (
                                 <button
                                     onClick={() => setViewMode('structured')}
                                     className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'structured' ? 'bg-white dark:bg-slate-700 shadow-sm text-primary' : 'text-slate-500 dark:text-slate-400 hover:text-primary'}`}
@@ -128,6 +133,7 @@ export default function Compare() {
                                     Structured
                                 </button>
                             )}
+
                         </div>
                         <div className="flex h-10 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 p-1">
                             <label onClick={() => setScrollSync(!scrollSync)} className={`cursor-pointer flex h-full items-center justify-center rounded-md px-3 text-xs transition-all ${scrollSync ? 'bg-white dark:bg-slate-700 shadow-sm text-primary font-bold' : 'text-slate-500 dark:text-slate-400 font-medium hover:text-primary'}`}>
@@ -159,72 +165,85 @@ export default function Compare() {
                     </div>
                 </div>
 
-                {/* Side-by-Side Split View */}
-                <div className="flex-1 flex gap-4 min-h-[600px]">
-                    {/* Left Panel: Original */}
-                    <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
-                        <div className="px-6 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 flex justify-between items-center">
-                            <h3 className="font-bold text-sm text-slate-700 dark:text-slate-200 uppercase tracking-wider flex items-center gap-2">
-                                <span className="material-symbols-outlined text-[18px] text-slate-400">history</span>
-                                Original
-                            </h3>
-                            <span className="text-[10px] text-slate-400">Source: {job.originalFileName}</span>
-                        </div>
-                        <div className={`flex-1 p-8 overflow-y-auto custom-scrollbar leading-relaxed text-slate-800 dark:text-slate-300 font-serif text-[15px] ${scrollSync ? 'scroll-sync-left' : ''}`}>
-                            <div className="max-w-2xl mx-auto space-y-1">
-                                {diffs.left.map((line, i) => (
-                                    <div key={i} className={`min-h-[24px] ${highlights && line.type === 'removed'
-                                        ? 'bg-red-100 dark:bg-red-900/30 border-l-2 border-red-500 pl-2'
-                                        : line.type === 'empty' ? 'bg-slate-50/50 dark:bg-slate-800/30' : ''
-                                        }`}>
-                                        <p>{line.text}</p>
-                                    </div>
-                                ))}
+                {/* Side-by-Side Split View OR Structured Data View */}
+                {viewMode === 'text' ? (
+                    <div className="flex-1 flex gap-4 min-h-[600px]">
+                        {/* Left Panel: Original */}
+                        <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
+                            <div className="px-6 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 flex justify-between items-center">
+                                <h3 className="font-bold text-sm text-slate-700 dark:text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-[18px] text-slate-400">history</span>
+                                    Original
+                                </h3>
+                                <span className="text-[10px] text-slate-400">Source: {job.originalFileName}</span>
                             </div>
-                        </div>
-                    </div>
-
-                    <div className="flex flex-col items-center justify-center px-0 text-slate-300 dark:text-slate-700">
-                        <span className="material-symbols-outlined">link</span>
-                    </div>
-
-                    {/* Right Panel: Processed */}
-                    <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 border-2 border-primary rounded-xl overflow-hidden shadow-lg relative transition-all duration-300">
-                        {isPaused && (
-                            <div className="absolute inset-0 bg-white/20 dark:bg-slate-900/20 backdrop-blur-[1px] z-10 flex items-center justify-center pointer-events-none">
-                                <div className="bg-white/90 dark:bg-slate-800/90 p-4 rounded-full shadow-2xl border border-amber-200 animate-in fade-in zoom-in duration-300">
-                                    <span className="material-symbols-outlined text-amber-500 text-6xl">format_paint</span>
+                            <div className={`flex-1 p-8 overflow-y-auto custom-scrollbar leading-relaxed text-slate-800 dark:text-slate-300 font-serif text-[15px] ${scrollSync ? 'scroll-sync-left' : ''}`}>
+                                <div className="max-w-2xl mx-auto space-y-1">
+                                    {diffs.left.map((line, i) => (
+                                        <div key={i} className={`min-h-[24px] ${highlights && line.type === 'removed'
+                                            ? 'bg-red-100 dark:bg-red-900/30 border-l-2 border-red-500 pl-2'
+                                            : line.type === 'empty' ? 'bg-slate-50/50 dark:bg-slate-800/30' : ''
+                                            }`}>
+                                            <p>{line.text}</p>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
-                        )}
-                        <div className="px-6 py-3 border-b border-slate-200 dark:border-slate-800 bg-primary/5 flex justify-between items-center">
-                            <h3 className="font-bold text-sm text-primary uppercase tracking-wider flex items-center gap-2">
-                                <span className="material-symbols-outlined text-[18px]">verified</span>
-                                Processed ({job.template})
-                            </h3>
-                            <div className="flex gap-2">
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded transition-colors ${isPaused ? 'bg-amber-100 text-amber-600' : 'bg-green-100 text-green-600 dark:text-green-400'}`}>
-                                    {isPaused ? 'PAUSED' : 'VALIDATED'}
-                                </span>
-                            </div>
                         </div>
-                        <div className={`flex-1 p-8 overflow-y-auto custom-scrollbar bg-white dark:bg-slate-900 ${scrollSync ? 'scroll-sync-right' : ''}`}>
-                            <div className="max-w-2xl mx-auto space-y-1">
-                                {diffs.right.map((line, i) => (
-                                    <div key={i} className={`min-h-[24px] relative ${highlights && line.type === 'added'
-                                        ? 'bg-green-100 dark:bg-green-900/30 border-l-2 border-green-500 pl-2'
-                                        : line.type === 'empty' ? 'bg-slate-50/50 dark:bg-slate-800/30' : ''
-                                        }`}>
-                                        <p>{line.text}</p>
-                                        {(isPaused || highlights) && line.text.trim() !== "" && line.type !== 'empty' && (
-                                            <span className="inline-block ml-1 text-primary/30 font-serif translate-y-[2px]" title="Formatting Symbol">¶</span>
-                                        )}
+
+                        <div className="flex flex-col items-center justify-center px-0 text-slate-300 dark:text-slate-700">
+                            <span className="material-symbols-outlined">link</span>
+                        </div>
+
+                        {/* Right Panel: Processed */}
+                        <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 border-2 border-primary rounded-xl overflow-hidden shadow-lg relative transition-all duration-300">
+                            {isPaused && (
+                                <div className="absolute inset-0 bg-white/20 dark:bg-slate-900/20 backdrop-blur-[1px] z-10 flex items-center justify-center pointer-events-none">
+                                    <div className="bg-white/90 dark:bg-slate-800/90 p-4 rounded-full shadow-2xl border border-amber-200 animate-in fade-in zoom-in duration-300">
+                                        <span className="material-symbols-outlined text-amber-500 text-6xl">format_paint</span>
                                     </div>
-                                ))}
+                                </div>
+                            )}
+                            <div className="px-6 py-3 border-b border-slate-200 dark:border-slate-800 bg-primary/5 flex justify-between items-center">
+                                <h3 className="font-bold text-sm text-primary uppercase tracking-wider flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-[18px]">verified</span>
+                                    Processed ({job.template})
+                                </h3>
+                                <div className="flex gap-2">
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded transition-colors ${isPaused ? 'bg-amber-100 text-amber-600' : 'bg-green-100 text-green-600 dark:text-green-400'}`}>
+                                        {isPaused ? 'PAUSED' : 'VALIDATED'}
+                                    </span>
+                                </div>
+                            </div>
+                            <div className={`flex-1 p-8 overflow-y-auto custom-scrollbar bg-white dark:bg-slate-900 ${scrollSync ? 'scroll-sync-right' : ''}`}>
+                                <div className="max-w-2xl mx-auto space-y-1">
+                                    {diffs.right.map((line, i) => (
+                                        <div key={i} className={`min-h-[24px] relative ${highlights && line.type === 'added'
+                                            ? 'bg-green-100 dark:bg-green-900/30 border-l-2 border-green-500 pl-2'
+                                            : line.type === 'empty' ? 'bg-slate-50/50 dark:bg-slate-800/30' : ''
+                                            }`}>
+                                            <p>{line.text}</p>
+                                            {(isPaused || highlights) && line.text.trim() !== "" && line.type !== 'empty' && (
+                                                <span className="inline-block ml-1 text-primary/30 font-serif translate-y-[2px]" title="Formatting Symbol">¶</span>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
+                ) : (
+                    <div className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm p-6 overflow-auto">
+                        <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-lg border border-slate-100 dark:border-slate-800">
+                            <h3 className="font-bold text-sm text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-4 border-b border-slate-200 dark:border-slate-800 pb-2">
+                                Structured Data View
+                            </h3>
+                            <pre className="font-mono text-xs text-slate-600 dark:text-slate-400 overflow-auto whitespace-pre-wrap">
+                                {JSON.stringify(structuredData, null, 2)}
+                            </pre>
+                        </div>
+                    </div>
+                )}
 
                 {/* Diff Summary Footer */}
                 <div className="mt-4 flex items-center justify-between px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-xs">

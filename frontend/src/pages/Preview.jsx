@@ -123,7 +123,7 @@ export default function Preview() {
                             <div className="space-y-3">
                                 <div>
                                     <p className="text-[10px] text-slate-400 uppercase font-bold">Word Count</p>
-                                    <p className="text-sm font-semibold">{(job.processedText || '').split(/\s+/).filter(Boolean).length} Words</p>
+                                    <p className="text-sm font-semibold">{(content || '').split(/\s+/).filter(Boolean).length} Words</p>
                                 </div>
                                 <div>
                                     <p className="text-[10px] text-slate-400 uppercase font-bold">Template</p>
