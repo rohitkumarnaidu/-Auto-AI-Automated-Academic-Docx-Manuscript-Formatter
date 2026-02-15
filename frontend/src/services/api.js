@@ -66,8 +66,13 @@ export const uploadDocument = async (file, template, options = {}) => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('template', template);
-    formData.append('enable_ocr', options.enableOCR || false);
-    formData.append('enable_ai', options.enableAI || false);
+
+    // New Formatting Options
+    formData.append('add_page_numbers', options.add_page_numbers ?? true);
+    formData.append('add_borders', options.add_borders ?? false);
+    formData.append('add_cover_page', options.add_cover_page ?? true);
+    formData.append('generate_toc', options.generate_toc ?? false);
+    formData.append('page_size', options.page_size || 'Letter');
 
     return handleRequest('/api/documents/upload', {
         method: 'POST',

@@ -17,8 +17,12 @@ export default function Upload() {
     const [statusMessage, setStatusMessage] = useState('Initializing...');
     const [template, setTemplate] = useState('none');
     const [category, setCategory] = useState('none'); // New State for Dropdown Filter
-    const [ocrEnabled, setOcrEnabled] = useState(true);
-    const [aiEnabled, setAiEnabled] = useState(false);
+    // New Formatting Options
+    const [addPageNumbers, setAddPageNumbers] = useState(true);
+    const [addBorders, setAddBorders] = useState(false);
+    const [addCoverPage, setAddCoverPage] = useState(true);
+    const [generateTOC, setGenerateTOC] = useState(false);
+    const [pageSize, setPageSize] = useState('Letter');
     const navigate = useNavigate();
 
     // Mapping backend phases to UI Steps
@@ -229,8 +233,11 @@ export default function Upload() {
                 const { uploadDocument } = await import('../services/api');
                 // Pass real options to backend
                 const result = await uploadDocument(file, template, {
-                    enableOCR: ocrEnabled,
-                    enableAI: aiEnabled
+                    add_page_numbers: addPageNumbers,
+                    add_borders: addBorders,
+                    add_cover_page: addCoverPage,
+                    generate_toc: generateTOC,
+                    page_size: pageSize
                 });
 
                 const newJob = {
@@ -239,7 +246,13 @@ export default function Upload() {
                     status: 'processing',
                     originalFileName: file.name,
                     template: template,
-                    flags: { ai_enhanced: aiEnabled, ocr_applied: ocrEnabled },
+                    flags: {
+                        page_numbers: addPageNumbers,
+                        borders: addBorders,
+                        cover_page: addCoverPage,
+                        toc: generateTOC,
+                        page_size: pageSize
+                    },
                     progress: 0
                 };
                 setJob(newJob);
@@ -714,52 +727,106 @@ export default function Upload() {
                         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
                             <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
                                 <span className="material-symbols-outlined text-primary">tune</span>
-                                2. Processing Parameters
+                                2. Formatting Options
                             </h2>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {/* Removed Template Dropdown - Moved to Top */}
-
-                                <div className="flex flex-col gap-4 md:col-span-2">
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div className="flex items-center justify-between p-4 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 transition-colors">
-                                            <div className="flex flex-col gap-1">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="material-symbols-outlined text-slate-500">text_snippet</span>
-                                                    <span className="text-sm font-bold text-slate-900 dark:text-white">Enable OCR</span>
-                                                </div>
-                                                <span className="text-xs text-slate-500 pl-8">Extract text from images/scans</span>
-                                            </div>
-                                            <div className="relative inline-block w-12 align-middle select-none transition duration-200 ease-in">
-                                                <input
-                                                    checked={ocrEnabled}
-                                                    onChange={(e) => setOcrEnabled(e.target.checked)}
-                                                    disabled={isProcessing || progress === 100}
-                                                    className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer right-6 checked:right-0 transition-all duration-300 disabled:opacity-50"
-                                                    id="ocr" name="toggle" style={{ top: 0, right: ocrEnabled ? '0px' : '24px' }} type="checkbox"
-                                                />
-                                                <label className={`toggle-label block overflow-hidden h-6 rounded-full cursor-pointer transition-colors duration-300 ${ocrEnabled ? 'bg-primary' : 'bg-slate-300'}`} htmlFor="ocr"></label>
-                                            </div>
+                                <div className="flex flex-col gap-4">
+                                    {/* Page Numbers */}
+                                    <div className="flex items-center justify-between p-3 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 transition-colors">
+                                        <div className="flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-slate-500">format_list_numbered</span>
+                                            <span className="text-sm font-bold text-slate-900 dark:text-white">Add Page Numbers</span>
                                         </div>
-
-                                        <div className="flex items-center justify-between p-4 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 transition-colors">
-                                            <div className="flex flex-col gap-1">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="material-symbols-outlined text-slate-500">auto_awesome</span>
-                                                    <span className="text-sm font-bold text-slate-900 dark:text-white">AI/NLP Analysis</span>
-                                                </div>
-                                                <span className="text-xs text-slate-500 pl-8">Detect citation errors & gaps</span>
-                                            </div>
-                                            <div className="relative inline-block w-12 align-middle select-none transition duration-200 ease-in">
-                                                <input
-                                                    checked={aiEnabled}
-                                                    onChange={(e) => setAiEnabled(e.target.checked)}
-                                                    disabled={isProcessing || progress === 100}
-                                                    className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer right-6 checked:right-0 transition-all duration-300 disabled:opacity-50"
-                                                    id="nlp" name="toggle" style={{ top: 0, right: aiEnabled ? '0px' : '24px' }} type="checkbox"
-                                                />
-                                                <label className={`toggle-label block overflow-hidden h-6 rounded-full cursor-pointer transition-colors duration-300 ${aiEnabled ? 'bg-primary' : 'bg-slate-300'}`} htmlFor="nlp"></label>
-                                            </div>
+                                        <div className="relative inline-block w-10 align-middle select-none transition duration-200 ease-in">
+                                            <input
+                                                checked={addPageNumbers}
+                                                onChange={(e) => setAddPageNumbers(e.target.checked)}
+                                                disabled={isProcessing || progress === 100}
+                                                className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer right-5 checked:right-0 transition-all duration-300 disabled:opacity-50"
+                                                id="page_numbers" name="toggle" style={{ top: 0, right: addPageNumbers ? '0px' : '20px' }} type="checkbox"
+                                            />
+                                            <label className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer transition-colors duration-300 ${addPageNumbers ? 'bg-primary' : 'bg-slate-300'}`} htmlFor="page_numbers"></label>
                                         </div>
+                                    </div>
+
+                                    {/* Borders */}
+                                    <div className="flex items-center justify-between p-3 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 transition-colors">
+                                        <div className="flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-slate-500">border_style</span>
+                                            <span className="text-sm font-bold text-slate-900 dark:text-white">Add Borders</span>
+                                        </div>
+                                        <div className="relative inline-block w-10 align-middle select-none transition duration-200 ease-in">
+                                            <input
+                                                checked={addBorders}
+                                                onChange={(e) => setAddBorders(e.target.checked)}
+                                                disabled={isProcessing || progress === 100}
+                                                className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer right-5 checked:right-0 transition-all duration-300 disabled:opacity-50"
+                                                id="borders" name="toggle" style={{ top: 0, right: addBorders ? '0px' : '20px' }} type="checkbox"
+                                            />
+                                            <label className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer transition-colors duration-300 ${addBorders ? 'bg-primary' : 'bg-slate-300'}`} htmlFor="borders"></label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col gap-4">
+                                    {/* Cover Page */}
+                                    <div className="flex items-center justify-between p-3 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 transition-colors">
+                                        <div className="flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-slate-500">article</span>
+                                            <span className="text-sm font-bold text-slate-900 dark:text-white">Add Cover Page</span>
+                                        </div>
+                                        <div className="relative inline-block w-10 align-middle select-none transition duration-200 ease-in">
+                                            <input
+                                                checked={addCoverPage}
+                                                onChange={(e) => setAddCoverPage(e.target.checked)}
+                                                disabled={isProcessing || progress === 100}
+                                                className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer right-5 checked:right-0 transition-all duration-300 disabled:opacity-50"
+                                                id="cover_page" name="toggle" style={{ top: 0, right: addCoverPage ? '0px' : '20px' }} type="checkbox"
+                                            />
+                                            <label className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer transition-colors duration-300 ${addCoverPage ? 'bg-primary' : 'bg-slate-300'}`} htmlFor="cover_page"></label>
+                                        </div>
+                                    </div>
+
+                                    {/* TOC */}
+                                    <div className="flex items-center justify-between p-3 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 transition-colors">
+                                        <div className="flex flex-col">
+                                            <div className="flex items-center gap-2">
+                                                <span className="material-symbols-outlined text-slate-500">toc</span>
+                                                <span className="text-sm font-bold text-slate-900 dark:text-white">Generate TOC</span>
+                                            </div>
+                                            <span className="text-[10px] text-slate-400 pl-8">Auto generates from headings</span>
+                                        </div>
+                                        <div className="relative inline-block w-10 align-middle select-none transition duration-200 ease-in">
+                                            <input
+                                                checked={generateTOC}
+                                                onChange={(e) => setGenerateTOC(e.target.checked)}
+                                                disabled={isProcessing || progress === 100}
+                                                className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer right-5 checked:right-0 transition-all duration-300 disabled:opacity-50"
+                                                id="toc" name="toggle" style={{ top: 0, right: generateTOC ? '0px' : '20px' }} type="checkbox"
+                                            />
+                                            <label className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer transition-colors duration-300 ${generateTOC ? 'bg-primary' : 'bg-slate-300'}`} htmlFor="toc"></label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Page Size Dropdown - Spans full width */}
+                                <div className="col-span-1 md:col-span-2">
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-slate-500">aspect_ratio</span>
+                                            Page Size
+                                        </label>
+                                        <select
+                                            value={pageSize}
+                                            onChange={(e) => setPageSize(e.target.value)}
+                                            disabled={isProcessing || progress === 100}
+                                            className="w-full p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
+                                        >
+                                            <option value="Letter">Letter (US Default)</option>
+                                            <option value="A4">A4 (International)</option>
+                                            <option value="Legal">Legal</option>
+                                        </select>
+                                        <p className="text-xs text-slate-500">Your selection becomes the default for future documents.</p>
                                     </div>
                                 </div>
                             </div>
