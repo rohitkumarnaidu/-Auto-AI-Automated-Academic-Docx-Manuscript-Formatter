@@ -59,6 +59,9 @@ class PipelineDocument(BaseModel):
     metadata: DocumentMetadata = Field(default_factory=DocumentMetadata)
     template: Optional[TemplateInfo] = None
     
+    # Formatting Options
+    formatting_options: Dict[str, Any] = Field(default_factory=dict)
+    
     # Validation results
     is_valid: bool = True
     validation_errors: List[str] = Field(default_factory=list)

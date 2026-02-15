@@ -106,13 +106,16 @@ class PipelineOrchestrator:
         input_path: str, 
         job_id: str, 
         template_name: Optional[str] = "IEEE",
-        enable_ocr: bool = True
+        formatting_options: Dict[str, Any] = None  # New Parameter
     ) -> Dict[str, Any]:
         """
         Execute full pipeline sequentially in the background.
         """
         # DEBUG LOG
-        print(f"DEBUG: Orchestrator.run_pipeline started with template_name='{template_name}'")
+        print(f"DEBUG: Orchestrator.run_pipeline started with template_name='{template_name}', options={formatting_options}")
+        
+        if formatting_options is None:
+            formatting_options = {}
 
         # NO long-lived 'db' session at the start.
         response = {
@@ -145,12 +148,16 @@ class PipelineOrchestrator:
                 print(f"✅ Parsing {file_ext} directly with ParserFactory (no conversion)")
                 parser = factory.get_parser(input_path)
                 doc_obj = parser.parse(input_path, job_id)
+                doc_obj.formatting_options = formatting_options  # Inject Options
                 docx_path = input_path  # Keep original path for reference
             else:
-                # For .docx or other formats, use converter then parser
-                docx_path = self.converter.convert_to_docx(input_path, job_id, enable_ocr=enable_ocr)
+                print(f"ℹ️ Converting {file_ext} to DOCX first...")
+                docx_path = self.converter.convert_to_docx(input_path, job_id)
+                
+                # Parse the converted DOCX
                 parser = factory.get_parser(docx_path)
                 doc_obj = parser.parse(docx_path, job_id)
+                doc_obj.formatting_options = formatting_options # Inject Options
             
             raw_text = "\n".join([b.text for b in doc_obj.blocks])
 

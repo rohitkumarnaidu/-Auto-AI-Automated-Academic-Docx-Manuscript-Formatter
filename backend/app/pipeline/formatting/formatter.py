@@ -8,6 +8,8 @@ from typing import Optional, Any
 from docx import Document as WordDocument
 from docx.shared import Inches, Pt
 from io import BytesIO
+from docx.oxml.ns import qn
+from docx.oxml import OxmlElement
 
 from app.models import PipelineDocument as Document, BlockType, Figure
 from app.pipeline.contracts.loader import ContractLoader
@@ -138,6 +140,28 @@ class Formatter:
         # 3. Render
         self._apply_initial_layout(word_doc, template_name)
         
+        # --- NEW FORMATTING OPTIONS IMPLEMENTATION ---
+        options = document.formatting_options or {}
+        
+        # A. Page Size
+        self._apply_page_size(word_doc, options.get("page_size", "Letter"))
+        
+        # B. Cover Page
+        if options.get("cover_page", True):
+            self._add_cover_page(word_doc, document)
+            
+        # C. Table of Contents
+        if options.get("toc", False):
+            self._add_table_of_contents(word_doc)
+            
+        # D. Page Numbers
+        if options.get("page_numbers", True):
+             self._add_page_numbers(word_doc)
+
+        # E. Borders
+        if options.get("borders", False):
+            self._add_page_borders(word_doc)
+
         current_columns = None
         
         for item in items_to_insert:
@@ -225,6 +249,129 @@ class Formatter:
                 return val
         
         return default
+
+    def _apply_page_size(self, doc, size_name: str):
+        """Sets the page size for all sections."""
+        from docx.shared import Inches, Mm
+        
+        size_map = {
+            "Letter": (Inches(8.5), Inches(11)),
+            "A4": (Mm(210), Mm(297)),
+            "Legal": (Inches(8.5), Inches(14))
+        }
+        
+        width, height = size_map.get(size_name, size_map["Letter"])
+        
+        for section in doc.sections:
+            section.page_width = width
+            section.page_height = height
+
+    def _add_cover_page(self, doc, document_obj):
+        """Adds a cover page with title and metadata."""
+        # Insert a new paragraph at the very beginning
+        # Note: We can't easily prepend in python-docx, so we rely on this being called 
+        # BEFORE content addition if we want it first, OR we add a section break.
+        # However, typically cover pages are separate sections at the start.
+        # Since we call this early in `format()`, we can just add to the empty doc.
+        
+        p = doc.add_paragraph()
+        p.alignment = 1 # Center
+        
+        # Title
+        title = document_obj.metadata.title or document_obj.original_filename or "Untitled Document"
+        run = p.add_run(title + "\n\n")
+        run.bold = True
+        run.font.size = Pt(24)
+        
+        # Authors
+        authors = ", ".join(document_obj.metadata.authors) if document_obj.metadata.authors else "Unknown Author"
+        run = p.add_run(authors + "\n")
+        run.font.size = Pt(14)
+        
+        # Date
+        from datetime import datetime
+        run = p.add_run(datetime.now().strftime("%B %d, %Y"))
+        run.font.size = Pt(12)
+        
+        doc.add_page_break()
+
+    def _add_table_of_contents(self, doc):
+        """Adds a TOC field code."""
+        from docx.oxml.ns import qn
+        from docx.oxml import OxmlElement
+
+        p = doc.add_paragraph()
+        run = p.add_run("Table of Contents")
+        run.bold = True
+        run.font.size = Pt(16)
+        
+        # XML for TOC field
+        paragraph = doc.add_paragraph()
+        run = paragraph.add_run()
+        fldChar = OxmlElement('w:fldChar')
+        fldChar.set(qn('w:fldCharType'), 'begin')
+        run._r.append(fldChar)
+        
+        instr = OxmlElement('w:instrText')
+        instr.set(qn('xml:space'), 'preserve')
+        instr.text = 'TOC \\o "1-3" \\h \\z \\u'
+        run._r.append(instr)
+        
+        fldChar2 = OxmlElement('w:fldChar')
+        fldChar2.set(qn('w:fldCharType'), 'separate')
+        run._r.append(fldChar2)
+        
+        fldChar3 = OxmlElement('w:fldChar')
+        fldChar3.set(qn('w:fldCharType'), 'end')
+        run._r.append(fldChar3)
+        
+        doc.add_page_break()
+
+    def _add_page_numbers(self, doc):
+        """Adds simple page numbers to the footer."""
+        from docx.oxml.ns import qn
+        from docx.oxml import OxmlElement
+        
+        # Simplification: Add to first section's footer
+        section = doc.sections[0]
+        footer = section.footer
+        p = footer.paragraphs[0]
+        p.alignment = 1 # Center
+        
+        run = p.add_run()
+        fldChar = OxmlElement('w:fldChar')
+        fldChar.set(qn('w:fldCharType'), 'begin')
+        run._r.append(fldChar)
+        
+        instr = OxmlElement('w:instrText')
+        instr.set(qn('xml:space'), 'preserve')
+        instr.text = "PAGE"
+        run._r.append(instr)
+        
+        fldChar2 = OxmlElement('w:fldChar')
+        fldChar2.set(qn('w:fldCharType'), 'end')
+        run._r.append(fldChar2)
+
+    def _add_page_borders(self, doc):
+        """Adds page borders via OXML."""
+        from docx.oxml.ns import qn
+        from docx.oxml import OxmlElement
+        
+        # Get the section properties
+        sec_pr = doc.sections[0]._sectPr
+        # Create pgBorders element
+        pg_borders = OxmlElement('w:pgBorders')
+        pg_borders.set(qn('w:offsetFrom'), 'page')
+        
+        for border_name in ('top', 'left', 'bottom', 'right'):
+            border = OxmlElement(f'w:{border_name}')
+            border.set(qn('w:val'), 'single')
+            border.set(qn('w:sz'), '4') # 1/8 point
+            border.set(qn('w:space'), '24')
+            border.set(qn('w:color'), 'auto')
+            pg_borders.append(border)
+            
+        sec_pr.append(pg_borders)
 
     def _set_columns(self, section, count: int):
         """Helper to set column count on a python-docx section."""

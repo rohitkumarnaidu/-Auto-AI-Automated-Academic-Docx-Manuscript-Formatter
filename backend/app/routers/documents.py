@@ -86,10 +86,17 @@ async def list_documents(
         db.close()
 
 @router.post("/upload")
+@router.post("/upload")
 async def upload_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    template: str = Form(settings.DEFAULT_TEMPLATE),  # Dynamic default from settings
+    template: str = Form(settings.DEFAULT_TEMPLATE),
+    # New Formatting Options
+    add_page_numbers: bool = Form(True),
+    add_borders: bool = Form(False),
+    add_cover_page: bool = Form(True),
+    generate_toc: bool = Form(False),
+    page_size: str = Form("Letter"),
     current_user: Optional[User] = Depends(get_optional_user)
 ):
     """
@@ -163,14 +170,23 @@ async def upload_document(
         with open(file_path, "wb") as buffer:
             buffer.write(file_content)
         
-        # Create Document record with RUNNING status initially
+        # Create Document record with formatting options
+        formatting_options = {
+            "page_numbers": add_page_numbers,
+            "borders": add_borders,
+            "cover_page": add_cover_page,
+            "toc": generate_toc,
+            "page_size": page_size
+        }
+
         new_doc = Document(
             id=job_id,
             user_id=current_user.id if current_user else None,
             filename=safe_filename,  # Use sanitized filename
             template=template,
             status="RUNNING",
-            original_file_path=file_path
+            original_file_path=file_path,
+            formatting_options=formatting_options
         )
         db.add(new_doc)
         db.commit()
@@ -183,7 +199,8 @@ async def upload_document(
             orchestrator=orchestrator,
             input_path=file_path,
             job_id=job_id,
-            template_name=template
+            template_name=template,
+            formatting_options=formatting_options
         )
         
         return {
