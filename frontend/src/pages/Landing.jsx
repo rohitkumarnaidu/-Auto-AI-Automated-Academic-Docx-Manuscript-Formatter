@@ -31,7 +31,7 @@ export default function Landing() {
                                 </Link>
                                 <div className="flex flex-col px-2">
                                     <span className="text-sm font-semibold text-slate-500">Supported formats:</span>
-                                    <span class="text-xs text-slate-400">.docx, .pdf, .tex, .txt, .html, .md</span>
+                                    <span className="text-xs text-slate-400">.docx, .pdf, .tex</span>
                                 </div>
                             </div>
                         </div>

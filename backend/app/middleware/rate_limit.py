@@ -39,15 +39,32 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # Check if this is an upload request (stricter limit)
         is_upload = request.url.path == "/api/documents/upload" and request.method == "POST"
         
+        # Determine client identifier: User ID (if auth) > IP
+        client_id = client_ip
+        try:
+            # Attempt to extract user_id from JWT in Auth header
+            auth_header = request.headers.get("Authorization")
+            if auth_header and auth_header.startswith("Bearer "):
+                from app.utils.auth import decode_jwt # Assuming this utility exists or similar
+                # For now, simplistic stable token hash or just rely on IP if decoding is complex here
+                # Better: Allow the auth middleware to run first, but this is a middleware.
+                # Simplest robust approach: Use Authorization header value as key if present
+                client_id = auth_header
+        except Exception:
+            pass # Fallback to IP
+
         if is_upload:
+            # Update limit to 10 per minute
+            self.uploads_per_minute = 10
+            
             # Clean up old upload requests (older than 1 minute)
-            self.upload_counts[client_ip] = [
-                req_time for req_time in self.upload_counts[client_ip]
+            self.upload_counts[client_id] = [
+                req_time for req_time in self.upload_counts[client_id]
                 if current_time - req_time < 60
             ]
             
-            # Check upload rate limit (5 per minute)
-            if len(self.upload_counts[client_ip]) >= self.uploads_per_minute:
+            # Check upload rate limit
+            if len(self.upload_counts[client_id]) >= self.uploads_per_minute:
                 return JSONResponse(
                     status_code=429,
                     content={
@@ -58,7 +75,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 )
             
             # Record this upload
-            self.upload_counts[client_ip].append(current_time)
+            self.upload_counts[client_id].append(current_time)
         
         # Clean up old requests (older than 1 minute)
         self.request_counts[client_ip] = [

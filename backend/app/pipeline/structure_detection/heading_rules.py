@@ -145,11 +145,18 @@ def is_likely_heading_by_style(block: Block, avg_font_size: Optional[float] = No
     """
     text = block.text.strip()
     
-    # HARD GUARD 1: Length > 120 chars is NOT a heading
-    if len(text) > 120 or len(text) < 2:
+    # Minimum length guard (keep as reasonable sanity check)
+    if len(text) < 2:
         return False, 0.0
         
     score = 0.0
+    
+    # SOFT PENALTY: Long text is less likely to be a heading
+    # But don't reject outright - reduce confidence instead
+    if len(text) > 200:
+        score -= 0.4  # Strong penalty for very long text
+    elif len(text) > 120:
+        score -= 0.2  # Moderate penalty for long text
     
     # Font size outliers are strong signals
     if block.style.font_size and avg_font_size:
@@ -229,9 +236,7 @@ def analyze_heading_candidate(
     if not text:
         return None
 
-    # HARD GUARD 1: Max length
-    if len(text) > 120:
-        return None
+    # Note: Length penalties applied in style scoring, not hard rejection
         
     # Check for numbering
     num_info = detect_numbering_pattern(text)
@@ -257,13 +262,12 @@ def analyze_heading_candidate(
     if text.lower().startswith(caption_starters):
         return None
 
-    # HARD GUARD 6: Sentence-like structure (ABSOLUTE REJECTION)
-    # If it's long and contains punctuation, or has multiple sentences, it's not a heading.
-    if len(text) > 120:
-        return None
-        
+    # SOFT GUARD: Sentence-like structure reduces confidence
+    # Long text with multiple sentences is less likely a heading
+    # But we don't reject outright - let confidence scoring handle it
     if not num_info and (re.search(r'[\.\?\!]\s+[A-Z]', text) or len(text.split()) > 15):
-        return None
+        # This will be caught by confidence threshold later
+        pass
 
     # HARD GUARD 7: Numbered but looks like sentence (e.g. Reference entry)
     # "1. Smith, J. Title."

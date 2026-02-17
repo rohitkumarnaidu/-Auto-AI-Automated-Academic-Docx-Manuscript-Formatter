@@ -1,0 +1,93 @@
+"""
+Reference extraction tool using GROBID and reference parser.
+"""
+from typing import Optional, Type
+from pydantic import BaseModel, Field
+from langchain.tools import BaseTool
+from app.pipeline.services.grobid_client import GROBIDClient
+from app.pipeline.references.parser import ReferenceParser
+
+
+class ReferenceToolInput(BaseModel):
+    """Input schema for reference extraction tool."""
+    file_path: str = Field(description="Path to the PDF file to extract references from")
+
+
+class ReferenceExtractionTool(BaseTool):
+    """
+    Tool for extracting and parsing references from academic documents.
+    
+    This tool combines GROBID's reference extraction with our reference parser
+    to provide structured, normalized reference data.
+    """
+    name: str = "extract_references"
+    description: str = (
+        "Extract and parse references from an academic document. "
+        "Returns structured reference information including authors, titles, "
+        "publication years, DOIs, and citation counts. Use this when you need "
+        "to analyze the document's bibliography or validate citations."
+    )
+    args_schema: Type[BaseModel] = ReferenceToolInput
+    
+    def __init__(self, grobid_url: str = "http://localhost:8070"):
+        super().__init__()
+        self.grobid_client = GROBIDClient(base_url=grobid_url)
+        self.reference_parser = ReferenceParser()
+    
+    def _run(self, file_path: str) -> str:
+        """
+        Execute reference extraction.
+        
+        Args:
+            file_path: Path to the PDF file
+            
+        Returns:
+            JSON string containing extracted references
+        """
+        try:
+            # Check GROBID availability
+            if not self.grobid_client.is_available():
+                return "ERROR: GROBID service is not available for reference extraction."
+            
+            # Extract metadata (includes references)
+            metadata = self.grobid_client.extract_metadata(file_path)
+            
+            if not metadata or "references" not in metadata:
+                return "ERROR: No references found in the document."
+            
+            raw_references = metadata.get("references", [])
+            
+            # Parse and normalize references
+            parsed_refs = []
+            for idx, ref in enumerate(raw_references[:20], 1):  # Limit to first 20
+                parsed = {
+                    "index": idx,
+                    "raw_text": ref.get("raw_text", ""),
+                    "title": ref.get("title", ""),
+                    "authors": ref.get("authors", []),
+                    "year": ref.get("year", ""),
+                    "doi": ref.get("doi", ""),
+                    "venue": ref.get("venue", "")
+                }
+                parsed_refs.append(parsed)
+            
+            # Format response
+            result = {
+                "status": "success",
+                "references": {
+                    "total_count": len(raw_references),
+                    "parsed_count": len(parsed_refs),
+                    "has_dois": sum(1 for r in parsed_refs if r.get("doi")),
+                    "references": parsed_refs
+                }
+            }
+            
+            import json
+            return json.dumps(result, indent=2)
+            
+        except Exception as e:
+            return f"ERROR: Reference extraction failed: {str(e)}"
+    
+    async def _arun(self, file_path: str) -> str:
+        """Async version - not implemented yet."""
+        raise NotImplementedError("Async execution not supported yet")

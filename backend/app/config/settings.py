@@ -28,5 +28,11 @@ class Settings:
     
     # External Tools (Dynamic)
     LIBREOFFICE_PATH: Optional[str] = os.getenv("LIBREOFFICE_PATH", None)
+    
+    # GROBID Configuration
+    GROBID_BASE_URL = os.getenv("GROBID_BASE_URL", "http://localhost:8070")
+    GROBID_TIMEOUT = int(os.getenv("GROBID_TIMEOUT", "30"))
+    GROBID_MAX_RETRIES = int(os.getenv("GROBID_MAX_RETRIES", "3"))
+    GROBID_ENABLED = os.getenv("GROBID_ENABLED", "true").lower() == "true"
 
 settings = Settings()

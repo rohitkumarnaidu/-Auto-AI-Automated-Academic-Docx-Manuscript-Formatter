@@ -43,6 +43,43 @@ async def get_database_metrics():
             detail=f"Failed to retrieve database metrics: {str(e)}"
         )
 
+@router.post("/log-error")
+async def log_frontend_error(error_data: dict):
+    """
+    Endpoint for logging frontend errors to the backend.
+    
+    Payload:
+        - message: Error message
+        - stack: Stack trace
+        - url: Page URL where error occurred
+        - timestamp: Client-side timestamp
+    """
+    try:
+        message = error_data.get("message", "Unknown frontend error")
+        stack = error_data.get("stack", "No stack trace provided")
+        url = error_data.get("url", "Unknown URL")
+        timestamp = error_data.get("timestamp", "No timestamp provided")
+        
+        logger.error(
+            f"Frontend Error Captured:\n"
+            f"Message: {message}\n"
+            f"URL: {url}\n"
+            f"Timestamp: {timestamp}\n"
+            f"Stack: {stack}"
+        )
+        
+        # Increment a Prometheus counter if available
+        try:
+            from app.middleware.prometheus_metrics import AGENT_TOOLS_USAGE_TOTAL
+            AGENT_TOOLS_USAGE_TOTAL.labels(tool_name="frontend", status="error").inc()
+        except ImportError:
+            pass
+            
+        return {"status": "logged"}
+    except Exception as e:
+        logger.error(f"Failed to log frontend error: {e}")
+        return {"status": "error", "message": str(e)}
+
 @router.get("/health")
 async def health_check():
     """

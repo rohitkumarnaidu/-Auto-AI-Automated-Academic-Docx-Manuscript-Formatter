@@ -20,6 +20,8 @@ class DocumentMetadata(BaseModel):
     abstract: Optional[str] = None
     keywords: List[str] = Field(default_factory=list)
     publication_date: Optional[datetime] = None
+    volume: Optional[str] = None
+    issue: Optional[str] = None
     journal: Optional[str] = None
     doi: Optional[str] = None
     corresponding_author: Optional[str] = None

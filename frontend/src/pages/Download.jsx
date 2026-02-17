@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import ExportDialog from '../components/ExportDialog';
 import { useDocument } from '../context/DocumentContext';
 import { useAuth } from '../context/AuthContext';
-import { downloadFile } from '../services/api';
+import { downloadExport } from '../services/api';
 
 export default function Download() {
     const navigate = useNavigate();
@@ -13,6 +14,7 @@ export default function Download() {
     const [isDownloading, setIsDownloading] = useState(false);
     const [downloadError, setDownloadError] = useState(null);
     const [showLoginModal, setShowLoginModal] = useState(false);
+    const [showExportDialog, setShowExportDialog] = useState(false);
 
     if (!job) {
         return (
@@ -58,15 +60,26 @@ export default function Download() {
         setDownloadError(null);
         try {
             // Use real backend API with job ID
-            const url = await downloadFile(job.id, format);
+            const normalizedFormat = String(format || 'docx').toLowerCase();
+            const url = await downloadExport(job.id, normalizedFormat);
 
             const link = document.createElement('a');
             link.href = url;
-            const ext = format === 'pdf' ? 'pdf' : 'docx';
-            link.setAttribute('download', job.originalFileName ? `Formatted_${job.originalFileName.replace(/\.[^/.]+$/, "")}.${ext}` : `Manuscript_Formatted.${ext}`);
+            const extensionMap = {
+                docx: 'docx',
+                pdf: 'pdf',
+                json: 'json',
+            };
+            const ext = extensionMap[normalizedFormat] || 'docx';
+            const baseName = job.originalFileName
+                ? `Formatted_${job.originalFileName.replace(/\.[^/.]+$/, "")}`
+                : 'Manuscript_Formatted';
+            link.setAttribute('download', `${baseName}.${ext}`);
             document.body.appendChild(link);
             link.click();
             link.parentNode.removeChild(link);
+            setTimeout(() => window.URL.revokeObjectURL(url), 0);
+            setShowExportDialog(false);
         } catch (error) {
             console.error("Download failed:", error);
             setDownloadError(`Download failed. The file may not be ready yet or the server is unavailable. Please try again.`);
@@ -81,6 +94,11 @@ export default function Download() {
         } else {
             setShowLoginModal(true);
         }
+    };
+
+    const openExportDialog = () => {
+        setDownloadError(null);
+        setShowExportDialog(true);
     };
 
     return (
@@ -133,7 +151,7 @@ export default function Download() {
                                 </div>
                                 <div className="flex flex-col gap-3">
                                     <button
-                                        onClick={() => handleDownload('docx')}
+                                        onClick={openExportDialog}
                                         disabled={isDownloading}
                                         className="flex w-full cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-12 px-6 bg-primary text-white text-base font-bold leading-normal transition-all hover:bg-blue-700 active:scale-[0.98] shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
@@ -145,19 +163,13 @@ export default function Download() {
                                         ) : (
                                             <>
                                                 <span className="material-symbols-outlined">download</span>
-                                                <span className="truncate">Download Word Document (.docx)</span>
+                                                <span className="truncate">Choose Export Format</span>
                                             </>
                                         )}
                                     </button>
-
-                                    <button
-                                        onClick={() => handleDownload('pdf')}
-                                        disabled={isDownloading}
-                                        className="flex w-full cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-12 px-6 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-base font-bold leading-normal transition-all hover:bg-slate-50 dark:hover:bg-slate-700 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        <span className="material-symbols-outlined text-red-500">picture_as_pdf</span>
-                                        <span className="truncate">Download PDF (.pdf)</span>
-                                    </button>
+                                    <p className="text-xs text-slate-500 text-center">
+                                        Available formats: DOCX, PDF, JSON
+                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -171,7 +183,7 @@ export default function Download() {
                                 <p className="text-[#4c6c9a] dark:text-slate-400 text-sm font-semibold uppercase tracking-tight">Output Format</p>
                                 <div className="flex items-center gap-2">
                                     <span className="material-symbols-outlined text-blue-500">article</span>
-                                    <p className="text-[#0d131b] dark:text-slate-200 text-sm font-medium">Microsoft Word (DOCX)</p>
+                                    <p className="text-[#0d131b] dark:text-slate-200 text-sm font-medium">DOCX, PDF, JSON</p>
                                 </div>
                             </div>
                             <div className="col-span-2 grid grid-cols-subgrid border-b border-slate-200 dark:border-slate-800 py-4 items-center">
@@ -239,6 +251,15 @@ export default function Download() {
                         </div>
                     </div>
                 )}
+
+                <ExportDialog
+                    isOpen={showExportDialog}
+                    defaultFormat="docx"
+                    isDownloading={isDownloading}
+                    error={downloadError}
+                    onClose={() => setShowExportDialog(false)}
+                    onDownload={handleDownload}
+                />
             </main>
 
             <Footer variant="app" />

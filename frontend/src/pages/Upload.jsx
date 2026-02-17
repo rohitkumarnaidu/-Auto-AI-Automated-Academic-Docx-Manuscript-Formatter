@@ -5,6 +5,25 @@ import { useDocument } from '../context/DocumentContext';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 
+const ALLOWED_UPLOAD_EXTENSIONS = ['.docx', '.pdf', '.tex'];
+const MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024;
+
+const isAllowedUploadFile = (selectedFile) => {
+    if (!selectedFile?.name) {
+        return false;
+    }
+
+    const fileExtension = selectedFile.name
+        .substring(selectedFile.name.lastIndexOf('.'))
+        .toLowerCase();
+
+    return (
+        ALLOWED_UPLOAD_EXTENSIONS.includes(fileExtension) &&
+        selectedFile.size > 0 &&
+        selectedFile.size <= MAX_UPLOAD_SIZE_BYTES
+    );
+};
+
 export default function Upload() {
     const { isLoggedIn } = useAuth();
     const { job, setJob } = useDocument();
@@ -159,10 +178,7 @@ export default function Upload() {
 
         const selectedFile = e.target.files[0];
         if (selectedFile) {
-            const validTypes = ['.docx', '.doc', '.pdf', '.tex', '.txt', '.html', '.htm', '.md', '.markdown'];
-            const fileExtension = selectedFile.name.substring(selectedFile.name.lastIndexOf('.')).toLowerCase();
-
-            if (!validTypes.includes(fileExtension) || selectedFile.size > 50 * 1024 * 1024) {
+            if (!isAllowedUploadFile(selectedFile)) {
                 // navigate('/error'); // User request: "If FAILED: ... Keep user on Upload page"
                 // But this is client-side validation failure. I'll stick to alert or simple return for now, or existing logic.
                 // Existing logic was navigate('/error'). I'll keep it for invalid definition, but for polling failure I removed navigate.
@@ -195,10 +211,7 @@ export default function Upload() {
         setIsDragging(false);
         const droppedFile = e.dataTransfer.files[0];
         if (droppedFile) {
-            const validTypes = ['.docx', '.doc', '.pdf', '.tex', '.txt', '.html', '.htm', '.md', '.markdown'];
-            const fileExtension = droppedFile.name.substring(droppedFile.name.lastIndexOf('.')).toLowerCase();
-
-            if (!validTypes.includes(fileExtension) || droppedFile.size > 50 * 1024 * 1024) {
+            if (!isAllowedUploadFile(droppedFile)) {
                 navigate('/error');
                 return;
             }
@@ -701,7 +714,7 @@ export default function Upload() {
                                             {file ? 'File selected' : 'Drag and drop your manuscript here'}
                                         </p>
                                         <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-                                            {file ? `File: ${file.name} (${formatFileSize(file.size)})` : 'Supported formats: DOCX, PDF, LaTeX, TXT, HTML, MD (Max 50MB)'}
+                                            {file ? `File: ${file.name} (${formatFileSize(file.size)})` : 'Supported formats: DOCX, PDF, TEX (Max 50MB)'}
                                         </p>
                                     </div>
                                 </div>
@@ -710,7 +723,7 @@ export default function Upload() {
                                     ref={fileInputRef}
                                     className="hidden"
                                     onChange={handleFileChange}
-                                    accept=".docx,.doc,.pdf,.tex,.txt,.html,.htm,.md,.markdown"
+                                    accept=".docx,.pdf,.tex"
                                     disabled={isProcessing}
                                 />
                                 <button

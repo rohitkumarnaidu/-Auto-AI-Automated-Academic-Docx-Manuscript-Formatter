@@ -39,6 +39,9 @@ from app.pipeline.intelligence.rag_engine import get_rag_engine
 from app.pipeline.intelligence.reasoning_engine import get_reasoning_engine
 from app.pipeline.intelligence.semantic_parser import get_semantic_parser
 
+# Week 2: GROBID and Docling Services
+from app.pipeline.services import GROBIDClient, DoclingClient
+
 class PipelineOrchestrator:
     """
     Runs the full document processing pipeline from input file to final output.
@@ -47,13 +50,20 @@ class PipelineOrchestrator:
     
     def __init__(self, templates_dir: str = "app/templates", temp_dir: Optional[str] = None):
         self.templates_dir = templates_dir
-        self.temp_dir = temp_dir
-        self.converter = InputConverter(temp_dir=temp_dir)
+        self.temp_dir = temp_dir or "temp"
+        os.makedirs(self.temp_dir, exist_ok=True)
+        
+        # Initialize pipeline stages
+        self.converter = InputConverter()
         self.analyzer = ContentAnalyzer()
         contracts_base = os.path.dirname(templates_dir)
         self.contracts_dir = os.path.join(contracts_base, "pipeline", "contracts")
         self.contract_loader = ContractLoader(contracts_dir=self.contracts_dir)
         self.ref_normalizer = ReferenceFormatterEngine(self.contract_loader)
+        
+        # Week 2: Initialize GROBID and Docling clients
+        self.grobid_client = GROBIDClient()
+        self.docling_client = DoclingClient()
         
     def _check_stage_interface(self, stage_instance: Any, method_name: str, stage_name: str):
         """
@@ -172,6 +182,55 @@ class PipelineOrchestrator:
                     document_rec.original_file_path = input_path
                     db.commit()
                 self._update_status(db, job_id, "EXTRACTION", "COMPLETED", "Text extracted successfully.", progress=20)
+            
+            # Phase 2.1: GROBID Metadata Extraction (Week 2)
+            # Extract metadata using GROBID before classification
+            if file_ext == '.pdf' and self.grobid_client.is_available():
+                with SessionLocal() as db:
+                    self._update_status(db, job_id, "EXTRACTION", "IN_PROGRESS", "Extracting metadata with GROBID...", progress=22)
+                
+                try:
+                    print("🔬 Extracting metadata with GROBID...")
+                    grobid_metadata = self.grobid_client.extract_metadata(input_path)
+                    
+                    # Inject GROBID metadata into document object (using ai_hints)
+                    # Note: metadata is a Pydantic model, so we must use ai_hints dict
+                    if not hasattr(doc_obj, 'metadata') or doc_obj.metadata is None:
+                        from app.models import DocumentMetadata
+                        doc_obj.metadata = DocumentMetadata()
+                    
+                    doc_obj.metadata.ai_hints['grobid_metadata'] = grobid_metadata
+                    
+                    print(f"✅ GROBID extracted: Title='{grobid_metadata.get('title', 'N/A')}', Authors={len(grobid_metadata.get('authors', []))}")
+                except Exception as e:
+                    print(f"⚠️ GROBID extraction failed (non-blocking): {e}")
+                    # Non-blocking - continue pipeline
+            else:
+                print(f"ℹ️ Skipping GROBID (file_ext={file_ext}, available={self.grobid_client.is_available()})")
+
+            # Phase 2.2: Docling Layout Analysis (Week 2)
+            # Extract high-fidelity layout data (bounding boxes, font sizes) for structure detection
+            if file_ext == '.pdf' and self.docling_client.is_available():
+                with SessionLocal() as db:
+                    self._update_status(db, job_id, "EXTRACTION", "IN_PROGRESS", "Analyzing layout with Docling...", progress=24)
+                
+                try:
+                    print("📐 Analyzing layout with Docling...")
+                    # Analyze layout
+                    layout_result = self.docling_client.analyze_layout(input_path)
+                    
+                    # Inject Docling layout into document object (using ai_hints)
+                    if not hasattr(doc_obj, 'metadata') or doc_obj.metadata is None:
+                        from app.models import DocumentMetadata
+                        doc_obj.metadata = DocumentMetadata()
+                        
+                    doc_obj.metadata.ai_hints['docling_layout'] = layout_result
+                    
+                    print(f"✅ Docling analyzed: {len(layout_result.get('elements', []))} elements found")
+                except Exception as e:
+                    print(f"⚠️ Docling analysis failed (non-blocking): {e}")
+            else:
+                print(f"ℹ️ Skipping Docling (file_ext={file_ext}, available={self.docling_client.is_available()})")
             
             # Phase 2.5: Equation Standardization
             with SessionLocal() as db:

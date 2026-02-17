@@ -15,6 +15,9 @@ from datetime import datetime
 from app.models import PipelineDocument as Document, Block, BlockType
 from app.pipeline.base import PipelineStage
 from app.config.settings import settings  # Import settings for dynamic thresholds
+import logging
+
+logger = logging.getLogger(__name__)
 
 class ContentClassifier(PipelineStage):
     """
@@ -122,39 +125,89 @@ class ContentClassifier(PipelineStage):
 
             # --- ZONE 1: Front Matter ---
             if i < first_section_index:
+                # 🆕 GROBID INTEGRATION: Check for GROBID metadata first
+                # Access via ai_hints dict on DocumentMetadata model
+                grobid_data = document.metadata.ai_hints.get("grobid_metadata", {})
+                
                 if not title_found:
-                    block.block_type = BlockType.TITLE
-                    block.semantic_intent = "TITLE"
-                    block.classification_confidence = 1.0
-                    block.metadata["semantic_intent"] = "TITLE"
-                    block.metadata["classification_confidence"] = 1.0
-                    block.metadata["classification_method"] = "position_front_first"
-                    title_found = True
+                    # Prioritize GROBID title if available
+                    if grobid_data and grobid_data.get("title") and text in grobid_data.get("title", ""):
+                        block.block_type = BlockType.TITLE
+                        block.semantic_intent = "TITLE"
+                        block.classification_confidence = grobid_data.get("confidence", 0.9)
+                        block.metadata["semantic_intent"] = "TITLE"
+                        block.metadata["classification_confidence"] = grobid_data.get("confidence", 0.9)
+                        block.metadata["classification_method"] = "grobid_title"
+                        title_found = True
+                        logger.debug(f"GROBID title detected: {text[:50]}")
+                    else:
+                        # Fallback to position-based
+                        block.block_type = BlockType.TITLE
+                        block.semantic_intent = "TITLE"
+                        block.classification_confidence = 1.0
+                        block.metadata["semantic_intent"] = "TITLE"
+                        block.metadata["classification_confidence"] = 1.0
+                        block.metadata["classification_method"] = "position_front_first"
+                        title_found = True
                 else:
-                    # 1️⃣ AUTHOR RULE
-                    # line contains commas, 2-6 capitalized words, no academic keywords
+                    # 🆕 GROBID AUTHOR/AFFILIATION DETECTION
+                    # Check if this block matches GROBID-extracted authors
+                    if grobid_data and grobid_data.get("authors"):
+                        is_grobid_author = self._match_grobid_author(text, grobid_data["authors"])
+                        is_grobid_affiliation = self._match_grobid_affiliation(text, grobid_data.get("affiliations", []))
+                        
+                        if is_grobid_author:
+                            block.block_type = BlockType.AUTHOR
+                            block.semantic_intent = "AUTHOR"
+                            block.classification_confidence = grobid_data.get("confidence", 0.9)
+                            block.metadata["semantic_intent"] = "AUTHOR"
+                            block.metadata["classification_confidence"] = grobid_data.get("confidence", 0.9)
+                            block.metadata["classification_method"] = "grobid_author"
+                            logger.debug(f"GROBID author detected: {text[:50]}")
+                            continue
+                        
+                        if is_grobid_affiliation:
+                            block.block_type = BlockType.AFFILIATION
+                            block.semantic_intent = "AFFILIATION"
+                            block.classification_confidence = grobid_data.get("confidence", 0.9)
+                            block.metadata["semantic_intent"] = "AFFILIATION"
+                            block.metadata["classification_confidence"] = grobid_data.get("confidence", 0.9)
+                            block.metadata["classification_method"] = "grobid_affiliation"
+                            logger.debug(f"GROBID affiliation detected: {text[:50]}")
+                            continue
+                    
+                    # Fallback to existing regex rules if GROBID didn't match
+                    # 1️⃣ AUTHOR RULE (ENHANCED - No Hard Comma Requirement)
+                    # Detect based on capitalized words, with comma as confidence bonus
                     cap_words = re.findall(r'\b[A-Z][A-Za-z]*\b', text)
                     has_academic = any(kw in lower_text for kw in self.author_exclusion_keywords)
                     
-                    if ',' in text and 2 <= len(cap_words) <= 6 and not has_academic:
+                    # Base confidence from capitalized word count
+                    if 2 <= len(cap_words) <= 6 and not has_academic:
+                        confidence = 0.6  # Base confidence
+                        
+                        # SOFT BONUS: Comma presence increases confidence
+                        if ',' in text:
+                            confidence += 0.1
+                            
                         block.block_type = BlockType.AUTHOR
                         block.semantic_intent = "AUTHOR"
-                        block.classification_confidence = 1.0
+                        block.classification_confidence = confidence
                         block.metadata["semantic_intent"] = "AUTHOR"
-                        block.metadata["classification_confidence"] = 1.0
-                        block.metadata["classification_method"] = "deterministic_author_rule"
+                        block.metadata["classification_confidence"] = confidence
+                        block.metadata["classification_method"] = "regex_author_rule_enhanced"
                         continue
 
-                    # 2️⃣ AFFILIATION RULE
+                    # 2️⃣ AFFILIATION RULE (LEGACY)
                     # contain keywords: University, Department, Institute, College, Laboratory
                     affiliation_keywords = ["University", "Department", "Institute", "College", "Laboratory"]
                     if any(kw in text for kw in affiliation_keywords):
                         block.block_type = BlockType.AFFILIATION
                         block.semantic_intent = "AFFILIATION"
-                        block.classification_confidence = 1.0
+                        block.classification_confidence = 0.7  # Lower confidence for regex
                         block.metadata["semantic_intent"] = "AFFILIATION"
-                        block.metadata["classification_confidence"] = 1.0
-                        block.metadata["classification_method"] = "deterministic_affiliation_rule"
+                        block.metadata["classification_confidence"] = 0.7
+                        block.metadata["classification_method"] = "regex_affiliation_rule"
                         continue
 
                     # Fallback for Front Matter (keep existing heuristic if no deterministic rule matches)
@@ -372,6 +425,64 @@ class ContentClassifier(PipelineStage):
         """Heuristic check for affiliation content."""
         text_lower = text.lower()
         return any(indicator in text_lower for indicator in self.affiliation_indicators)
+    
+    def _match_grobid_author(self, text: str, grobid_authors: List[Dict]) -> bool:
+        """
+        Check if block text matches any GROBID-extracted author.
+        
+        Args:
+            text: Block text to check
+            grobid_authors: List of author dicts from GROBID
+            
+        Returns:
+            True if text matches an author name
+        """
+        text_lower = text.lower()
+        
+        for author in grobid_authors:
+            full_name = author.get("full_name", "").lower()
+            given = author.get("given", "").lower()
+            family = author.get("family", "").lower()
+            
+            # Check if author name appears in text
+            if full_name and full_name in text_lower:
+                return True
+            if given and family and f"{given} {family}" in text_lower:
+                return True
+            if family and family in text_lower:
+                # Check if it's not just a random word match
+                if len(family) > 3:  # Avoid matching short names
+                    return True
+        
+        return False
+    
+    def _match_grobid_affiliation(self, text: str, grobid_affiliations: List[str]) -> bool:
+        """
+        Check if block text matches any GROBID-extracted affiliation.
+        
+        Args:
+            text: Block text to check
+            grobid_affiliations: List of affiliation strings from GROBID
+            
+        Returns:
+            True if text matches an affiliation
+        """
+        text_lower = text.lower()
+        
+        for affiliation in grobid_affiliations:
+            if affiliation and affiliation.lower() in text_lower:
+                return True
+            # Also check partial matches for long affiliations
+            if affiliation and len(affiliation) > 20:
+                # Check if at least 70% of affiliation text appears
+                affiliation_words = set(affiliation.lower().split())
+                text_words = set(text_lower.split())
+                overlap = len(affiliation_words & text_words)
+                if overlap / len(affiliation_words) > 0.7:
+                    return True
+        
+        return False
+
 
     def _nlp_classify_fallback(self, blocks: List[Block]):
         """

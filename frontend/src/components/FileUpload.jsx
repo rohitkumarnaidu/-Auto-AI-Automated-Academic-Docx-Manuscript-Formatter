@@ -1,10 +1,41 @@
 import { useRef, useState } from 'react';
 
+const ALLOWED_UPLOAD_EXTENSIONS = ['.docx', '.pdf', '.tex'];
+const MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024;
+
+const isAllowedUploadFile = (selectedFile) => {
+    if (!selectedFile?.name) {
+        return false;
+    }
+
+    const fileExtension = selectedFile.name
+        .substring(selectedFile.name.lastIndexOf('.'))
+        .toLowerCase();
+
+    return (
+        ALLOWED_UPLOAD_EXTENSIONS.includes(fileExtension) &&
+        selectedFile.size > 0 &&
+        selectedFile.size <= MAX_UPLOAD_SIZE_BYTES
+    );
+};
+
 // eslint-disable-next-line react/prop-types
 export default function FileUpload({ onFileSelect }) {
     const fileInputRef = useRef(null);
     const [dragActive, setDragActive] = useState(false);
     const [fileName, setFileName] = useState(null);
+    const [validationError, setValidationError] = useState('');
+
+    const validateAndSelect = (file) => {
+        if (!isAllowedUploadFile(file)) {
+            setValidationError('Invalid file. Only .docx, .pdf, or .tex up to 50MB are allowed.');
+            return;
+        }
+
+        setValidationError('');
+        setFileName(file.name);
+        onFileSelect(file);
+    };
 
     const handleDrag = (e) => {
         e.preventDefault();
@@ -21,18 +52,14 @@ export default function FileUpload({ onFileSelect }) {
         e.stopPropagation();
         setDragActive(false);
         if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-            const file = e.dataTransfer.files[0];
-            setFileName(file.name);
-            onFileSelect(file);
+            validateAndSelect(e.dataTransfer.files[0]);
         }
     };
 
     const handleChange = (e) => {
         e.preventDefault();
         if (e.target.files && e.target.files[0]) {
-            const file = e.target.files[0];
-            setFileName(file.name);
-            onFileSelect(file);
+            validateAndSelect(e.target.files[0]);
         }
     };
 
@@ -65,7 +92,10 @@ export default function FileUpload({ onFileSelect }) {
                     <p className="text-slate-900 dark:text-white text-lg font-bold">
                         {fileName ? fileName : 'Drag and drop your manuscript here'}
                     </p>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Supported formats: DOCX, PDF, LaTeX (Max 50MB)</p>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Supported formats: DOCX, PDF, TEX (Max 50MB)</p>
+                    {validationError ? (
+                        <p className="text-red-600 text-xs mt-2">{validationError}</p>
+                    ) : null}
                 </div>
             </div>
             <button

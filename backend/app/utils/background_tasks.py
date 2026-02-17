@@ -96,7 +96,7 @@ def _mark_job_as_failed(job_id: str, error_message: str):
     except Exception as e:
         logger.error(f"Failed to mark job {job_id} as failed: {e}", exc_info=True)
 
-async def run_pipeline_with_timeout(orchestrator, input_path: str, job_id: str, template_name: str):
+async def run_pipeline_with_timeout(orchestrator, input_path: str, job_id: str, template_name: str, formatting_options: dict = None):
     """
     Run pipeline with timeout protection.
     
@@ -105,6 +105,7 @@ async def run_pipeline_with_timeout(orchestrator, input_path: str, job_id: str, 
         input_path: Path to input file
         job_id: Job ID
         template_name: Template name
+        formatting_options: Formatting options dict
     """
     try:
         await asyncio.wait_for(
@@ -112,7 +113,8 @@ async def run_pipeline_with_timeout(orchestrator, input_path: str, job_id: str, 
                 orchestrator.run_pipeline,
                 input_path=input_path,
                 job_id=job_id,
-                template_name=template_name
+                template_name=template_name,
+                formatting_options=formatting_options
             ),
             timeout=300.0  # 5 minutes max
         )

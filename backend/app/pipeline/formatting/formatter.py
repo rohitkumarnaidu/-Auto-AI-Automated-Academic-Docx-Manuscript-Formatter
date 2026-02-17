@@ -16,6 +16,7 @@ from app.pipeline.contracts.loader import ContractLoader
 from app.pipeline.formatting.style_mapper import StyleMapper
 from app.pipeline.formatting.numbering import NumberingEngine
 from app.pipeline.formatting.reference_formatter import ReferenceFormatter
+from app.pipeline.formatting.template_renderer import TemplateRenderer
 from app.pipeline.tables.renderer import TableRenderer
 
 class Formatter:
@@ -28,8 +29,8 @@ class Formatter:
         self.contract_loader = ContractLoader(contracts_dir=contracts_dir)
         self.style_mapper = StyleMapper(self.contract_loader)
         self.numbering_engine = NumberingEngine(self.contract_loader)
-        self.numbering_engine = NumberingEngine(self.contract_loader)
         self.reference_formatter = ReferenceFormatter(self.contract_loader)
+        self.template_renderer = TemplateRenderer(templates_dir=templates_dir)
         self.table_renderer = TableRenderer()
         
     def process(self, document: Document) -> Document:
@@ -48,6 +49,14 @@ class Formatter:
             
         # 1. Apply rules to model before rendering
         document = self.numbering_engine.apply_numbering(document, template_name)
+        self._prepare_references(document, template_name)
+
+        # 2. Primary path: docxtpl/Jinja2 template rendering.
+        # Keep legacy python-docx path as a fallback for robustness.
+        try:
+            return self.template_renderer.render(document, template_name)
+        except Exception as exc:
+            print(f"WARNING: docxtpl render failed for template '{template_name}'. Falling back to legacy formatter. Error: {exc}")
         
         # 2. Load Resources
         # Note: template.docx is still the base for styles
@@ -103,7 +112,7 @@ class Formatter:
             # Use small offset to ensure it comes after the block
             # HARDENING FIX: Deterministic sub-offset for multiple figures same paragraph
             # If multiple figures share same block_index, add sub-offset based on position
-            # Example: 3 figures at index 100 → 100.1, 100.101, 100.102
+            # Example: 3 figures at index 100 -> 100.1, 100.101, 100.102
             # Maintains base offset (+0.1) and avoids equation collision (+0.2)
             sub_offset = i * 0.001  # Position-based sub-offset
             items_to_insert.append({
@@ -207,6 +216,19 @@ class Formatter:
                 fn_p.add_run(fn.text)
                 
         return word_doc
+
+    def _prepare_references(self, document: Document, template_name: str) -> None:
+        """Populate missing reference.formatted_text values before rendering."""
+        if not document.references:
+            return
+
+        for ref in document.references:
+            if ref.formatted_text and ref.formatted_text.strip():
+                continue
+            try:
+                ref.formatted_text = self.reference_formatter.format_reference(ref, template_name)
+            except Exception:
+                ref.formatted_text = ref.raw_text or ''
 
     def _render_equation(self, doc, equation):
         """Render an equation block."""
@@ -549,7 +571,7 @@ class Formatter:
                 run.add_picture(figure.export_path, width=width, height=height)
                 paragraph.alignment = 1  # Center the image
             except Exception as e:
-                print(f"⚠️  Failed to render figure from export_path: {e}")
+                print(f"WARNING: Failed to render figure from export_path: {e}")
                 # Fallback: add placeholder text if image fails
                 p = doc.add_paragraph(f"[Image: {figure.export_path}]")
                 p.alignment = 1  # Center
@@ -568,9 +590,9 @@ class Formatter:
                 else:
                     run.add_picture(image_stream, width=width)
                 paragraph.alignment = 1  # Center the image
-                print(f"✅ Rendered figure {number} from image_data ({len(figure.image_data)} bytes)")
+                print(f"INFO: Rendered figure {number} from image_data ({len(figure.image_data)} bytes)")
             except Exception as e:
-                print(f"⚠️  Failed to render figure from image_data: {e}")
+                print(f"WARNING: Failed to render figure from image_data: {e}")
                 # Fallback: add placeholder
                 p = doc.add_paragraph(f"[Figure {number} - Image rendering failed: {str(e)[:50]}]")
                 p.alignment = 1  # Center
@@ -604,7 +626,7 @@ class Formatter:
             return False
         stripped = text.lstrip()
         # Check for common bullet markers
-        return stripped.startswith(('•', '-', '*', '·', '◦', '▪', '▫'))
+        return stripped.startswith(('\u2022', '-', '*', '\u00b7', '\u25e6', '\u25aa', '\u25ab'))
     
     def _is_numbered_list_item(self, text: str) -> bool:
         """Dynamically detect if text is a numbered list item."""
@@ -618,7 +640,7 @@ class Formatter:
         """Remove list markers from text for proper Word list rendering."""
         import re
         # Remove bullet markers
-        text = re.sub(r'^\s*[•\-\*·◦▪▫]\s+', '', text)
+        text = re.sub(r'^\s*[\u2022\-\*\u00b7\u25e6\u25aa\u25ab]\s+', '', text)
         # Remove numbered markers
         text = re.sub(r'^\s*([0-9]+|[a-z]|[ivxlcdm]+)[\.)\s]\s+', '', text, flags=re.IGNORECASE)
         return text

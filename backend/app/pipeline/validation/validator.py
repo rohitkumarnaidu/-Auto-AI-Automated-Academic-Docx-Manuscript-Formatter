@@ -12,6 +12,7 @@ from app.pipeline.contracts.loader import ContractLoader
 from app.pipeline.formatting.section_ordering import SectionOrderValidator
 from app.pipeline.integrity.cross_ref import CrossReferenceEngine
 from app.pipeline.validation.review_manager import ReviewManager
+from app.pipeline.services.crossref_client import CrossRefClient
 from app.pipeline.base import PipelineStage
 
 class ValidationResult(BaseModel):
@@ -33,6 +34,7 @@ class DocumentValidator(PipelineStage):
         self.contract_loader = ContractLoader(contracts_dir=contracts_dir)
         self.order_validator = SectionOrderValidator(self.contract_loader)
         self.integrity_engine = CrossReferenceEngine()
+        self.crossref_client = CrossRefClient()
         
     def process(self, document: Document) -> Document:
         """Standard pipeline stage entry point."""
@@ -75,6 +77,12 @@ class DocumentValidator(PipelineStage):
         table_errors, table_warnings = self._check_tables(document)
         errors.extend(table_errors)
         warnings.extend(table_warnings)
+        
+        # 6. CrossRef Validation (DOI)
+        doi_errors, doi_warnings = self._check_reference_integrity(document)
+        # Treat as warnings for now to avoid blocking processing on external API failures
+        warnings.extend(doi_warnings)
+        warnings.extend(doi_errors) 
         
         # 6. Confidence-Based HITL Signs
         review_manager = ReviewManager()
@@ -165,10 +173,52 @@ class DocumentValidator(PipelineStage):
                      warnings.append(f"Table {i+1} missing caption")
         return [], warnings
 
-        for ref_num in referenced_numbers:
-            if ref_num not in actual_numbers:
-                warnings.append(f"Figure {ref_num} referenced in text but missing from document (found {len(actual_numbers)} figures)")
-                
+    def _check_reference_integrity(self, document: Document) -> tuple:
+        """
+        Validate references using CrossRef.
+        """
+        errors = []
+        warnings = []
+        
+        if not document.references:
+            return errors, warnings
+            
+        for ref in document.references:
+            if ref.has_doi():
+                try:
+                    is_valid = self.crossref_client.validate_doi(ref.doi)
+                    
+                    # Update reference metadata
+                    if "validation" not in ref.metadata:
+                        ref.metadata["validation"] = {}
+                    
+                    ref.metadata["validation"]["crossref_checked"] = True
+                    ref.metadata["validation"]["doi_valid"] = is_valid
+                    
+                    if not is_valid:
+                        warnings.append(f"Reference '{ref.citation_key}' has invalid DOI: {ref.doi}")
+                        ref.metadata["validation"]["confidence"] = 0.0
+                    else:
+                        # Fetch metadata and calculate confidence
+                        try:
+                            cr_metadata = self.crossref_client.get_metadata(ref.doi)
+                            ref_data = {
+                                "title": ref.title,
+                                "year": ref.year,
+                                "authors": ref.authors
+                            }
+                            confidence = self.crossref_client.calculate_confidence(ref_data, cr_metadata)
+                            ref.metadata["validation"]["confidence"] = confidence
+                            
+                            if confidence < 0.5:
+                                warnings.append(f"Reference '{ref.citation_key}' DOI match low confidence: {confidence:.2f}")
+                                
+                        except Exception as e:
+                            warnings.append(f"Failed to fetch metadata for DOI {ref.doi}: {str(e)}")
+                            
+                except Exception as e:
+                    warnings.append(f"CrossRef validation failed for {ref.citation_key}: {str(e)}")
+                    
         return errors, warnings
 
 

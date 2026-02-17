@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<style xmlns="http://purl.org/net/xbiblio/csl" version="1.0" class="in-text" default-locale="en-US">
+  <info>
+    <title>APA 7th (Minimal)</title>
+    <id>https://eclearnix.local/styles/apa-minimal</id>
+    <link href="https://eclearnix.local/styles/apa-minimal" rel="self"/>
+    <author>
+      <name>ECLearnIX</name>
+    </author>
+    <category citation-format="author-date"/>
+    <updated>2026-02-16T00:00:00+00:00</updated>
+  </info>
+
+  <macro name="author">
+    <names variable="author" delimiter=", " and="text">
+      <name name-as-sort-order="all" initialize-with=". " sort-separator=", "/>
+      <substitute>
+        <text value="Unknown Author"/>
+      </substitute>
+    </names>
+  </macro>
+
+  <macro name="year">
+    <choose>
+      <if variable="issued">
+        <date variable="issued">
+          <date-part name="year"/>
+        </date>
+      </if>
+      <else>
+        <text value="n.d."/>
+      </else>
+    </choose>
+  </macro>
+
+  <macro name="container">
+    <group delimiter=", ">
+      <text variable="container-title"/>
+      <group>
+        <text variable="volume" font-style="italic"/>
+        <text variable="issue" prefix="(" suffix=")"/>
+      </group>
+      <text variable="page"/>
+    </group>
+  </macro>
+
+  <macro name="identifier">
+    <choose>
+      <if variable="DOI">
+        <text variable="DOI" prefix="https://doi.org/"/>
+      </if>
+      <else-if variable="URL">
+        <text variable="URL"/>
+      </else-if>
+    </choose>
+  </macro>
+
+  <citation et-al-min="3" et-al-use-first="1">
+    <layout prefix="(" suffix=")" delimiter="; ">
+      <group delimiter=", ">
+        <names variable="author">
+          <name form="short" and="text" delimiter=", "/>
+          <substitute>
+            <text variable="title" form="short"/>
+          </substitute>
+        </names>
+        <date variable="issued">
+          <date-part name="year"/>
+        </date>
+      </group>
+    </layout>
+  </citation>
+
+  <bibliography hanging-indent="true">
+    <layout suffix=".">
+      <text macro="author" suffix=" "/>
+      <group prefix="(" suffix="). ">
+        <text macro="year"/>
+      </group>
+      <text variable="title" suffix=". "/>
+      <text macro="container" suffix=". "/>
+      <text macro="identifier"/>
+    </layout>
+  </bibliography>
+</style>

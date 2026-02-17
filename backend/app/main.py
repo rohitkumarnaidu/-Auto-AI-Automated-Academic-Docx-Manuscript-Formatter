@@ -46,6 +46,14 @@ app.include_router(documents.router)
 from app.routers import metrics
 app.include_router(metrics.router)
 
+# Feedback Loop (Industry Standard)
+from app.routers import feedback
+app.include_router(feedback.router)
+
+# Streaming Responses (Next-Gen)
+from app.routers import stream
+app.include_router(stream.router)
+
 @app.on_event("startup")
 async def startup_event():
     """

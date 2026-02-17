@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from lxml import etree
 from app.models.pipeline_document import PipelineDocument
 
@@ -34,7 +35,12 @@ class JATSGenerator:
         back = etree.SubElement(root, "back")
         self._add_references(back, doc_obj)
         
-        return etree.tostring(root, encoding="unicode", pretty_print=True)
+        return etree.tostring(
+            root, 
+            encoding="unicode", 
+            pretty_print=True, 
+            doctype='<!DOCTYPE article PUBLIC "-//NLM//DTD JATS (Z39.96) Journal Archiving and Interchange DTD v1.2 20190208//EN" "JATS-archivearticle1.dtd">'
+        )
     
     def _add_references(self, parent, doc_obj):
         """Add reference list to back matter."""
@@ -83,6 +89,35 @@ class JATSGenerator:
             given_names = etree.SubElement(name, "given-names")
             given_names.text = " ".join(author.split()[:-1]) if len(author.split()) > 1 else author
         
+        # Publication Date
+        if doc_obj.metadata.publication_date:
+            pub_date = etree.SubElement(article_meta, "pub-date")
+            dt = doc_obj.metadata.publication_date
+            if isinstance(dt, datetime):
+                etree.SubElement(pub_date, "year").text = str(dt.year)
+                etree.SubElement(pub_date, "month").text = str(dt.month).zfill(2)
+                etree.SubElement(pub_date, "day").text = str(dt.day).zfill(2)
+            else:
+                try:
+                    date_parts = str(dt).split("-")
+                    if len(date_parts) >= 1:
+                        etree.SubElement(pub_date, "year").text = date_parts[0]
+                    if len(date_parts) >= 2:
+                        etree.SubElement(pub_date, "month").text = date_parts[1]
+                    if len(date_parts) >= 3:
+                        etree.SubElement(pub_date, "day").text = date_parts[2][:2]
+                except:
+                    pass
+
+        # Volume / Issue
+        if doc_obj.metadata.volume:
+            vol = etree.SubElement(article_meta, "volume")
+            vol.text = str(doc_obj.metadata.volume)
+        
+        if doc_obj.metadata.issue:
+            iss = etree.SubElement(article_meta, "issue")
+            iss.text = str(doc_obj.metadata.issue)
+
         # Abstract
         if doc_obj.metadata.abstract:
             abstract = etree.SubElement(article_meta, "abstract")

@@ -69,7 +69,18 @@ class StructureDetector(PipelineStage):
         self.avg_font_size = self._calculate_avg_font_size(document.blocks)
         
         # Step 2: Detect heading candidates
-        heading_candidates = self._detect_heading_candidates(document.blocks)
+        # Week 2 Enhancements: Check for Docling layout data
+        # Access via ai_hints dict on DocumentMetadata model
+        docling_layout = document.metadata.ai_hints.get("docling_layout")
+        
+        if docling_layout:
+            # path: Enhanced structure detection using Docling layout analysis
+            # Features: Bounding box aware, font size confident, logo tolerant
+            print(f"INFO: Using Docling layout data for structure detection ({len(docling_layout.get('elements', []))} elements)")
+            heading_candidates = self._detect_structure_with_docling(document.blocks, docling_layout)
+        else:
+            # Fallback: Use standard rule-based detection
+            heading_candidates = self._detect_heading_candidates(document.blocks)
         
         # Step 3: Assign section names based on headings
         self._assign_section_names(document.blocks, heading_candidates)
@@ -370,8 +381,128 @@ class StructureDetector(PipelineStage):
                 last_level = block.level
 
 
+    def _detect_structure_with_docling(self, blocks: List[Block], layout_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        Detect structure using Docling layout analysis data.
+        
+        Uses bounding boxes and visual features for superior accuracy:
+        1. Title Detection: Ignores top logos/images using y-coordinates.
+        2. Heading Levels: Strictly based on font size hierarchy.
+        3. Header/Footer: Filters out elements in top/bottom margins.
+        
+        Args:
+            blocks: Document blocks
+            layout_data: Docling layout dictionary
+            
+        Returns:
+            List of detected headings with metadata
+        """
+        from app.models import BlockType
+        
+        candidates = []
+        found_title = False
+        
+        # 1. Parse Layout Elements
+        elements = layout_data.get("elements", [])
+        if not elements:
+            print("WARNING: Docling layout data empty. Fallback to standard detection.")
+            return self._detect_heading_candidates(blocks)
+            
+        # 2. Identify Visual Hierarchy (Font Sizes)
+        font_sizes = [e.get("font_size", 0) for e in elements if e.get("type") in ["title", "heading"]]
+        if not font_sizes:
+             font_sizes = [e.get("font_size", 0) for e in elements if e.get("font_size")]
+             
+        max_font_size = max(font_sizes) if font_sizes else 0
+        
+        # 3. Match Blocks to Layout Elements (Fuzzy Match by Text)
+        # Note: Docling text might differ slightly from our normalized text
+        # We use a simple containment or similarity check
+        
+        for block in blocks:
+            # Skip empty
+            if not block.text.strip():
+                continue
+                
+            # Try to find corresponding layout element
+            matched_element = None
+            block_text_sample = block.text[:50].strip()
+            
+            for element in elements:
+                # Simple check: if block text is in element text
+                if block_text_sample in element.get("text", ""):
+                    matched_element = element
+                    break
+            
+            if not matched_element:
+                # If no match, fall back to heuristic for this block or skip
+                continue
+                
+            # 4. Apply Docling Logic
+            
+            # A. Title Detection (Logo Tolerance built-in to Docling types)
+            if not found_title and matched_element.get("type") == "title":
+                # Double check: Is it truly the title?
+                # Rule: Largest font or explicitly tagged 'title' by Docling
+                # Rule: Must be in top 50% of page 1
+                bbox = matched_element.get("bbox", {})
+                if bbox.get("page", 1) == 1 and bbox.get("y0", 0) < 500:
+                    block.block_type = BlockType.TITLE
+                    block.level = 0
+                    block.metadata["is_heading_candidate"] = True
+                    block.metadata["heading_confidence"] = 1.0
+                    block.metadata["heading_reasons"] = ["Docling: Title Detected"]
+                    block.metadata["semantic_intent"] = "TITLE"
+                    block.metadata["level"] = 0 
+                    
+                    candidates.append({
+                        "block": block,
+                        "block_id": block.block_id,
+                        "level": 0,
+                        "confidence": 1.0,
+                        "reasons": ["Docling: Title Detected"],
+                    })
+                    found_title = True
+                    continue
+
+            # B. Heading Detection
+            if matched_element.get("type") in ["section_header", "heading"]:
+                # Determine Level based on Font Size relative to Max
+                font_size = matched_element.get("font_size", 0)
+                level = 1
+                
+                # Simple Font Hierarchy Logic
+                if max_font_size > 0:
+                    if font_size >= max_font_size * 0.9: level = 1
+                    elif font_size >= max_font_size * 0.8: level = 2
+                    elif font_size >= max_font_size * 0.7: level = 3
+                    else: level = 4
+                
+                block.block_type = BlockType.HEADING_1 # Base type, will be refined
+                block.level = level
+                block.metadata["is_heading_candidate"] = True
+                block.metadata["heading_confidence"] = matched_element.get("confidence", 0.9)
+                block.metadata["heading_reasons"] = [f"Docling: Heading (Size {font_size})"]
+                block.metadata["semantic_intent"] = "HEADING"
+                block.metadata["level"] = level
+                
+                candidates.append({
+                    "block": block,
+                    "block_id": block.block_id,
+                    "level": level,
+                    "confidence": 0.9,
+                    "reasons": [f"Docling: Heading (Size {font_size})"],
+                })
+        
+        # If Docling found nothing (e.g. scanned doc without OCR), fallback
+        if not candidates:
+             print("WARNING: Docling found no structure. Fallback to standard detection.")
+             return self._detect_heading_candidates(blocks)
+             
+        return candidates
+
 # Convenience function
-def detect_structure(document: Document) -> Document:
+def detect_structure(document: "Document") -> "Document":
     """
     Detect structure in a normalized document.
     
@@ -382,19 +513,6 @@ def detect_structure(document: Document) -> Document:
     
     Returns:
         Document with structure metadata
-    
-    Example:
-        >>> from app.pipeline.parsing import parse_docx
-        >>> from app.pipeline.normalization import normalize_document
-        >>> from app.pipeline.structure_detection import detect_structure
-        >>> 
-        >>> doc = parse_docx("manuscript.docx", "job_123")
-        >>> doc = normalize_document(doc)
-        >>> doc = detect_structure(doc)
-        >>> 
-        >>> # Check detected structure
-        >>> headings = [b for b in doc.blocks if b.metadata.get("is_heading_candidate")]
-        >>> print(f"Found {len(headings)} headings")
     """
     detector = StructureDetector()
     return detector.process(document)

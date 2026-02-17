@@ -113,13 +113,24 @@ class ModelMetrics:
     
     def get_model_comparison(self) -> Dict[str, Any]:
         """Compare model performance."""
+        nvidia_calls = max(1, self.metrics["nvidia"]["total_calls"])
+        deepseek_calls = max(1, self.metrics["deepseek"]["total_calls"])
+        rules_calls = max(1, self.metrics["rules"]["total_calls"])
+        
         return {
             "nvidia_vs_deepseek": {
-                "nvidia_success_rate": self.metrics["nvidia"]["successful_calls"] / max(1, self.metrics["nvidia"]["total_calls"]),
-                "deepseek_success_rate": self.metrics["deepseek"]["successful_calls"] / max(1, self.metrics["deepseek"]["total_calls"]),
+                "nvidia_success_rate": self.metrics["nvidia"]["successful_calls"] / nvidia_calls,
+                "deepseek_success_rate": self.metrics["deepseek"]["successful_calls"] / deepseek_calls,
                 "nvidia_avg_latency": self.metrics["nvidia"]["avg_latency"],
                 "deepseek_avg_latency": self.metrics["deepseek"]["avg_latency"],
                 "nvidia_faster": self.metrics["nvidia"]["avg_latency"] < self.metrics["deepseek"]["avg_latency"]
+            },
+            "agent_vs_legacy": {
+                "agent_total_calls": self.metrics["nvidia"]["total_calls"] + self.metrics["deepseek"]["total_calls"],
+                "legacy_total_calls": self.metrics["rules"]["total_calls"],
+                "agent_success_rate": (self.metrics["nvidia"]["successful_calls"] + self.metrics["deepseek"]["successful_calls"]) / (nvidia_calls + deepseek_calls),
+                "legacy_success_rate": self.metrics["rules"]["successful_calls"] / rules_calls,
+                "automation_level": "High" if self.metrics["rules"]["total_calls"] < (nvidia_calls + deepseek_calls) * 0.2 else "Low - Reliance on Fallbacks"
             }
         }
     

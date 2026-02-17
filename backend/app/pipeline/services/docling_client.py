@@ -1,0 +1,386 @@
+"""
+Docling Layout Analysis Client.
+
+This module provides a client for IBM Docling library to extract advanced
+layout information from PDF documents, including bounding boxes, font sizes,
+and structural elements like headers/footers.
+
+Docling excels at:
+- Preserving document layout and reading order
+- Detecting bounding boxes for all document elements
+- Identifying tables, figures, headings, and paragraphs
+- Extracting font information and styles
+"""
+
+from __future__ import annotations
+
+import logging
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+logger = logging.getLogger(__name__)
+
+try:
+    from docling.document_converter import DocumentConverter
+    from docling.datamodel.base_models import InputFormat
+    from docling.datamodel.pipeline_options import PdfPipelineOptions
+    
+    DOCLING_AVAILABLE = True
+except ImportError:
+    DOCLING_AVAILABLE = False
+    logger.warning("Docling library not available. Install with: pip install docling")
+
+
+class BoundingBox:
+    """Represents a bounding box for a document element."""
+    
+    def __init__(self, x0: float, y0: float, x1: float, y1: float, page: int = 0):
+        self.x0 = x0  # Left
+        self.y0 = y0  # Top
+        self.x1 = x1  # Right
+        self.y1 = y1  # Bottom
+        self.page = page
+    
+    @property
+    def width(self) -> float:
+        return self.x1 - self.x0
+    
+    @property
+    def height(self) -> float:
+        return self.y1 - self.y0
+    
+    @property
+    def center_y(self) -> float:
+        """Vertical center position."""
+        return (self.y0 + self.y1) / 2
+    
+    def to_dict(self) -> Dict[str, float]:
+        return {
+            "x0": self.x0,
+            "y0": self.y0,
+            "x1": self.x1,
+            "y1": self.y1,
+            "page": self.page,
+            "width": self.width,
+            "height": self.height,
+        }
+
+
+class LayoutElement:
+    """Represents a layout element with bounding box and metadata."""
+    
+    def __init__(
+        self,
+        text: str,
+        bbox: BoundingBox,
+        element_type: str,
+        font_size: Optional[float] = None,
+        is_bold: bool = False,
+        is_italic: bool = False,
+        confidence: float = 1.0,
+    ):
+        self.text = text
+        self.bbox = bbox
+        self.element_type = element_type  # title, paragraph, heading, table, figure, etc.
+        self.font_size = font_size
+        self.is_bold = is_bold
+        self.is_italic = is_italic
+        self.confidence = confidence
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "text": self.text,
+            "bbox": self.bbox.to_dict(),
+            "type": self.element_type,
+            "font_size": self.font_size,
+            "is_bold": self.is_bold,
+            "is_italic": self.is_italic,
+            "confidence": self.confidence,
+        }
+
+
+class DoclingClient:
+    """
+    Client for IBM Docling library to perform advanced PDF layout analysis.
+    
+    Features:
+    - Bounding box extraction for all elements
+    - Font size and style detection
+    - Header/footer identification
+    - Table and figure detection
+    - Reading order preservation
+    """
+    
+    def __init__(self):
+        """Initialize the Docling client."""
+        if not DOCLING_AVAILABLE:
+            logger.warning("Docling not available - layout analysis will be limited")
+        
+        self.converter = None
+        if DOCLING_AVAILABLE:
+            try:
+                # Initialize DocumentConverter with PDF pipeline options
+                pipeline_options = PdfPipelineOptions()
+                pipeline_options.do_ocr = False  # Disable OCR for speed (can enable if needed)
+                pipeline_options.do_table_structure = True  # Enable table detection
+                
+                self.converter = DocumentConverter(
+                    allowed_formats=[InputFormat.PDF],
+                    pipeline_options=pipeline_options,
+                )
+                logger.info("Docling client initialized successfully")
+            except Exception as e:
+                logger.error(f"Failed to initialize Docling converter: {e}")
+                self.converter = None
+    
+    def is_available(self) -> bool:
+        """Check if Docling is available and initialized."""
+        return DOCLING_AVAILABLE and self.converter is not None
+    
+    def analyze_layout(self, pdf_path: str) -> Dict[str, Any]:
+        """
+        Analyze PDF layout and extract structured information.
+        
+        Args:
+            pdf_path: Path to PDF file
+            
+        Returns:
+            Dictionary containing layout analysis results:
+            {
+                "elements": List[LayoutElement],
+                "headers": List[LayoutElement],
+                "footers": List[LayoutElement],
+                "tables": List[Dict],
+                "figures": List[Dict],
+                "confidence": float,
+            }
+        """
+        if not self.is_available():
+            logger.warning("Docling not available - returning empty layout")
+            return self._empty_layout()
+        
+        try:
+            pdf_path_obj = Path(pdf_path)
+            if not pdf_path_obj.exists():
+                raise FileNotFoundError(f"PDF file not found: {pdf_path}")
+            
+            # Convert document
+            result = self.converter.convert(str(pdf_path_obj))
+            
+            # Extract layout elements
+            elements = self._extract_elements(result.document)
+            
+            # Identify headers and footers
+            headers, footers = self._detect_headers_footers(elements)
+            
+            # Extract tables and figures
+            tables = self._extract_tables(result.document)
+            figures = self._extract_figures(result.document)
+            
+            # Calculate overall confidence
+            confidence = self._calculate_confidence(elements)
+            
+            return {
+                "elements": [elem.to_dict() for elem in elements],
+                "headers": [elem.to_dict() for elem in headers],
+                "footers": [elem.to_dict() for elem in footers],
+                "tables": tables,
+                "figures": figures,
+                "confidence": confidence,
+            }
+        
+        except Exception as e:
+            logger.error(f"Docling layout analysis failed: {e}")
+            return self._empty_layout()
+    
+    def _extract_elements(self, document) -> List[LayoutElement]:
+        """Extract layout elements from Docling document."""
+        elements = []
+        
+        try:
+            # Iterate through document items
+            for item in document.iterate_items():
+                # Get bounding box
+                bbox_data = item.bbox if hasattr(item, 'bbox') else None
+                if not bbox_data:
+                    continue
+                
+                bbox = BoundingBox(
+                    x0=bbox_data.l,
+                    y0=bbox_data.t,
+                    x1=bbox_data.r,
+                    y1=bbox_data.b,
+                    page=bbox_data.page if hasattr(bbox_data, 'page') else 0,
+                )
+                
+                # Get text content
+                text = item.text if hasattr(item, 'text') else ""
+                
+                # Get element type (title, paragraph, heading, etc.)
+                element_type = item.label if hasattr(item, 'label') else "paragraph"
+                
+                # Get font information (if available)
+                font_size = None
+                is_bold = False
+                is_italic = False
+                
+                if hasattr(item, 'prov') and item.prov:
+                    for prov in item.prov:
+                        if hasattr(prov, 'font_size'):
+                            font_size = prov.font_size
+                        if hasattr(prov, 'font_weight') and prov.font_weight > 600:
+                            is_bold = True
+                        if hasattr(prov, 'font_style') and 'italic' in str(prov.font_style).lower():
+                            is_italic = True
+                
+                # Create layout element
+                element = LayoutElement(
+                    text=text,
+                    bbox=bbox,
+                    element_type=element_type,
+                    font_size=font_size,
+                    is_bold=is_bold,
+                    is_italic=is_italic,
+                    confidence=0.9,  # Docling has high confidence
+                )
+                
+                elements.append(element)
+        
+        except Exception as e:
+            logger.error(f"Failed to extract elements: {e}")
+        
+        return elements
+    
+    def _detect_headers_footers(
+        self, elements: List[LayoutElement]
+    ) -> Tuple[List[LayoutElement], List[LayoutElement]]:
+        """
+        Detect headers and footers based on position.
+        
+        Headers: Top 10% of page
+        Footers: Bottom 10% of page
+        """
+        headers = []
+        footers = []
+        
+        if not elements:
+            return headers, footers
+        
+        # Group elements by page
+        pages: Dict[int, List[LayoutElement]] = {}
+        for elem in elements:
+            page = elem.bbox.page
+            if page not in pages:
+                pages[page] = []
+            pages[page].append(elem)
+        
+        # For each page, identify headers/footers
+        for page_num, page_elements in pages.items():
+            if not page_elements:
+                continue
+            
+            # Find page height (max y1)
+            page_height = max(elem.bbox.y1 for elem in page_elements)
+            
+            # Header threshold: top 10%
+            header_threshold = page_height * 0.1
+            
+            # Footer threshold: bottom 10%
+            footer_threshold = page_height * 0.9
+            
+            for elem in page_elements:
+                # Check if in header region
+                if elem.bbox.y1 < header_threshold:
+                    headers.append(elem)
+                # Check if in footer region
+                elif elem.bbox.y0 > footer_threshold:
+                    footers.append(elem)
+        
+        return headers, footers
+    
+    def _extract_tables(self, document) -> List[Dict[str, Any]]:
+        """Extract table information."""
+        tables = []
+        
+        try:
+            for item in document.iterate_items():
+                if hasattr(item, 'label') and item.label == 'table':
+                    table_data = {
+                        "text": item.text if hasattr(item, 'text') else "",
+                        "bbox": item.bbox.to_dict() if hasattr(item, 'bbox') else None,
+                        "rows": getattr(item, 'num_rows', 0),
+                        "cols": getattr(item, 'num_cols', 0),
+                    }
+                    tables.append(table_data)
+        except Exception as e:
+            logger.error(f"Failed to extract tables: {e}")
+        
+        return tables
+    
+    def _extract_figures(self, document) -> List[Dict[str, Any]]:
+        """Extract figure information."""
+        figures = []
+        
+        try:
+            for item in document.iterate_items():
+                if hasattr(item, 'label') and item.label in ['figure', 'picture']:
+                    figure_data = {
+                        "text": item.text if hasattr(item, 'text') else "",
+                        "bbox": item.bbox.to_dict() if hasattr(item, 'bbox') else None,
+                        "caption": getattr(item, 'caption', ""),
+                    }
+                    figures.append(figure_data)
+        except Exception as e:
+            logger.error(f"Failed to extract figures: {e}")
+        
+        return figures
+    
+    def _calculate_confidence(self, elements: List[LayoutElement]) -> float:
+        """Calculate overall confidence score."""
+        if not elements:
+            return 0.0
+        
+        # Average confidence of all elements
+        total_confidence = sum(elem.confidence for elem in elements)
+        return total_confidence / len(elements)
+    
+    def _empty_layout(self) -> Dict[str, Any]:
+        """Return empty layout structure."""
+        return {
+            "elements": [],
+            "headers": [],
+            "footers": [],
+            "tables": [],
+            "figures": [],
+            "confidence": 0.0,
+        }
+    
+    def find_title_with_logo_tolerance(
+        self, elements: List[LayoutElement], logo_y_threshold: float = 150.0
+    ) -> Optional[LayoutElement]:
+        """
+        Find title element, accounting for logos at the top.
+        
+        Args:
+            elements: List of layout elements
+            logo_y_threshold: Y position below which to start looking for title
+            
+        Returns:
+            Title element or None
+        """
+        # Filter elements below logo threshold
+        candidate_elements = [
+            elem for elem in elements
+            if elem.bbox.y0 > logo_y_threshold and elem.text.strip()
+        ]
+        
+        if not candidate_elements:
+            return None
+        
+        # Find element with largest font size
+        title_element = max(
+            candidate_elements,
+            key=lambda e: (e.font_size or 0, -e.bbox.y0)  # Largest font, highest position
+        )
+        
+        return title_element
