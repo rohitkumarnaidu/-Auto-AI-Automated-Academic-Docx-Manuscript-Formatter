@@ -5,10 +5,13 @@ This module detects caption blocks (e.g., "Figure 1: ...") and associates
 them with the nearest Figure object.
 """
 
+import logging
 import re
 import os
 from typing import List, Optional, Tuple, Dict, Any
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 from app.pipeline.base import PipelineStage
 from app.models import PipelineDocument as Document, Block, Figure
@@ -52,52 +55,55 @@ class CaptionMatcher(PipelineStage):
                 from app.services.nvidia_client import get_nvidia_client
                 self.vision_client = get_nvidia_client()
                 if self.vision_client:
-                    print("✅ Vision analysis enabled for figure captions")
-            except Exception as e:
-                print(f"⚠️ Vision analysis unavailable: {e}")
+                    logger.info("Vision analysis enabled for figure captions.")
+            except Exception as exc:
+                logger.warning("Vision analysis unavailable: %s", exc)
                 self.vision_client = None
 
     def process(self, document: Document) -> Document:
         """
         Match specific figures to captions in the document.
-        
-        Args:
-            document: Document with figures and classified blocks
-            
-        Returns:
-            Document with linked figures
         """
         start_time = datetime.utcnow()
         
-        blocks = document.blocks
-        figures = document.figures
-        
-        if not figures:
+        try:
+            blocks = document.blocks
+            figures = document.figures
+            
+            if not figures:
+                return document
+                
+            # 1. Detect Caption Candidates
+            caption_candidates = self._find_caption_candidates(blocks)
+            
+            # 2. Match Figures to Captions
+            matches = self._match_candidates(blocks, figures, caption_candidates)
+            
+            # 3. Apply Links
+            match_count = 0
+            vision_enhanced = 0
+            
+            for fig, cap_block in matches:
+                # Update Figure
+                fig.caption_text = cap_block.text.strip()
+                fig.caption_block_id = cap_block.block_id
+                
+                # Update Block metadata
+                cap_block.metadata["is_figure_caption"] = True
+                cap_block.metadata["linked_figure_id"] = fig.figure_id
+                match_count += 1
+            
+            # 4. Vision Analysis Enhancement
+            if self.enable_vision and self.vision_client:
+                vision_enhanced = self._enhance_captions_with_vision(figures)
+        except Exception as exc:
+            logger.error("Caption matching failed: %s", exc)
+            document.add_processing_stage(
+                stage_name="figure_linking",
+                status="error",
+                message=f"Caption matching failed: {exc}"
+            )
             return document
-            
-        # 1. Detect Caption Candidates
-        caption_candidates = self._find_caption_candidates(blocks)
-        
-        # 2. Match Figures to Captions
-        matches = self._match_candidates(blocks, figures, caption_candidates)
-        
-        # 3. Apply Links
-        match_count = 0
-        vision_enhanced = 0
-        
-        for fig, cap_block in matches:
-            # Update Figure
-            fig.caption_text = cap_block.text.strip()
-            fig.caption_block_id = cap_block.block_id
-            
-            # Update Block metadata
-            cap_block.metadata["is_figure_caption"] = True
-            cap_block.metadata["linked_figure_id"] = fig.figure_id
-            match_count += 1
-        
-        # 4. (NEW) Vision Analysis Enhancement
-        if self.enable_vision and self.vision_client:
-            vision_enhanced = self._enhance_captions_with_vision(figures)
         
         # Update processing history
         end_time = datetime.utcnow()
@@ -150,16 +156,16 @@ class CaptionMatcher(PipelineStage):
                     if not figure.caption_text or figure.caption_text.strip() == "":
                         figure.caption_text = f"Figure {figure.figure_id}: {vision_description}"
                         figure.metadata["caption_source"] = "vision_generated"
-                        print(f"✅ Generated caption for Figure {figure.figure_id} using vision")
+                        logger.info("Generated caption for Figure %s using vision.", figure.figure_id)
                     else:
                         # Caption exists, just store analysis for reference
                         figure.metadata["caption_source"] = "manual_with_vision"
-                        print(f"✅ Enhanced Figure {figure.figure_id} with vision analysis")
+                        logger.info("Enhanced Figure %s with vision analysis.", figure.figure_id)
                     
                     enhanced_count += 1
             
-            except Exception as e:
-                print(f"⚠️ Vision analysis failed for Figure {figure.figure_id}: {e}")
+            except Exception as exc:
+                logger.warning("Vision analysis failed for Figure %s: %s", figure.figure_id, exc)
                 continue
         
         return enhanced_count

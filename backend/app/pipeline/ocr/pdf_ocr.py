@@ -3,7 +3,11 @@ PDF OCR Module - Handles scanned PDFs by converting to images and extracting tex
 """
 
 import os
+import logging
 from typing import List, Tuple
+
+logger = logging.getLogger(__name__)
+
 try:
     from pdfminer.high_level import extract_text
     from pdf2image import convert_from_path
@@ -11,7 +15,7 @@ try:
     from docx import Document
 except ImportError:
     # Graceful handling if deps missing (checked at runtime)
-    pass
+    logger.warning("PdfOCR: Optional OCR dependencies not installed (pdfminer, pdf2image, pytesseract).")
 
 class OCRError(Exception):
     """Custom exception for OCR failures."""
@@ -38,15 +42,9 @@ class PdfOCR:
             # Simple heuristic: clean whitespace and check length
             clean_text = "".join(text.split())
             return len(clean_text) < self.text_threshold
-        except Exception as e:
-            # If pdfminer fails, assume it might be corrupt or encrypted, 
-            # OR just default to not-scanned (let LibreOffice try)
-            # OR default to scanned?
-            # User says: "If extracted text length < threshold... Treat as scanned"
-            # If we can't extract, maybe it's image only?
-            # Let's log and assume scanned if we can't read text? 
-            # Or safer: let LibreOffice handle it.
-            print(f"Warning: PDF text check failed: {e}")
+        except Exception as exc:
+            # If pdfminer fails, default to not-scanned so LibreOffice can try.
+            logger.warning("PdfOCR.is_scanned: text extraction failed for '%s': %s", pdf_path, exc)
             return False
 
     def convert_to_docx(self, pdf_path: str, output_path: str) -> str:
@@ -64,16 +62,18 @@ class PdfOCR:
             raise OCRError(f"Failed to convert PDF to images (Poppler missing?): {e}")
 
         full_text = []
-        
-        try:
-            # 2. OCR Images
-            for i, image in enumerate(images):
-                # Tesseract check implicitly happens here
+
+        # 2. OCR Images — isolate per-page so one bad page doesn't abort all
+        for i, image in enumerate(images):
+            try:
                 page_text = pytesseract.image_to_string(image)
                 full_text.append(page_text)
-                
-        except Exception as e:
-            raise OCRError(f"Tesseract OCR failed: {e}")
+            except Exception as exc:
+                logger.warning("PdfOCR: Tesseract failed on page %d: %s", i + 1, exc)
+                full_text.append("")  # preserve page slot with empty string
+
+        if not any(full_text):
+            raise OCRError("Tesseract OCR produced no text for any page.")
 
         # 3. Create DOCX
         try:

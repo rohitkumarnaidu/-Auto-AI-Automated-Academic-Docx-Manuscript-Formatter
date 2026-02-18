@@ -8,8 +8,11 @@ Supports:
 
 import os
 import base64
+import logging
 from typing import List, Dict, Any, Optional
 from openai import OpenAI
+
+logger = logging.getLogger(__name__)
 
 
 class NvidiaClient:
@@ -18,20 +21,28 @@ class NvidiaClient:
     def __init__(self):
         """Initialize NVIDIA client with API key from environment."""
         self.api_key = os.getenv("NVIDIA_API_KEY")
+        self.client = None
+
         if not self.api_key:
-            raise ValueError("NVIDIA_API_KEY not found in environment variables")
-        
-        # Initialize OpenAI client with NVIDIA endpoint
-        self.client = OpenAI(
-            base_url="https://integrate.api.nvidia.com/v1",
-            api_key=self.api_key
-        )
-        
+            logger.warning(
+                "NvidiaClient: NVIDIA_API_KEY not set — client running in degraded mode. "
+                "All API calls will return empty results."
+            )
+        else:
+            try:
+                # Initialize OpenAI client with NVIDIA endpoint
+                self.client = OpenAI(
+                    base_url="https://integrate.api.nvidia.com/v1",
+                    api_key=self.api_key
+                )
+                logger.info("NvidiaClient: initialized successfully.")
+            except Exception as exc:
+                logger.error("NvidiaClient: failed to initialize OpenAI client: %s", exc)
+                self.client = None
+
         # Model identifiers
         self.llama_70b = "meta/llama-3.3-70b-instruct"
         self.llama_vision = "meta/llama-3.2-11b-vision-instruct"
-        
-        print("✅ NVIDIA Client initialized successfully")
     
     def chat(
         self, 
@@ -58,16 +69,25 @@ class NvidiaClient:
         # Select model
         model_name = self.llama_70b if model == "llama-70b" else self.llama_vision
         
+        if not self.client:
+            logger.warning("NvidiaClient.chat: client not available (missing API key or init failed).")
+            return ""
+
         try:
             response = self.client.chat.completions.create(
                 model=model_name,
                 messages=messages,
-                temperature=temperature,
+                temperature=max(0.0, min(1.0, temperature)),
                 max_tokens=max_tokens
             )
-            return response.choices[0].message.content
-        except Exception as e:
-            raise Exception(f"NVIDIA API call failed: {str(e)}")
+            choices = response.choices
+            if not choices:
+                logger.warning("NvidiaClient.chat: API returned empty choices.")
+                return ""
+            return choices[0].message.content or ""
+        except Exception as exc:
+            logger.error("NvidiaClient.chat: API call failed: %s", exc)
+            raise
     
     def analyze_document_structure(self, text: str) -> Dict[str, Any]:
         """
@@ -131,8 +151,8 @@ class NvidiaClient:
             
             return self.chat(messages, model="llama-vision", temperature=0.5, max_tokens=512)
         
-        except Exception as e:
-            print(f"⚠️ Vision analysis failed: {e}")
+        except Exception as exc:
+            logger.warning("NvidiaClient.analyze_figure: vision analysis failed: %s", exc)
             return None
     
     def validate_template_compliance(self, document_text: str, template: str) -> Dict[str, Any]:
@@ -177,7 +197,7 @@ def get_nvidia_client() -> NvidiaClient:
     if _nvidia_client is None:
         try:
             _nvidia_client = NvidiaClient()
-        except Exception as e:
-            print(f"⚠️ Failed to initialize NVIDIA client: {e}")
+        except Exception as exc:
+            logger.error("get_nvidia_client: Failed to initialize NVIDIA client: %s", exc)
             _nvidia_client = None
     return _nvidia_client

@@ -4,10 +4,13 @@ Template Renderer - Jinja2/docxtpl rendering for manuscript output.
 
 from __future__ import annotations
 
+import logging
 import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 
 from docx import Document as WordDocument
 from docxtpl import DocxTemplate
@@ -25,59 +28,69 @@ class TemplateRenderer:
 
     def render(self, document: Document, template_name: str = "ieee") -> DocxTemplate:
         """Render a template using document context."""
-        template_path = self._resolve_template_path(template_name)
-        context = self.build_context(document)
-
-        tpl = DocxTemplate(str(template_path))
-        tpl.render(context)
-        return tpl
+        if not document:
+            raise ValueError("document must not be None")
+        template_name = (template_name or "ieee").strip() or "ieee"
+        try:
+            template_path = self._resolve_template_path(template_name)
+            context = self.build_context(document)
+            tpl = DocxTemplate(str(template_path))
+            tpl.render(context)
+            return tpl
+        except Exception as exc:
+            logger.error("Failed to render template '%s': %s", template_name, exc)
+            raise
 
     def build_context(self, document: Document) -> Dict[str, Any]:
         """Build Jinja2 context from a pipeline document."""
-        metadata = document.metadata
-        abstract_text = (metadata.abstract or "").strip()
-        if not abstract_text:
-            abstract_text = self._first_block_text(document.blocks, "abstract_body")
+        try:
+            metadata = document.metadata
+            abstract_text = (metadata.abstract or "").strip()
+            if not abstract_text:
+                abstract_text = self._first_block_text(document.blocks, "abstract_body")
 
-        keywords = list(metadata.keywords or [])
-        if not keywords:
-            raw_keywords = self._first_block_text(document.blocks, "keywords_body")
-            if raw_keywords:
-                keywords = [item.strip() for item in raw_keywords.split(",") if item.strip()]
+            keywords = list(metadata.keywords or [])
+            if not keywords:
+                raw_keywords = self._first_block_text(document.blocks, "keywords_body")
+                if raw_keywords:
+                    keywords = [item.strip() for item in raw_keywords.split(",") if item.strip()]
 
-        authors = list(metadata.authors or [])
-        if not authors:
-            authors = self._all_block_text(document.blocks, "author")
+            authors = list(metadata.authors or [])
+            if not authors:
+                authors = self._all_block_text(document.blocks, "author")
 
-        affiliations = list(metadata.affiliations or [])
-        if not affiliations:
-            affiliations = self._all_block_text(document.blocks, "affiliation")
+            affiliations = list(metadata.affiliations or [])
+            if not affiliations:
+                affiliations = self._all_block_text(document.blocks, "affiliation")
 
-        title = (metadata.title or "").strip()
-        if not title:
-            title = self._first_block_text(document.blocks, "title")
-        if not title:
-            title = document.original_filename or "Untitled Manuscript"
+            title = (metadata.title or "").strip()
+            if not title:
+                title = self._first_block_text(document.blocks, "title")
+            if not title:
+                title = document.original_filename or "Untitled Manuscript"
 
-        references = self._collect_references(document)
-        sections = self._collect_sections(document.blocks)
+            references = self._collect_references(document)
+            sections = self._collect_sections(document.blocks)
 
-        formatting_options = document.formatting_options or {}
+            formatting_options = document.formatting_options or {}
 
-        return {
-            "title": title,
-            "authors": authors,
-            "affiliations": affiliations,
-            "date": datetime.utcnow().strftime("%B %d, %Y"),
-            "abstract": abstract_text,
-            "keywords": keywords,
-            "sections": sections,
-            "references": references,
-            "cover_page": formatting_options.get("cover_page", True),
-            "toc": formatting_options.get("toc", False),
-            "page_numbers": formatting_options.get("page_numbers", True),
-            "page_number": formatting_options.get("page_number", "1"),
-        }
+            return {
+                "title": title,
+                "authors": authors,
+                "affiliations": affiliations,
+                "date": datetime.utcnow().strftime("%B %d, %Y"),
+                "abstract": abstract_text,
+                "keywords": keywords,
+                "sections": sections,
+                "references": references,
+                "cover_page": formatting_options.get("cover_page", True),
+                "toc": formatting_options.get("toc", False),
+                "page_numbers": formatting_options.get("page_numbers", True),
+                "page_number": formatting_options.get("page_number", "1"),
+            }
+        except Exception as exc:
+            logger.error("Failed to build template context: %s", exc)
+            raise
 
     def _resolve_template_path(self, template_name: str) -> Path:
         style = (template_name or "ieee").lower()
@@ -88,16 +101,21 @@ class TemplateRenderer:
 
     def _build_fallback_template(self) -> Path:
         """Create a temporary fallback DOCX template if none exists."""
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as tmp:
-            temp_path = Path(tmp.name)
-        doc = WordDocument()
-        doc.add_paragraph("{{ title }}", style="Title")
-        doc.add_paragraph("{% for section in sections %}")
-        doc.add_paragraph("{{ section.heading }}")
-        doc.add_paragraph("{% for paragraph in section.paragraphs %}{{ paragraph }}{% endfor %}")
-        doc.add_paragraph("{% endfor %}")
-        doc.save(str(temp_path))
-        return temp_path
+        try:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as tmp:
+                temp_path = Path(tmp.name)
+            doc = WordDocument()
+            doc.add_paragraph("{{ title }}", style="Title")
+            doc.add_paragraph("{% for section in sections %}")
+            doc.add_paragraph("{{ section.heading }}")
+            doc.add_paragraph("{% for paragraph in section.paragraphs %}{{ paragraph }}{% endfor %}")
+            doc.add_paragraph("{% endfor %}")
+            doc.save(str(temp_path))
+            logger.warning("Using fallback DOCX template at '%s'", temp_path)
+            return temp_path
+        except Exception as exc:
+            logger.error("Failed to build fallback template: %s", exc)
+            raise
 
     def _collect_references(self, document: Document) -> List[str]:
         if document.references:

@@ -4,9 +4,12 @@ Reference Parser - Semantic extraction of reference fields.
 Parses unstructured reference strings into structured metadata.
 """
 
+import logging
 import re
 from typing import List, Optional, Dict, Any
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 from app.models import PipelineDocument as Document, Block, BlockType, Reference, ReferenceType
 from app.utils.id_generator import generate_reference_id
@@ -39,30 +42,40 @@ class ReferenceParser(PipelineStage):
         """
         start_time = datetime.utcnow()
         
-        blocks = document.get_blocks_by_type(BlockType.REFERENCE_ENTRY)
-        if not blocks:
-            # Fallback: check Section "References" if not typed
-            ref_blocks = document.get_blocks_in_section("References")
-            # If we rely on classification, we should trust BlockType. 
-            # But earlier stages might have missed types if Section name was weird.
-            # We stick to BlockType.REFERENCE_ENTRY as per contract.
-            pass
-        
-        parsed_count = 0
-        references = []
-        
-        for i, block in enumerate(blocks):
-            text = block.text.strip()
-            if not text:
-                continue
-                
-            # Parse individual reference
-            ref_obj = self._parse_single_reference(text, i)
-            ref_obj.block_id = block.block_id
-            references.append(ref_obj)
-            parsed_count += 1
+        try:
+            blocks = document.get_blocks_by_type(BlockType.REFERENCE_ENTRY)
+            if not blocks:
+                # Fallback: check Section "References" if not typed
+                ref_blocks = document.get_blocks_in_section("References")
+                # We stick to BlockType.REFERENCE_ENTRY as per contract.
+                pass
             
-        document.references = references
+            parsed_count = 0
+            references = []
+            
+            for i, block in enumerate(blocks):
+                text = (block.text or "").strip()
+                if not text:
+                    continue
+                
+                try:
+                    # Parse individual reference
+                    ref_obj = self._parse_single_reference(text, i)
+                    ref_obj.block_id = block.block_id
+                    references.append(ref_obj)
+                    parsed_count += 1
+                except Exception as exc:
+                    logger.warning("Failed to parse reference block %s: %s", block.block_id, exc)
+                    
+            document.references = references
+        except Exception as exc:
+            logger.error("Reference parsing failed: %s", exc)
+            document.add_processing_stage(
+                stage_name="reference_parsing",
+                status="error",
+                message=f"Reference parsing failed: {exc}"
+            )
+            return document
         
         # Log
         end_time = datetime.utcnow()

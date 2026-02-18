@@ -5,8 +5,11 @@ Uses PyMuPDF (fitz) to extract text, images, and basic structure from PDF docume
 Converts to internal Document model for processing through the pipeline.
 """
 
+import logging
 import os
 from typing import List, Tuple
+
+logger = logging.getLogger(__name__)
 from datetime import datetime
 from pathlib import Path
 
@@ -118,11 +121,10 @@ class PdfParser(BaseParser):
             if pdf_metadata.get('subject'):
                 metadata.abstract = pdf_metadata['subject']
             if pdf_metadata.get('keywords'):
-                metadata.keywords = [k.strip() for k in pdf_metadata['keywords'].split(',')]
+                keywords_raw = pdf_metadata.get('keywords', '')
+                metadata.keywords = [k.strip() for k in keywords_raw.split(',') if k.strip()]
         
         return metadata
-    
-        return blocks, figures
 
     def _calculate_font_stats(self, pdf_doc) -> float:
         """
@@ -195,7 +197,10 @@ class PdfParser(BaseParser):
         h2_threshold = body_font_size * 1.3     # e.g., 11 * 1.3 = 14.3
         h3_threshold = body_font_size * 1.1     # e.g., 11 * 1.1 = 12.1 (+ bold usually)
         
-        print(f"PDF Analysis: Body Size={body_font_size}pt, H1>{h1_threshold:.1f}pt, H2>{h2_threshold:.1f}pt")
+        logger.debug(
+            "PDF Analysis: Body Size=%.1fpt, H1>%.1fpt, H2>%.1fpt",
+            body_font_size, h1_threshold, h2_threshold,
+        )
         
         for page_num, page in enumerate(pdf_doc):
             # 1. Extract Tables first (PyMuPDF find_tables)
@@ -236,13 +241,17 @@ class PdfParser(BaseParser):
                         )
                         block.metadata["is_table"] = True
                         blocks.append(block)
-            except Exception as e:
-                print(f"Warning: PDF table extraction failed on page {page_num + 1}: {e}")
+            except Exception as exc:
+                logger.warning("PDF table extraction failed on page %d: %s", page_num + 1, exc)
 
             # 2. Extract Text (excluding tables)
             # ------------------------------------------------
             # Extract text with formatting details
-            text_dict = page.get_text("dict")
+            try:
+                text_dict = page.get_text("dict")
+            except Exception as exc:
+                logger.warning("Failed to get text dict on page %d: %s", page_num + 1, exc)
+                text_dict = {"blocks": []}
             
             # Process each block in the page
             for block in text_dict.get("blocks", []):
@@ -346,7 +355,9 @@ class PdfParser(BaseParser):
                                 block.metadata["heading_level"] = 3
                         
                         block.metadata["font_size"] = avg_font_size
-                        block.metadata["relative_size"] = avg_font_size / body_font_size if body_font_size else 1.0
+                        block.metadata["relative_size"] = (
+                            avg_font_size / body_font_size if body_font_size > 0 else 1.0
+                        )
                         blocks.append(block)
             
             # 3. Extract Images
@@ -380,7 +391,7 @@ class PdfParser(BaseParser):
                     )
                     figure.metadata["page_number"] = page_num + 1
                     figures.append(figure)
-                except Exception as e:
-                    print(f"Warning: Failed to extract image from PDF: {e}")
+                except Exception as exc:
+                    logger.warning("Failed to extract image on page %d (img %d): %s", page_num + 1, img_index, exc)
         
         return blocks, figures

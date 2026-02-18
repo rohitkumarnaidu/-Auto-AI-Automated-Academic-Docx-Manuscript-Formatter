@@ -1,12 +1,15 @@
 """
 Document Validator - checks for structural and content validity.
+
+All validation methods are wrapped in safe_function / safe_execution
+so that a crash in any check degrades gracefully rather than aborting
+the entire pipeline.
 """
 
+import logging
 from typing import List, Dict, Any, Optional
-import re
 from datetime import datetime
 from pydantic import BaseModel, Field
-import sys
 
 from app.models import PipelineDocument as Document, BlockType, Figure
 from app.pipeline.contracts.loader import ContractLoader
@@ -15,10 +18,9 @@ from app.pipeline.integrity.cross_ref import CrossReferenceEngine
 from app.pipeline.validation.review_manager import ReviewManager
 from app.pipeline.services.crossref_client import CrossRefClient
 from app.pipeline.base import PipelineStage
-
-# Direct import - crash hard if fail, to debug cleanly
 from app.pipeline.safety.safe_execution import safe_function, safe_execution
-print(f"DEBUG VALIDATOR V3: safe_function imported (direct): {safe_function}", file=sys.stderr)
+
+logger = logging.getLogger(__name__)
 
 class ValidationResult(BaseModel):
     """Result of a document validation."""
@@ -94,7 +96,7 @@ class DocumentValidator(PipelineStage):
         warnings.extend(doi_warnings)
         warnings.extend(doi_errors) 
         
-        # 6. Confidence-Based HITL Signs
+        # 7. Confidence-Based HITL Signs
         review_manager = ReviewManager()
         review_manager.evaluate(document)
         
@@ -125,17 +127,28 @@ class DocumentValidator(PipelineStage):
     def _check_sections(self, document: Document) -> tuple:
         errors = []
         warnings = []
-        
-        publisher = document.template.template_name if document.template else "IEEE"
-        
+
+        try:
+            publisher = (
+                document.template.template_name
+                if document.template and hasattr(document.template, "template_name")
+                else "IEEE"
+            )
+        except Exception:
+            publisher = "IEEE"
+
         # Use contract-driven order validator
-        order_violations = self.order_validator.validate_order(document, publisher)
-        for violation in order_violations:
-            if "Missing required" in violation:
-                errors.append(violation)
-            else:
-                warnings.append(violation)
-        
+        try:
+            order_violations = self.order_validator.validate_order(document, publisher)
+            for violation in order_violations:
+                if "Missing required" in violation:
+                    errors.append(violation)
+                else:
+                    warnings.append(violation)
+        except Exception as exc:
+            logger.warning("Section order validation failed (non-fatal): %s", exc)
+            warnings.append("Section order check skipped due to internal error")
+
         return errors, warnings
 
     def _check_figures(self, document: Document) -> tuple:

@@ -5,8 +5,11 @@ Allows running both models in parallel and comparing results.
 """
 
 import time
+import logging
 from typing import Dict, Any, List, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+logger = logging.getLogger(__name__)
 
 
 class ABTestingFramework:
@@ -35,50 +38,57 @@ class ABTestingFramework:
         Returns:
             Dict with comparison results
         """
-        results = {
+        results: Dict[str, Any] = {
             "nvidia": None,
             "deepseek": None,
             "comparison": {}
         }
-        
-        # Run both models in parallel
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            futures = {}
-            
-            # Submit NVIDIA task
-            if nvidia_client:
-                futures["nvidia"] = executor.submit(
-                    self._run_nvidia_test,
-                    nvidia_client,
-                    semantic_blocks,
-                    rules
-                )
-            
-            # Submit DeepSeek task
-            if deepseek_llm:
-                futures["deepseek"] = executor.submit(
-                    self._run_deepseek_test,
-                    deepseek_llm,
-                    semantic_blocks,
-                    rules
-                )
-            
-            # Collect results
-            for model_name, future in futures.items():
-                try:
-                    results[model_name] = future.result(timeout=60)
-                except Exception as e:
-                    results[model_name] = {"error": str(e)}
-        
-        # Compare results
-        results["comparison"] = self._compare_results(
-            results.get("nvidia"),
-            results.get("deepseek")
-        )
-        
-        # Store test result
-        self.test_results.append(results)
-        
+
+        try:
+            # Run both models in parallel
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                futures = {}
+
+                # Submit NVIDIA task
+                if nvidia_client:
+                    futures["nvidia"] = executor.submit(
+                        self._run_nvidia_test,
+                        nvidia_client,
+                        semantic_blocks,
+                        rules
+                    )
+
+                # Submit DeepSeek task
+                if deepseek_llm:
+                    futures["deepseek"] = executor.submit(
+                        self._run_deepseek_test,
+                        deepseek_llm,
+                        semantic_blocks,
+                        rules
+                    )
+
+                # Collect results
+                for model_name, future in futures.items():
+                    try:
+                        results[model_name] = future.result(timeout=60)
+                    except Exception as exc:
+                        logger.warning("ABTesting: %s future failed: %s", model_name, exc)
+                        results[model_name] = {"error": str(exc), "success": False}
+
+            # Compare results
+            results["comparison"] = self._compare_results(
+                results.get("nvidia"),
+                results.get("deepseek")
+            )
+
+            # Store test result
+            self.test_results.append(results)
+            logger.info("ABTesting: test complete. Total tests: %d", len(self.test_results))
+
+        except Exception as exc:
+            logger.error("ABTesting.run_ab_test failed: %s", exc, exc_info=True)
+            results["error"] = str(exc)
+
         return results
     
     def _run_nvidia_test(
@@ -193,15 +203,20 @@ class ABTestingFramework:
         if not self.test_results:
             return {"message": "No tests run yet"}
         
-        nvidia_wins = sum(1 for r in self.test_results if r.get("comparison", {}).get("latency_winner") == "NVIDIA")
-        deepseek_wins = sum(1 for r in self.test_results if r.get("comparison", {}).get("latency_winner") == "DeepSeek")
-        
-        return {
-            "total_tests": len(self.test_results),
-            "nvidia_wins": nvidia_wins,
-            "deepseek_wins": deepseek_wins,
-            "nvidia_win_rate": nvidia_wins / len(self.test_results) if self.test_results else 0
-        }
+        try:
+            nvidia_wins = sum(1 for r in self.test_results if r.get("comparison", {}).get("latency_winner") == "NVIDIA")
+            deepseek_wins = sum(1 for r in self.test_results if r.get("comparison", {}).get("latency_winner") == "DeepSeek")
+            total = len(self.test_results)
+
+            return {
+                "total_tests": total,
+                "nvidia_wins": nvidia_wins,
+                "deepseek_wins": deepseek_wins,
+                "nvidia_win_rate": nvidia_wins / total if total > 0 else 0.0
+            }
+        except Exception as exc:
+            logger.error("ABTesting.get_test_summary failed: %s", exc)
+            return {"error": str(exc)}
 
 
 # Global A/B testing instance

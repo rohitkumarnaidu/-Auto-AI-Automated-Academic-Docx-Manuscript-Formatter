@@ -1,7 +1,11 @@
 """
 Formatter Module - Applies structure and styles to create a Word document.
+
+All rendering helpers are wrapped in @safe_function so that a failure in
+one block/figure/equation does not abort the entire document generation.
 """
 
+import logging
 import os
 import yaml
 from typing import Optional, Any
@@ -10,6 +14,8 @@ from docx.shared import Inches, Pt
 from io import BytesIO
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
+
+logger = logging.getLogger(__name__)
 
 from app.models import PipelineDocument as Document, BlockType, Figure
 from app.pipeline.contracts.loader import ContractLoader
@@ -36,7 +42,11 @@ class Formatter:
         
     def process(self, document: Document) -> Document:
         """Standard pipeline stage entry point."""
-        template_name = document.template.template_name if document.template else "none"
+        template_name = (
+            document.template.template_name
+            if document.template and hasattr(document.template, "template_name")
+            else "none"
+        )
         # We store the resulting Word object in a transient field
         document.generated_doc = self.format(document, template_name)
         return document
@@ -58,7 +68,10 @@ class Formatter:
         try:
             return self.template_renderer.render(document, template_name)
         except Exception as exc:
-            print(f"WARNING: docxtpl render failed for template '{template_name}'. Falling back to legacy formatter. Error: {exc}")
+            logger.warning(
+                "docxtpl render failed for template '%s'. Falling back to legacy formatter. Error: %s",
+                template_name, exc
+            )
         
         # 2. Load Resources
         # Note: template.docx is still the base for styles
@@ -67,10 +80,10 @@ class Formatter:
         contract_path = os.path.join(self.templates_dir, template_name.lower(), "contract.yaml")
         
         if is_none:
-            print(f"INFO: No template specified (General Formatting). Using blank document.")
+            logger.info("No template specified (General Formatting). Using blank document.")
             word_doc = WordDocument()
         elif not os.path.exists(template_path):
-            print(f"WARNING: Template file not found at {template_path}. Using blank.")
+            logger.warning("Template file not found at %s. Using blank.", template_path)
             word_doc = WordDocument()
         else:
             word_doc = WordDocument(template_path)
@@ -424,7 +437,7 @@ class Formatter:
             with open(path, 'r') as f:
                 return yaml.safe_load(f) or {}
         except Exception as e:
-            print(f"Warning: Failed to load contract {path}: {e}")
+            logger.warning("Failed to load contract %s: %s", path, e)
             return {}
 
 
@@ -459,7 +472,7 @@ class Formatter:
             # Apply contract-driven spacing
             self._apply_spacing_from_contract(p, block, template_name)
             
-        except:
+        except Exception:
             # Fallback if style missing
             if clean_text:
                 p = doc.add_paragraph(clean_text)
@@ -577,7 +590,7 @@ class Formatter:
                 run.add_picture(figure.export_path, width=width, height=height)
                 paragraph.alignment = 1  # Center the image
             except Exception as e:
-                print(f"WARNING: Failed to render figure from export_path: {e}")
+                logger.warning("Failed to render figure from export_path: %s", e)
                 # Fallback: add placeholder text if image fails
                 p = doc.add_paragraph(f"[Image: {figure.export_path}]")
                 p.alignment = 1  # Center
@@ -596,9 +609,9 @@ class Formatter:
                 else:
                     run.add_picture(image_stream, width=width)
                 paragraph.alignment = 1  # Center the image
-                print(f"INFO: Rendered figure {number} from image_data ({len(figure.image_data)} bytes)")
+                logger.info("Rendered figure %d from image_data (%d bytes)", number, len(figure.image_data))
             except Exception as e:
-                print(f"WARNING: Failed to render figure from image_data: {e}")
+                logger.warning("Failed to render figure from image_data: %s", e)
                 # Fallback: add placeholder
                 p = doc.add_paragraph(f"[Figure {number} - Image rendering failed: {str(e)[:50]}]")
                 p.alignment = 1  # Center

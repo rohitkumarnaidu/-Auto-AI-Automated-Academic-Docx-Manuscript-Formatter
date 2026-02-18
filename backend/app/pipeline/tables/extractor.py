@@ -3,7 +3,10 @@ Table Extractor - Production Grade Stage 3 Component.
 Handles extraction of structured data from docx Table objects.
 """
 
+import logging
 from typing import List, Optional
+
+logger = logging.getLogger(__name__)
 from docx.table import Table as DocxTable
 from app.models.table import Table, TableCell
 
@@ -34,10 +37,13 @@ class TableExtractor:
                 
                 # Deep fallback (Stage 3 Production Grade)
                 if not clean_text:
-                    deep_text = self._extract_deep_xml_text(cell)
-                    if deep_text:
-                        print(f"  [DEBUG] Fixed empty cell via deep extraction: '{deep_text[:20]}...'")
-                        clean_text = deep_text
+                    try:
+                        deep_text = self._extract_deep_xml_text(cell)
+                        if deep_text:
+                            logger.debug("Fixed empty cell via deep extraction: '%s'", deep_text[:20])
+                            clean_text = deep_text
+                    except Exception as exc:
+                        logger.debug("Deep XML extraction failed for cell: %s", exc)
                 
                 row_cells_text.append(clean_text)
             
@@ -76,29 +82,22 @@ class TableExtractor:
                 
                 # RECURSIVE EXTRACTION: Check for nested tables
                 nested_tables = []
-                # Accessing _element.findall(qn('w:tbl')) inside cell XML is more robust
-                from docx.oxml.ns import qn
-                for tbl_xml in original_cell._element.findall(qn('w:tbl')):
-                    # We need to wrap this CT_Tbl in a Table object for python-docx
-                    from docx.table import Table as DocxTableWrapper
-                    # This is slightly tricky as python-docx doesn't expose a clean CT_Tbl -> Table 
-                    # out of context, but we can usually find it in parent.tables 
-                    # Or we just create a temporary wrapper if we know the parent
-                    doc_parent = original_cell._parent._parent._parent
-                    # Recursive call
-                    nested_tbl_id = f"{table_id}_n{len(nested_tables)}"
-                    # Use a fresh DocxTableWrapper if possible
-                    nested_docx_tbl = DocxTableWrapper(tbl_xml, doc_parent)
-                    
-                    # Recurse: Use incremented block index for relative ordering
-                    # Note: We use block_index + delta to keep them 'inside' the parent's domain
-                    nested_table = self.extract(
-                        nested_docx_tbl, 
-                        nested_tbl_id, 
-                        index=index + len(nested_tables) + 1, 
-                        block_index=block_index + len(nested_tables) + 1
-                    )
-                    nested_tables.append(nested_table)
+                try:
+                    from docx.oxml.ns import qn
+                    for tbl_xml in original_cell._element.findall(qn('w:tbl')):
+                        from docx.table import Table as DocxTableWrapper
+                        doc_parent = original_cell._parent._parent._parent
+                        nested_tbl_id = f"{table_id}_n{len(nested_tables)}"
+                        nested_docx_tbl = DocxTableWrapper(tbl_xml, doc_parent)
+                        nested_table = self.extract(
+                            nested_docx_tbl, 
+                            nested_tbl_id, 
+                            index=index + len(nested_tables) + 1, 
+                            block_index=block_index + len(nested_tables) + 1
+                        )
+                        nested_tables.append(nested_table)
+                except Exception as exc:
+                    logger.warning("Nested table extraction failed for cell (%d,%d): %s", r_idx, c_idx, exc)
                 
                 if nested_tables:
                     cell_obj.metadata["nested_tables"] = nested_tables
@@ -110,14 +109,13 @@ class TableExtractor:
                 if row_has_bold_first or self._contains_header_keywords(row_text_list):
                     has_header = True
 
-        # Validation Printing
-        print(f"\n--- [Table Extraction Debug] ---")
-        print(f"Table ID:  {table_id}")
-        print(f"Dimension: {num_rows}x{num_cols}")
-        print(f"Nested:    {sum(len(c.metadata.get('nested_tables', [])) for c in cells)} tables found")
-        if raw_data:
-            print(f"Sample:    {raw_data[0][:3]}...")
-        print(f"--------------------------------\n")
+        # Validation logging
+        logger.debug(
+            "Table '%s' extracted: %dx%d, nested=%d, sample=%s",
+            table_id, num_rows, num_cols,
+            sum(len(c.metadata.get('nested_tables', [])) for c in cells),
+            raw_data[0][:3] if raw_data else [],
+        )
 
         # 4. Final Table assembly
         extracted_table = Table(
@@ -149,13 +147,12 @@ class TableExtractor:
         """
         text_parts = []
         try:
-            # Manually iterate through all sub-elements in the cell's XML
             for node in cell._tc.iter():
-                # w:t (text) tag
                 if node.tag.endswith('}t') and node.text:
                     text_parts.append(node.text)
             return "".join(text_parts).strip()
-        except:
+        except Exception as exc:
+            logger.debug("Deep XML text extraction error: %s", exc)
             return ""
 
     def _is_cell_bold(self, cell) -> bool:

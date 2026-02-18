@@ -9,8 +9,11 @@ Uses BeautifulSoup to parse HTML and extract:
 - Lists
 """
 
+import logging
 import os
 from typing import List, Tuple
+
+logger = logging.getLogger(__name__)
 from datetime import datetime
 from pathlib import Path
 
@@ -75,8 +78,14 @@ class HtmlParser(BaseParser):
             with open(file_path, 'r', encoding='utf-8') as f:
                 soup = BeautifulSoup(f, 'html.parser')
         except UnicodeDecodeError:
-            with open(file_path, 'r', encoding='latin-1') as f:
-                soup = BeautifulSoup(f, 'html.parser')
+            logger.warning("UTF-8 decode failed for '%s'; falling back to latin-1.", file_path)
+            try:
+                with open(file_path, 'r', encoding='latin-1') as f:
+                    soup = BeautifulSoup(f, 'html.parser')
+            except Exception as exc:
+                raise ValueError(f"Failed to read HTML file '{file_path}': {exc}") from exc
+        except Exception as exc:
+            raise ValueError(f"Failed to open HTML file '{file_path}': {exc}") from exc
         
         # Convert document_id to string if needed
         if not isinstance(document_id, str):
@@ -147,6 +156,7 @@ class HtmlParser(BaseParser):
         
         # Extract content in order
         for element in body.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'li', 'img', 'pre', 'code', 'table']):
+          try:
             if element.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
                 # Heading
                 text = element.get_text().strip()
@@ -286,5 +296,7 @@ class HtmlParser(BaseParser):
                 )
                 figure.metadata["src"] = src
                 figures.append(figure)
+          except Exception as exc:
+              logger.warning("Failed to extract element <%s>: %s", getattr(element, 'name', '?'), exc)
         
         return blocks, figures

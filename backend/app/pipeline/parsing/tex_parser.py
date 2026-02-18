@@ -10,9 +10,12 @@ Parses LaTeX source to extract:
 - Equations
 """
 
+import logging
 import os
 import re
 from typing import List
+
+logger = logging.getLogger(__name__)
 from datetime import datetime
 from pathlib import Path
 
@@ -63,8 +66,14 @@ class TexParser(BaseParser):
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
         except UnicodeDecodeError:
-            with open(file_path, 'r', encoding='latin-1') as f:
-                content = f.read()
+            logger.warning("UTF-8 decode failed for '%s'; falling back to latin-1.", file_path)
+            try:
+                with open(file_path, 'r', encoding='latin-1') as f:
+                    content = f.read()
+            except Exception as exc:
+                raise ValueError(f"Failed to read LaTeX file '{file_path}': {exc}") from exc
+        except Exception as exc:
+            raise ValueError(f"Failed to open LaTeX file '{file_path}': {exc}") from exc
         
         # Convert document_id to string if needed
         if not isinstance(document_id, str):
@@ -270,24 +279,31 @@ class TexParser(BaseParser):
         
         # Extract paragraphs (text between sections)
         # Remove LaTeX commands and environments
-        cleaned_body = self._clean_latex(body)
+        try:
+            cleaned_body = self._clean_latex(body)
+        except Exception as exc:
+            logger.warning("Failed to clean LaTeX body: %s", exc)
+            cleaned_body = body
         
         # Split into paragraphs
         paragraphs = cleaned_body.split('\n\n')
         for para in paragraphs:
             para = para.strip()
             if para and len(para) > 10:  # Skip very short fragments
-                block_id = generate_block_id(self.block_counter)
-                self.block_counter += 1
-                
-                block = Block(
-                    block_id=block_id,
-                    text=para,
-                    index=self.block_counter * 100,
-                    block_type=BlockType.UNKNOWN,
-                    style=TextStyle()
-                )
-                blocks.append(block)
+                try:
+                    block_id = generate_block_id(self.block_counter)
+                    self.block_counter += 1
+                    
+                    block = Block(
+                        block_id=block_id,
+                        text=para,
+                        index=self.block_counter * 100,
+                        block_type=BlockType.UNKNOWN,
+                        style=TextStyle()
+                    )
+                    blocks.append(block)
+                except Exception as exc:
+                    logger.warning("Failed to create paragraph block: %s", exc)
         
         return blocks
     

@@ -3,11 +3,14 @@ Input Conversion Module - Handles multi-format document conversion.
 """
 
 import os
+import logging
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 class ConversionError(Exception):
     """Raised when conversion fails."""
@@ -113,20 +116,19 @@ class InputConverter:
             # Check if scanned
             ocr = PdfOCR()
             is_scanned = ocr.is_scanned(input_path)
-            
+
             if is_scanned:
                 try:
-                    print(f"Job {job_id}: PDF detected as scanned. Attempting OCR...")
+                    logger.info("Job %s: PDF detected as scanned. Attempting OCR...", job_id)
                     ocr.convert_to_docx(input_path, output_path)
-                    print(f"Job {job_id}: OCR conversion successful.")
+                    logger.info("Job %s: OCR conversion successful.", job_id)
                     return output_path
-                except OCRError as e:
-                    print(f"Job {job_id}: OCR failed ({e}). Falling back to LibreOffice.")
-                    # Fallback to LibreOffice below
-                except Exception as e:
-                    print(f"Job {job_id}: Unexpected OCR error ({e}). Falling back.")
+                except OCRError as exc:
+                    logger.warning("Job %s: OCR failed (%s). Falling back to LibreOffice.", job_id, exc)
+                except Exception as exc:
+                    logger.warning("Job %s: Unexpected OCR error (%s). Falling back.", job_id, exc)
         else:
-             print(f"Job {job_id}: OCR disabled. Skipping scanned check.")
+            logger.info("Job %s: OCR disabled. Skipping scanned check.", job_id)
                 
         # Existing LibreOffice logic
         self._run_libreoffice(input_path, output_dir)
@@ -157,9 +159,11 @@ class InputConverter:
         try:
             # pandoc input.md -o output.docx
             cmd = ["pandoc", input_path, "-o", output_path]
-            subprocess.run(cmd, check=True, capture_output=True)
-        except subprocess.CalledProcessError as e:
-            raise ConversionError(f"Pandoc conversion failed: {e.stderr.decode() if e.stderr else str(e)}")
+            subprocess.run(cmd, check=True, capture_output=True, timeout=120)
+        except subprocess.TimeoutExpired:
+            raise ConversionError("Pandoc conversion timed out after 120 seconds")
+        except subprocess.CalledProcessError as exc:
+            raise ConversionError(f"Pandoc conversion failed: {exc.stderr.decode() if exc.stderr else str(exc)}")
 
     def _run_libreoffice(self, input_path: str, output_dir: str):
         """Convert using LibreOffice (headless)."""
@@ -172,15 +176,17 @@ class InputConverter:
         try:
             # soffice --headless --convert-to docx input.pdf --outdir ...
             cmd = [
-                soffice, 
-                "--headless", 
-                "--convert-to", "docx", 
-                input_path, 
+                soffice,
+                "--headless",
+                "--convert-to", "docx",
+                input_path,
                 "--outdir", output_dir
             ]
-            subprocess.run(cmd, check=True, capture_output=True)
-        except subprocess.CalledProcessError as e:
-            raise ConversionError(f"LibreOffice conversion failed: {e.stderr.decode() if e.stderr else str(e)}")
+            subprocess.run(cmd, check=True, capture_output=True, timeout=180)
+        except subprocess.TimeoutExpired:
+            raise ConversionError("LibreOffice conversion timed out after 180 seconds")
+        except subprocess.CalledProcessError as exc:
+            raise ConversionError(f"LibreOffice conversion failed: {exc.stderr.decode() if exc.stderr else str(exc)}")
 
     def _get_libreoffice_cmd(self) -> Optional[str]:
         # Common command names

@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 import uuid
@@ -11,14 +12,24 @@ from app.db.session import SessionLocal
 from app.models import Document, ProcessingStatus, DocumentResult
 from app.pipeline.orchestrator import PipelineOrchestrator
 from app.pipeline.export.pdf_exporter import PDFExporter
-from app.pipeline.export.pdf_exporter import PDFExporter
 from app.config.settings import settings  # Import settings for dynamic defaults
 from app.pipeline.safety.safe_execution import safe_async_function
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/documents", tags=["Documents"])
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+
+def _require_db():
+    """Raise HTTP 503 when the database is not configured."""
+    if SessionLocal is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Database not configured. Please set SUPABASE_DB_URL.",
+        )
 
 @router.get("")
 async def list_documents(
@@ -34,6 +45,7 @@ async def list_documents(
     List documents for the current user with optional filtering and pagination.
     Returns empty list for anonymous users.
     """
+    _require_db()
     db = SessionLocal()
     try:
         # Anonymous users get empty list
@@ -85,7 +97,7 @@ async def list_documents(
             "offset": offset
         }
     except Exception as e:
-        print(f"Error listing documents: {e}")
+        logger.error("Error listing documents: %s", e)
         return {
             "documents": [],
             "total": 0,
@@ -95,7 +107,6 @@ async def list_documents(
     finally:
         db.close()
 
-@router.post("/upload")
 @router.post("/upload")
 async def upload_document(
     background_tasks: BackgroundTasks,
@@ -113,10 +124,10 @@ async def upload_document(
     Handle document upload and trigger async background processing.
     Note: This project intentionally avoids automated pipeline testing at this stage.
     """
-    
-    
+    _require_db()
+
     # DEBUG LOG
-    print(f"DEBUG: upload_document received template='{template}' from request.")
+    logger.debug("upload_document received template='%s' from request.", template)
 
     # Configuration for file upload validation
     MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
@@ -221,7 +232,7 @@ async def upload_document(
     except exc.OperationalError as e:
         # Database is unreachable (DNS failure, connection timeout, etc.)
         db.rollback()
-        print(f"Upload failed: Database unavailable. Error: {e}")
+        logger.error("Upload failed: Database unavailable. Error: %s", e)
         raise HTTPException(
             status_code=503,
             detail="Database temporarily unavailable. Please retry later."
@@ -229,12 +240,7 @@ async def upload_document(
     except Exception as e:
         db.rollback()
         import traceback
-        error_detail = {
-            "error": str(e),
-            "type": type(e).__name__,
-            "traceback": traceback.format_exc()
-        }
-        print(f"Upload error: {error_detail}")  # Server-side logging
+        logger.error("Upload error: %s\n%s", e, traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
     finally:
         db.close()
@@ -287,6 +293,7 @@ async def get_status(
             "progress_percentage": 0
         }
     except Exception as e:
+        logger.error("Status check failed for job %s: %s", job_id, e)
         # Any other unexpected crash
         return {
             "job_id": job_id,
@@ -337,7 +344,7 @@ async def edit_document(
             "status": "RUNNING"
         }
     except Exception as e:
-        print(f"Error editing document: {e}")
+        logger.error("Error editing document %s: %s", job_id, e)
         raise HTTPException(status_code=500, detail=f"Edit failed: {str(e)}")
     finally:
         db.close()
@@ -376,7 +383,7 @@ async def get_preview(
             }
         }
     except Exception as e:
-        print(f"Error retrieving preview: {e}")
+        logger.error("Error retrieving preview for %s: %s", job_id, e)
         raise HTTPException(status_code=500, detail=f"Preview failed: {str(e)}")
     finally:
         db.close()
@@ -451,7 +458,7 @@ async def get_comparison_data(
             }
         }
     except Exception as e:
-        print(f"Error comparing documents: {e}")
+        logger.error("Error comparing documents for %s: %s", job_id, e)
         raise HTTPException(status_code=500, detail=f"Comparison failed: {str(e)}")
     finally:
         db.close()
@@ -541,7 +548,7 @@ async def download_document(
             filename=filename
         )
     except Exception as e:
-        print(f"Error downloading document: {e}")
+        logger.error("Error downloading document %s: %s", job_id, e)
         raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")
     finally:
         db.close()

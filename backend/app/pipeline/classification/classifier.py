@@ -56,15 +56,27 @@ class ContentClassifier(PipelineStage):
     def process(self, document: Document) -> Document:
         """
         Classify all blocks in the document.
-        
+
         Args:
             document: Document with structure detection results
-        
+
         Returns:
             Document with updated BlockTypes
         """
         start_time = datetime.utcnow()
-        
+        try:
+            return self._run_classification(document, start_time)
+        except Exception as exc:
+            logger.error("ContentClassifier.process failed: %s", exc, exc_info=True)
+            document.add_processing_stage(
+                stage_name="classification",
+                status="error",
+                message=f"Classification failed: {exc}"
+            )
+            return document
+
+    def _run_classification(self, document: Document, start_time: datetime) -> Document:
+        """Internal classification logic — called by process()."""
         blocks = document.blocks
         if not blocks:
             return document
@@ -72,19 +84,20 @@ class ContentClassifier(PipelineStage):
         # 1. Identify key structural landmarks
         first_section_index = self._find_first_section_index(blocks)
         references_start_index = self._find_references_start_index(blocks)
-        
+
         # State for classification logic
         title_found = False
-        current_section_type = "generic" # generic, abstract, keywords
-        
+        current_section_type = "generic"  # generic, abstract, keywords
+
         # 2. Main Classification Loop
         for i, block in enumerate(blocks):
+          try:
             # A) HARD ISOLATION GUARD: Skip protected structural blocks
-            # These must never receive semantic semantic BlockType assignments
-            if (block.metadata.get("is_header") or 
-                block.metadata.get("is_footer") or 
-                block.metadata.get("is_footnote") or 
-                block.metadata.get("is_endnote")):
+            # These must never receive semantic BlockType assignments
+            if (block.metadata.get("is_header") or
+                    block.metadata.get("is_footer") or
+                    block.metadata.get("is_footnote") or
+                    block.metadata.get("is_endnote")):
                 continue
 
             # B) PROTECTED TYPE GUARD: Title fixed per structure detector
@@ -97,7 +110,7 @@ class ContentClassifier(PipelineStage):
                     title_found = True
                 continue
 
-            text = block.text.strip()
+            text = block.text.strip() if block.text else ""
             if not text:
                 continue
 
@@ -127,7 +140,7 @@ class ContentClassifier(PipelineStage):
             if i < first_section_index:
                 # 🆕 GROBID INTEGRATION: Check for GROBID metadata first
                 # Access via ai_hints dict on DocumentMetadata model
-                grobid_data = document.metadata.ai_hints.get("grobid_metadata", {})
+                grobid_data = (document.metadata.ai_hints or {}).get("grobid_metadata", {})
                 
                 if not title_found:
                     # Prioritize GROBID title if available
@@ -327,6 +340,9 @@ class ContentClassifier(PipelineStage):
                     block.metadata["classification_confidence"] = settings.HEURISTIC_CONFIDENCE_HIGH
                     block.metadata["classification_method"] = "structure_context"
 
+          except Exception as exc:
+              logger.warning("ContentClassifier: failed to classify block %d: %s", i, exc)
+
         # 3. NLP Fallback for UNKNOWNs
         self._nlp_classify_fallback(blocks)
                 
@@ -365,14 +381,14 @@ class ContentClassifier(PipelineStage):
         # Update processing history
         end_time = datetime.utcnow()
         duration_ms = int((end_time - start_time).total_seconds() * 1000)
-        
+
         document.add_processing_stage(
             stage_name="classification",
             status="success",
             message=f"Classified {len(blocks)} blocks",
             duration_ms=duration_ms
         )
-        
+
         document.updated_at = datetime.utcnow()
         return document
     
@@ -478,7 +494,7 @@ class ContentClassifier(PipelineStage):
                 affiliation_words = set(affiliation.lower().split())
                 text_words = set(text_lower.split())
                 overlap = len(affiliation_words & text_words)
-                if overlap / len(affiliation_words) > 0.7:
+                if affiliation_words and overlap / len(affiliation_words) > 0.7:
                     return True
         
         return False

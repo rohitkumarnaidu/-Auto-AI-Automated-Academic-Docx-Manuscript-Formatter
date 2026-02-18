@@ -20,13 +20,26 @@ def process_document_task(document_id: str, use_agent: bool = True):
     """
     Asynchronously process a document using the Agent Orchestrator.
     """
-    logger.info(f"Starting async processing for document: {document_id}")
-    db = SessionLocal()
+    logger.info("Starting async processing for document: %s", document_id)
+
+    # Guard: SessionLocal may be None if DB is unconfigured
+    try:
+        db = SessionLocal()
+        if db is None:
+            logger.error("process_document_task: Database session unavailable (DB not configured).")
+            return False
+    except Exception as exc:
+        logger.error("process_document_task: Failed to create DB session: %s", exc)
+        return False
+
+    doc = None
     try:
         # Retrieve document from DB
-        doc = db.query(PipelineDocument).filter(PipelineDocument.document_id == document_id).first()
+        doc = db.query(PipelineDocument).filter(
+            PipelineDocument.document_id == document_id
+        ).first()
         if not doc:
-            logger.error(f"Document {document_id} not found in database.")
+            logger.error("process_document_task: Document %s not found in database.", document_id)
             return False
 
         # Update status to RUNNING
@@ -37,28 +50,35 @@ def process_document_task(document_id: str, use_agent: bool = True):
 
         # Initialize Orchestrator
         orchestrator = create_orchestrator(use_agent=use_agent)
-        
+
         # Start processing
         start_time = time.time()
-        processed_doc = orchestrator.process(doc)
+        orchestrator.process(doc)
         processing_time = time.time() - start_time
-        
+
         # Update completion status
         doc.status = "COMPLETED"
         doc.progress_percentage = 100
         doc.message = f"Processing complete in {processing_time:.1f}s"
         db.commit()
-        
-        logger.info(f"Document {document_id} processed successfully in {processing_time:.1f}s")
+
+        logger.info("Document %s processed successfully in %.1fs", document_id, processing_time)
         return True
 
-    except Exception as e:
-        logger.error(f"Async processing failed for {document_id}: {e}", exc_info=True)
-        # Update document status to FAILED
-        if 'doc' in locals() and doc:
-            doc.status = "FAILED"
-            doc.error_message = str(e)
-            db.commit()
+    except Exception as exc:
+        logger.error("Async processing failed for %s: %s", document_id, exc, exc_info=True)
+        try:
+            db.rollback()
+            if doc is not None:
+                doc.status = "FAILED"
+                if hasattr(doc, "error_message"):
+                    doc.error_message = str(exc)
+                db.commit()
+        except Exception as commit_exc:
+            logger.error("process_document_task: Failed to update FAILED status: %s", commit_exc)
         return False
     finally:
-        db.close()
+        try:
+            db.close()
+        except Exception:
+            pass

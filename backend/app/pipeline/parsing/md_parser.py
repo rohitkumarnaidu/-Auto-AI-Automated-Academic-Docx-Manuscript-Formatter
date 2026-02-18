@@ -10,9 +10,12 @@ Parses Markdown syntax to extract:
 - Links
 """
 
+import logging
 import os
 import re
 from typing import List
+
+logger = logging.getLogger(__name__)
 from datetime import datetime
 from pathlib import Path
 
@@ -67,8 +70,14 @@ class MarkdownParser(BaseParser):
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
         except UnicodeDecodeError:
-            with open(file_path, 'r', encoding='latin-1') as f:
-                content = f.read()
+            logger.warning("UTF-8 decode failed for '%s'; falling back to latin-1.", file_path)
+            try:
+                with open(file_path, 'r', encoding='latin-1') as f:
+                    content = f.read()
+            except Exception as exc:
+                raise ValueError(f"Failed to read Markdown file '{file_path}': {exc}") from exc
+        except Exception as exc:
+            raise ValueError(f"Failed to open Markdown file '{file_path}': {exc}") from exc
         
         # Convert document_id to string if needed
         if not isinstance(document_id, str):
@@ -117,16 +126,19 @@ class MarkdownParser(BaseParser):
             # Simple YAML parsing (basic key: value)
             for line in frontmatter.split('\n'):
                 if ':' in line:
-                    key, value = line.split(':', 1)
-                    key = key.strip().lower()
-                    value = value.strip()
-                    
-                    if key == 'title':
-                        metadata.title = value
-                    elif key == 'author':
-                        metadata.authors = [value]
-                    elif key == 'keywords':
-                        metadata.keywords = [k.strip() for k in value.split(',')]
+                    try:
+                        key, value = line.split(':', 1)
+                        key = key.strip().lower()
+                        value = value.strip()
+                        
+                        if key == 'title':
+                            metadata.title = value
+                        elif key == 'author':
+                            metadata.authors = [value]
+                        elif key == 'keywords':
+                            metadata.keywords = [k.strip() for k in value.split(',') if k.strip()]
+                    except Exception as exc:
+                        logger.debug("Skipping malformed frontmatter line '%s': %s", line, exc)
         
         return content, metadata
     

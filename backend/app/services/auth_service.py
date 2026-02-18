@@ -1,10 +1,39 @@
+import logging
+from typing import Optional
+
 import jwt
 from fastapi import HTTPException, status
-from supabase import create_client, Client
 from app.config.settings import settings
 
-# Initialize Supabase Client (Sync)
-supabase: Client = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
+logger = logging.getLogger(__name__)
+
+# ── Supabase client (lazy, safe) ───────────────────────────────────────────────
+# If credentials are missing the server still starts; auth endpoints return 503.
+try:
+    from supabase import create_client, Client as SupabaseClient
+    if settings.SUPABASE_URL and settings.SUPABASE_ANON_KEY:
+        supabase: Optional[SupabaseClient] = create_client(
+            settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY
+        )
+        logger.info("✅ Supabase client initialised.")
+    else:
+        supabase = None
+        logger.warning(
+            "⚠️  SUPABASE_URL or SUPABASE_ANON_KEY not set. "
+            "Auth endpoints will return 503 until credentials are configured."
+        )
+except Exception as _exc:
+    supabase = None
+    logger.error("❌ Failed to initialise Supabase client: %s", _exc)
+
+
+def _require_supabase():
+    """Raise HTTP 503 if the Supabase client is not available."""
+    if supabase is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service is not configured. Please set SUPABASE_URL and SUPABASE_ANON_KEY.",
+        )
 
 class AuthService:
     @staticmethod
@@ -63,6 +92,7 @@ class AuthService:
 
     @staticmethod
     async def signup(email: str, password: str, full_name: str, institution: str):
+        _require_supabase()
         try:
             response = supabase.auth.sign_up({
                 "email": email,
@@ -70,77 +100,92 @@ class AuthService:
                 "options": {
                     "data": {
                         "full_name": full_name,
-                        "institution": institution
+                        "institution": institution,
                     }
-                }
+                },
             })
             return response
-        except Exception as e:
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.error("Signup failed for %s: %s", email, exc)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(e)
+                detail=str(exc),
             )
 
     @staticmethod
     async def login(email: str, password: str):
+        _require_supabase()
         try:
             response = supabase.auth.sign_in_with_password({
                 "email": email,
-                "password": password
+                "password": password,
             })
             return response
-        except Exception as e:
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.warning("Login failed for %s: %s", email, exc)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=str(e)
+                detail=str(exc),
             )
 
     @staticmethod
     async def forgot_password(email: str):
+        _require_supabase()
         try:
-            # Re-confirming with the 3-page OTP flow requirement
-            # In Supabase dashboard, the email template should be configured to send a 6-digit code.
+            # Supabase dashboard email template should be configured to send a 6-digit OTP code.
             response = supabase.auth.reset_password_for_email(email)
             return response
-        except Exception as e:
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.error("Forgot-password failed for %s: %s", email, exc)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(e)
+                detail=str(exc),
             )
 
     @staticmethod
     async def reset_password(email: str, otp: str, new_password: str):
+        _require_supabase()
         try:
             # Step 1: Re-verify OTP to get a temporary session
-            verify_response = supabase.auth.verify_otp({
+            supabase.auth.verify_otp({
                 "email": email,
                 "token": otp,
-                "type": "recovery"
+                "type": "recovery",
             })
-            
             # Step 2: Update the password
-            response = supabase.auth.update_user({
-                "password": new_password
-            })
+            response = supabase.auth.update_user({"password": new_password})
             return response
-        except Exception as e:
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.error("Password reset failed for %s: %s", email, exc)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Reset failed: {str(e)}"
+                detail=f"Reset failed: {str(exc)}",
             )
 
     @staticmethod
     async def verify_otp(email: str, token: str):
+        _require_supabase()
         try:
-            # Validates the recovery OTP without necessarily creating a long-lived session for the client
+            # Validates the recovery OTP without creating a long-lived session for the client
             response = supabase.auth.verify_otp({
                 "email": email,
                 "token": token,
-                "type": "recovery"
+                "type": "recovery",
             })
             return response
-        except Exception as e:
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.warning("OTP verification failed for %s: %s", email, exc)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Verification failed: {str(e)}"
+                detail=f"Verification failed: {str(exc)}",
             )
