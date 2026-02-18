@@ -1,0 +1,46 @@
+import functools
+import json
+from typing import Callable, Any, Dict
+from pydantic import BaseModel, ValidationError
+
+def validate_output(
+    schema: Any, # Pydantic Model or expected structure
+    error_return_value: Any = None
+):
+    """
+    Decorator to enforce strict output validation for Agent/AI functions.
+    Prevents 'hallucinations' or malformed JSON from crashing downstream logic.
+    """
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs) -> Any:
+            try:
+                result = func(*args, **kwargs)
+                
+                # Check Pydantic validation
+                if isinstance(schema, type) and issubclass(schema, BaseModel):
+                    if isinstance(result, dict):
+                        # Attempt to parse
+                        try:
+                            valid_obj = schema(**result)
+                            return valid_obj.model_dump()
+                        except ValidationError as ve:
+                            print(f"🛡️ Validator Guard: Schema mismatch in {func.__name__}: {ve}")
+                            # Attempt to repair or fall back
+                            return error_return_value or {}
+                    elif isinstance(result, schema):
+                        return result.model_dump()
+                
+                # Check specific keys if schema is a dict of types (simple mode)
+                if isinstance(schema, dict) and isinstance(result, dict):
+                    missing = [k for k in schema.keys() if k not in result]
+                    if missing:
+                        print(f"🛡️ Validator Guard: Missing keys in {func.__name__}: {missing}")
+                        return error_return_value or {}
+                
+                return result
+            except Exception as e:
+                print(f"🛡️ Validator Guard: Exception in {func.__name__}: {e}")
+                return error_return_value or {}
+        return wrapper
+    return decorator

@@ -4,7 +4,7 @@ Validation tool using AI-based analysis.
 from typing import Optional, Type
 from pydantic import BaseModel, Field
 from langchain.tools import BaseTool
-from app.pipeline.validation.validator import DocumentValidator
+from app.pipeline.validation import DocumentValidator
 from app.models import PipelineDocument
 
 

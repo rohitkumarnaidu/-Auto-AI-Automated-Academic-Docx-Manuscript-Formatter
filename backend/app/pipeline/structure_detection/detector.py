@@ -19,6 +19,7 @@ from .position_rules import analyze_position, boost_heading_confidence_by_positi
 
 
 from app.pipeline.base import PipelineStage
+from app.pipeline.safety.safe_execution import safe_function, safe_execution
 
 class StructureDetector(PipelineStage):
     """
@@ -43,44 +44,38 @@ class StructureDetector(PipelineStage):
     def process(self, document: Document) -> Document:
         """
         Detect structure in a normalized document.
-        
-        This enriches blocks with structure metadata:
-        - level: heading level (1-4)
-        - is_heading_candidate: bool
-        - section_name: inferred section name
-        - parent_id: parent heading block ID
-        
-        Args:
-            document: Normalized document
-        
-        Returns:
-            Document with structure metadata attached to blocks
         """
-        start_time = datetime.utcnow()
-        
-        # Step 0: ENFORCE NORMALIZATION
-        # User requirement: Normalizer must run before StructureDetector
-        # We run it here to ensure test scripts don't bypass it.
-        from app.pipeline.normalization.normalizer import Normalizer
-        normalizer = Normalizer()
-        document = normalizer.process(document)
-        
-        # Step 1: Calculate average font size for comparison
-        self.avg_font_size = self._calculate_avg_font_size(document.blocks)
-        
-        # Step 2: Detect heading candidates
-        # Week 2 Enhancements: Check for Docling layout data
-        # Access via ai_hints dict on DocumentMetadata model
-        docling_layout = document.metadata.ai_hints.get("docling_layout")
-        
-        if docling_layout:
-            # path: Enhanced structure detection using Docling layout analysis
-            # Features: Bounding box aware, font size confident, logo tolerant
-            print(f"INFO: Using Docling layout data for structure detection ({len(docling_layout.get('elements', []))} elements)")
-            heading_candidates = self._detect_structure_with_docling(document.blocks, docling_layout)
-        else:
-            # Fallback: Use standard rule-based detection
-            heading_candidates = self._detect_heading_candidates(document.blocks)
+        with safe_execution("StructureDetector.process"):
+            start_time = datetime.utcnow()
+            
+            # Step 0: ENFORCE NORMALIZATION
+            # User requirement: Normalizer must run before StructureDetector
+            # We run it here to ensure test scripts don't bypass it.
+            from app.pipeline.normalization.normalizer import Normalizer
+            normalizer = Normalizer()
+            document = normalizer.process(document)
+            
+            # Step 1: Calculate average font size for comparison
+            self.avg_font_size = self._calculate_avg_font_size(document.blocks)
+            
+            # Step 2: Detect heading candidates
+            # Week 2 Enhancements: Check for Docling layout data
+            # Access via ai_hints dict on DocumentMetadata model
+            docling_layout = document.metadata.ai_hints.get("docling_layout")
+            
+            heading_candidates = []
+            if docling_layout:
+                # path: Enhanced structure detection using Docling layout analysis
+                # Features: Bounding box aware, font size confident, logo tolerant
+                print(f"INFO: Using Docling layout data for structure detection ({len(docling_layout.get('elements', []))} elements)")
+                heading_candidates = self._detect_structure_with_docling(document.blocks, docling_layout)
+            
+            # Fallback if Docling unavailable OR failed (returned empty/None)
+            if not heading_candidates:
+                if docling_layout:
+                    print("WARNING: Docling detection returned no results (or failed). Fallback to standard rule-based detection.")
+                # Fallback: Use standard rule-based detection
+                heading_candidates = self._detect_heading_candidates(document.blocks)
         
         # Step 3: Assign section names based on headings
         self._assign_section_names(document.blocks, heading_candidates)
@@ -381,6 +376,7 @@ class StructureDetector(PipelineStage):
                 last_level = block.level
 
 
+    @safe_function(fallback_value=[], error_message="Docling structure detection failed")
     def _detect_structure_with_docling(self, blocks: List[Block], layout_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
         Detect structure using Docling layout analysis data.
@@ -502,6 +498,7 @@ class StructureDetector(PipelineStage):
         return candidates
 
 # Convenience function
+@safe_function(fallback_value=None, error_message="detect_structure failed")
 def detect_structure(document: "Document") -> "Document":
     """
     Detect structure in a normalized document.

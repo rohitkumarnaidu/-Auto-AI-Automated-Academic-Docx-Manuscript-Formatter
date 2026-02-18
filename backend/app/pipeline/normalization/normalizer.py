@@ -23,7 +23,7 @@ IMPORTANT:
 - Be conservative (when unsure, do nothing)
 """
 
-from typing import List
+from typing import List, Optional
 from datetime import datetime
 
 from app.models import PipelineDocument as Document, Block, Table, DocumentMetadata

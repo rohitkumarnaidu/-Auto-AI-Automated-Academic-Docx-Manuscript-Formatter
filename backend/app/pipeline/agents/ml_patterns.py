@@ -9,6 +9,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import IsolationForest
 from collections import defaultdict
 import json
+from app.pipeline.safety import safe_function
 
 logger = logging.getLogger(__name__)
 
@@ -36,15 +37,10 @@ class MLPatternDetector:
         self.anomaly_detector = IsolationForest(contamination=0.1, random_state=42)
         self.patterns = []
     
+    @safe_function(fallback_value=np.zeros(8), error_message="MLPatternDetector.extract_features")
     def extract_features(self, metrics: Dict[str, Any]) -> np.ndarray:
         """
         Extract numerical features from processing metrics.
-        
-        Args:
-            metrics: Processing metrics dictionary
-            
-        Returns:
-            Feature vector
         """
         features = [
             metrics.get("duration_seconds", 0),
@@ -58,6 +54,7 @@ class MLPatternDetector:
         ]
         return np.array(features)
     
+    @safe_function(fallback_value=False, error_message="MLPatternDetector.fit")
     def fit(self, metrics_list: List[Dict[str, Any]]) -> bool:
         """
         Train pattern detector on historical metrics.
@@ -136,6 +133,7 @@ class MLPatternDetector:
         sorted_tools = sorted(tool_counts.items(), key=lambda x: x[1], reverse=True)
         return [tool for tool, _ in sorted_tools[:3]]
     
+    @safe_function(fallback_value=None, error_message="MLPatternDetector.predict_pattern")
     def predict_pattern(self, metrics: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
         Predict which pattern a document belongs to.
@@ -161,6 +159,7 @@ class MLPatternDetector:
             logger.error(f"Pattern prediction failed: {e}")
             return None
     
+    @safe_function(fallback_value=(False, 0.0), error_message="MLPatternDetector.detect_anomaly")
     def detect_anomaly(self, metrics: Dict[str, Any]) -> Tuple[bool, float]:
         """
         Detect if a document is anomalous.

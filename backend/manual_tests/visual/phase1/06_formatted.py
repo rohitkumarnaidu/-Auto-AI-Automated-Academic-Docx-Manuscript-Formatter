@@ -14,7 +14,7 @@ from app.pipeline.classification.classifier import ContentClassifier
 from app.pipeline.figures.caption_matcher import CaptionMatcher
 from app.pipeline.tables.caption_matcher import TableCaptionMatcher
 from app.pipeline.references.parser import ReferenceParser
-from app.pipeline.validation.validator import DocumentValidator
+from app.pipeline.validation import DocumentValidator
 from app.pipeline.formatting.formatter import Formatter
 from app.models.block import BlockType
 

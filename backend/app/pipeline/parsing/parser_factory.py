@@ -15,6 +15,7 @@ from app.pipeline.parsing.txt_parser import TxtParser
 from app.pipeline.parsing.html_parser import HtmlParser
 from app.pipeline.parsing.md_parser import MarkdownParser
 from app.pipeline.parsing.tex_parser import TexParser
+from app.pipeline.safety import safe_function
 
 
 class ParserFactory:
@@ -52,20 +53,21 @@ class ParserFactory:
             print("Info: HTML parsing not available (install beautifulsoup4: pip install beautifulsoup4)")
         except Exception as e:
             print(f"Warning: HtmlParser initialization failed: {e}")
-        
+            
         # Markdown parser (always available)
         try:
             self.parsers.append(MarkdownParser())
         except Exception as e:
             print(f"Warning: MarkdownParser initialization failed: {e}")
-        
-        # LaTeX parser (always available)
+            
+        # TeX parser (always available)
         try:
             self.parsers.append(TexParser())
         except Exception as e:
             print(f"Warning: TexParser initialization failed: {e}")
-    
-    def get_parser(self, file_path: str) -> BaseParser:
+
+    @safe_function(fallback_value=None, error_message="ParserFactory.get_parser failed")
+    def get_parser(self, file_path: str) -> Optional[BaseParser]:
         """
         Get the appropriate parser for the given file.
         
@@ -79,14 +81,15 @@ class ParserFactory:
             ValueError: If no parser supports the file format
         """
         # Extract file extension
-        file_ext = os.path.splitext(file_path)[1].lower()
-        
+        _, ext = os.path.splitext(file_path)
+        file_ext = ext.lower()
+
         # Find matching parser
         for parser in self.parsers:
             if parser.supports_format(file_ext):
                 return parser
         
-        # No parser found
+        # No parser found - raise ValueError
         supported_formats = set()
         for parser in self.parsers:
             # Get supported formats from each parser

@@ -17,7 +17,7 @@ from app.pipeline.parsing.parser import DocxParser
 from app.pipeline.normalization.normalizer import Normalizer
 from app.pipeline.structure_detection.detector import StructureDetector
 from app.pipeline.classification.classifier import ContentClassifier
-from app.pipeline.validation.validator import DocumentValidator
+from app.pipeline.validation import DocumentValidator
 
 def main():
     if len(sys.argv) < 2:

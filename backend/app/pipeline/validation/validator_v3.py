@@ -6,6 +6,7 @@ from typing import List, Dict, Any, Optional
 import re
 from datetime import datetime
 from pydantic import BaseModel, Field
+import sys
 
 from app.models import PipelineDocument as Document, BlockType, Figure
 from app.pipeline.contracts.loader import ContractLoader
@@ -14,6 +15,10 @@ from app.pipeline.integrity.cross_ref import CrossReferenceEngine
 from app.pipeline.validation.review_manager import ReviewManager
 from app.pipeline.services.crossref_client import CrossRefClient
 from app.pipeline.base import PipelineStage
+
+# Direct import - crash hard if fail, to debug cleanly
+from app.pipeline.safety.safe_execution import safe_function, safe_execution
+print(f"DEBUG VALIDATOR V3: safe_function imported (direct): {safe_function}", file=sys.stderr)
 
 class ValidationResult(BaseModel):
     """Result of a document validation."""
@@ -38,9 +43,14 @@ class DocumentValidator(PipelineStage):
         
     def process(self, document: Document) -> Document:
         """Standard pipeline stage entry point."""
-        self.validate(document)
+        with safe_execution("Validator.process"):
+            self.validate(document)
         return document
 
+    @safe_function(
+        fallback_value=ValidationResult(is_valid=False, errors=["Validation process crashed unexpectedly"]),
+        error_message="Validator.validate failed"
+    )
     def validate(self, document: Document) -> ValidationResult:
         """
         Run all validation checks.
@@ -173,6 +183,7 @@ class DocumentValidator(PipelineStage):
                      warnings.append(f"Table {i+1} missing caption")
         return [], warnings
 
+    @safe_function(fallback_value=([], ["CrossRef validation skipped due to internal error"]), error_message="Reference integrity check failed")
     def _check_reference_integrity(self, document: Document) -> tuple:
         """
         Validate references using CrossRef.
@@ -223,6 +234,10 @@ class DocumentValidator(PipelineStage):
 
 
 # Convenience
+@safe_function(
+    fallback_value=ValidationResult(is_valid=False, errors=["Global validation crashed unexpectedly"]),
+    error_message="validate_document failed"
+)
 def validate_document(document: Document) -> ValidationResult:
     validator = DocumentValidator()
     return validator.validate(document)

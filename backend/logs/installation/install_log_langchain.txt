@@ -1,0 +1,42 @@
+Defaulting to user installation because normal site-packages is not writeable
+Collecting langchain==0.3.18 (from -r requirements.langchain.txt (line 2))
+  Using cached langchain-0.3.18-py3-none-any.whl.metadata (7.8 kB)
+Collecting langchain-community==0.3.18 (from -r requirements.langchain.txt (line 3))
+  Using cached langchain_community-0.3.18-py3-none-any.whl.metadata (2.4 kB)
+Collecting langchain-core==0.3.37 (from -r requirements.langchain.txt (line 4))
+  Using cached langchain_core-0.3.37-py3-none-any.whl.metadata (5.9 kB)
+Collecting langchain-ollama==0.2.3 (from -r requirements.langchain.txt (line 5))
+  Using cached langchain_ollama-0.2.3-py3-none-any.whl.metadata (1.9 kB)
+Collecting langchain-openai==0.3.6 (from -r requirements.langchain.txt (line 6))
+  Using cached langchain_openai-0.3.6-py3-none-any.whl.metadata (2.3 kB)
+Collecting langchain-text-splitters==0.3.6 (from -r requirements.langchain.txt (line 7))
+  Using cached langchain_text_splitters-0.3.6-py3-none-any.whl.metadata (1.9 kB)
+Collecting langgraph==0.2.73 (from -r requirements.langchain.txt (line 8))
+  Using cached langgraph-0.2.73-py3-none-any.whl.metadata (17 kB)
+Requirement already satisfied: langsmith<0.4,>=0.1.17 in C:\Users\Dell\AppData\Roaming\Python\Python314\site-packages (from langchain==0.3.18->-r requirements.langchain.txt (line 2)) (0.3.45)
+Requirement already satisfied: pydantic<3.0.0,>=2.7.4 in C:\Users\Dell\AppData\Roaming\Python\Python314\site-packages (from langchain==0.3.18->-r requirements.langchain.txt (line 2)) (2.12.5)
+Requirement already satisfied: SQLAlchemy<3,>=1.4 in C:\Users\Dell\AppData\Roaming\Python\Python314\site-packages (from langchain==0.3.18->-r requirements.langchain.txt (line 2)) (2.0.46)
+Requirement already satisfied: requests<3,>=2 in C:\Users\Dell\AppData\Roaming\Python\Python314\site-packages (from langchain==0.3.18->-r requirements.langchain.txt (line 2)) (2.32.5)
+Requirement already satisfied: PyYAML>=5.3 in C:\Users\Dell\AppData\Roaming\Python\Python314\site-packages (from langchain==0.3.18->-r requirements.langchain.txt (line 2)) (6.0.3)
+Requirement already satisfied: aiohttp<4.0.0,>=3.8.3 in C:\Users\Dell\AppData\Roaming\Python\Python314\site-packages (from langchain==0.3.18->-r requirements.langchain.txt (line 2)) (3.13.3)
+Requirement already satisfied: tenacity!=8.4.0,<10,>=8.1.0 in C:\Users\Dell\AppData\Roaming\Python\Python314\site-packages (from langchain==0.3.18->-r requirements.langchain.txt (line 2)) (9.1.2)
+Requirement already satisfied: numpy<3,>=1.26.2 in C:\Users\Dell\AppData\Roaming\Python\Python314\site-packages (from langchain==0.3.18->-r requirements.langchain.txt (line 2)) (2.4.2)
+Requirement already satisfied: jsonpatch<2.0,>=1.33 in C:\Users\Dell\AppData\Roaming\Python\Python314\site-packages (from langchain-core==0.3.37->-r requirements.langchain.txt (line 4)) (1.33)
+Collecting packaging<25,>=23.2 (from langchain-core==0.3.37->-r requirements.langchain.txt (line 4))
+  Using cached packaging-24.2-py3-none-any.whl.metadata (3.2 kB)
+Requirement already satisfied: typing-extensions>=4.7 in C:\Users\Dell\AppData\Roaming\Python\Python314\site-packages (from langchain-core==0.3.37->-r requirements.langchain.txt (line 4)) (4.15.0)
+INFO: pip is looking at multiple versions of langchain-community to determine which version is compatible with other requirements. This could take a while.
+ERROR: Cannot install -r requirements.langchain.txt (line 3) and langchain==0.3.18 because these package versions have conflicting dependencies.
+
+The conflict is caused by:
+    The user requested langchain==0.3.18
+    langchain-community 0.3.18 depends on langchain<1.0.0 and >=0.3.19
+
+Additionally, some packages in these conflicts have no matching distributions available for your environment:
+    langchain
+
+To fix this you could try to:
+1. loosen the range of package versions you've specified
+2. remove package versions to allow pip to attempt to solve the dependency conflict
+
+ERROR: ResolutionImpossible: for help visit https://pip.pypa.io/en/latest/topics/dependency-resolution/#dealing-with-dependency-conflicts

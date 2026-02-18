@@ -1,0 +1,231 @@
+============================= test session starts =============================
+platform win32 -- Python 3.14.3, pytest-9.0.2, pluggy-1.6.0 -- C:\Python314\python.exe
+cachedir: .pytest_cache
+hypothesis profile 'default'
+rootdir: C:\Hackathons\ECLearnIX\(Auto AI) Automated Academic Docx Manuscript Formatter\automated-manuscript-formatter\backend
+configfile: pytest.ini
+plugins: anyio-4.12.1, hypothesis-6.151.5, langsmith-0.6.9, asyncio-1.3.0, cov-7.0.0, mock-3.15.1
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 13 items
+
+tests/safety/test_global_safety.py::TestGlobalSafety::test_safe_execution_context_manager PASSED [  7%]
+tests/safety/test_global_safety.py::TestGlobalSafety::test_safe_function_decorator PASSED [ 15%]
+tests/safety/test_global_safety.py::TestGlobalSafety::test_semantic_parser_safety PASSED [ 23%]
+tests/safety/test_global_safety.py::TestGlobalSafety::test_rag_engine_safety PASSED [ 30%]
+tests/safety/test_global_safety.py::TestGlobalSafety::test_document_agent_safety FAILED [ 38%]
+tests/safety/test_global_safety.py::TestGlobalSafety::test_docling_client_safety PASSED [ 46%]
+tests/safety/test_global_safety.py::TestGlobalSafety::test_deep_learning_safety PASSED [ 53%]
+tests/safety/test_global_safety.py::TestGlobalSafety::test_ml_patterns_safety PASSED [ 61%]
+tests/safety/test_global_safety.py::TestGlobalSafety::test_parser_factory_safety FAILED [ 69%]
+tests/safety/test_global_safety.py::TestPhase3Safety::test_safe_async_function PASSED [ 76%]
+tests/safety/test_global_safety.py::TestPhase3Safety::test_formatter_safety PASSED [ 84%]
+tests/safety/test_global_safety.py::TestPhase3Safety::test_validator_safety PASSED [ 92%]
+tests/safety/test_global_safety.py::TestPhase3Safety::test_structure_detector_safety PASSED [100%]
+
+================================== FAILURES ===================================
+_________________ TestGlobalSafety.test_document_agent_safety _________________
+tests\safety\test_global_safety.py:96: in test_document_agent_safety
+    assert result == {"status": "error", "message": "Agent crashed safely"}
+E   assert {'success': False, 'error': "name 'file_path' is not defined", 'should_fallback': True} == {'status': 'error', 'message': 'Agent crashed safely'}
+E     
+E     Left contains 3 more items:
+E     {'error': "name 'file_path' is not defined",
+E      'should_fallback': True,
+E      'success': False}
+E     Right contains 2 more items:
+E     {'message': 'Agent crashed safely', 'status': 'error'}
+E     
+E     Full diff:
+E       {
+E     -     'message': 'Agent crashed safely',
+E     -     'status': 'error',
+E     +     'error': "name 'file_path' is not defined",
+E     +     'should_fallback': True,
+E     +     'success': False,
+E       }
+------------------------------ Captured log call ------------------------------
+ERROR    app.pipeline.agents.document_agent:document_agent.py:206 Agent processing failed: name 'file_path' is not defined
+_________________ TestGlobalSafety.test_parser_factory_safety _________________
+tests\safety\test_global_safety.py:134: in test_parser_factory_safety
+    result = factory.get_parser("dummy.pdf")
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\pipeline\safety\safe_execution.py:44: in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+app\pipeline\parsing\parser_factory.py:85: in get_parser
+    _, ext = os.path.splitext(file_path)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Python314\Lib\unittest\mock.py:1175: in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Python314\Lib\unittest\mock.py:1179: in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Python314\Lib\unittest\mock.py:1234: in _execute_mock_call
+    raise effect
+E   Exception: Crash
+=============================== tests coverage ================================
+_______________ coverage: platform win32, python 3.14.3-final-0 _______________
+
+Name                                                 Stmts   Miss  Cover   Missing
+----------------------------------------------------------------------------------
+app\__init__.py                                          0      0   100%
+app\config\__init__.py                                   0      0   100%
+app\config\logging_config.py                            13     13     0%   6-122
+app\config\settings.py                                  24      0   100%
+app\db\__init__.py                                       0      0   100%
+app\db\base.py                                           2      0   100%
+app\db\session.py                                       14     14     0%   2-32
+app\main.py                                            100    100     0%   2-186
+app\models\__init__.py                                  12      0   100%
+app\models\block.py                                     73      3    96%   187, 196, 205
+app\models\document.py                                  20      0   100%
+app\models\document_result.py                           10      0   100%
+app\models\document_version.py                          11      0   100%
+app\models\equation.py                                  17      2    88%   47, 51
+app\models\figure.py                                    54      6    89%   160, 164-168
+app\models\pipeline_document.py                         82     16    80%   99-102, 106-109, 113-116, 120, 124, 128, 132
+app\models\processing_status.py                         12      0   100%
+app\models\reference.py                                 70      8    89%   212, 224-230, 234, 238
+app\models\review.py                                    12      0   100%
+app\models\table.py                                     61     13    79%   179, 183-186, 190-194, 198-200
+app\models\user.py                                      11      0   100%
+app\pipeline\__init__.py                                 1      0   100%
+app\pipeline\agents\__init__.py                          2      0   100%
+app\pipeline\agents\adaptive.py                         53     53     0%   4-157
+app\pipeline\agents\advanced_dashboard.py               69     69     0%   4-393
+app\pipeline\agents\autoscaling.py                      69     69     0%   4-204
+app\pipeline\agents\custom_tools.py                     74     74     0%   4-192
+app\pipeline\agents\dashboard.py                        25     25     0%   4-261
+app\pipeline\agents\deep_learning.py                   108     63    42%   48-50, 74, 87-95, 113-129, 147-164, 177-180, 191-196, 208-217, 235-245, 250-261, 266
+app\pipeline\agents\distributed.py                      74     74     0%   4-238
+app\pipeline\agents\document_agent.py                  107     55    49%   69-71, 76, 81-82, 103-105, 109-110, 137, 158-163, 168-170, 187-197, 210, 228-258, 271-285
+app\pipeline\agents\federated_learning.py              135    135     0%   4-370
+app\pipeline\agents\llm_factory.py                      66     44    33%   44-53, 58-63, 73-83, 93-97, 107, 112-135, 140-145
+app\pipeline\agents\memory.py                           89     72    19%   29-41, 45-51, 55-56, 67-94, 105-124, 135-157, 170-186, 199-202, 214, 226-235, 239
+app\pipeline\agents\metrics.py                          97     97     0%   4-240
+app\pipeline\agents\ml_patterns.py                      92     59    36%   45-55, 72-94, 102-123, 127-134, 147-160, 173-186, 190, 198-200, 209-215
+app\pipeline\agents\multi_doc_learning.py               85     85     0%   4-216
+app\pipeline\agents\nextgen_dashboard.py                55     55     0%   4-372
+app\pipeline\agents\realtime_adaptation.py              62     62     0%   4-206
+app\pipeline\agents\streaming.py                        39     18    54%   31-32, 36-37, 43, 50, 57, 66-67, 75, 82, 89, 98, 107, 114, 120, 127, 131
+app\pipeline\agents\tool_marketplace.py                 90     90     0%   4-304
+app\pipeline\agents\tools\figure_tool.py                37     24    35%   32-33, 45-89, 93
+app\pipeline\agents\tools\layout_tool.py                28     15    46%   32-33, 45-82, 86
+app\pipeline\agents\tools\metadata_tool.py              36     23    36%   32-33, 45-91, 95
+app\pipeline\agents\tools\reference_tool.py             34     20    41%   33-35, 47-89, 93
+app\pipeline\agents\tools\validation_tool.py            30     15    50%   32-34, 38, 50-82, 86
+app\pipeline\base.py                                     6      1    83%   23
+app\pipeline\classification\__init__.py                  2      2     0%   3-5
+app\pipeline\classification\classifier.py              305    305     0%   11-532
+app\pipeline\contracts\loader.py                        29     21    28%   10-11, 17-31, 37-39, 45-47
+app\pipeline\export\__init__.py                          2      2     0%   3-5
+app\pipeline\export\exporter.py                        128    128     0%   5-207
+app\pipeline\export\jats_generator.py                  101    101     0%   1-156
+app\pipeline\export\pdf_exporter.py                     41     41     0%   1-80
+app\pipeline\figures\__init__.py                         2      2     0%   3-5
+app\pipeline\figures\analyzer.py                        30     30     0%   6-77
+app\pipeline\figures\caption_matcher.py                111    111     0%   8-245
+app\pipeline\formatting\__init__.py                      3      0   100%
+app\pipeline\formatting\formatter.py                   379    324    15%   50, 54-220, 224-233, 240-249, 253-260, 264-276, 280-292, 302-321, 325-353, 357-378, 382-399, 403-418, 421-428, 435-482, 487-514, 528-564, 570-627, 631-635, 639-643, 647-652
+app\pipeline\formatting\numbering.py                    37     31    16%   11, 17-64
+app\pipeline\formatting\reference_formatter.py          17     12    29%   9, 13-28
+app\pipeline\formatting\section_ordering.py             28     22    21%   10, 16-42
+app\pipeline\formatting\style_mapper.py                 13      7    46%   11, 17-27
+app\pipeline\formatting\template_renderer.py           102     84    18%   24, 28-33, 37-67, 83-87, 91-100, 103-118, 122-158, 161-166, 169-175
+app\pipeline\input_conversion\__init__.py                2      2     0%   3-5
+app\pipeline\input_conversion\converter.py              97     97     0%   5-201
+app\pipeline\integrity\cross_ref.py                     32     22    31%   27-63
+app\pipeline\intelligence\rag_engine.py                103     52    50%   24, 30-31, 46-50, 57-61, 71-81, 85-106, 123, 129-130, 139-146, 153-155
+app\pipeline\intelligence\semantic_parser.py            89     53    40%   25, 31-35, 47-50, 58-62, 69-73, 87-99, 104-118, 125-140, 151-153
+app\pipeline\nlp\__init__.py                             0      0   100%
+app\pipeline\nlp\analyzer.py                            69     69     0%   5-138
+app\pipeline\normalization\__init__.py                   2      0   100%
+app\pipeline\normalization\normalizer.py               166    110    34%   120, 124, 132, 141, 145, 153, 157, 160, 189-288, 294-326, 332-346, 362-381, 402-428, 463-500, 524-525
+app\pipeline\ocr\__init__.py                             0      0   100%
+app\pipeline\ocr\pdf_ocr.py                             43     43     0%   5-89
+app\pipeline\orchestrator.py                           395    395     0%   5-643
+app\pipeline\orchestrator_v2.py                         88     88     0%   4-238
+app\pipeline\parsing\__init__.py                         2      0   100%
+app\pipeline\parsing\base_parser.py                      9      2    78%   31, 44
+app\pipeline\parsing\html_parser.py                    136    117    14%   20-21, 42, 50, 66-110, 114-134, 138-290
+app\pipeline\parsing\md_parser.py                      187    169    10%   42, 58-103, 107-131, 135-342, 353-392, 397-420
+app\pipeline\parsing\parser.py                         376    331    12%   77, 94-161, 173-266, 272-299, 311-335, 352-409, 422-464, 468-486, 490-525, 541-578, 598-630, 643-698, 710-722, 735-743, 751-776, 780-804, 825-826, 832, 837, 842
+app\pipeline\parsing\parser_factory.py                  64     32    50%   32-33, 38-41, 46-47, 52-55, 60-61, 66-67, 86, 95-107, 119-124
+app\pipeline\parsing\pdf_parser.py                     186    165    11%   16-17, 38, 46, 63-106, 110-123, 134-160, 166-182, 186-386
+app\pipeline\parsing\tex_parser.py                     140    123    12%   39, 55-96, 102-122, 127-292, 297, 307-321
+app\pipeline\parsing\txt_parser.py                      64     50    22%   36, 52-94, 98-163
+app\pipeline\references\__init__.py                      2      0   100%
+app\pipeline\references\formatter_engine.py             55     55     0%   8-113
+app\pipeline\references\normalizer.py                   17     12    29%   15-18, 25-34, 41-46
+app\pipeline\references\parser.py                       86     73    15%   28-31, 40-78, 84-163, 181-191, 196-197
+app\pipeline\safety\__init__.py                          4      0   100%
+app\pipeline\safety\circuit_breaker.py                  43     37    14%   22-79
+app\pipeline\safety\retry_guard.py                      26     11    58%   25-38
+app\pipeline\safety\safe_execution.py                   36      2    94%   65-70
+app\pipeline\safety\validator_guard.py                  31     26    16%   14-46
+app\pipeline\services\__init__.py                        5      0   100%
+app\pipeline\services\crossref_client.py                77     61    21%   41-45, 49-53, 65-69, 84-101, 114-170
+app\pipeline\services\csl_engine.py                    163    138    15%   25-27, 48-49, 58, 66, 70-89, 95-96, 102-115, 121-140, 144-190, 194-209, 213-216, 219-240, 243-273, 276-282
+app\pipeline\services\docling_client.py                172    130    24%   27-30, 40-44, 48, 52, 57, 60, 84-90, 93, 123-136, 140, 157-238, 242-296, 307-343, 347-362, 366-380, 384-389, 393, 416-430
+app\pipeline\services\grobid_client.py                 124    100    19%   38-39, 43-50, 63-83, 90-109, 121-149, 153-162, 171-207, 211-219, 223-228, 242-265, 269
+app\pipeline\structure_detection\__init__.py             2      0   100%
+app\pipeline\structure_detection\detector.py           217    156    28%   70-71, 76, 89, 129-130, 136, 158-252, 275-296, 318-345, 352-357, 367-376, 396-498, 514-515
+app\pipeline\structure_detection\heading_rules.py      151    139     8%   49-81, 92-109, 117-139, 146-178, 188-206, 211-222, 235-370
+app\pipeline\structure_detection\position_rules.py      82     73    11%   28-31, 48-69, 85-97, 111-123, 137-144, 166-191, 215-230
+app\pipeline\tables\extractor.py                        85     76    11%   25-137, 141-143, 150-159, 163-167, 171-177
+app\pipeline\tables\renderer.py                         45     39    13%   16, 27-91
+app\pipeline\validation\__init__.py                      2      0   100%
+app\pipeline\validation\ai_explainer.py                 20     20     0%   1-46
+app\pipeline\validation\review_manager.py               52     45    13%   14-24, 31-96
+app\pipeline\validation\validator_v3.py                136     96    29%   46-48, 65-118, 126-139, 142-149, 152-175, 178-184, 191-233, 242-243
+app\routers\__init__.py                                  1      1     0%   2
+app\routers\auth.py                                     24     24     0%   2-53
+app\routers\documents.py                               223    223     0%   1-547
+app\routers\feedback.py                                 22     22     0%   1-47
+app\routers\metrics.py                                  46     46     0%   6-115
+app\routers\stream.py                                   36     36     0%   6-78
+app\schemas\__init__.py                                  0      0   100%
+app\schemas\__init___1.py                                0      0   100%
+app\schemas\auth.py                                     21     21     0%   1-32
+app\schemas\auth_1.py                                   21     21     0%   1-32
+app\schemas\document.py                                  9      9     0%   1-22
+app\schemas\document_1.py                                7      7     0%   2-17
+app\schemas\user.py                                      9      9     0%   2-14
+app\schemas\user_1.py                                    9      9     0%   2-14
+app\services\__init__.py                                 0      0   100%
+app\services\ab_testing.py                              67     67     0%   7-213
+app\services\auth_service.py                            61     61     0%   1-143
+app\services\document_service.py                         7      7     0%   2-11
+app\services\model_metrics.py                           41     41     0%   12-160
+app\services\model_store.py                             18      2    89%   21, 25
+app\services\nvidia_client.py                           50     50     0%   9-183
+app\services\user_service.py                            20     20     0%   2-24
+app\utils\__init__.py                                    0      0   100%
+app\utils\background_tasks.py                           65     65     0%   6-127
+app\utils\dependencies.py                               32     32     0%   1-52
+app\utils\id_generator.py                               14      8    43%   18, 31, 44, 57, 70, 83-85
+app\utils\text_utils.py                                 55     41    25%   98-101, 125-147, 163-170, 188-204, 220-235, 253-268
+----------------------------------------------------------------------------------
+TOTAL                                                 8232   6726    18%
+Coverage HTML written to dir htmlcov
+=========================== short test summary info ===========================
+FAILED tests/safety/test_global_safety.py::TestGlobalSafety::test_document_agent_safety - assert {'success': False, 'error': "name 'file_path' is not defined", 'should_fallback': True} == {'status': 'error', 'message': 'Agent crashed safely'}
+  
+  Left contains 3 more items:
+  {'error': "name 'file_path' is not defined",
+   'should_fallback': True,
+   'success': False}
+  Right contains 2 more items:
+  {'message': 'Agent crashed safely', 'status': 'error'}
+  
+  Full diff:
+    {
+  -     'message': 'Agent crashed safely',
+  -     'status': 'error',
+  +     'error': "name 'file_path' is not defined",
+  +     'should_fallback': True,
+  +     'success': False,
+    }
+FAILED tests/safety/test_global_safety.py::TestGlobalSafety::test_parser_factory_safety - Exception: Crash
+======================== 2 failed, 11 passed in 17.30s ========================

@@ -7,7 +7,7 @@ sys.path.append(os.getcwd())
 from app.models.pipeline_document import PipelineDocument, ReviewStatus
 from app.models.block import Block
 from app.models.equation import Equation
-from app.pipeline.validation.validator import DocumentValidator
+from app.pipeline.validation import DocumentValidator
 from app.pipeline.export.exporter import Exporter
 
 def test_hitl_and_jats():

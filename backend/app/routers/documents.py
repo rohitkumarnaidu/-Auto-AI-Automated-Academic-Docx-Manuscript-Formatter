@@ -11,7 +11,9 @@ from app.db.session import SessionLocal
 from app.models import Document, ProcessingStatus, DocumentResult
 from app.pipeline.orchestrator import PipelineOrchestrator
 from app.pipeline.export.pdf_exporter import PDFExporter
+from app.pipeline.export.pdf_exporter import PDFExporter
 from app.config.settings import settings  # Import settings for dynamic defaults
+from app.pipeline.safety.safe_execution import safe_async_function
 
 router = APIRouter(prefix="/api/documents", tags=["Documents"])
 
@@ -79,6 +81,14 @@ async def list_documents(
                 for doc in documents
             ],
             "total": total,
+            "limit": limit,
+            "offset": offset
+        }
+    except Exception as e:
+        print(f"Error listing documents: {e}")
+        return {
+            "documents": [],
+            "total": 0,
             "limit": limit,
             "offset": offset
         }
@@ -326,6 +336,9 @@ async def edit_document(
             "job_id": job_id,
             "status": "RUNNING"
         }
+    except Exception as e:
+        print(f"Error editing document: {e}")
+        raise HTTPException(status_code=500, detail=f"Edit failed: {str(e)}")
     finally:
         db.close()
 
@@ -362,6 +375,9 @@ async def get_preview(
                 "created_at": doc.created_at
             }
         }
+    except Exception as e:
+        print(f"Error retrieving preview: {e}")
+        raise HTTPException(status_code=500, detail=f"Preview failed: {str(e)}")
     finally:
         db.close()
 
@@ -434,6 +450,9 @@ async def get_comparison_data(
                 "structured_data": result.structured_data
             }
         }
+    except Exception as e:
+        print(f"Error comparing documents: {e}")
+        raise HTTPException(status_code=500, detail=f"Comparison failed: {str(e)}")
     finally:
         db.close()
 
@@ -521,5 +540,8 @@ async def download_document(
             media_type=media_type,
             filename=filename
         )
+    except Exception as e:
+        print(f"Error downloading document: {e}")
+        raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")
     finally:
         db.close()

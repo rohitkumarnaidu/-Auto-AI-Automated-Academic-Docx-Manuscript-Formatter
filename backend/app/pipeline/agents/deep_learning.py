@@ -8,6 +8,7 @@ from typing import List, Dict, Any, Optional, Tuple
 from transformers import AutoTokenizer, AutoModel
 from sklearn.cluster import KMeans
 import json
+from app.pipeline.safety import safe_function
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,7 @@ class TransformerPatternDetector:
         self.clusters = None
         self.cluster_centers = None
     
+    @safe_function(fallback_value=np.zeros(768), error_message="TransformerPatternDetector.encode_document")
     def encode_document(
         self,
         text: str,
@@ -96,6 +98,7 @@ class TransformerPatternDetector:
             logger.error(f"Encoding failed: {e}")
             return np.zeros(768)  # Default BERT embedding size
     
+    @safe_function(fallback_value=np.zeros(768), error_message="TransformerPatternDetector.encode_metadata")
     def encode_metadata(self, metadata: Dict[str, Any]) -> np.ndarray:
         """
         Encode document metadata to text and then to embedding.
@@ -125,6 +128,7 @@ class TransformerPatternDetector:
         text = " ".join(text_parts)
         return self.encode_document(text)
     
+    @safe_function(fallback_value=False, error_message="TransformerPatternDetector.fit_clusters")
     def fit_clusters(
         self,
         embeddings: List[np.ndarray],
@@ -159,6 +163,7 @@ class TransformerPatternDetector:
             logger.error(f"Clustering failed: {e}")
             return False
     
+    @safe_function(fallback_value=-1, error_message="TransformerPatternDetector.predict_cluster")
     def predict_cluster(self, embedding: np.ndarray) -> int:
         """
         Predict cluster for an embedding.
@@ -173,7 +178,8 @@ class TransformerPatternDetector:
             return -1
         
         return int(self.clusters.predict([embedding])[0])
-    
+
+    @safe_function(fallback_value=0.0, error_message="TransformerPatternDetector.compute_similarity")
     def compute_similarity(
         self,
         embedding1: np.ndarray,
@@ -181,19 +187,15 @@ class TransformerPatternDetector:
     ) -> float:
         """
         Compute cosine similarity between embeddings.
-        
-        Args:
-            embedding1: First embedding
-            embedding2: Second embedding
-            
-        Returns:
-            Similarity score (0-1)
         """
         from numpy.linalg import norm
-        
-        similarity = np.dot(embedding1, embedding2) / (norm(embedding1) * norm(embedding2))
-        return float(similarity)
+        try:
+            similarity = np.dot(embedding1, embedding2) / (norm(embedding1) * norm(embedding2))
+            return float(similarity)
+        except Exception:
+            return 0.0
     
+    @safe_function(fallback_value=[], error_message="TransformerPatternDetector.find_similar_documents")
     def find_similar_documents(
         self,
         query_embedding: np.ndarray,
@@ -202,14 +204,6 @@ class TransformerPatternDetector:
     ) -> List[Tuple[str, float]]:
         """
         Find similar documents using semantic similarity.
-        
-        Args:
-            query_embedding: Query document embedding
-            document_embeddings: List of (doc_id, embedding) tuples
-            top_k: Number of similar documents to return
-            
-        Returns:
-            List of (doc_id, similarity_score) tuples
         """
         similarities = []
         
@@ -222,6 +216,7 @@ class TransformerPatternDetector:
         
         return similarities[:top_k]
     
+    @safe_function(fallback_value=(False, 0.0), error_message="TransformerPatternDetector.detect_anomaly_semantic")
     def detect_anomaly_semantic(
         self,
         embedding: np.ndarray,
@@ -248,7 +243,8 @@ class TransformerPatternDetector:
         
         is_anomaly = max_similarity < threshold
         return is_anomaly, float(max_similarity)
-    
+
+    @safe_function(fallback_value=None, error_message="TransformerPatternDetector.save_model")
     def save_model(self, filepath: str):
         """Save embeddings cache and clusters."""
         data = {

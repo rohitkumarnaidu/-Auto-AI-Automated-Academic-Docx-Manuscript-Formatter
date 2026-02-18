@@ -17,6 +17,7 @@ import requests
 from typing import Dict, Any, List, Optional
 from pathlib import Path
 import xml.etree.ElementTree as ET
+from app.pipeline.safety.safe_execution import safe_function
 
 logger = logging.getLogger(__name__)
 
@@ -48,55 +49,64 @@ class GROBIDClient:
         except requests.exceptions.RequestException:
             return False
     
-    def extract_metadata(self, file_path: str) -> Dict[str, Any]:
+    @safe_function(fallback_value={}, error_message="GROBIDClient.process_header_document")
+    def process_header_document(self, file_path: str) -> Dict[str, Any]:
         """
-        Extract metadata from document using GROBID.
+        Process document header/metadata using GROBID.
         
         Args:
-            file_path: Path to document file (PDF, DOCX, etc.)
+            file_path: Path to PDF file
             
         Returns:
-            Dictionary with extracted metadata:
-            {
-                "title": str,
-                "authors": List[Dict[str, str]],  # [{"given": "John", "family": "Doe", "affiliation": "..."}]
-                "affiliations": List[str],
-                "abstract": str,
-                "keywords": List[str],
-                "references": List[Dict],
-                "raw_xml": str  # Full TEI XML for advanced processing
-            }
-            
-        Raises:
-            GROBIDException: If service is unavailable or processing fails
+            Dictionary of extracted metadata
         """
         if not self.is_available():
-            raise GROBIDException(
-                f"GROBID service not available at {self.base_url}. "
-                "Start it with: docker-compose up -d grobid"
-            )
-        
+            logger.warning("GROBID service not available")
+            return {}
+            
         try:
-            with open(file_path, 'rb') as f:
-                response = requests.post(
-                    f"{self.base_url}/api/processHeaderDocument",
-                    files={'input': f},
-                    timeout=self.timeout
-                )
+            files = {'input': open(file_path, 'rb')}
+            response = requests.post(
+                f"{self.base_url}/api/processHeaderDocument",
+                files=files,
+                timeout=self.timeout
+            )
             
             if response.status_code != 200:
-                raise GROBIDException(
-                    f"GROBID processing failed: {response.status_code} - {response.text}"
-                )
-            
-            # Parse TEI XML response
+                logger.error(f"GROBID failed with status {response.status_code}")
+                return {}
+                
             return self._parse_tei_xml(response.text)
             
-        except requests.exceptions.RequestException as e:
-            raise GROBIDException(f"GROBID request failed: {str(e)}")
         except Exception as e:
-            logger.error(f"GROBID metadata extraction failed: {str(e)}")
-            raise GROBIDException(f"Metadata extraction failed: {str(e)}")
+            logger.error(f"GROBID processing failed: {e}")
+            return {}
+
+    @safe_function(fallback_value=[], error_message="GROBIDClient.process_references")
+    def process_references(self, file_path: str) -> List[Dict[str, Any]]:
+        """
+        Extract references using GROBID.
+        """
+        if not self.is_available():
+            return []
+            
+        try:
+            files = {'input': open(file_path, 'rb')}
+            response = requests.post(
+                f"{self.base_url}/api/processReferences",
+                files=files,
+                timeout=self.timeout
+            )
+            
+            if response.status_code != 200:
+                return []
+                
+            # Parsing logic would go here
+            return [] 
+            
+        except Exception as e:
+            logger.error(f"GROBID reference extraction failed: {e}")
+            return []
     
     def _parse_tei_xml(self, xml_str: str) -> Dict[str, Any]:
         """

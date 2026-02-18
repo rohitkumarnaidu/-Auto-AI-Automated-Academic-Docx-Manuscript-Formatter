@@ -18,6 +18,8 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from app.pipeline.safety import safe_function
+
 logger = logging.getLogger(__name__)
 
 try:
@@ -137,61 +139,103 @@ class DoclingClient:
         """Check if Docling is available and initialized."""
         return DOCLING_AVAILABLE and self.converter is not None
     
-    def analyze_layout(self, pdf_path: str) -> Dict[str, Any]:
+    @safe_function(fallback_value={}, error_message="DoclingClient.analyze_layout")
+    def analyze_layout(self, file_path: str) -> Dict[str, Any]:
         """
-        Analyze PDF layout and extract structured information.
+        Analyze the layout of a PDF file using Docling.
         
         Args:
-            pdf_path: Path to PDF file
+            file_path: Path to the PDF file.
             
         Returns:
-            Dictionary containing layout analysis results:
-            {
-                "elements": List[LayoutElement],
-                "headers": List[LayoutElement],
-                "footers": List[LayoutElement],
-                "tables": List[Dict],
-                "figures": List[Dict],
-                "confidence": float,
-            }
+            Dictionary containing layout information (elements, boxes, etc.)
         """
-        if not self.is_available():
-            logger.warning("Docling not available - returning empty layout")
-            return self._empty_layout()
-        
+        if not DOCLING_AVAILABLE:
+            logger.warning("Docling is not installed or failed to load.")
+            return {}
+            
         try:
-            pdf_path_obj = Path(pdf_path)
-            if not pdf_path_obj.exists():
-                raise FileNotFoundError(f"PDF file not found: {pdf_path}")
+            logger.info(f"Starting Docling layout analysis for: {file_path}")
             
-            # Convert document
-            result = self.converter.convert(str(pdf_path_obj))
+            # Use DocumentConverter to parse the PDF
+            # In update: use 'parse' or 'convert' depending on version
+            # Assuming 'convert' returns a specific object structure
             
-            # Extract layout elements
-            elements = self._extract_elements(result.document)
+            # Configure pipeline options if needed
+            pipeline_options = PdfPipelineOptions()
+            pipeline_options.do_ocr = False # Speed optimization
+            pipeline_options.do_table_structure = True
             
-            # Identify headers and footers
-            headers, footers = self._detect_headers_footers(elements)
+            converter = DocumentConverter(
+                format_options={
+                    InputFormat.PDF: pipeline_options
+                }
+            )
             
-            # Extract tables and figures
-            tables = self._extract_tables(result.document)
-            figures = self._extract_figures(result.document)
+            # Run conversion
+            doc = converter.convert(file_path).document
             
-            # Calculate overall confidence
-            confidence = self._calculate_confidence(elements)
+            # Extract layout data from the Docling document object
+            elements = []
             
-            return {
-                "elements": [elem.to_dict() for elem in elements],
-                "headers": [elem.to_dict() for elem in headers],
-                "footers": [elem.to_dict() for elem in footers],
-                "tables": tables,
-                "figures": figures,
-                "confidence": confidence,
+            # Iterate through all elements in the document
+            # Note: Docling's object model might vary by version
+            # We map main text items, headers, tables, etc.
+            
+            # Text items (Paragraphs, Headings, etc.)
+            for item in doc.texts:
+                 # Extract bounding box
+                 bbox = None
+                 if item.prov and item.prov[0].bbox:
+                     b = item.prov[0].bbox
+                     # Normalize: Docling uses bottom-up/top-down depending on backend?
+                     # Usually top-left origin for PDF analysis in this context
+                     bbox = {
+                         "x0": b.l,
+                         "y0": b.t, 
+                         "x1": b.r,
+                         "y1": b.b,
+                         "page": item.prov[0].page_no
+                     }
+                 
+                 elements.append({
+                     "text": item.text,
+                     "type": item.label, # e.g., 'text', 'title', 'section_header'
+                     "bbox": bbox,
+                     "level": getattr(item, 'level', 0) # Headings structure
+                 })
+
+            # Tables
+            for table in doc.tables:
+                if table.prov and table.prov[0].bbox:
+                     b = table.prov[0].bbox
+                     bbox = {
+                         "x0": b.l,
+                         "y0": b.t, 
+                         "x1": b.r,
+                         "y1": b.b,
+                         "page": table.prov[0].page_no
+                     }
+                     elements.append({
+                         "type": "table",
+                         "bbox": bbox,
+                         "rows": len(table.data.grid),
+                         "cols": len(table.data.grid[0]) if table.data.grid else 0
+                     })
+            
+            result = {
+                "elements": elements,
+                "pages": doc.num_pages if hasattr(doc, 'num_pages') else 1
             }
-        
+            
+            logger.info(f"Docling analysis complete. Found {len(elements)} elements.")
+            return result
+            
         except Exception as e:
-            logger.error(f"Docling layout analysis failed: {e}")
-            return self._empty_layout()
+            logger.error(f"Docling analysis failed: {e}")
+            # Raise to trigger safe_function wrapper instead? 
+            # safe_function will catch it and return fallback_value ({}).
+            raise e
     
     def _extract_elements(self, document) -> List[LayoutElement]:
         """Extract layout elements from Docling document."""

@@ -54,59 +54,82 @@ app.include_router(feedback.router)
 from app.routers import stream
 app.include_router(stream.router)
 
+from fastapi import Request
+from fastapi.responses import JSONResponse
+from app.pipeline.safety import safe_execution
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """
+    Global Safety Net: Catches any unhandled exception to prevent server crash.
+    Returns 500 but keeps the server alive.
+    """
+    with safe_execution("Global Exception Handler"):
+        # We just log it here, the safe_execution will handle the traceback logging
+        # But we need to return a response
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Internal Server Error (Safely Handled)", "error": str(exc)},
+        )
+
 @app.on_event("startup")
 async def startup_event():
     """
     Perform startup tasks, including cleaning up interrupted jobs.
     Note: This project intentionally avoids automated pipeline testing at this stage.
     """
-    from app.db.session import SessionLocal
-    from app.models import Document
-    from sqlalchemy.exc import OperationalError
-    
-    db = None
-    try:
-        # Lazy instantiation inside try block
-        db = SessionLocal()
-        # Find jobs stuck in RUNNING state from previous session
-        # This will trigger the connection attempt
-        interrupted_docs = db.query(Document).filter(Document.status == "RUNNING").all()
-        if interrupted_docs:
-            print(f"Startup: Found {len(interrupted_docs)} interrupted jobs. Marking as FAILED.")
-            for doc in interrupted_docs:
-                doc.status = "FAILED"
-                doc.error_message = "Processing interrupted by server restart."
-            db.commit()
-    except (OperationalError, Exception) as e:
-        # Log a clear warning instead of crashing the process
-        # This ensures the app starts even if DNS or DB is down
-        print(f"Startup DB Link Status: UNREACHABLE. Error: {e}")
-        print("Note: App is starting in degraded mode. DB-dependent endpoints will fail at request-time.")
-    finally:
-        if db:
-            db.close()
+    with safe_execution("Application Startup"):
+        from app.db.session import SessionLocal
+        from app.models import Document
+        from sqlalchemy.exc import OperationalError
+        
+        db = None
+        try:
+            # Lazy instantiation inside try block
+            db = SessionLocal()
+            # Find jobs stuck in RUNNING state from previous session
+            # This will trigger the connection attempt
+            interrupted_docs = db.query(Document).filter(Document.status == "RUNNING").all()
+            if interrupted_docs:
+                print(f"Startup: Found {len(interrupted_docs)} interrupted jobs. Marking as FAILED.")
+                for doc in interrupted_docs:
+                    doc.status = "FAILED"
+                    doc.error_message = "Processing interrupted by server restart."
+                db.commit()
+        except (OperationalError, Exception) as e:
+            # Log a clear warning instead of crashing the process
+            # This ensures the app starts even if DNS or DB is down
+            print(f"Startup DB Link Status: UNREACHABLE. Error: {e}")
+            print("Note: App is starting in degraded mode. DB-dependent endpoints will fail at request-time.")
+        finally:
+            if db:
+                db.close()
+                
+        # Phase 2: AI Model Pre-loading
+        from app.services.model_store import model_store
+        from app.pipeline.intelligence.semantic_parser import get_semantic_parser
+        from app.pipeline.intelligence.rag_engine import get_rag_engine
+        
+        print("Startup: Pre-loading AI models into memory...")
+        try:
+            # Load Semantic Parser (SciBERT)
+            parser = get_semantic_parser()
+            parser._load_model()
+            model_store.set_model("scibert_tokenizer", parser.tokenizer)
+            model_store.set_model("scibert_model", parser.model)
+            print("✅ SciBERT loaded.")
             
-    # Phase 2: AI Model Pre-loading
-    from app.services.model_store import model_store
-    from app.pipeline.intelligence.semantic_parser import get_semantic_parser
-    from app.pipeline.intelligence.rag_engine import get_rag_engine
-    
-    print("Startup: Pre-loading AI models into memory...")
-    try:
-        # Load Semantic Parser (SciBERT)
-        parser = get_semantic_parser()
-        parser._load_model()
-        model_store.set_model("scibert_tokenizer", parser.tokenizer)
-        model_store.set_model("scibert_model", parser.model)
-        
-        # Load RagEngine (SentenceTransformer + Vector Store)
-        rag = get_rag_engine()
-        model_store.set_model("rag_engine", rag)
-        model_store.set_model("embedding_model", rag.embedding_model)
-        
-        print("Startup: AI models loaded and registered successfully.")
-    except Exception as e:
-        print(f"Startup AI Error: Failed to pre-load models ({e}). Falling back to lazy-loading.")
+            # Load RAG Engine
+            rag = get_rag_engine()
+            model_store.set_model("rag_engine", rag)
+            model_store.set_model("embedding_model", rag.embedding_model)
+            # Trigger loading
+            print(f"✅ RAG Engine initialized.")
+            
+            print("Startup: AI models loaded and registered successfully.")
+        except Exception as e:
+            print(f"⚠️ AI Model Pre-load Warning: {e}. Falling back to lazy-loading.")
+
 
 @app.get("/")
 async def root():

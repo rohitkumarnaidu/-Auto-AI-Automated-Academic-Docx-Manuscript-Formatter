@@ -18,6 +18,7 @@ from app.pipeline.formatting.numbering import NumberingEngine
 from app.pipeline.formatting.reference_formatter import ReferenceFormatter
 from app.pipeline.formatting.template_renderer import TemplateRenderer
 from app.pipeline.tables.renderer import TableRenderer
+from app.pipeline.safety.safe_execution import safe_function, safe_execution
 
 class Formatter:
     """
@@ -40,6 +41,7 @@ class Formatter:
         document.generated_doc = self.format(document, template_name)
         return document
 
+    @safe_function(fallback_value=None, error_message="Formatter.format failed")
     def format(self, document: Document, template_name: str = "IEEE") -> Optional[Any]:
         """
         Apply formatting using contract-driven modular components.
@@ -230,6 +232,7 @@ class Formatter:
             except Exception:
                 ref.formatted_text = ref.raw_text or ''
 
+    @safe_function(fallback_value=None, error_message="Equation rendering failed")
     def _render_equation(self, doc, equation):
         """Render an equation block."""
         # Simple implementation: Use the text fallback
@@ -425,6 +428,7 @@ class Formatter:
             return {}
 
 
+    @safe_function(fallback_value=None, error_message="Block rendering failed")
     def _render_block(self, doc, block, template_name):
         """Render a block with contract-driven spacing, formatting, and dynamic list detection."""
         # Skip rendering empty anchor blocks (preserve in pipeline)
@@ -509,6 +513,7 @@ class Formatter:
             paragraph.paragraph_format.space_before = Pt(before)
             paragraph.paragraph_format.space_after = Pt(after)
 
+    @safe_function(fallback_value=None, error_message="Image sizing failed")
     def _calculate_image_size(self, figure: Figure):
         """
         Calculate optimal image size based on actual dimensions and page constraints.
@@ -558,6 +563,7 @@ class Formatter:
             # Default to 5 inches wide (good for most academic figures)
             return DEFAULT_WIDTH, None  # Let python-docx maintain aspect ratio
 
+    @safe_function(fallback_value=None, error_message="Figure rendering failed")
     def _render_figure(self, doc, figure: Figure, number: int):
         """Render a figure with dynamic sizing based on image dimensions."""
         # 1. Add image with dynamic sizing

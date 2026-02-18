@@ -15,6 +15,7 @@ from app.pipeline.agents.llm_factory import CustomLLMFactory
 from app.pipeline.agents.memory import AgentMemory
 from app.pipeline.agents.streaming import StreamingAgentCallback
 from app.models import PipelineDocument
+from app.pipeline.safety import safe_function, safe_async_function, retry_guard
 
 logger = logging.getLogger(__name__)
 
@@ -137,21 +138,20 @@ class DocumentAgent:
         
         self.executor = AgentExecutor(**executor_kwargs)
     
-    def process_document(
-        self,
-        file_path: str,
-        document: Optional[PipelineDocument] = None
-    ) -> Dict[str, Any]:
+    @safe_async_function(fallback_value={"status": "error", "message": "Agent crashed safely"}, error_message="DocumentAgent.run")
+    @retry_guard(max_retries=1) # Retry once if agent fails
+    async def run(self, document: PipelineDocument, job_id: str) -> Dict[str, Any]:
         """
-        Process a document using the agent.
+        Run the agent on a document to fix validation errors.
         
         Args:
-            file_path: Path to the document file
-            document: Optional PipelineDocument for validation
+            document: The document object to process
+            job_id: The ID of the current job
             
         Returns:
-            Dict containing agent's analysis and recommendations
+            Dict containing the processing results and agent logs
         """
+        logger.info(f"Agent starting for job {job_id}")
         try:
             # Set document in validation tool if provided
             if document:
@@ -170,8 +170,9 @@ class DocumentAgent:
                     logger.info(f"Found similar pattern in memory: {best_pattern}")
             
             # Construct input message
+            doc_path = document.filename if document else "Unknown File"
             input_message = f"""
-Please analyze the document at: {file_path}
+Please analyze the document at: {doc_path}
 
 Tasks:
 1. Extract metadata using GROBID

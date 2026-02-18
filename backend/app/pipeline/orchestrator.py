@@ -26,7 +26,7 @@ from app.pipeline.figures.caption_matcher import CaptionMatcher
 from app.pipeline.tables.caption_matcher import TableCaptionMatcher
 from app.pipeline.references.parser import ReferenceParser
 from app.pipeline.references.formatter_engine import ReferenceFormatterEngine
-from app.pipeline.validation.validator import validate_document
+from app.pipeline.validation import DocumentValidator, validate_document
 from app.pipeline.validation.ai_explainer import AIExplainer
 from app.pipeline.formatting.formatter import Formatter
 from app.pipeline.export.exporter import Exporter
@@ -41,6 +41,8 @@ from app.pipeline.intelligence.semantic_parser import get_semantic_parser
 
 # Week 2: GROBID and Docling Services
 from app.pipeline.services import GROBIDClient, DoclingClient
+# Safety Hardening
+from app.pipeline.safety import safe_execution
 
 class PipelineOrchestrator:
     """
@@ -138,332 +140,333 @@ class PipelineOrchestrator:
             document_rec = None
             output_path = None
             
-            # Phase 1: Upload & Job Creation
-            with SessionLocal() as db:
-                self._update_status(db, job_id, "UPLOAD", "COMPLETED", "File uploaded and job created.", progress=5)
-            
-            # Phase 2: Text Extraction (Benchmarked: 20%)
-            with SessionLocal() as db:
-                self._update_status(db, job_id, "EXTRACTION", "IN_PROGRESS", progress=10)
-            
-            # Check if we can parse the file directly without conversion
-            factory = ParserFactory()
-            file_ext = os.path.splitext(input_path)[1].lower()
-            
-            # Formats our parsers support directly (no conversion needed)
-            parser_supported_formats = ['.pdf', '.txt', '.html', '.htm', '.md', '.markdown', '.tex', '.latex']
-            
-            if file_ext in parser_supported_formats:
-                # Parse original file directly (no Pandoc/LibreOffice needed!)
-                print(f"✅ Parsing {file_ext} directly with ParserFactory (no conversion)")
-                parser = factory.get_parser(input_path)
-                doc_obj = parser.parse(input_path, job_id)
-                doc_obj.formatting_options = formatting_options  # Inject Options
-                docx_path = input_path  # Keep original path for reference
-            else:
-                print(f"ℹ️ Converting {file_ext} to DOCX first...")
-                docx_path = self.converter.convert_to_docx(input_path, job_id)
-                
-                # Parse the converted DOCX
-                parser = factory.get_parser(docx_path)
-                doc_obj = parser.parse(docx_path, job_id)
-                doc_obj.formatting_options = formatting_options # Inject Options
-            
-            raw_text = "\n".join([b.text for b in doc_obj.blocks])
-
-            # CRITICAL FIX: Set Template Info for Formatter
-            if template_name:
-                doc_obj.template = TemplateInfo(template_name=template_name)
-            
-            with SessionLocal() as db:
-                document_rec = db.query(Document).filter_by(id=job_id).first()
-                if document_rec:
-                    document_rec.raw_text = raw_text
-                    document_rec.original_file_path = input_path
-                    db.commit()
-                self._update_status(db, job_id, "EXTRACTION", "COMPLETED", "Text extracted successfully.", progress=20)
-            
-            # Phase 2.1: GROBID Metadata Extraction (Week 2)
-            # Extract metadata using GROBID before classification
-            if file_ext == '.pdf' and self.grobid_client.is_available():
+            # PHASE 0: SAFETY NET
+            # We wrap the ENTIRE pipeline logic in the safety net to catch unforeseen crashes
+            with safe_execution(f"Pipeline Job {job_id}"):
+                # Phase 1: Upload & Job Creation
                 with SessionLocal() as db:
-                    self._update_status(db, job_id, "EXTRACTION", "IN_PROGRESS", "Extracting metadata with GROBID...", progress=22)
+                    self._update_status(db, job_id, "UPLOAD", "COMPLETED", "File uploaded and job created.", progress=5)
                 
-                try:
-                    print("🔬 Extracting metadata with GROBID...")
-                    grobid_metadata = self.grobid_client.extract_metadata(input_path)
-                    
-                    # Inject GROBID metadata into document object (using ai_hints)
-                    # Note: metadata is a Pydantic model, so we must use ai_hints dict
-                    if not hasattr(doc_obj, 'metadata') or doc_obj.metadata is None:
-                        from app.models import DocumentMetadata
-                        doc_obj.metadata = DocumentMetadata()
-                    
-                    doc_obj.metadata.ai_hints['grobid_metadata'] = grobid_metadata
-                    
-                    print(f"✅ GROBID extracted: Title='{grobid_metadata.get('title', 'N/A')}', Authors={len(grobid_metadata.get('authors', []))}")
-                except Exception as e:
-                    print(f"⚠️ GROBID extraction failed (non-blocking): {e}")
-                    # Non-blocking - continue pipeline
-            else:
-                print(f"ℹ️ Skipping GROBID (file_ext={file_ext}, available={self.grobid_client.is_available()})")
-
-            # Phase 2.2: Docling Layout Analysis (Week 2)
-            # Extract high-fidelity layout data (bounding boxes, font sizes) for structure detection
-            if file_ext == '.pdf' and self.docling_client.is_available():
+                # Phase 2: Text Extraction (Benchmarked: 20%)
                 with SessionLocal() as db:
-                    self._update_status(db, job_id, "EXTRACTION", "IN_PROGRESS", "Analyzing layout with Docling...", progress=24)
+                    self._update_status(db, job_id, "EXTRACTION", "IN_PROGRESS", progress=10)
                 
-                try:
-                    print("📐 Analyzing layout with Docling...")
-                    # Analyze layout
-                    layout_result = self.docling_client.analyze_layout(input_path)
+                # Check if we can parse the file directly without conversion
+                factory = ParserFactory()
+                file_ext = os.path.splitext(input_path)[1].lower()
+                
+                # Formats our parsers support directly (no conversion needed)
+                parser_supported_formats = ['.pdf', '.txt', '.html', '.htm', '.md', '.markdown', '.tex', '.latex']
+                
+                if file_ext in parser_supported_formats:
+                    # Parse original file directly (no Pandoc/LibreOffice needed!)
+                    print(f"✅ Parsing {file_ext} directly with ParserFactory (no conversion)")
+                    parser = factory.get_parser(input_path)
+                    doc_obj = parser.parse(input_path, job_id)
+                    doc_obj.formatting_options = formatting_options  # Inject Options
+                    docx_path = input_path  # Keep original path for reference
+                else:
+                    print(f"ℹ️ Converting {file_ext} to DOCX first...")
+                    docx_path = self.converter.convert_to_docx(input_path, job_id)
                     
-                    # Inject Docling layout into document object (using ai_hints)
-                    if not hasattr(doc_obj, 'metadata') or doc_obj.metadata is None:
-                        from app.models import DocumentMetadata
-                        doc_obj.metadata = DocumentMetadata()
+                    # Parse the converted DOCX
+                    parser = factory.get_parser(docx_path)
+                    doc_obj = parser.parse(docx_path, job_id)
+                    doc_obj.formatting_options = formatting_options # Inject Options
+                
+                raw_text = "\n".join([b.text for b in doc_obj.blocks])
+
+                # CRITICAL FIX: Set Template Info for Formatter
+                if template_name:
+                    doc_obj.template = TemplateInfo(template_name=template_name)
+                
+                with SessionLocal() as db:
+                    document_rec = db.query(Document).filter_by(id=job_id).first()
+                    if document_rec:
+                        document_rec.raw_text = raw_text
+                        document_rec.original_file_path = input_path
+                        db.commit()
+                    self._update_status(db, job_id, "EXTRACTION", "COMPLETED", "Text extracted successfully.", progress=20)
+                
+                # Phase 2.1: GROBID Metadata Extraction (Week 2)
+                # Extract metadata using GROBID before classification
+                if file_ext == '.pdf' and self.grobid_client.is_available():
+                    with SessionLocal() as db:
+                        self._update_status(db, job_id, "EXTRACTION", "IN_PROGRESS", "Extracting metadata with GROBID...", progress=22)
+                    
+                    try:
+                        print("🔬 Extracting metadata with GROBID...")
+                        grobid_metadata = self.grobid_client.extract_metadata(input_path)
                         
-                    doc_obj.metadata.ai_hints['docling_layout'] = layout_result
+                        # Inject GROBID metadata into document object (using ai_hints)
+                        # Note: metadata is a Pydantic model, so we must use ai_hints dict
+                        if not hasattr(doc_obj, 'metadata') or doc_obj.metadata is None:
+                            from app.models import DocumentMetadata
+                            doc_obj.metadata = DocumentMetadata()
+                        
+                        doc_obj.metadata.ai_hints['grobid_metadata'] = grobid_metadata
+                        
+                        print(f"✅ GROBID extracted: Title='{grobid_metadata.get('title', 'N/A')}', Authors={len(grobid_metadata.get('authors', []))}")
+                    except Exception as e:
+                        print(f"⚠️ GROBID extraction failed (non-blocking): {e}")
+                        # Non-blocking - continue pipeline
+                else:
+                    print(f"ℹ️ Skipping GROBID (file_ext={file_ext}, available={self.grobid_client.is_available()})")
+
+                # Phase 2.2: Docling Layout Analysis (Week 2)
+                # Extract high-fidelity layout data (bounding boxes, font sizes) for structure detection
+                if file_ext == '.pdf' and self.docling_client.is_available():
+                    with SessionLocal() as db:
+                        self._update_status(db, job_id, "EXTRACTION", "IN_PROGRESS", "Analyzing layout with Docling...", progress=24)
                     
-                    print(f"✅ Docling analyzed: {len(layout_result.get('elements', []))} elements found")
+                    try:
+                        print("📐 Analyzing layout with Docling...")
+                        # Analyze layout
+                        layout_result = self.docling_client.analyze_layout(input_path)
+                        
+                        # Inject Docling layout into document object (using ai_hints)
+                        if not hasattr(doc_obj, 'metadata') or doc_obj.metadata is None:
+                            from app.models import DocumentMetadata
+                            doc_obj.metadata = DocumentMetadata()
+                            
+                        doc_obj.metadata.ai_hints['docling_layout'] = layout_result
+                        
+                        print(f"✅ Docling analyzed: {len(layout_result.get('elements', []))} elements found")
+                    except Exception as e:
+                        print(f"⚠️ Docling analysis failed (non-blocking): {e}")
+                else:
+                    print(f"ℹ️ Skipping Docling (file_ext={file_ext}, available={self.docling_client.is_available()})")
+                
+                # Phase 2.5: Equation Standardization
+                with SessionLocal() as db:
+                    self._update_status(db, job_id, "EXTRACTION", "IN_PROGRESS", "Standardizing equations...", progress=25)
+                
+                standardizer = get_equation_standardizer()
+                doc_obj = standardizer.process(doc_obj)
+                
+                # Phase 3: NLP Structural Analysis (Benchmarked: 50%)
+                with SessionLocal() as db:
+                    self._update_status(db, job_id, "NLP_ANALYSIS", "IN_PROGRESS", progress=30)
+                
+                normalizer = TextNormalizer()
+                self._check_stage_interface(normalizer, "process", "TextNormalizer")
+                doc_obj = normalizer.process(doc_obj)
+                
+                # Layer 2: NLP Foundation (Semantic Parser)
+                # PHASE 2: AI Intelligence Stack (SciBERT Semantic Analysis)
+                # NOTE: This runs BEFORE structure detection to provide semantic hints
+                semantic_parser = get_semantic_parser()
+                semantic_blocks = []
+                try:
+                    # Use getattr for maximum safety against interface drift
+                    if hasattr(semantic_parser, "detect_boundaries"):
+                        doc_obj.blocks = semantic_parser.detect_boundaries(doc_obj.blocks)
+                    
+                    if hasattr(semantic_parser, "reconcile_fragmented_headings"):
+                        doc_obj.blocks = semantic_parser.reconcile_fragmented_headings(doc_obj.blocks)
                 except Exception as e:
-                    print(f"⚠️ Docling analysis failed (non-blocking): {e}")
-            else:
-                print(f"ℹ️ Skipping Docling (file_ext={file_ext}, available={self.docling_client.is_available()})")
-            
-            # Phase 2.5: Equation Standardization
-            with SessionLocal() as db:
-                self._update_status(db, job_id, "EXTRACTION", "IN_PROGRESS", "Standardizing equations...", progress=25)
-            
-            standardizer = get_equation_standardizer()
-            doc_obj = standardizer.process(doc_obj)
-            
-            # Phase 3: NLP Structural Analysis (Benchmarked: 50%)
-            with SessionLocal() as db:
-                self._update_status(db, job_id, "NLP_ANALYSIS", "IN_PROGRESS", progress=30)
-            
-            normalizer = TextNormalizer()
-            self._check_stage_interface(normalizer, "process", "TextNormalizer")
-            doc_obj = normalizer.process(doc_obj)
-            
-            # Layer 2: NLP Foundation (Semantic Parser)
-            # PHASE 2: AI Intelligence Stack (SciBERT Semantic Analysis)
-            # NOTE: This runs BEFORE structure detection to provide semantic hints
-            semantic_parser = get_semantic_parser()
-            semantic_blocks = []
-            try:
-                # Use getattr for maximum safety against interface drift
-                if hasattr(semantic_parser, "detect_boundaries"):
-                    doc_obj.blocks = semantic_parser.detect_boundaries(doc_obj.blocks)
-                
-                if hasattr(semantic_parser, "reconcile_fragmented_headings"):
-                    doc_obj.blocks = semantic_parser.reconcile_fragmented_headings(doc_obj.blocks)
-            except Exception as e:
-                print(f"AI ERROR (Layer 2 - Preprocessing): {e}. Continuing with structure detection.")
+                    print(f"AI ERROR (Layer 2 - Preprocessing): {e}. Continuing with structure detection.")
 
-            # Back to deterministic processing
-            detector = StructureDetector(contracts_dir=self.contracts_dir)
-            self._check_stage_interface(detector, "process", "StructureDetector")
-            doc_obj = detector.process(doc_obj)
-            
-            # CRITICAL: SemanticParser NLP predictions MUST run AFTER structure detection
-            # and BEFORE classification to populate metadata["nlp_confidence"]
-            try:
-                semantic_blocks = semantic_parser.analyze_blocks(doc_obj.blocks)
+                # Back to deterministic processing
+                detector = StructureDetector(contracts_dir=self.contracts_dir)
+                self._check_stage_interface(detector, "process", "StructureDetector")
+                doc_obj = detector.process(doc_obj)
                 
-                # Update block metadata with AI predictions
-                for i, b in enumerate(doc_obj.blocks):
-                    if i < len(semantic_blocks):
-                        b.metadata["semantic_intent"] = semantic_blocks[i]["predicted_section_type"]
-                        b.metadata["nlp_confidence"] = semantic_blocks[i]["confidence_score"]
-            except Exception as e:
-                print(f"AI ERROR (Layer 2 - NLP Analysis): {e}. Falling back to Phase-1 Heuristics.")
-            
-            with SessionLocal() as db:
-                self._update_status(db, job_id, "NLP_ANALYSIS", "IN_PROGRESS", "Classifying content...", progress=40)
-            classifier = ContentClassifier()
-            self._check_stage_interface(classifier, "process", "ContentClassifier")
-            doc_obj = classifier.process(doc_obj)
-            
-            self._check_stage_interface(self.analyzer, "process", "ContentAnalyzer")
-            doc_obj = self.analyzer.process(doc_obj)
-            
-            caption_matcher = CaptionMatcher(enable_vision=True)
-            self._check_stage_interface(caption_matcher, "process", "CaptionMatcher")
-            doc_obj = caption_matcher.process(doc_obj)
-            
-            table_caption_matcher = TableCaptionMatcher()
-            self._check_stage_interface(table_caption_matcher, "process", "TableCaptionMatcher")
-            doc_obj = table_caption_matcher.process(doc_obj)
-            
-            ref_parser = ReferenceParser()
-            self._check_stage_interface(ref_parser, "process", "ReferenceParser")
-            doc_obj = ref_parser.process(doc_obj)
-            
-            self._check_stage_interface(self.ref_normalizer, "process", "ReferenceFormatterEngine")
-            doc_obj = self.ref_normalizer.process(doc_obj)
-            
-            with SessionLocal() as db:
-                self._update_status(db, job_id, "NLP_ANALYSIS", "COMPLETED", "Structural analysis complete.", progress=50)
-            
-            # Phase 4: AI Validation & Formatting (Benchmarked: 80%)
-            with SessionLocal() as db:
-                self._update_status(db, job_id, "VALIDATION", "IN_PROGRESS", progress=60)
-                self._update_status(db, job_id, "VALIDATION", "IN_PROGRESS", "Applying styles and templates...", progress=70)
-            
-            # Layer 1 & 3: RAG + DeepSeek Reasoning
-            rag = get_rag_engine()
-            reasoner = get_reasoning_engine()
-            
-            # Retrieve rules for critical sections
-            rules_context = ""
-            for sec in ["abstract", "references", "introduction", "methodology"]:
-                rule_matches = rag.query_rules(template_name, sec, top_k=2)
-                for r in rule_matches:
-                    rules_context += f"\n- [{sec.upper()}]: {r['text']}"
-            
-            # This happens BEFORE Validation to guide deterministic decisions
-            semantic_advice = {}
-            try:
-                # Phase 2: RAG Retrieval for Guidelines
-                rule_matches = []
-                if hasattr(rag, "query_rules"):
-                    rule_matches = rag.query_rules(template_name, sec, top_k=2)
+                # CRITICAL: SemanticParser NLP predictions MUST run AFTER structure detection
+                # and BEFORE classification to populate metadata["nlp_confidence"]
+                try:
+                    semantic_blocks = semantic_parser.analyze_blocks(doc_obj.blocks)
+                    
+                    # Update block metadata with AI predictions
+                    for i, b in enumerate(doc_obj.blocks):
+                        if i < len(semantic_blocks):
+                            b.metadata["semantic_intent"] = semantic_blocks[i]["predicted_section_type"]
+                            b.metadata["nlp_confidence"] = semantic_blocks[i]["confidence_score"]
+                except Exception as e:
+                    print(f"AI ERROR (Layer 2 - NLP Analysis): {e}. Falling back to Phase-1 Heuristics.")
                 
-                # Context Compression + DeepSeek Reasoning (Layer 3)
+                with SessionLocal() as db:
+                    self._update_status(db, job_id, "NLP_ANALYSIS", "IN_PROGRESS", "Classifying content...", progress=40)
+                classifier = ContentClassifier()
+                self._check_stage_interface(classifier, "process", "ContentClassifier")
+                doc_obj = classifier.process(doc_obj)
+                
+                self._check_stage_interface(self.analyzer, "process", "ContentAnalyzer")
+                doc_obj = self.analyzer.process(doc_obj)
+                
+                caption_matcher = CaptionMatcher(enable_vision=True)
+                self._check_stage_interface(caption_matcher, "process", "CaptionMatcher")
+                doc_obj = caption_matcher.process(doc_obj)
+                
+                table_caption_matcher = TableCaptionMatcher()
+                self._check_stage_interface(table_caption_matcher, "process", "TableCaptionMatcher")
+                doc_obj = table_caption_matcher.process(doc_obj)
+                
+                ref_parser = ReferenceParser()
+                self._check_stage_interface(ref_parser, "process", "ReferenceParser")
+                doc_obj = ref_parser.process(doc_obj)
+                
+                self._check_stage_interface(self.ref_normalizer, "process", "ReferenceFormatterEngine")
+                doc_obj = self.ref_normalizer.process(doc_obj)
+                
+                with SessionLocal() as db:
+                    self._update_status(db, job_id, "NLP_ANALYSIS", "COMPLETED", "Structural analysis complete.", progress=50)
+                
+                # Phase 4: AI Validation & Formatting (Benchmarked: 80%)
+                with SessionLocal() as db:
+                    self._update_status(db, job_id, "VALIDATION", "IN_PROGRESS", progress=60)
+                    self._update_status(db, job_id, "VALIDATION", "IN_PROGRESS", "Applying styles and templates...", progress=70)
+                
+                # Layer 1 & 3: RAG + DeepSeek Reasoning
+                rag = get_rag_engine()
+                reasoner = get_reasoning_engine()
+                
+                # Retrieve rules for critical sections
                 rules_context = ""
-                for sec in ["Abstract", "Introduction", "References", "Figures"]:
-                    if hasattr(rag, "query_guidelines"):
-                        guidelines = rag.query_guidelines(template_name, sec, top_k=2)
-                        if guidelines:
-                            rules_context += f"\n- {sec}: {' '.join(guidelines)}"
+                for sec in ["abstract", "references", "introduction", "methodology"]:
+                    rule_matches = rag.query_rules(template_name, sec, top_k=2)
+                    for r in rule_matches:
+                        rules_context += f"\n- [{sec.upper()}]: {r['text']}"
                 
-                # DeepSeek Semantic Reasoning (Local Ollama)
-                # Input: Semantic blocks + RAG Context
-                context_blocks = [{"id": b.metadata.get("block_id", i), "text": b.text[:100], "type": b.metadata.get("semantic_intent")} 
-                                 for i, b in enumerate(doc_obj.blocks[:15])]
-                
-                if hasattr(reasoner, "generate_instruction_set"):
-                    semantic_advice = reasoner.generate_instruction_set(context_blocks, rules_context)
-                
-                # GUARDRAIL 1: Confidence Gating (0.85)
-                # Mark blocks for review if AI is unsure
-                for instruction in semantic_advice.get("instructions", []):
-                    if instruction.get("confidence", 0) < 0.85:
-                        instruction["review_required"] = True
-                
-                doc_obj.metadata.ai_hints["semantic_advice"] = semantic_advice
-            except Exception as e:
-                print(f"AI ERROR (Layer 1/3): {e}. Proceeding with deterministic defaults.")
+                # This happens BEFORE Validation to guide deterministic decisions
+                semantic_advice = {}
+                with safe_execution("AI Reasoning Layer (Non-Critical)"):
+                    # Phase 2: RAG Retrieval for Guidelines
+                    rule_matches = []
+                    if hasattr(rag, "query_rules"):
+                        rule_matches = rag.query_rules(template_name, sec, top_k=2)
+                    
+                    # Context Compression + DeepSeek Reasoning (Layer 3)
+                    rules_context = ""
+                    for sec in ["Abstract", "Introduction", "References", "Figures"]:
+                        if hasattr(rag, "query_guidelines"):
+                            guidelines = rag.query_guidelines(template_name, sec, top_k=2)
+                            if guidelines:
+                                rules_context += f"\n- {sec}: {' '.join(guidelines)}"
+                    
+                    # DeepSeek Semantic Reasoning (Local Ollama)
+                    # Input: Semantic blocks + RAG Context
+                    context_blocks = [{"id": b.metadata.get("block_id", i), "text": b.text[:100], "type": b.metadata.get("semantic_intent")} 
+                                     for i, b in enumerate(doc_obj.blocks[:15])]
+                    
+                    if hasattr(reasoner, "generate_instruction_set"):
+                        semantic_advice = reasoner.generate_instruction_set(context_blocks, rules_context)
+                    
+                    # GUARDRAIL 1: Confidence Gating (0.85)
+                    # Mark blocks for review if AI is unsure
+                    for instruction in semantic_advice.get("instructions", []):
+                        if instruction.get("confidence", 0) < 0.85:
+                            instruction["review_required"] = True
+                    
+                    doc_obj.metadata.ai_hints["semantic_advice"] = semantic_advice
 
-            from app.pipeline.validation.validator import DocumentValidator
-            validator = DocumentValidator(contracts_dir=self.contracts_dir)
-            self._check_stage_interface(validator, "process", "DocumentValidator")
-            doc_obj = validator.process(doc_obj)
-            
-            # GUARDRAIL 2: YAML Contract Override
-            # Validation logic in validator.py already uses YAML contract as Truth.
-            # We inject semantic_advice into validation_results for the UI.
-            
-            validation_results = {
-                "is_valid": doc_obj.is_valid,
-                "errors": doc_obj.validation_errors,
-                "warnings": doc_obj.validation_warnings,
-                "stats": doc_obj.get_stats(),
-                "ai_semantic_audit": semantic_advice # Integrated for Compare UI
-            }
-            
-            formatter = Formatter(templates_dir=self.templates_dir, contracts_dir=self.contracts_dir)
-            self._check_stage_interface(formatter, "process", "Formatter")
-            doc_obj = formatter.process(doc_obj)
-            
-            output_path = None
-            if hasattr(doc_obj, 'generated_doc') and doc_obj.generated_doc:
-                exporter = Exporter()
-                out_dir = os.path.join("output", str(job_id))
-                os.makedirs(out_dir, exist_ok=True)
-                out_name = f"{os.path.splitext(os.path.basename(input_path))[0]}_formatted.docx"
-                output_path_rel = os.path.join(out_dir, out_name)
-                output_path = os.path.abspath(output_path_rel)
+                from app.pipeline.validation.validator import DocumentValidator
+                validator = DocumentValidator(contracts_dir=self.contracts_dir)
+                self._check_stage_interface(validator, "process", "DocumentValidator")
+                doc_obj = validator.process(doc_obj)
                 
-                doc_obj.output_path = output_path
-                self._check_stage_interface(exporter, "process", "Exporter")
-                doc_obj = exporter.process(doc_obj)
-            else:
-                # RAISE EXPLICIT FAILURE
-                print(f"CRITICAL: Formatter failed to produce generated_doc for job {job_id}")
-                with SessionLocal() as db:
-                    document_rec_err = db.query(Document).filter_by(id=job_id).first()
-                    if document_rec_err:
-                        document_rec_err.status = "FAILED"
-                        document_rec_err.error_message = "Formatting failed: No document artifact generated."
-                        db.commit()
-                raise Exception("Formatting stage failed to generate output artifact.")
-            
-            # Phase 5: Persistence (Benchmarked: 100%)
-            with SessionLocal() as db:
-                self._update_status(db, job_id, "PERSISTENCE", "IN_PROGRESS", progress=90)
+                # GUARDRAIL 2: YAML Contract Override
+                # Validation logic in validator.py already uses YAML contract as Truth.
+                # We inject semantic_advice into validation_results for the UI.
                 
-                explainer = AIExplainer()
-                ai_explanations = explainer.explain_results(validation_results, template_name)
-                validation_results["ai_explanations"] = ai_explanations
-                
-                # Fetch structured data (already generated above)
-                structured_data = {
-                    "sections": {},
-                    "metadata": doc_obj.metadata.model_dump(mode='json'),
-                    "references": [ref.model_dump(mode='json') for ref in doc_obj.references],
-                    "history": [s.model_dump(mode='json') for s in doc_obj.processing_history]
+                validation_results = {
+                    "is_valid": doc_obj.is_valid,
+                    "errors": doc_obj.validation_errors,
+                    "warnings": doc_obj.validation_warnings,
+                    "stats": doc_obj.get_stats(),
+                    "ai_semantic_audit": semantic_advice # Integrated for Compare UI
                 }
-                for b in doc_obj.blocks:
-                    if b.block_type:
-                        bt_val = b.block_type.value if hasattr(b.block_type, 'value') else str(b.block_type)
-                        if bt_val not in structured_data["sections"]:
-                            structured_data["sections"][bt_val] = []
-                        structured_data["sections"][bt_val].append(b.text)
+                
+                formatter = Formatter(templates_dir=self.templates_dir, contracts_dir=self.contracts_dir)
+                self._check_stage_interface(formatter, "process", "Formatter")
+                doc_obj = formatter.process(doc_obj)
+                
+                output_path = None
+                if hasattr(doc_obj, 'generated_doc') and doc_obj.generated_doc:
+                    exporter = Exporter()
+                    out_dir = os.path.join("output", str(job_id))
+                    os.makedirs(out_dir, exist_ok=True)
+                    out_name = f"{os.path.splitext(os.path.basename(input_path))[0]}_formatted.docx"
+                    output_path_rel = os.path.join(out_dir, out_name)
+                    output_path = os.path.abspath(output_path_rel)
+                    
+                    doc_obj.output_path = output_path
+                    self._check_stage_interface(exporter, "process", "Exporter")
+                    doc_obj = exporter.process(doc_obj)
+                else:
+                    # RAISE EXPLICIT FAILURE
+                    print(f"CRITICAL: Formatter failed to produce generated_doc for job {job_id}")
+                    with SessionLocal() as db:
+                        document_rec_err = db.query(Document).filter_by(id=job_id).first()
+                        if document_rec_err:
+                            document_rec_err.status = "FAILED"
+                            document_rec_err.error_message = "Formatting failed: No document artifact generated."
+                            db.commit()
+                    raise Exception("Formatting stage failed to generate output artifact.")
+                
+                # Phase 5: Persistence (Benchmarked: 100%)
+                with SessionLocal() as db:
+                    self._update_status(db, job_id, "PERSISTENCE", "IN_PROGRESS", progress=90)
+                    
+                    explainer = AIExplainer()
+                    ai_explanations = explainer.explain_results(validation_results, template_name)
+                    validation_results["ai_explanations"] = ai_explanations
+                    
+                    # Fetch structured data (already generated above)
+                    structured_data = {
+                        "sections": {},
+                        "metadata": doc_obj.metadata.model_dump(mode='json'),
+                        "references": [ref.model_dump(mode='json') for ref in doc_obj.references],
+                        "history": [s.model_dump(mode='json') for s in doc_obj.processing_history]
+                    }
+                    for b in doc_obj.blocks:
+                        if b.block_type:
+                            bt_val = b.block_type.value if hasattr(b.block_type, 'value') else str(b.block_type)
+                            if bt_val not in structured_data["sections"]:
+                                structured_data["sections"][bt_val] = []
+                            structured_data["sections"][bt_val].append(b.text)
 
-                doc_result = DocumentResult(
-                    document_id=job_id,
-                    structured_data=structured_data,
-                    validation_results=validation_results
-                )
-                db.add(doc_result)
-                db.commit()
-            
-            # ATOMIC COMPLETION CHECK
-            # Only mark COMPLETED if output_path exists and is valid
-            final_status = "FAILED"
-            final_msg = "Persistence failed unknown error"
-            
-            if output_path and os.path.exists(output_path):
-                final_status = "COMPLETED"
-                final_msg = "All results persisted."
-                with SessionLocal() as db:
-                    document_rec_final = db.query(Document).filter_by(id=job_id).first()
-                    if document_rec_final:
-                        document_rec_final.status = "COMPLETED"
-                        document_rec_final.output_path = output_path
-                        db.commit()
-            else:
+                    doc_result = DocumentResult(
+                        document_id=job_id,
+                        structured_data=structured_data,
+                        validation_results=validation_results
+                    )
+                    db.add(doc_result)
+                    db.commit()
+                
+                # ATOMIC COMPLETION CHECK
+                # Only mark COMPLETED if output_path exists and is valid
                 final_status = "FAILED"
-                final_msg = "Output generation failed."
+                final_msg = "Persistence failed unknown error"
+                
+                if output_path and os.path.exists(output_path):
+                    final_status = "COMPLETED"
+                    final_msg = "All results persisted."
+                    with SessionLocal() as db:
+                        document_rec_final = db.query(Document).filter_by(id=job_id).first()
+                        if document_rec_final:
+                            document_rec_final.status = "COMPLETED"
+                            document_rec_final.output_path = output_path
+                            db.commit()
+                else:
+                    final_status = "FAILED"
+                    final_msg = "Output generation failed."
+                    with SessionLocal() as db:
+                        document_rec_fail = db.query(Document).filter_by(id=job_id).first()
+                        if document_rec_fail:
+                            document_rec_fail.status = "FAILED"
+                            document_rec_fail.error_message = "Output file generation failed or path missing."
+                            db.commit()
+                
                 with SessionLocal() as db:
-                    document_rec_fail = db.query(Document).filter_by(id=job_id).first()
-                    if document_rec_fail:
-                        document_rec_fail.status = "FAILED"
-                        document_rec_fail.error_message = "Output file generation failed or path missing."
-                        db.commit()
-            
-            with SessionLocal() as db:
-                self._update_status(db, job_id, "PERSISTENCE", "COMPLETED", final_msg, progress=100)
-            
-            if final_status == "COMPLETED":
-                response["status"] = "success"
-                response["message"] = "Processing complete."
-            else:
-                response["status"] = "error" 
-                response["message"] = f"Processing failed: {final_msg}"
+                    self._update_status(db, job_id, "PERSISTENCE", "COMPLETED", final_msg, progress=100)
+                
+                if final_status == "COMPLETED":
+                    response["status"] = "success"
+                    response["message"] = "Processing complete."
+                else:
+                    response["status"] = "error" 
+                    response["message"] = f"Processing failed: {final_msg}"
             
         except asyncio.CancelledError:
             # Graceful shutdown: Log the interruption but do NOT re-raise.

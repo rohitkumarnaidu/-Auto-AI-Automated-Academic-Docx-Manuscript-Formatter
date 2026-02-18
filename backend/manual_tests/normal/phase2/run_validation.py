@@ -15,7 +15,7 @@ if os.path.abspath(".").endswith("backend") and os.path.abspath(".") not in sys.
     sys.path.insert(0, os.path.abspath("."))
 
 from app.models import PipelineDocument, DocumentMetadata, Block, BlockType, Figure, Reference, ReferenceType
-from app.pipeline.validation.validator import validate_document
+from app.pipeline.validation import DocumentValidator
 
 def test_validation():
     """Test validation logic on mock document."""

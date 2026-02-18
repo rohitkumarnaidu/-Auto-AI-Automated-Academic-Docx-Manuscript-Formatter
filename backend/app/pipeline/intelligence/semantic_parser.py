@@ -2,6 +2,7 @@ import torch
 from typing import List, Dict, Any
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, logging as transformers_logging
 from app.models import PipelineDocument as Document, Block, BlockType
+from app.pipeline.safety import safe_function
 
 # Silence non-critical transformer loading warnings
 transformers_logging.set_verbosity_error()
@@ -71,6 +72,7 @@ class SemanticParser:
             print(f"SemanticParser Guard: reconcile_fragmented_headings failed: {e}. Returning original blocks.")
             return blocks
 
+    @safe_function(fallback_value=[], error_message="SemanticParser.analyze_blocks failed")
     def analyze_blocks(self, blocks: List[Block]) -> List[Dict[str, Any]]:
         """
         Produce a list of SemanticBlock structures.
