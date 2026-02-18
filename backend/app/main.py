@@ -79,31 +79,34 @@ async def startup_event():
     Note: This project intentionally avoids automated pipeline testing at this stage.
     """
     with safe_execution("Application Startup"):
-        from app.db.session import SessionLocal
-        from app.models import Document
-        from sqlalchemy.exc import OperationalError
-        
-        db = None
+        # ── Old ORM startup (kept for reference, replaced by supabase-py) ──────
+        # from app.db.session import SessionLocal
+        # from app.models import Document
+        # from sqlalchemy.exc import OperationalError
+        # db = SessionLocal()
+        # interrupted_docs = db.query(Document).filter(Document.status == "RUNNING").all()
+        # for doc in interrupted_docs: doc.status = "FAILED"; db.commit()
+
+        # ── Supabase-py: reset interrupted jobs ───────────────────────────────
         try:
-            # Lazy instantiation inside try block
-            db = SessionLocal()
-            # Find jobs stuck in RUNNING state from previous session
-            # This will trigger the connection attempt
-            interrupted_docs = db.query(Document).filter(Document.status == "RUNNING").all()
-            if interrupted_docs:
-                print(f"Startup: Found {len(interrupted_docs)} interrupted jobs. Marking as FAILED.")
-                for doc in interrupted_docs:
-                    doc.status = "FAILED"
-                    doc.error_message = "Processing interrupted by server restart."
-                db.commit()
-        except (OperationalError, Exception) as e:
-            # Log a clear warning instead of crashing the process
-            # This ensures the app starts even if DNS or DB is down
+            from app.db.supabase_client import get_supabase_client
+            sb = get_supabase_client()
+            if sb is not None:
+                # Find all RUNNING jobs from the previous session
+                result = sb.table("documents").select("id").eq("status", "RUNNING").execute()
+                interrupted = result.data or []
+                if interrupted:
+                    ids = [row["id"] for row in interrupted]
+                    print(f"Startup: Found {len(ids)} interrupted jobs. Marking as FAILED.")
+                    sb.table("documents").update({
+                        "status": "FAILED",
+                        "error_message": "Processing interrupted by server restart.",
+                    }).in_("id", ids).execute()
+            else:
+                print("Startup DB Link Status: UNCONFIGURED. App starting in degraded mode.")
+        except Exception as e:
             print(f"Startup DB Link Status: UNREACHABLE. Error: {e}")
             print("Note: App is starting in degraded mode. DB-dependent endpoints will fail at request-time.")
-        finally:
-            if db:
-                db.close()
                 
         # Phase 2: AI Model Pre-loading
         from app.services.model_store import model_store
@@ -139,29 +142,31 @@ async def root():
 async def health_check():
     """
     Health check endpoint for monitoring.
-    Returns status of database, AI models, and Ollama server.
+    Returns status of Supabase DB, AI models, and Ollama server.
     """
-    from app.db.session import SessionLocal
-    from app.pipeline.intelligence.reasoning_engine import get_reasoning_engine
     import requests
-    
+    from app.db.supabase_client import check_supabase_health
+
+    # ── Old ORM health check (kept for reference, replaced by supabase-py) ─────
+    # from app.db.session import SessionLocal
+    # db = SessionLocal(); db.execute(text("SELECT 1")); db.close()
+
     health_status = {
         "status": "healthy",
         "version": "1.0.0",
-        "components": {}
+        "components": {},
     }
-    
-    # Check database
+
+    # Check Supabase DB
     try:
-        db = SessionLocal()
-        from sqlalchemy import text
-        db.execute(text("SELECT 1"))
-        db.close()
-        health_status["components"]["database"] = "healthy"
+        sb_health = check_supabase_health()
+        health_status["components"]["supabase_db"] = sb_health.get("status", "unknown")
+        if sb_health.get("status") != "healthy":
+            health_status["status"] = "degraded"
     except Exception as e:
-        health_status["components"]["database"] = f"unhealthy: {str(e)}"
+        health_status["components"]["supabase_db"] = f"unhealthy: {str(e)}"
         health_status["status"] = "degraded"
-    
+
     # Check Ollama server
     try:
         response = requests.get("http://localhost:11434/api/tags", timeout=2)
@@ -170,10 +175,10 @@ async def health_check():
         else:
             health_status["components"]["ollama"] = "unhealthy"
             health_status["status"] = "degraded"
-    except (requests.RequestException, Exception) as e:
+    except (requests.RequestException, Exception):
         health_status["components"]["ollama"] = "unavailable (fallback active)"
         health_status["status"] = "degraded"
-    
+
     # Check AI models
     try:
         from app.services.model_store import model_store
@@ -181,7 +186,7 @@ async def health_check():
             health_status["components"]["ai_models"] = "loaded"
         else:
             health_status["components"]["ai_models"] = "not_loaded"
-    except Exception as e:
+    except Exception:
         health_status["components"]["ai_models"] = "error"
-    
+
     return health_status

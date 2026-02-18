@@ -49,22 +49,29 @@ class RagEngine:
             self.backend = "chromadb"
             print(f"RagEngine: Initialized with backend={self.backend}")
         except Exception as e:
-            # Graceful fallback - don't spam logs with expected compatibility issues
+            # Graceful fallback — don't log expected compatibility issues as errors.
+            # These are all known incompatibilities on Python 3.14 + NumPy 2.x:
             error_msg = str(e)
-            if "unable to infer type" in error_msg or "chroma_db_impl" in error_msg:
-                # Expected Pydantic compatibility issue - use native store silently
-                pass
-            elif "chroma_server_nofile" in error_msg:
-                print(f"RagEngine: Using native store (ChromaDB environment conflict).")
-            else:
-                # Unexpected error - log it
+            _known_compat_errors = (
+                "unable to infer type",       # Pydantic v1 on Python 3.14
+                "chroma_db_impl",             # Pydantic v1 config error
+                "np.float_",                  # NumPy 2.0 removed np.float_
+                "Core Pydantic V1",           # Pydantic v1 warning escalated
+                "chroma_server_nofile",       # ChromaDB env conflict
+                "ConfigError",               # Pydantic v1 config error
+            )
+            is_known = any(s in error_msg for s in _known_compat_errors)
+
+            if not is_known:
+                # Truly unexpected error — log it so we know about it
                 print(f"RagEngine: ChromaDB unavailable ({error_msg}). Using native store.")
-            
+
             self.client = None
             self.collection = None
             self.backend = "native"
             self._load_native()
             print(f"RagEngine: Initialized with backend={self.backend}")
+
             
     def add_guideline(self, publisher: str, section: str, text: str, metadata: Optional[Dict] = None):
         """Add a guideline rule to the store."""

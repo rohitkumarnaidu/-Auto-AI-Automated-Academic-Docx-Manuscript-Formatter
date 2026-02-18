@@ -1,19 +1,22 @@
 import logging
 import os
-import shutil
 import uuid
-from typing import Optional, List
+from typing import Optional
 from datetime import datetime
-from sqlalchemy import exc
+
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, BackgroundTasks, Query, Form
 from app.utils.dependencies import get_current_user, get_optional_user
 from app.schemas.user import User
-from app.db.session import SessionLocal
-from app.models import Document, ProcessingStatus, DocumentResult
+from app.services.document_service import DocumentService
 from app.pipeline.orchestrator import PipelineOrchestrator
 from app.pipeline.export.pdf_exporter import PDFExporter
-from app.config.settings import settings  # Import settings for dynamic defaults
+from app.config.settings import settings
 from app.pipeline.safety.safe_execution import safe_async_function
+
+# ── Old SQLAlchemy imports (kept for reference, replaced by DocumentService) ───
+# from sqlalchemy import exc
+# from app.db.session import SessionLocal
+# from app.models import Document, ProcessingStatus, DocumentResult
 
 logger = logging.getLogger(__name__)
 
@@ -23,13 +26,19 @@ UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
+# ── Helpers ────────────────────────────────────────────────────────────────────
+
 def _require_db():
-    """Raise HTTP 503 when the database is not configured."""
-    if SessionLocal is None:
+    """Raise HTTP 503 when the Supabase client is not configured."""
+    from app.db.supabase_client import get_supabase_client
+    if get_supabase_client() is None:
         raise HTTPException(
             status_code=503,
-            detail="Database not configured. Please set SUPABASE_DB_URL.",
+            detail="Database not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.",
         )
+
+
+# ── Endpoints ──────────────────────────────────────────────────────────────────
 
 @router.get("")
 async def list_documents(
@@ -46,73 +55,53 @@ async def list_documents(
     Returns empty list for anonymous users.
     """
     _require_db()
-    db = SessionLocal()
+
+    if not current_user:
+        return {"documents": [], "total": 0, "limit": limit, "offset": offset}
+
     try:
-        # Anonymous users get empty list
-        if not current_user:
-            return {
-                "documents": [],
-                "total": 0,
-                "limit": limit,
-                "offset": offset
-            }
-        
-        # Build query
-        query = db.query(Document).filter(Document.user_id == current_user.id)
-        
-        # Apply filters
-        if status:
-            query = query.filter(Document.status == status.upper())
-        if template:
-            query = query.filter(Document.template == template.upper())
-        if start_date:
-            query = query.filter(Document.created_at >= start_date)
-        if end_date:
-            query = query.filter(Document.created_at <= end_date)
-        
-        # Get total count before pagination
-        total = query.count()
-        
-        # Apply pagination and ordering
-        documents = query.order_by(Document.created_at.desc()).offset(offset).limit(limit).all()
-        
-        # Format response
+        documents = DocumentService.list_documents(
+            user_id=current_user.id,
+            status=status,
+            template=template,
+            limit=limit,
+            offset=offset,
+        )
+        total = DocumentService.count_documents(
+            user_id=current_user.id,
+            status=status,
+            template=template,
+        )
+
         return {
             "documents": [
                 {
-                    "id": str(doc.id),
-                    "filename": doc.filename,
-                    "template": doc.template,
-                    "status": doc.status,
-                    "progress": doc.progress,
-                    "current_stage": doc.current_stage,
-                    "error_message": doc.error_message,
-                    "created_at": doc.created_at.isoformat() if doc.created_at else None,
-                    "updated_at": doc.updated_at.isoformat() if doc.updated_at else None
+                    "id": str(doc.get("id")),
+                    "filename": doc.get("filename"),
+                    "template": doc.get("template"),
+                    "status": doc.get("status"),
+                    "progress": doc.get("progress", 0),
+                    "current_stage": doc.get("current_stage"),
+                    "error_message": doc.get("error_message"),
+                    "created_at": doc.get("created_at"),
+                    "updated_at": doc.get("updated_at"),
                 }
                 for doc in documents
             ],
             "total": total,
             "limit": limit,
-            "offset": offset
+            "offset": offset,
         }
     except Exception as e:
         logger.error("Error listing documents: %s", e)
-        return {
-            "documents": [],
-            "total": 0,
-            "limit": limit,
-            "offset": offset
-        }
-    finally:
-        db.close()
+        return {"documents": [], "total": 0, "limit": limit, "offset": offset}
+
 
 @router.post("/upload")
 async def upload_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     template: str = Form(settings.DEFAULT_TEMPLATE),
-    # New Formatting Options
     add_page_numbers: bool = Form(True),
     add_borders: bool = Form(False),
     add_cover_page: bool = Form(True),
@@ -122,97 +111,76 @@ async def upload_document(
 ):
     """
     Handle document upload and trigger async background processing.
-    Note: This project intentionally avoids automated pipeline testing at this stage.
     """
     _require_db()
 
-    # DEBUG LOG
     logger.debug("upload_document received template='%s' from request.", template)
 
-    # Configuration for file upload validation
-    MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
+    MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
     ALLOWED_EXTENSIONS = {'.docx', '.pdf', '.tex', '.txt', '.html', '.htm', '.md', '.markdown', '.doc'}
-    
-    db = SessionLocal()
+
     try:
-        # ===== FILE VALIDATION =====
-        
-        # 1. Validate file extension
+        # ── File validation ────────────────────────────────────────────────────
+
         file_ext = os.path.splitext(file.filename)[1].lower()
         if file_ext not in ALLOWED_EXTENSIONS:
             raise HTTPException(
                 status_code=400,
                 detail=f"Invalid file type '{file_ext}'. Allowed types: {', '.join(ALLOWED_EXTENSIONS)}"
             )
-        
-        # 2. Validate filename (prevent path traversal)
+
         safe_filename = os.path.basename(file.filename)
         if safe_filename != file.filename or '..' in file.filename:
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid filename. Path traversal detected."
-            )
-        
-        # 3. Validate file size
-        # Read file content to check size
+            raise HTTPException(status_code=400, detail="Invalid filename. Path traversal detected.")
+
         file_content = await file.read()
         file_size = len(file_content)
-        
+
         if file_size > MAX_FILE_SIZE:
             raise HTTPException(
                 status_code=413,
                 detail=f"File too large ({file_size / 1024 / 1024:.1f}MB). Maximum size is {MAX_FILE_SIZE / 1024 / 1024}MB"
             )
-        
+
         if file_size == 0:
-            raise HTTPException(
-                status_code=400,
-                detail="File is empty. Please upload a valid document."
-            )
-        
-        # ===== FILE PROCESSING =====
-        
-        # 1. Create Job Entry
+            raise HTTPException(status_code=400, detail="File is empty. Please upload a valid document.")
+
+        # ── File storage ───────────────────────────────────────────────────────
+
         job_id = uuid.uuid4()
-        
-        # 2. Save file to local storage with validated path
-        file_path = os.path.join(UPLOAD_DIR, f"{job_id}{file_ext}")
-        file_path = os.path.abspath(file_path)
-        
-        # 3. Ensure file path is within UPLOAD_DIR (prevent directory traversal)
+        file_path = os.path.abspath(os.path.join(UPLOAD_DIR, f"{job_id}{file_ext}"))
         upload_dir_abs = os.path.abspath(UPLOAD_DIR)
+
         if not file_path.startswith(upload_dir_abs):
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid file path detected"
-            )
-        
-        # 4. Write file content (we already read it for size validation)
+            raise HTTPException(status_code=400, detail="Invalid file path detected")
+
         with open(file_path, "wb") as buffer:
             buffer.write(file_content)
-        
-        # Create Document record with formatting options
+
+        # ── DB insert via DocumentService ──────────────────────────────────────
+
         formatting_options = {
             "page_numbers": add_page_numbers,
             "borders": add_borders,
             "cover_page": add_cover_page,
             "toc": generate_toc,
-            "page_size": page_size
+            "page_size": page_size,
         }
 
-        new_doc = Document(
-            id=job_id,
-            user_id=current_user.id if current_user else None,
-            filename=safe_filename,  # Use sanitized filename
+        created = DocumentService.create_document(
+            doc_id=str(job_id),
+            user_id=str(current_user.id) if current_user else None,
+            filename=safe_filename,
             template=template,
-            status="RUNNING",
             original_file_path=file_path,
-            formatting_options=formatting_options
+            formatting_options=formatting_options,
         )
-        db.add(new_doc)
-        db.commit()
-        
-        # Offload logic to background with timeout protection
+
+        if created is None:
+            raise HTTPException(status_code=503, detail="Database temporarily unavailable. Please retry later.")
+
+        # ── Background pipeline ────────────────────────────────────────────────
+
         from app.utils.background_tasks import run_pipeline_with_timeout
         orchestrator = PipelineOrchestrator()
         background_tasks.add_task(
@@ -221,29 +189,18 @@ async def upload_document(
             input_path=file_path,
             job_id=job_id,
             template_name=template,
-            formatting_options=formatting_options
+            formatting_options=formatting_options,
         )
-        
-        return {
-            "message": "Processing started",
-            "job_id": str(job_id),
-            "status": "RUNNING"
-        }
-    except exc.OperationalError as e:
-        # Database is unreachable (DNS failure, connection timeout, etc.)
-        db.rollback()
-        logger.error("Upload failed: Database unavailable. Error: %s", e)
-        raise HTTPException(
-            status_code=503,
-            detail="Database temporarily unavailable. Please retry later."
-        )
+
+        return {"message": "Processing started", "job_id": str(job_id), "status": "RUNNING"}
+
+    except HTTPException:
+        raise
     except Exception as e:
-        db.rollback()
         import traceback
         logger.error("Upload error: %s\n%s", e, traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
-    finally:
-        db.close()
+
 
 @router.get("/{job_id}/status")
 async def get_status(
@@ -253,56 +210,50 @@ async def get_status(
     """
     Get the detailed processing status of a document.
     """
-    db = SessionLocal()
     try:
-        doc = db.query(Document).filter_by(id=job_id).first()
+        doc = DocumentService.get_document(job_id)
         if not doc:
             raise HTTPException(status_code=404, detail="Document job not found")
-        
-        # Security: Scoping
-        if doc.user_id is not None:
-            if not current_user or doc.user_id != current_user.id:
+
+        # Security: ownership check
+        if doc.get("user_id") is not None:
+            if not current_user or str(doc["user_id"]) != str(current_user.id):
                 raise HTTPException(status_code=403, detail="Not authorized to access this document")
-        
-        statuses = db.query(ProcessingStatus).filter_by(document_id=job_id).all()
-        
+
+        statuses = DocumentService.get_processing_statuses(job_id)
+
         return {
             "job_id": job_id,
-            "status": doc.status, # RUNNING, COMPLETED, FAILED
-            "current_phase": doc.current_stage or "UPLOADED",
-            "phase": doc.current_stage or "UPLOADED", # Alias for frontend compatibility
-            "progress_percentage": doc.progress or 0,
-            "message": doc.error_message or (doc.current_stage + "..." if doc.current_stage else "Processing..."),
-            "updated_at": doc.updated_at or doc.created_at,
+            "status": doc.get("status"),
+            "current_phase": doc.get("current_stage") or "UPLOADED",
+            "phase": doc.get("current_stage") or "UPLOADED",
+            "progress_percentage": doc.get("progress") or 0,
+            "message": doc.get("error_message") or (
+                (doc.get("current_stage") + "...") if doc.get("current_stage") else "Processing..."
+            ),
+            "updated_at": doc.get("updated_at") or doc.get("created_at"),
             "phases": [
                 {
-                    "phase": s.phase,
-                    "status": s.status,
-                    "message": getattr(s, "message", None),
-                    "progress": s.progress_percentage,
-                    "updated_at": s.updated_at
-                } for s in statuses
-            ]
+                    "phase": s.get("phase"),
+                    "status": s.get("status"),
+                    "message": s.get("message"),
+                    "progress": s.get("progress_percentage"),
+                    "updated_at": s.get("updated_at"),
+                }
+                for s in statuses
+            ],
         }
-    except exc.OperationalError:
-        # DB connection lost or server closed unexpectedly (common on reload)
-        return {
-            "job_id": job_id,
-            "status": "UNSTABLE",
-            "message": "Database connection interrupted. Retrying...",
-            "progress_percentage": 0
-        }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Status check failed for job %s: %s", job_id, e)
-        # Any other unexpected crash
         return {
             "job_id": job_id,
             "status": "ERROR",
             "message": f"Status check failed: {str(e)}",
-            "progress_percentage": 0
+            "progress_percentage": 0,
         }
-    finally:
-        db.close()
+
 
 @router.post("/{job_id}/edit")
 async def edit_document(
@@ -314,40 +265,35 @@ async def edit_document(
     """
     Handle user edits and trigger non-destructive re-formatting.
     """
-    db = SessionLocal()
     try:
-        doc = db.query(Document).filter_by(id=job_id).first()
+        doc = DocumentService.get_document(job_id)
         if not doc:
             raise HTTPException(status_code=404, detail="Document not found")
-            
-        # Security: Scoping
-        if doc.user_id is not None:
-            if not current_user or doc.user_id != current_user.id:
+
+        if doc.get("user_id") is not None:
+            if not current_user or str(doc["user_id"]) != str(current_user.id):
                 raise HTTPException(status_code=403, detail="Not authorized to edit this document")
-        
+
         edited_data = data.get("edited_structured_data")
         if not edited_data:
             raise HTTPException(status_code=400, detail="Missing edited_structured_data")
-        
-        # Trigger edit flow in background
+
         orchestrator = PipelineOrchestrator()
         background_tasks.add_task(
             orchestrator.run_edit_flow,
             job_id=job_id,
             edited_structured_data=edited_data,
-            template_name=doc.template
+            template_name=doc.get("template"),
         )
-        
-        return {
-            "message": "Edit received, re-formatting started",
-            "job_id": job_id,
-            "status": "RUNNING"
-        }
+
+        return {"message": "Edit received, re-formatting started", "job_id": job_id, "status": "RUNNING"}
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error editing document %s: %s", job_id, e)
         raise HTTPException(status_code=500, detail=f"Edit failed: {str(e)}")
-    finally:
-        db.close()
+
 
 @router.get("/{job_id}/preview")
 async def get_preview(
@@ -357,36 +303,35 @@ async def get_preview(
     """
     Get the structured preview data for a document.
     """
-    db = SessionLocal()
     try:
-        doc = db.query(Document).filter_by(id=job_id).first()
+        doc = DocumentService.get_document(job_id)
         if not doc:
             raise HTTPException(status_code=404, detail="Document not found")
-            
-        # Security: Scoping
-        if doc.user_id is not None:
-            if not current_user or doc.user_id != current_user.id:
+
+        if doc.get("user_id") is not None:
+            if not current_user or str(doc["user_id"]) != str(current_user.id):
                 raise HTTPException(status_code=403, detail="Not authorized to preview this document")
-        
-        result = db.query(DocumentResult).filter_by(document_id=job_id).first()
+
+        result = DocumentService.get_document_result(job_id)
         if not result:
             raise HTTPException(status_code=404, detail="Processing results not found")
-        
+
         return {
-            "structured_data": result.structured_data,
-            "validation_results": result.validation_results,
+            "structured_data": result.get("structured_data"),
+            "validation_results": result.get("validation_results"),
             "metadata": {
-                "filename": doc.filename,
-                "template": doc.template,
-                "status": doc.status,
-                "created_at": doc.created_at
-            }
+                "filename": doc.get("filename"),
+                "template": doc.get("template"),
+                "status": doc.get("status"),
+                "created_at": doc.get("created_at"),
+            },
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error retrieving preview for %s: %s", job_id, e)
         raise HTTPException(status_code=500, detail=f"Preview failed: {str(e)}")
-    finally:
-        db.close()
+
 
 @router.get("/{job_id}/compare")
 async def get_comparison_data(
@@ -397,71 +342,58 @@ async def get_comparison_data(
     Get data for side-by-side comparison with HTML diff.
     """
     import difflib
-    import json
-    
-    db = SessionLocal()
+
     try:
-        doc = db.query(Document).filter_by(id=job_id).first()
+        doc = DocumentService.get_document(job_id)
         if not doc:
             raise HTTPException(status_code=404, detail="Document not found")
-            
-        # Security: Scoping
-        if doc.user_id is not None:
-            if not current_user or doc.user_id != current_user.id:
+
+        if doc.get("user_id") is not None:
+            if not current_user or str(doc["user_id"]) != str(current_user.id):
                 raise HTTPException(status_code=403, detail="Not authorized to access comparison data")
-        
-        # Status gating: Only allow when processing is complete
-        if doc.status != "COMPLETED":
-            print(f"Compare endpoint called too early for job {job_id}. Status: {doc.status}")
+
+        if doc.get("status") != "COMPLETED":
+            logger.warning("Compare endpoint called too early for job %s. Status: %s", job_id, doc.get("status"))
             raise HTTPException(
                 status_code=400,
-                detail=f"Comparison data not available. Job status: {doc.status}. Wait for COMPLETED status."
+                detail=f"Comparison data not available. Job status: {doc.get('status')}. Wait for COMPLETED status.",
             )
-        
-        result = db.query(DocumentResult).filter_by(document_id=job_id).first()
+
+        result = DocumentService.get_document_result(job_id)
         if not result:
-            print(f"DocumentResult missing for completed job {job_id}")
+            logger.warning("DocumentResult missing for completed job %s", job_id)
             raise HTTPException(status_code=404, detail="Processing results not found")
-        
-        # Generate HTML diff
-        original_text = doc.raw_text or ""
-        
-        # Flatten structured data to text for comparison
+
+        original_text = doc.get("raw_text") or ""
         formatted_text = ""
-        if result.structured_data and isinstance(result.structured_data, dict):
-            blocks = result.structured_data.get("blocks", [])
+        structured_data = result.get("structured_data")
+        if structured_data and isinstance(structured_data, dict):
+            blocks = structured_data.get("blocks", [])
             formatted_text = "\n\n".join([
-                block.get("text", "") for block in blocks if isinstance(block, dict) and block.get("text")
+                block.get("text", "") for block in blocks
+                if isinstance(block, dict) and block.get("text")
             ])
-        
-        # Generate HTML diff using difflib
-        original_lines = original_text.splitlines(keepends=True)
-        formatted_lines = formatted_text.splitlines(keepends=True)
-        
+
         html_diff = difflib.HtmlDiff(wrapcolumn=80).make_file(
-            original_lines,
-            formatted_lines,
+            original_text.splitlines(keepends=True),
+            formatted_text.splitlines(keepends=True),
             fromdesc="Original Document",
             todesc="Formatted Document",
             context=True,
-            numlines=3
+            numlines=3,
         )
-        
+
         return {
             "html_diff": html_diff,
-            "original": {
-                "raw_text": doc.raw_text,
-                "structured_data": None
-            },
-            "formatted": {
-                "structured_data": result.structured_data
-            }
+            "original": {"raw_text": original_text, "structured_data": None},
+            "formatted": {"structured_data": structured_data},
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error comparing documents for %s: %s", job_id, e)
         raise HTTPException(status_code=500, detail=f"Comparison failed: {str(e)}")
-    finally:
-        db.close()
+
 
 @router.get("/{job_id}/download")
 async def download_document(
@@ -474,81 +406,68 @@ async def download_document(
     Returns actual binary file stream.
     """
     from fastapi.responses import FileResponse
-    
-    db = SessionLocal()
+
     try:
-        doc = db.query(Document).filter_by(id=job_id).first()
+        doc = DocumentService.get_document(job_id)
         if not doc:
             raise HTTPException(status_code=404, detail="Document job not found")
-            
-        # Security: Scoping
-        if doc.user_id is not None:
-            if not current_user or doc.user_id != current_user.id:
+
+        if doc.get("user_id") is not None:
+            if not current_user or str(doc["user_id"]) != str(current_user.id):
                 raise HTTPException(status_code=403, detail="Not authorized to download this document")
-        
-        # Status gating: Check completion first
-        if doc.status != "COMPLETED":
-            print(f"Download endpoint called too early for job {job_id}. Status: {doc.status}")
+
+        if doc.get("status") != "COMPLETED":
+            logger.warning("Download endpoint called too early for job %s. Status: %s", job_id, doc.get("status"))
             raise HTTPException(
                 status_code=400,
-                detail=f"Document not ready. Job status: {doc.status}. Wait for COMPLETED status."
+                detail=f"Document not ready. Job status: {doc.get('status')}. Wait for COMPLETED status.",
             )
-        
-        # Check output_path exists
-        if not doc.output_path:
-            print(f"Output path missing for completed job {job_id}")
+
+        output_path = doc.get("output_path")
+        if not output_path:
+            logger.error("Output path missing for completed job %s", job_id)
             raise HTTPException(
                 status_code=500,
-                detail="Processing completed but output file path not set. Contact support."
+                detail="Processing completed but output file path not set. Contact support.",
             )
-        
-        # Verify file actually exists on disk
-        if not os.path.exists(doc.output_path):
-            print(f"Output file missing on disk for job {job_id}: {doc.output_path}")
-            raise HTTPException(
-                status_code=404,
-                detail="Output file not found on server. File may have been deleted."
-            )
-             
-        # Format handling
-        path_to_serve = doc.output_path
+
+        if not os.path.exists(output_path):
+            logger.error("Output file missing on disk for job %s: %s", job_id, output_path)
+            raise HTTPException(status_code=404, detail="Output file not found on server. File may have been deleted.")
+
+        path_to_serve = output_path
         media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        filename = f"{os.path.splitext(doc.filename)[0]}_formatted.docx"
-        
+        filename = f"{os.path.splitext(doc.get('filename', 'document'))[0]}_formatted.docx"
+
         if format.lower() == "pdf":
-            pdf_path = doc.output_path.replace(".docx", ".pdf")
+            pdf_path = output_path.replace(".docx", ".pdf")
             if not os.path.exists(pdf_path):
                 try:
-                    # Trigger PDF generation
                     exporter = PDFExporter()
-                    generated_path = exporter.convert_to_pdf(doc.output_path, os.path.dirname(doc.output_path))
+                    generated_path = exporter.convert_to_pdf(output_path, os.path.dirname(output_path))
                     if not generated_path:
-                        # Fallback for unexpected None return (should be covered by RuntimeError now)
                         raise HTTPException(status_code=500, detail="PDF conversion failed unexpectedly.")
                     pdf_path = generated_path
                 except RuntimeError as re:
-                    print(f"PDF Export Error for job {job_id}: {str(re)}")
-                    raise HTTPException(
-                        status_code=400, 
-                        detail=f"PDF export unavailable: {str(re)}"
-                    )
+                    logger.error("PDF Export Error for job %s: %s", job_id, re)
+                    raise HTTPException(status_code=400, detail=f"PDF export unavailable: {str(re)}")
+                except HTTPException:
+                    raise
                 except Exception as e:
-                    print(f"Unexpected PDF Error for job {job_id}: {str(e)}")
+                    logger.error("Unexpected PDF Error for job %s: %s", job_id, e)
                     raise HTTPException(status_code=500, detail="An internal error occurred during PDF export.")
-            
+
             path_to_serve = pdf_path
             media_type = "application/pdf"
-            filename = f"{os.path.splitext(doc.filename)[0]}_formatted.pdf"
+            filename = f"{os.path.splitext(doc.get('filename', 'document'))[0]}_formatted.pdf"
+
         elif format.lower() != "docx":
             raise HTTPException(status_code=400, detail=f"Unsupported format: {format}. Use 'docx' or 'pdf'.")
 
-        return FileResponse(
-            path=path_to_serve,
-            media_type=media_type,
-            filename=filename
-        )
+        return FileResponse(path=path_to_serve, media_type=media_type, filename=filename)
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error downloading document %s: %s", job_id, e)
         raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")
-    finally:
-        db.close()

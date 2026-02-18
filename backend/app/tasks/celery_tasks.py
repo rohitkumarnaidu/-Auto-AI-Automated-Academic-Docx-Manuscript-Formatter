@@ -1,10 +1,14 @@
 import os
 import logging
+import time
 from celery import Celery
 from app.pipeline.orchestrator_v2 import create_orchestrator
-from app.db.session import SessionLocal
-from app.models import PipelineDocument
-import time
+
+# ── Old ORM imports (kept for reference, replaced by DocumentService) ──────────
+# from app.db.session import SessionLocal
+# from app.models import PipelineDocument
+
+from app.services.document_service import DocumentService
 
 logger = logging.getLogger(__name__)
 
@@ -12,73 +16,54 @@ logger = logging.getLogger(__name__)
 celery_app = Celery(
     "manuscript_tasks",
     broker=os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0"),
-    backend=os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
+    backend=os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/0"),
 )
+
 
 @celery_app.task(name="process_document_async")
 def process_document_task(document_id: str, use_agent: bool = True):
     """
     Asynchronously process a document using the Agent Orchestrator.
+
+    Uses DocumentService (supabase-py) for all DB reads and writes.
+    Old ORM equivalent used SessionLocal() + db.query(PipelineDocument).
     """
     logger.info("Starting async processing for document: %s", document_id)
 
-    # Guard: SessionLocal may be None if DB is unconfigured
-    try:
-        db = SessionLocal()
-        if db is None:
-            logger.error("process_document_task: Database session unavailable (DB not configured).")
-            return False
-    except Exception as exc:
-        logger.error("process_document_task: Failed to create DB session: %s", exc)
+    # ── Fetch document via supabase-py ─────────────────────────────────────────
+    doc_row = DocumentService.get_document(document_id)
+    if doc_row is None:
+        logger.error(
+            "process_document_task: Document %s not found or DB unavailable.", document_id
+        )
         return False
 
-    doc = None
     try:
-        # Retrieve document from DB
-        doc = db.query(PipelineDocument).filter(
-            PipelineDocument.document_id == document_id
-        ).first()
-        if not doc:
-            logger.error("process_document_task: Document %s not found in database.", document_id)
-            return False
+        # ── Mark as RUNNING ────────────────────────────────────────────────────
+        DocumentService.update_document(document_id, {
+            "status": "RUNNING",
+            "progress": 10,
+            "current_stage": "Initializing agent orchestration...",
+        })
 
-        # Update status to RUNNING
-        doc.status = "RUNNING"
-        doc.progress_percentage = 10
-        doc.message = "Initializing agent orchestration..."
-        db.commit()
-
-        # Initialize Orchestrator
+        # ── Run pipeline ───────────────────────────────────────────────────────
         orchestrator = create_orchestrator(use_agent=use_agent)
-
-        # Start processing
         start_time = time.time()
-        orchestrator.process(doc)
+        orchestrator.process(doc_row)
         processing_time = time.time() - start_time
 
-        # Update completion status
-        doc.status = "COMPLETED"
-        doc.progress_percentage = 100
-        doc.message = f"Processing complete in {processing_time:.1f}s"
-        db.commit()
+        # ── Mark as COMPLETED ──────────────────────────────────────────────────
+        DocumentService.update_document(document_id, {
+            "status": "COMPLETED",
+            "progress": 100,
+            "current_stage": f"Processing complete in {processing_time:.1f}s",
+        })
 
         logger.info("Document %s processed successfully in %.1fs", document_id, processing_time)
         return True
 
     except Exception as exc:
         logger.error("Async processing failed for %s: %s", document_id, exc, exc_info=True)
-        try:
-            db.rollback()
-            if doc is not None:
-                doc.status = "FAILED"
-                if hasattr(doc, "error_message"):
-                    doc.error_message = str(exc)
-                db.commit()
-        except Exception as commit_exc:
-            logger.error("process_document_task: Failed to update FAILED status: %s", commit_exc)
+        # Mark as FAILED — never raises
+        DocumentService.mark_document_failed(document_id, str(exc))
         return False
-    finally:
-        try:
-            db.close()
-        except Exception:
-            pass

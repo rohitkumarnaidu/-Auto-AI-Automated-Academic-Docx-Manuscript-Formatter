@@ -12,7 +12,8 @@ from dotenv import load_dotenv
 from typing import Optional
 
 # Load environment variables from .env file
-load_dotenv()
+# override=True ensures updated .env values are picked up on uvicorn --reload
+load_dotenv(override=True)
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +23,17 @@ class Settings:
     SUPABASE_URL: Optional[str] = os.getenv("SUPABASE_URL")
     SUPABASE_ANON_KEY: Optional[str] = os.getenv("SUPABASE_ANON_KEY")
     SUPABASE_JWKS_URL: Optional[str] = os.getenv("SUPABASE_JWKS_URL")
-    SUPABASE_DB_URL: Optional[str] = os.getenv("SUPABASE_DB_URL")
     SUPABASE_JWT_SECRET: Optional[str] = os.getenv("SUPABASE_JWT_SECRET")
+    # Service role key — used by the server-side supabase-py client.
+    # This bypasses RLS for backend DB writes. Keep it secret; never expose to clients.
+    SUPABASE_SERVICE_ROLE_KEY: Optional[str] = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+    # SUPABASE_DB_URL is used by SQLAlchemy / Alembic for direct Postgres access.
+    # If not set explicitly, we attempt to derive it from SUPABASE_URL.
+    # Format: postgresql://postgres:<password>@db.<project-ref>.supabase.co:5432/postgres
+    # NOTE: The password cannot be derived automatically — set SUPABASE_DB_URL explicitly
+    # in .env if you need Alembic migrations or SQLAlchemy ORM access.
+    SUPABASE_DB_URL: Optional[str] = os.getenv("SUPABASE_DB_URL")
 
     # ── Security ───────────────────────────────────────────────────────────────
     ALGORITHM: str = "HS256"
@@ -65,12 +75,16 @@ class Settings:
         Soft-validate critical settings at startup.
         Logs warnings for missing optional secrets instead of crashing.
         Only raises for truly unrecoverable misconfigurations.
+
+        Note: SUPABASE_DB_URL is optional — the app uses supabase-py (service role)
+        for all runtime DB operations. SUPABASE_DB_URL is only needed for Alembic
+        migrations or direct SQLAlchemy ORM access.
         """
         _warn_if_missing = [
             ("SUPABASE_URL", self.SUPABASE_URL),
             ("SUPABASE_ANON_KEY", self.SUPABASE_ANON_KEY),
             ("SUPABASE_JWT_SECRET", self.SUPABASE_JWT_SECRET),
-            ("SUPABASE_DB_URL", self.SUPABASE_DB_URL),
+            ("SUPABASE_SERVICE_ROLE_KEY", self.SUPABASE_SERVICE_ROLE_KEY),
         ]
         for name, value in _warn_if_missing:
             if not value:
@@ -79,6 +93,13 @@ class Settings:
                     "request-time, but the server will still start.",
                     name,
                 )
+
+        # SUPABASE_DB_URL is optional — only warn, don't block startup
+        if not self.SUPABASE_DB_URL:
+            logger.info(
+                "ℹ️  SUPABASE_DB_URL not set. SQLAlchemy/Alembic migrations will be "
+                "unavailable. Runtime DB operations use supabase-py (SUPABASE_SERVICE_ROLE_KEY)."
+            )
 
         # Validate numeric thresholds are in a sane range
         for attr in (
