@@ -346,7 +346,8 @@ class ContentClassifier(PipelineStage):
         # 3. NLP Fallback for UNKNOWNs
         self._nlp_classify_fallback(blocks)
                 
-        # 4. NLP-Enhanced Fallback (Integrate SemanticParser Confidence)
+                
+        # 4. Enhanced NLP Fallback (Integrate Regex & SemanticParser Confidence)
         # ARCHITECTURAL INTEGRATION: Use NLP confidence to improve scoring
         # while preserving deterministic structural classification.
         for block in blocks:
@@ -356,6 +357,31 @@ class ContentClassifier(PipelineStage):
                 block.metadata.get("is_footnote") or 
                 block.metadata.get("is_endnote")):
                 continue
+
+            # 4.1 Strong Regex Heuristics for Common Headings (Fix for DOCX "Low Confidence")
+            text = block.text.strip()
+            if not text:
+                continue
+                
+            # Detect standard academic headings if not already classified as heading
+            if block.block_type in [BlockType.UNKNOWN, BlockType.BODY]:
+                # Numbered headings: "1. Introduction", "2. Methods"
+                if re.match(r'^\d+\.\s+[A-Z][a-zA-Z\s]+$', text) and len(text) < 60:
+                    block.block_type = BlockType.HEADING_1
+                    block.semantic_intent = "HEADING_1"
+                    block.classification_confidence = 0.85
+                    block.metadata["classification_method"] = "regex_numbered_heading"
+                    continue
+                    
+                # Unnumbered standard headings
+                std_headings = ["introduction", "background", "methods", "methodology", 
+                                "results", "discussion", "conclusion", "conclusions", "references"]
+                if text.lower() in std_headings or text.lower().replace(":", "") in std_headings:
+                    block.block_type = BlockType.HEADING_1
+                    block.semantic_intent = "HEADING_1"
+                    block.classification_confidence = 0.9
+                    block.metadata["classification_method"] = "regex_std_heading"
+                    continue
 
             if block.block_type == BlockType.UNKNOWN:
                 # Structural fallback (deterministic, unchanged)

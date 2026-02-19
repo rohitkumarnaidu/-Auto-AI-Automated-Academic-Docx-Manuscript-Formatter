@@ -26,10 +26,12 @@ class ReasoningEngine:
     
     def __init__(self):
         self.nvidia_api_key = "ignore" # Loaded from env in real usage
-        self.ollama_url = "http://localhost:11434/api/generate"
-        self.primary_model = "nvidia/llama3-70b-instruct"
-        self.fallback_model = "deepseek-coder:6.7b"
-
+        
+        # Ollama Configuration
+        self.ollama_base_url = "http://localhost:11434"
+        # Use more standard DeepSeek model tag
+        self.fallback_model = "deepseek-r1:8b" 
+        
         self.timeout = 30 # Default timeout
         
         # Initialize NVIDIA client (primary)
@@ -48,25 +50,50 @@ class ReasoningEngine:
         self.ollama_available = self._check_ollama_health()
         
         if self.ollama_available:
-            self.llm = ChatOllama(
-                model=model,
-                base_url=base_url,
-                format="json",  # Ensure JSON output
-                timeout=timeout
-            )
-            print(f"✅ DeepSeek {model} available (fallback)")
+            try:
+                self.llm = ChatOllama(
+                    model=self.fallback_model,
+                    base_url=self.ollama_base_url,
+                    format="json",  # Ensure JSON output
+                    timeout=self.timeout
+                )
+                print(f"✅ DeepSeek {self.fallback_model} available (fallback)")
+            except Exception as e:
+                print(f"⚠️ Failed to init ChatOllama: {e}")
+                self.llm = None
+                self.ollama_available = False
         else:
             self.llm = None
-            print(f"⚠️ Ollama server unavailable")
+            print(f"⚠️ Ollama server unavailable at {self.ollama_base_url}")
         
         # Always have rule-based fallback
         print("✅ Rule-based heuristics available (final fallback)")
     
     def _check_ollama_health(self) -> bool:
-        """Check if Ollama server is reachable."""
+        """Check if Ollama server is reachable and find best model."""
         try:
-            response = requests.get(f"{self.base_url}/api/tags", timeout=2)
-            return response.status_code == 200
+            response = requests.get(f"{self.ollama_base_url}/api/tags", timeout=2)
+            if response.status_code == 200:
+                models = response.json().get('models', [])
+                model_names = [m.get('name') for m in models]
+                
+                # Check if default exists
+                if self.fallback_model in model_names:
+                    return True
+                
+                # Find best alternative (prefer deepseek)
+                for m in model_names:
+                    if "deepseek" in m.lower():
+                        print(f"ℹ️ Auto-selected DeepSeek model: {m}")
+                        self.fallback_model = m
+                        return True
+                
+                # Fallback to any model if deepseek not found
+                if model_names:
+                    print(f"ℹ️ DeepSeek not found, using available model: {model_names[0]}")
+                    self.fallback_model = model_names[0]
+                    return True
+            return False
         except (requests.RequestException, Exception):
             return False
     
@@ -124,7 +151,7 @@ class ReasoningEngine:
                     "num_predict": 2048
                 }
             }
-            response = requests.post(f"{self.ollama_url}/api/generate", json=payload, timeout=self.timeout)
+            response = requests.post(f"{self.ollama_base_url}/api/generate", json=payload, timeout=self.timeout)
             response.raise_for_status()
             
             # Ollama's /api/generate returns a JSON object with a 'response' field containing the actual LLM output
