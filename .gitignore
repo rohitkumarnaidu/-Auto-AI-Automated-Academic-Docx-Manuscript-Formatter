@@ -61,3 +61,13 @@ temp/
 .coverage
 htmlcov/
 .pytest_cache/
+
+
+# Local logs and test artifacts
+backend/logs/
+*.txt
+!docs/*.md
+
+# Security reports
+bandit_report.json
+docs/security/
