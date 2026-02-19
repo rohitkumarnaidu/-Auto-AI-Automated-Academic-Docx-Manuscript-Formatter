@@ -223,19 +223,45 @@ class ContentClassifier(PipelineStage):
                         block.metadata["classification_method"] = "regex_affiliation_rule"
                         continue
 
+                    
+                    # 3️⃣ EMAIL/CORRESPONDENCE RULE (Strong Indicator)
+                    email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+                    if re.search(email_pattern, text):
+                        # If it looks like an affiliation too, prioritize affiliation
+                        if self._is_likely_affiliation(text):
+                             block.block_type = BlockType.AFFILIATION
+                             block.semantic_intent = "AFFILIATION"
+                             block.classification_confidence = 0.9  # High confidence due to email
+                             block.metadata["classification_method"] = "regex_email_affiliation"
+                        else:
+                             block.block_type = BlockType.AUTHOR
+                             block.semantic_intent = "AUTHOR"
+                             block.classification_confidence = 0.9  # High confidence due to email
+                             block.metadata["classification_method"] = "regex_email_author"
+                        continue
+
                     # Fallback for Front Matter (keep existing heuristic if no deterministic rule matches)
                     is_affiliation = self._is_likely_affiliation(text)
                     if is_affiliation:
                         block.block_type = BlockType.AFFILIATION
                         block.semantic_intent = "AFFILIATION"
                         block.metadata["semantic_intent"] = "AFFILIATION"
+                        block.classification_confidence = 0.75 # Boosted slightly for zone 1
                     else:
                         block.block_type = BlockType.AUTHOR
                         block.semantic_intent = "AUTHOR"
                         block.metadata["semantic_intent"] = "AUTHOR"
-                    block.classification_confidence = settings.HEURISTIC_CONFIDENCE_MEDIUM
-                    block.metadata["classification_confidence"] = settings.HEURISTIC_CONFIDENCE_MEDIUM
-                    block.metadata["classification_method"] = "heuristic_front"
+                        
+                        # Boost confidence if it looks like a clean name (2-3 words, capitalized)
+                        words = text.split()
+                        if 1 <= len(words) <= 4 and text.istitle():
+                             block.classification_confidence = 0.75
+                             block.metadata["classification_method"] = "heuristic_front_name_likely"
+                        else:
+                             block.classification_confidence = settings.HEURISTIC_CONFIDENCE_MEDIUM
+                             
+                    block.metadata["classification_confidence"] = block.classification_confidence
+                    block.metadata["classification_method"] = block.metadata.get("classification_method", "heuristic_front")
 
             # --- ZONE 3: References ---
             elif references_start_index is not None and i >= references_start_index:

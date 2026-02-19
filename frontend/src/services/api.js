@@ -361,6 +361,14 @@ const handleRequestDebounced = (endpoint, options = {}, debounceMs = DEFAULT_DEB
    ===================== */
 
 /**
+ * Fetches the list of documents for the current user.
+ */
+export const getDocuments = async (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return handleRequest(`/api/documents?${query}`);
+};
+
+/**
  * Uploads a document with template and processing options.
  */
 export const uploadDocument = async (file, template, options = {}) => {

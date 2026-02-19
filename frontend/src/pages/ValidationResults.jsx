@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
 import ValidationCard from '../components/ValidationCard';
 import { useNavigate } from 'react-router-dom';
 import { useDocument } from '../context/DocumentContext';
 
-export default function ValidationResults() {
+function ValidationResults() {
     const navigate = useNavigate();
     const { job } = useDocument();
     const [activeTab, setActiveTab] = useState('all');
@@ -22,13 +23,43 @@ export default function ValidationResults() {
 
     const totalIssues = errors.length + warnings.length + advisories.length;
 
+    const parseIssue = (issue, type) => {
+        if (typeof issue === 'object') return { ...issue, type };
+
+        let title = "Formatting Issue";
+        let description = issue;
+
+        const lower = issue.toLowerCase();
+        if (lower.includes('missing required section') || lower.includes('order')) {
+            title = "Structure Violation";
+        } else if (lower.includes('figure') || lower.includes('caption')) {
+            title = "Figure/Table Issue";
+        } else if (lower.includes('reference') || lower.includes('citation')) {
+            title = "Citation Issue";
+        } else if (lower.includes('font') || lower.includes('spacing') || lower.includes('margin')) {
+            title = "Style & Layout";
+        }
+
+        return {
+            type,
+            title,
+            description,
+            severity: type === 'error' ? 'Critical' : type === 'warning' ? 'Minor' : 'Info'
+        };
+    };
+
     const filteredIssues = () => {
-        if (activeTab === 'errors') return errors;
-        if (activeTab === 'warnings') return warnings;
-        if (activeTab === 'advisories') return advisories;
-        return [...errors.map(e => ({ ...e, type: 'error' })),
-        ...warnings.map(w => ({ ...w, type: 'warning' })),
-        ...advisories.map(a => ({ ...a, type: 'advisory' }))];
+        let issues = [];
+        if (activeTab === 'all' || activeTab === 'errors') {
+            issues = [...issues, ...errors.map(e => parseIssue(e, 'error'))];
+        }
+        if (activeTab === 'all' || activeTab === 'warnings') {
+            issues = [...issues, ...warnings.map(w => parseIssue(w, 'warning'))];
+        }
+        if (activeTab === 'all' || activeTab === 'advisories') {
+            issues = [...issues, ...advisories.map(a => parseIssue(a, 'advisory'))];
+        }
+        return issues;
     };
 
     return (
@@ -197,12 +228,11 @@ export default function ValidationResults() {
                 </div>
 
 
-                <footer className="max-w-5xl mx-auto px-4 py-12 text-center text-slate-400 text-xs border-t border-slate-200 dark:border-slate-800 mt-12">
-                    <p>© 2023 ManuscriptFormatter AI Inc. All rights reserved.</p>
-                    <p className="mt-2">Validation performed against {job.template.toUpperCase()} academic standards.</p>
-                </footer>
-            </main >
+                <Footer variant="app" />
+            </main>
         </>
     );
 }
+
+export default ValidationResults;
 

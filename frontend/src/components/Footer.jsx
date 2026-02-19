@@ -50,7 +50,7 @@ export default function Footer({ variant = 'app' }) {
                         </div>
                     </div>
                     <div className="pt-8 border-t border-slate-200 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4 text-center md:text-left">
-                        <p className="text-xs text-slate-400">© ManuscriptFormatter SaaS Platform. All Rights Reserved.</p>
+                        <p className="text-xs text-slate-400">© {new Date().getFullYear()} ManuscriptFormatter SaaS Platform. All Rights Reserved.</p>
                         <div className="flex items-center gap-6">
                             <div className="flex items-center gap-1 opacity-50 grayscale">
                                 <span className="material-symbols-outlined text-xs">shield</span>
@@ -73,7 +73,7 @@ export default function Footer({ variant = 'app' }) {
             <div className="flex flex-col md:flex-row justify-between items-center gap-6">
                 <div className="flex items-center gap-2 text-slate-400">
                     <span className="material-symbols-outlined text-xl">auto_stories</span>
-                    <span className="text-sm font-medium">© ScholarForm AI. Built for Academics.</span>
+                    <span className="text-sm font-medium">© {new Date().getFullYear()} ScholarForm AI. Built for Academics.</span>
                 </div>
                 <div className="flex gap-6">
                     <a href="#" className="text-sm text-slate-500 hover:text-primary">Terms of Service</a>

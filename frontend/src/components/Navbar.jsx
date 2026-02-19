@@ -2,12 +2,26 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 
 export default function Navbar({ variant = 'app', activeTab = '' }) {
-    const { isLoggedIn, signOut, loading } = useAuth();
+    const { isLoggedIn, signOut, loading, user } = useAuth();
+    const { theme, toggleTheme } = useTheme();
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const profileRef = useRef(null);
     const navigate = useNavigate();
+
+    const ThemeToggle = () => (
+        <button
+            onClick={toggleTheme}
+            className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+        >
+            <span className="material-symbols-outlined">
+                {theme === 'dark' ? 'light_mode' : 'dark_mode'}
+            </span>
+        </button>
+    );
 
     // Click-away listener for profile dropdown
     useEffect(() => {
@@ -41,6 +55,7 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
                             <a href="#about" className="text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-primary transition-colors">About</a>
                         </nav>
                         <div className="flex items-center gap-3">
+                            <ThemeToggle />
                             <Link to="/login" className="text-sm font-semibold text-slate-700 dark:text-slate-200 px-4 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">Sign In</Link>
                             <Link to="/signup" className="bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-lg hover:bg-blue-600 shadow-sm transition-all">Sign Up</Link>
                         </div>
@@ -61,7 +76,8 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
                             </div>
                             <span className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">ScholarForm AI</span>
                         </Link>
-                        <div className="flex items-center">
+                        <div className="flex items-center gap-4">
+                            <ThemeToggle />
                             <Link to="/" className="bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-lg hover:bg-blue-600 shadow-sm transition-all">Home</Link>
                         </div>
                     </div>
@@ -114,6 +130,7 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
                 {/* Auth Actions */}
                 {isLoggedIn ? (
                     <div className="flex items-center gap-4">
+                        <ThemeToggle />
                         <div className="flex gap-2">
                             <button className="flex items-center justify-center rounded-lg h-10 w-10 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200">
                                 <span className="material-symbols-outlined">notifications</span>
@@ -127,7 +144,7 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
                                 className="flex items-center gap-2 cursor-pointer group"
                                 onClick={() => setIsProfileOpen(!isProfileOpen)}
                             >
-                                <div className="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 border border-slate-200 dark:border-slate-700" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuCBAnQke1dGWniClQX7rHZBtni1hbRlIpllATyD41NPPw3Br765F9F0vIWQH7I2SezfqlRBNZW0hgkDJ4Kl-Ekd0MVD60AqnPJe_Q0QkDvG2fqpVzmz_HTsQKFKkBIvfvFH26zii0uK7s11gs1bnXmlnWvG6LS6GTXhY6thfBqwRUWqvuAIMWQfqwnAs0DFEX2j3QBP0F7mG913xvhu2iMMo_MIgxF_nqEmviIbI0G3jFBvWtp3KPkAPAxfc4YVXlrDPh_tJJ5ZgnHP")' }}></div>
+                                <div className="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 border border-slate-200 dark:border-slate-700" style={{ backgroundImage: `url("${user?.user_metadata?.avatar_url || user?.user_metadata?.picture || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCBAnQke1dGWniClQX7rHZBtni1hbRlIpllATyD41NPPw3Br765F9F0vIWQH7I2SezfqlRBNZW0hgkDJ4Kl-Ekd0MVD60AqnPJe_Q0QkDvG2fqpVzmz_HTsQKFKkBIvfvFH26zii0uK7s11gs1bnXmlnWvG6LS6GTXhY6thfBqwRUWqvuAIMWQfqwnAs0DFEX2j3QBP0F7mG913xvhu2iMMo_MIgxF_nqEmviIbI0G3jFBvWtp3KPkAPAxfc4YVXlrDPh_tJJ5ZgnHP'}")` }}></div>
                                 <span className={`material-symbols-outlined text-slate-400 group-hover:text-primary transition-all duration-200 ${isProfileOpen ? 'rotate-180' : ''}`}>expand_more</span>
                             </div>
 

@@ -5,8 +5,8 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 export default function Dashboard() {
     const { user } = useAuth();
-    const { history } = useDocument();
-    const recentJobs = history.slice(0, 3); // Show only 3 most recent
+    const { history, refreshHistory, loadingHistory } = useDocument();
+    const recentJobs = history ? history.slice(0, 5) : []; // Show 5 most recent
 
     const displayName = user?.user_metadata?.full_name || "Researcher";
 
@@ -48,9 +48,9 @@ export default function Dashboard() {
                         <div className="p-6">
                             <div className="flex justify-between items-start mb-2">
                                 <h3 className="text-slate-900 dark:text-white text-lg font-bold">My Manuscripts</h3>
-                                <span className="bg-primary/20 text-primary text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider">12 Active</span>
+                                <span className="bg-primary/20 text-primary text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider">{history?.length || 0} Active</span>
                             </div>
-                            <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed mb-4">Track progress of ongoing projects. Last update was 2 hours ago.</p>
+                            <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed mb-4">Track progress of ongoing projects.</p>
                             <div className="w-full bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white py-2.5 px-4 rounded-lg font-bold text-sm hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-center">
                                 View All Projects
                             </div>
@@ -78,10 +78,20 @@ export default function Dashboard() {
                 {/* SectionHeader Component */}
                 <div className="flex items-center justify-between mb-4 px-1">
                     <h2 className="text-slate-900 dark:text-white text-2xl font-bold tracking-tight">Recent Activity</h2>
-                    <Link className="text-primary text-sm font-semibold hover:underline flex items-center gap-1" to="/history">
-                        View full history
-                        <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                    </Link>
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={() => refreshHistory()}
+                            disabled={loadingHistory}
+                            className="text-primary text-sm font-semibold hover:underline flex items-center gap-1 disabled:opacity-50"
+                        >
+                            <span className={`material-symbols-outlined text-sm ${loadingHistory ? 'animate-spin' : ''}`}>refresh</span>
+                            Refresh
+                        </button>
+                        <Link className="text-primary text-sm font-semibold hover:underline flex items-center gap-1" to="/history">
+                            View full history
+                            <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                        </Link>
+                    </div>
                 </div>
 
                 {/* Table Component */}

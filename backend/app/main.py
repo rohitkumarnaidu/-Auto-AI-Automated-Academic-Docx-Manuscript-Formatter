@@ -11,6 +11,8 @@ from app.middleware.rate_limit import RateLimitMiddleware
 
 # Phase 2: Silence Global AI Startup Noise
 import os
+import asyncio
+from app.utils.cleanup import cleanup_old_uploads
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
 from transformers import logging as transformers_logging
 transformers_logging.set_verbosity_error()
@@ -79,6 +81,9 @@ async def startup_event():
     Note: This project intentionally avoids automated pipeline testing at this stage.
     """
     with safe_execution("Application Startup"):
+        # Start Background Cleanup Task (7-day retention)
+        asyncio.create_task(cleanup_old_uploads())
+        
         # ── Old ORM startup (kept for reference, replaced by supabase-py) ──────
         # from app.db.session import SessionLocal
         # from app.models import Document

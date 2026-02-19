@@ -1,22 +1,54 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 
+import { useAuth } from './AuthContext';
+import { getDocuments } from '../services/api';
+
 const DocumentContext = createContext();
 
 export const useDocument = () => useContext(DocumentContext);
 
 export const DocumentProvider = ({ children }) => {
+    const { user } = useAuth();
     const [job, setJob] = useState(null); // Current active job
     const [history, setHistory] = useState([]);
     const [processing, setProcessing] = useState(false);
+    const [loadingHistory, setLoadingHistory] = useState(false);
 
-    // Load history from local storage on mount
+    // Fetch history from backend when user logs in
     useEffect(() => {
-        const savedHistory = localStorage.getItem('manuscript_history');
-        if (savedHistory) {
-            setHistory(JSON.parse(savedHistory));
+        if (user) {
+            refreshHistory();
+        } else {
+            setHistory([]);
         }
+    }, [user]);
 
-        // HYDRATION FIX: Restore active job from session storage
+    const refreshHistory = async () => {
+        if (!user) return;
+        try {
+            setLoadingHistory(true);
+            const data = await getDocuments({ limit: 20 });
+            // Map backend format to frontend expectation if needed, 
+            // but the backend format seems compatible mainly: id, filename, status, created_at
+            // Backend returns { documents: [...], total: ... }
+            if (data && data.documents) {
+                // We map to ensure consistent naming if needed, e.g. originalFileName vs filename
+                const mappedHistory = data.documents.map(doc => ({
+                    ...doc,
+                    originalFileName: doc.filename,
+                    timestamp: doc.created_at
+                }));
+                setHistory(mappedHistory);
+            }
+        } catch (err) {
+            console.error("Failed to fetch document history:", err);
+        } finally {
+            setLoadingHistory(false);
+        }
+    };
+
+    // HYDRATION FIX: Restore active job from session storage
+    useEffect(() => {
         const savedJob = sessionStorage.getItem('scholarform_currentJob');
         if (savedJob) {
             try {
@@ -29,10 +61,21 @@ export const DocumentProvider = ({ children }) => {
         }
     }, []);
 
+    // Persist active job to session storage
+    useEffect(() => {
+        if (job) {
+            sessionStorage.setItem('scholarform_currentJob', JSON.stringify(job));
+        } else {
+            sessionStorage.removeItem('scholarform_currentJob');
+        }
+    }, [job]);
+
     const addToHistory = (newJob) => {
+        // Optimistic update
         const updatedHistory = [newJob, ...history];
         setHistory(updatedHistory);
-        localStorage.setItem('manuscript_history', JSON.stringify(updatedHistory));
+        // We also trigger a refresh to get the official backend state (id might be temp vs real)
+        refreshHistory();
     };
 
     const startProcessing = () => {
@@ -71,6 +114,8 @@ export const DocumentProvider = ({ children }) => {
             job,
             setJob,
             history,
+            refreshHistory,
+            loadingHistory,
             processing,
             startProcessing,
             finishProcessing,
