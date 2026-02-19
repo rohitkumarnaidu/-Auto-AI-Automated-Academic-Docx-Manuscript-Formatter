@@ -218,9 +218,9 @@ class PdfParser(BaseParser):
                     
                     # Convert to Markdown-like table text
                     table_lines = []
-                    if header:
-                        table_lines.append(" | ".join([str(h) if h else "" for h in header]))
-                        table_lines.append(" | ".join(["---"] * len(header)))
+                    if header and hasattr(header, 'names') and header.names:
+                        table_lines.append(" | ".join([str(h) if h else "" for h in header.names]))
+                        table_lines.append(" | ".join(["---"] * len(header.names)))
                     
                     for row in rows:
                         # Clean cell content (remove newlines within cells)

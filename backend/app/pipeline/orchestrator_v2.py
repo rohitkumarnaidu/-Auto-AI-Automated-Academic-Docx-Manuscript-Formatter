@@ -37,15 +37,11 @@ from datetime import datetime, timezone
 from typing import Any, AsyncIterator, Dict, List, Optional
 
 from app.cache.redis_cache import redis_cache
-from app.db.session import SessionLocal
+from app.db.supabase_client import get_supabase_client
 from app.models import (
     Block,
     BlockType,
-    Document,
-    DocumentResult,
-    DocumentVersion,
     PipelineDocument,
-    ProcessingStatus,
     TemplateInfo,
 )
 from app.pipeline.agents.document_agent import DocumentAgent
@@ -274,44 +270,57 @@ class AgentOrchestrator:
     # ── Status Helpers ────────────────────────────────────────────────────────
 
     def _update_status(
-        self, db, document_id: str, phase: str, status: str,
+        self, document_id: str, phase: str, status: str,
         message: Optional[str] = None, progress: Optional[int] = None
     ) -> None:
-        """Persist a phase status update to the database (mirrors legacy orchestrator)."""
+        """Persist a phase status update to Supabase DB."""
+        document_id = str(document_id)
+        sb = get_supabase_client()
+        if not sb:
+            logger.warning("Supabase client unavailable for status update: %s -> %s", phase, status)
+            return
+
         try:
-            status_rec = db.query(ProcessingStatus).filter_by(
-                document_id=document_id, phase=phase
-            ).first()
-            if not status_rec:
-                status_rec = ProcessingStatus(document_id=document_id, phase=phase)
-                db.add(status_rec)
+            # 1. Update/Upsert ProcessingStatus
+            data = {
+                "document_id": document_id,
+                "phase": phase,
+                "status": status,
+                "message": message,
+                "progress_percentage": progress,
+                "updated_at": "now()"
+            }
+            
+            existing = sb.table("processing_status").select("id").match({"document_id": document_id, "phase": phase}).execute()
+            
+            if existing.data:
+                sb.table("processing_status").update(data).match({"document_id": document_id, "phase": phase}).execute()
+            else:
+                sb.table("processing_status").insert(data).execute()
 
-            status_rec.status = status
-            status_rec.message = message
-            if progress is not None:
-                status_rec.progress_percentage = progress
-
-            doc_rec = db.query(Document).filter_by(id=document_id).first()
-            if doc_rec:
-                if status == "COMPLETED":
-                    if phase == "PERSISTENCE":
-                        doc_rec.status = "COMPLETED"
-                    elif doc_rec.status != "FAILED":
-                        doc_rec.status = "RUNNING"
-                elif status == "FAILED":
-                    doc_rec.status = "FAILED"
-                    doc_rec.error_message = message
+            # 2. Update Parent Document
+            doc_data = {
+                "current_stage": phase,
+                "updated_at": "now()"
+            }
+            
+            if status == "COMPLETED":
+                if phase == "PERSISTENCE":
+                    doc_data["status"] = "COMPLETED"
                 else:
-                    doc_rec.status = status
+                    doc_data["status"] = "RUNNING"
+            elif status == "FAILED":
+                doc_data["status"] = "FAILED"
+                doc_data["error_message"] = message
+            else:
+                doc_data["status"] = status
 
-                if progress is not None:
-                    doc_rec.progress = progress
-                if phase:
-                    doc_rec.current_stage = phase
-
-            db.commit()
+            if progress is not None:
+                doc_data["progress"] = progress
+            
+            sb.table("documents").update(doc_data).eq("id", document_id).execute()
         except Exception as exc:
-            logger.error("_update_status failed for job %s phase %s: %s", document_id, phase, exc)
+            logger.error("_update_status failed for job %s: %s", document_id, exc)
 
     # ── Cache Helpers ─────────────────────────────────────────────────────────
 

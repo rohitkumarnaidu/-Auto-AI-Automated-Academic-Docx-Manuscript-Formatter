@@ -123,12 +123,12 @@ async def run_pipeline_with_timeout(
                 template_name=template_name,
                 formatting_options=formatting_options,
             ),
-            timeout=300.0  # 5 minutes max
+            timeout=900.0  # 15 minutes max
         )
         logger.info("Pipeline completed successfully for job %s", job_id)
     except asyncio.TimeoutError:
         logger.error("Pipeline timeout for job %s", job_id)
-        _mark_job_as_failed(str(job_id), "Processing timeout (5 minutes exceeded)")
+        _mark_job_as_failed(str(job_id), "Processing timeout (15 minutes exceeded)")
     except Exception as e:
         logger.error("Pipeline failed for job %s: %s", job_id, e, exc_info=True)
         _mark_job_as_failed(str(job_id), f"Processing failed: {str(e)}")

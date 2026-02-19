@@ -40,6 +40,8 @@ class DocumentService:
         Returns None if not found or on error.
         """
         sb = get_supabase_client()
+        doc_id = str(doc_id)
+        if user_id: user_id = str(user_id)
         if sb is None:
             logger.error("get_document: Supabase client not available.")
             return None
@@ -66,6 +68,7 @@ class DocumentService:
         Returns empty list on error.
         """
         sb = get_supabase_client()
+        user_id = str(user_id)
         if sb is None:
             logger.error("list_documents: Supabase client not available.")
             return []
@@ -130,6 +133,8 @@ class DocumentService:
         Returns the inserted row dict or None on error.
         """
         sb = get_supabase_client()
+        doc_id = str(doc_id)
+        if user_id: user_id = str(user_id)
         if sb is None:
             logger.error("create_document: Supabase client not available.")
             return None
@@ -162,6 +167,7 @@ class DocumentService:
         Returns the updated row dict or None on error.
         """
         sb = get_supabase_client()
+        doc_id = str(doc_id)
         if sb is None:
             logger.error("update_document: Supabase client not available.")
             return None
@@ -184,6 +190,7 @@ class DocumentService:
         Never raises — safe to call from background tasks and exception handlers.
         """
         sb = get_supabase_client()
+        doc_id = str(doc_id)
         if sb is None:
             logger.error("mark_document_failed: Supabase client not available.")
             return
@@ -207,6 +214,7 @@ class DocumentService:
         Never raises — safe to call from background tasks.
         """
         sb = get_supabase_client()
+        doc_id = str(doc_id)
         if sb is None:
             logger.error("mark_document_completed: Supabase client not available.")
             return
@@ -232,6 +240,7 @@ class DocumentService:
         Returns None if not found or on error.
         """
         sb = get_supabase_client()
+        doc_id = str(doc_id)
         if sb is None:
             return None
         try:
@@ -258,6 +267,7 @@ class DocumentService:
         Never raises.
         """
         sb = get_supabase_client()
+        doc_id = str(doc_id)
         if sb is None:
             logger.error("upsert_document_result: Supabase client not available.")
             return
@@ -282,6 +292,7 @@ class DocumentService:
         Returns empty list on error.
         """
         sb = get_supabase_client()
+        doc_id = str(doc_id)
         if sb is None:
             return []
         try:
@@ -309,6 +320,7 @@ class DocumentService:
         Never raises.
         """
         sb = get_supabase_client()
+        doc_id = str(doc_id)
         if sb is None:
             logger.error("upsert_processing_status: Supabase client not available.")
             return

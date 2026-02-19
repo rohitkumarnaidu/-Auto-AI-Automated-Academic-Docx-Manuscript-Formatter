@@ -23,6 +23,10 @@ from app.pipeline.safety import safe_function
 logger = logging.getLogger(__name__)
 
 try:
+    import os
+    # Windows Symlink Fix: Disable warning and force copy
+    os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
+    
     from docling.document_converter import DocumentConverter
     from docling.datamodel.base_models import InputFormat
     from docling.datamodel.pipeline_options import PdfPipelineOptions
@@ -121,15 +125,8 @@ class DoclingClient:
         self.converter = None
         if DOCLING_AVAILABLE:
             try:
-                # Initialize DocumentConverter with PDF pipeline options
-                pipeline_options = PdfPipelineOptions()
-                pipeline_options.do_ocr = False  # Disable OCR for speed (can enable if needed)
-                pipeline_options.do_table_structure = True  # Enable table detection
-                
-                self.converter = DocumentConverter(
-                    allowed_formats=[InputFormat.PDF],
-                    pipeline_options=pipeline_options,
-                )
+                # Initialize DocumentConverter with defaults
+                self.converter = DocumentConverter()
                 logger.info("Docling client initialized successfully")
             except Exception as e:
                 logger.error(f"Failed to initialize Docling converter: {e}")
@@ -157,24 +154,45 @@ class DoclingClient:
         try:
             logger.info(f"Starting Docling layout analysis for: {file_path}")
             
-            # Use DocumentConverter to parse the PDF
-            # In update: use 'parse' or 'convert' depending on version
-            # Assuming 'convert' returns a specific object structure
+            try:
+                # 🚀 PERFORMANCE OPTIMIZATION: Check for Digital-Native PDF
+                # If the PDF has a dense text layer, we DISABLE OCR to save ~95% processing time.
+                do_ocr = True
+                try:
+                    import pypdf
+                    reader = pypdf.PdfReader(file_path)
+                    if len(reader.pages) > 0:
+                        page = reader.pages[0]
+                        text = page.extract_text()
+                        # Heuristic: If >50 chars of text found on first page, assume digital-native
+                        if text and len(text.strip()) > 50:
+                            logger.info(f"Digital-native PDF detected ({len(text)} chars on p1). Disabling OCR for speed.")
+                            do_ocr = False
+                except Exception as e:
+                    logger.warning(f"Failed to check text density: {e}. Defaulting to OCR=True")
+
+                # Configure pipeline options
+                # do_ocr=True/False based on density check
+                pipeline_options = PdfPipelineOptions(do_ocr=do_ocr)
+                
+                # If we MUST do OCR, prevent full page force to save some time
+                if do_ocr:
+                    pipeline_options.ocr_options.force_full_page_ocr = False
+                
+                # Configure accelerator if available (optional, keeping safe default)
+                # pipeline_options.accelerator_options.num_threads = 4 
+
+                doc_converter = DocumentConverter(
+                    format_options={
+                        InputFormat.PDF: pipeline_options
+                    }
+                )
+                doc = doc_converter.convert(file_path).document
             
-            # Configure pipeline options if needed
-            pipeline_options = PdfPipelineOptions()
-            pipeline_options.do_ocr = False # Speed optimization
-            pipeline_options.do_table_structure = True
-            
-            converter = DocumentConverter(
-                format_options={
-                    InputFormat.PDF: pipeline_options
-                }
-            )
-            
-            # Run conversion
-            doc = converter.convert(file_path).document
-            
+            except Exception as e:
+                logger.error(f"Docling conversion failed: {e}")
+                raise e
+
             # Extract layout data from the Docling document object
             elements = []
             

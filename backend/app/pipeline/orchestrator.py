@@ -4,17 +4,13 @@ Pipeline Orchestrator - Coordinates all processing stages.
 
 import os
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Optional, Dict, Any
-from app.db.session import SessionLocal
+from app.db.supabase_client import get_supabase_client
 from app.models import (
-    Document, 
-    DocumentResult, 
-    ProcessingStatus, 
-    PipelineDocument, 
     Block, 
     BlockType,
-    DocumentVersion,
     TemplateInfo
 )
 from app.pipeline.parsing.parser_factory import ParserFactory
@@ -78,40 +74,57 @@ class PipelineOrchestrator:
                 f"does not implement required method '{method_name}'."
             )
         
-    def _update_status(self, db, document_id, phase, status, message=None, progress: Optional[int] = None):
-        """Update processing status in the database."""
-        status_rec = db.query(ProcessingStatus).filter_by(document_id=document_id, phase=phase).first()
-        if not status_rec:
-            status_rec = ProcessingStatus(document_id=document_id, phase=phase)
-            db.add(status_rec)
-        
-        status_rec.status = status
-        status_rec.message = message
-        if progress is not None:
-            status_rec.progress_percentage = progress
+    def _update_status(self, document_id, phase, status, message=None, progress: Optional[int] = None):
+        """Update processing status in Supabase DB."""
+        document_id = str(document_id)
+        sb = get_supabase_client()
+        if not sb:
+            print(f"⚠️ Supabase client unavailable for status update: {phase} -> {status}")
+            return
+
+        try:
+            # 1. Update/Upsert ProcessingStatus
+            # Match is safest for upsert logic
+            data = {
+                "document_id": document_id,
+                "phase": phase,
+                "status": status,
+                "message": message,
+                "progress_percentage": progress,
+                "updated_at": "now()"
+            }
             
-        # Update Parent Document (Single Source of Truth)
-        doc_rec = db.query(Document).filter_by(id=document_id).first()
-        if doc_rec:
-            # Only propagate COMPLETED to parent status if it's the final PERSISTENCE phase
+            # Check if record exists
+            existing = sb.table("processing_status").select("id").match({"document_id": document_id, "phase": phase}).execute()
+            
+            if existing.data:
+                sb.table("processing_status").update(data).match({"document_id": document_id, "phase": phase}).execute()
+            else:
+                sb.table("processing_status").insert(data).execute()
+
+            # 2. Update Parent Document
+            doc_data = {
+                "current_stage": phase,
+                "updated_at": "now()"
+            }
+            
             if status == "COMPLETED":
                 if phase == "PERSISTENCE":
-                    doc_rec.status = "COMPLETED"
-                # Otherwise, keep it as RUNNING if not already failed
-                elif doc_rec.status != "FAILED":
-                    doc_rec.status = "RUNNING"
+                    doc_data["status"] = "COMPLETED"
+                else:
+                    doc_data["status"] = "RUNNING"
             elif status == "FAILED":
-                doc_rec.status = "FAILED"
-                doc_rec.error_message = message
+                doc_data["status"] = "FAILED"
+                doc_data["error_message"] = message
             else:
-                doc_rec.status = status
-                
+                doc_data["status"] = status
+
             if progress is not None:
-                doc_rec.progress = progress
-            if phase:
-                doc_rec.current_stage = phase
-        
-        db.commit()
+                doc_data["progress"] = progress
+            
+            sb.table("documents").update(doc_data).eq("id", document_id).execute()
+        except Exception as e:
+            print(f"❌ Supabase status update failed for job {document_id}: {e}")
 
     def run_pipeline(
         self, 
@@ -129,6 +142,9 @@ class PipelineOrchestrator:
         if formatting_options is None:
             formatting_options = {}
 
+        # 🛡️ SAFETY: Ensure job_id is string (not UUID object) for Supabase JSON serialization
+        job_id = str(job_id)
+
         # NO long-lived 'db' session at the start.
         response = {
             "status": "processing",
@@ -141,15 +157,14 @@ class PipelineOrchestrator:
             output_path = None
             
             # PHASE 0: SAFETY NET
-            # We wrap the ENTIRE pipeline logic in the safety net to catch unforeseen crashes
             with safe_execution(f"Pipeline Job {job_id}"):
-                # Phase 1: Upload & Job Creation
-                with SessionLocal() as db:
-                    self._update_status(db, job_id, "UPLOAD", "COMPLETED", "File uploaded and job created.", progress=5)
+                sb = get_supabase_client()
                 
-                # Phase 2: Text Extraction (Benchmarked: 20%)
-                with SessionLocal() as db:
-                    self._update_status(db, job_id, "EXTRACTION", "IN_PROGRESS", progress=10)
+                # Phase 1: Upload & Job Creation
+                self._update_status(job_id, "UPLOAD", "COMPLETED", "File uploaded and job created.", progress=5)
+                
+                # Phase 2: Text Extraction
+                self._update_status(job_id, "EXTRACTION", "IN_PROGRESS", progress=10)
                 
                 # Check if we can parse the file directly without conversion
                 factory = ParserFactory()
@@ -176,77 +191,81 @@ class PipelineOrchestrator:
                 
                 raw_text = "\n".join([b.text for b in doc_obj.blocks])
 
-                # CRITICAL FIX: Set Template Info for Formatter
                 if template_name:
                     doc_obj.template = TemplateInfo(template_name=template_name)
                 
-                with SessionLocal() as db:
-                    document_rec = db.query(Document).filter_by(id=job_id).first()
-                    if document_rec:
-                        document_rec.raw_text = raw_text
-                        document_rec.original_file_path = input_path
-                        db.commit()
-                    self._update_status(db, job_id, "EXTRACTION", "COMPLETED", "Text extracted successfully.", progress=20)
+                if sb:
+                    sb.table("documents").update({
+                        "raw_text": raw_text,
+                        "original_file_path": input_path
+                    }).eq("id", job_id).execute()
+                    
+                self._update_status(job_id, "EXTRACTION", "COMPLETED", "Text extracted successfully.", progress=20)
                 
                 # Phase 2.1: GROBID Metadata Extraction (Week 2)
                 # Extract metadata using GROBID before classification
-                if file_ext == '.pdf' and self.grobid_client.is_available():
-                    with SessionLocal() as db:
-                        self._update_status(db, job_id, "EXTRACTION", "IN_PROGRESS", "Extracting metadata with GROBID...", progress=22)
+                # Phase 2: Parallel Extraction (Grobid + Docling)
+                # Run independent extraction tasks concurrently to save time
+                if file_ext == '.pdf':
+                    self._update_status(job_id, "EXTRACTION", "IN_PROGRESS", "Extracting metadata and layout (Parallel)...", progress=22)
                     
-                    try:
-                        print("🔬 Extracting metadata with GROBID...")
-                        grobid_metadata = self.grobid_client.extract_metadata(input_path)
-                        
-                        # Inject GROBID metadata into document object (using ai_hints)
-                        # Note: metadata is a Pydantic model, so we must use ai_hints dict
-                        if not hasattr(doc_obj, 'metadata') or doc_obj.metadata is None:
-                            from app.models import DocumentMetadata
-                            doc_obj.metadata = DocumentMetadata()
-                        
-                        doc_obj.metadata.ai_hints['grobid_metadata'] = grobid_metadata
-                        
-                        print(f"✅ GROBID extracted: Title='{grobid_metadata.get('title', 'N/A')}', Authors={len(grobid_metadata.get('authors', []))}")
-                    except Exception as e:
-                        print(f"⚠️ GROBID extraction failed (non-blocking): {e}")
-                        # Non-blocking - continue pipeline
-                else:
-                    print(f"ℹ️ Skipping GROBID (file_ext={file_ext}, available={self.grobid_client.is_available()})")
+                    with ThreadPoolExecutor(max_workers=2) as executor:
+                        # Define wrapper functions for safe execution
+                        def run_grobid():
+                            if self.grobid_client.is_available():
+                                try:
+                                    print("🔬 Extracting metadata with GROBID...")
+                                    # Use correct method name: process_header_document
+                                    return self.grobid_client.process_header_document(input_path)
+                                except Exception as e:
+                                    print(f"⚠️ GROBID extraction failed: {e}")
+                            return {} # Return empty dict, not None
 
-                # Phase 2.2: Docling Layout Analysis (Week 2)
-                # Extract high-fidelity layout data (bounding boxes, font sizes) for structure detection
-                if file_ext == '.pdf' and self.docling_client.is_available():
-                    with SessionLocal() as db:
-                        self._update_status(db, job_id, "EXTRACTION", "IN_PROGRESS", "Analyzing layout with Docling...", progress=24)
-                    
-                    try:
-                        print("📐 Analyzing layout with Docling...")
-                        # Analyze layout
-                        layout_result = self.docling_client.analyze_layout(input_path)
+                        def run_docling():
+                            if self.docling_client.is_available():
+                                try:
+                                    print("📐 Analyzing layout with Docling...")
+                                    return self.docling_client.analyze_layout(input_path)
+                                except Exception as e:
+                                    print(f"⚠️ Docling analysis failed: {e}")
+                            return {} # Return empty dict, not None
+
+                        # Submit tasks
+                        future_grobid = executor.submit(run_grobid)
+                        future_docling = executor.submit(run_docling)
                         
-                        # Inject Docling layout into document object (using ai_hints)
-                        if not hasattr(doc_obj, 'metadata') or doc_obj.metadata is None:
-                            from app.models import DocumentMetadata
-                            doc_obj.metadata = DocumentMetadata()
-                            
-                        doc_obj.metadata.ai_hints['docling_layout'] = layout_result
-                        
-                        print(f"✅ Docling analyzed: {len(layout_result.get('elements', []))} elements found")
-                    except Exception as e:
-                        print(f"⚠️ Docling analysis failed (non-blocking): {e}")
-                else:
-                    print(f"ℹ️ Skipping Docling (file_ext={file_ext}, available={self.docling_client.is_available()})")
+                        # Get results (this blocks until both are done)
+                        grobid_metadata = future_grobid.result()
+                        layout_result = future_docling.result()
+
+                        # Process Grobid Result
+                        if grobid_metadata and isinstance(grobid_metadata, dict):
+                            if not hasattr(doc_obj, 'metadata') or doc_obj.metadata is None:
+                                from app.models import DocumentMetadata
+                                doc_obj.metadata = DocumentMetadata()
+                            doc_obj.metadata.ai_hints['grobid_metadata'] = grobid_metadata
+                            print(f"✅ GROBID extracted: Title='{grobid_metadata.get('title', 'N/A')}', Authors={len(grobid_metadata.get('authors', []))}")
+                        else:
+                             print(f"ℹ️ GROBID result unavailable (file_ext={file_ext})")
+
+                        # Process Docling Result
+                        if layout_result and isinstance(layout_result, dict):
+                            if not hasattr(doc_obj, 'metadata') or doc_obj.metadata is None:
+                                from app.models import DocumentMetadata
+                                doc_obj.metadata = DocumentMetadata()
+                            doc_obj.metadata.ai_hints['docling_layout'] = layout_result
+                            print(f"✅ Docling analyzed: {len(layout_result.get('elements', []))} elements found")
+                        else:
+                             print(f"ℹ️ Docling result unavailable (file_ext={file_ext})")
                 
                 # Phase 2.5: Equation Standardization
-                with SessionLocal() as db:
-                    self._update_status(db, job_id, "EXTRACTION", "IN_PROGRESS", "Standardizing equations...", progress=25)
+                self._update_status(job_id, "EXTRACTION", "IN_PROGRESS", "Standardizing equations...", progress=25)
                 
                 standardizer = get_equation_standardizer()
                 doc_obj = standardizer.process(doc_obj)
                 
-                # Phase 3: NLP Structural Analysis (Benchmarked: 50%)
-                with SessionLocal() as db:
-                    self._update_status(db, job_id, "NLP_ANALYSIS", "IN_PROGRESS", progress=30)
+                # Phase 3: NLP Structural Analysis
+                self._update_status(job_id, "NLP_ANALYSIS", "IN_PROGRESS", progress=30)
                 
                 normalizer = TextNormalizer()
                 self._check_stage_interface(normalizer, "process", "TextNormalizer")
@@ -285,8 +304,7 @@ class PipelineOrchestrator:
                 except Exception as e:
                     print(f"AI ERROR (Layer 2 - NLP Analysis): {e}. Falling back to Phase-1 Heuristics.")
                 
-                with SessionLocal() as db:
-                    self._update_status(db, job_id, "NLP_ANALYSIS", "IN_PROGRESS", "Classifying content...", progress=40)
+                self._update_status(job_id, "NLP_ANALYSIS", "IN_PROGRESS", "Classifying content...", progress=40)
                 classifier = ContentClassifier()
                 self._check_stage_interface(classifier, "process", "ContentClassifier")
                 doc_obj = classifier.process(doc_obj)
@@ -309,13 +327,11 @@ class PipelineOrchestrator:
                 self._check_stage_interface(self.ref_normalizer, "process", "ReferenceFormatterEngine")
                 doc_obj = self.ref_normalizer.process(doc_obj)
                 
-                with SessionLocal() as db:
-                    self._update_status(db, job_id, "NLP_ANALYSIS", "COMPLETED", "Structural analysis complete.", progress=50)
+                self._update_status(job_id, "NLP_ANALYSIS", "COMPLETED", "Structural analysis complete.", progress=50)
                 
-                # Phase 4: AI Validation & Formatting (Benchmarked: 80%)
-                with SessionLocal() as db:
-                    self._update_status(db, job_id, "VALIDATION", "IN_PROGRESS", progress=60)
-                    self._update_status(db, job_id, "VALIDATION", "IN_PROGRESS", "Applying styles and templates...", progress=70)
+                # Phase 4: AI Validation & Formatting
+                self._update_status(job_id, "VALIDATION", "IN_PROGRESS", progress=60)
+                self._update_status(job_id, "VALIDATION", "IN_PROGRESS", "Applying styles and templates...", progress=70)
                 
                 # Layer 1 & 3: RAG + DeepSeek Reasoning
                 rag = get_rag_engine()
@@ -360,7 +376,7 @@ class PipelineOrchestrator:
                     
                     doc_obj.metadata.ai_hints["semantic_advice"] = semantic_advice
 
-                from app.pipeline.validation.validator import DocumentValidator
+                from app.pipeline.validation.validator_v3 import DocumentValidator
                 validator = DocumentValidator(contracts_dir=self.contracts_dir)
                 self._check_stage_interface(validator, "process", "DocumentValidator")
                 doc_obj = validator.process(doc_obj)
@@ -396,43 +412,42 @@ class PipelineOrchestrator:
                 else:
                     # RAISE EXPLICIT FAILURE
                     print(f"CRITICAL: Formatter failed to produce generated_doc for job {job_id}")
-                    with SessionLocal() as db:
-                        document_rec_err = db.query(Document).filter_by(id=job_id).first()
-                        if document_rec_err:
-                            document_rec_err.status = "FAILED"
-                            document_rec_err.error_message = "Formatting failed: No document artifact generated."
-                            db.commit()
+                    if sb:
+                        sb.table("documents").update({
+                            "status": "FAILED",
+                            "error_message": "Formatting failed: No document artifact generated."
+                        }).eq("id", job_id).execute()
                     raise Exception("Formatting stage failed to generate output artifact.")
                 
                 # Phase 5: Persistence (Benchmarked: 100%)
-                with SessionLocal() as db:
-                    self._update_status(db, job_id, "PERSISTENCE", "IN_PROGRESS", progress=90)
-                    
-                    explainer = AIExplainer()
-                    ai_explanations = explainer.explain_results(validation_results, template_name)
-                    validation_results["ai_explanations"] = ai_explanations
-                    
-                    # Fetch structured data (already generated above)
-                    structured_data = {
-                        "sections": {},
-                        "metadata": doc_obj.metadata.model_dump(mode='json'),
-                        "references": [ref.model_dump(mode='json') for ref in doc_obj.references],
-                        "history": [s.model_dump(mode='json') for s in doc_obj.processing_history]
-                    }
-                    for b in doc_obj.blocks:
-                        if b.block_type:
-                            bt_val = b.block_type.value if hasattr(b.block_type, 'value') else str(b.block_type)
-                            if bt_val not in structured_data["sections"]:
-                                structured_data["sections"][bt_val] = []
-                            structured_data["sections"][bt_val].append(b.text)
+                self._update_status(job_id, "PERSISTENCE", "IN_PROGRESS", progress=90)
 
-                    doc_result = DocumentResult(
-                        document_id=job_id,
-                        structured_data=structured_data,
-                        validation_results=validation_results
-                    )
-                    db.add(doc_result)
-                    db.commit()
+                explainer = AIExplainer()
+                ai_explanations = explainer.explain_results(validation_results, template_name)
+                validation_results["ai_explanations"] = ai_explanations
+                
+                # Fetch structured data (already generated above)
+                structured_data = {
+                    "sections": {},
+                    "metadata": doc_obj.metadata.model_dump(mode='json'),
+                    "references": [ref.model_dump(mode='json') for ref in doc_obj.references],
+                    "history": [s.model_dump(mode='json') for s in doc_obj.processing_history]
+                }
+                for b in doc_obj.blocks:
+                    if b.block_type:
+                        bt_val = b.block_type.value if hasattr(b.block_type, 'value') else str(b.block_type)
+                        if bt_val not in structured_data["sections"]:
+                            structured_data["sections"][bt_val] = []
+                        structured_data["sections"][bt_val].append(b.text)
+
+                doc_result_data = {
+                    "document_id": job_id,
+                    "structured_data": structured_data,
+                    "validation_results": validation_results,
+                    "created_at": "now()"
+                }
+                if sb:
+                    sb.table("document_results").insert(doc_result_data).execute()
                 
                 # ATOMIC COMPLETION CHECK
                 # Only mark COMPLETED if output_path exists and is valid
@@ -442,24 +457,21 @@ class PipelineOrchestrator:
                 if output_path and os.path.exists(output_path):
                     final_status = "COMPLETED"
                     final_msg = "All results persisted."
-                    with SessionLocal() as db:
-                        document_rec_final = db.query(Document).filter_by(id=job_id).first()
-                        if document_rec_final:
-                            document_rec_final.status = "COMPLETED"
-                            document_rec_final.output_path = output_path
-                            db.commit()
+                    if sb:
+                        sb.table("documents").update({
+                            "status": "COMPLETED",
+                            "output_path": output_path
+                        }).eq("id", job_id).execute()
                 else:
                     final_status = "FAILED"
                     final_msg = "Output generation failed."
-                    with SessionLocal() as db:
-                        document_rec_fail = db.query(Document).filter_by(id=job_id).first()
-                        if document_rec_fail:
-                            document_rec_fail.status = "FAILED"
-                            document_rec_fail.error_message = "Output file generation failed or path missing."
-                            db.commit()
+                    if sb:
+                        sb.table("documents").update({
+                            "status": "FAILED",
+                            "error_message": "Output file generation failed or path missing."
+                        }).eq("id", job_id).execute()
                 
-                with SessionLocal() as db:
-                    self._update_status(db, job_id, "PERSISTENCE", "COMPLETED", final_msg, progress=100)
+                self._update_status(job_id, "PERSISTENCE", "COMPLETED", final_msg, progress=100)
                 
                 if final_status == "COMPLETED":
                     response["status"] = "success"
@@ -473,13 +485,12 @@ class PipelineOrchestrator:
             # This prevents noisy stack traces in Starlette/Uvicorn logs.
             print(f"Graceful Shutdown: Task {job_id} was cancelled by server reload/shutdown.")
             try:
-                with SessionLocal() as cleanup_db:
-                    self._update_status(cleanup_db, job_id, "SYSTEM", "FAILED", "Interrupted by server shutdown", progress=0)
-                    cleanup_doc = cleanup_db.query(Document).filter_by(id=job_id).first()
-                    if cleanup_doc:
-                        cleanup_doc.status = "FAILED"
-                        cleanup_doc.error_message = "Interrupted by server shutdown"
-                        cleanup_db.commit()
+                self._update_status(job_id, "SYSTEM", "FAILED", "Interrupted by server shutdown", progress=0)
+                if sb:
+                    sb.table("documents").update({
+                        "status": "FAILED",
+                        "error_message": "Interrupted by server shutdown"
+                    }).eq("id", job_id).execute()
             except:
                 pass # Already shutting down, avoid secondary errors
             return {"status": "cancelled", "message": "Interrupted by server shutdown"}
@@ -488,27 +499,26 @@ class PipelineOrchestrator:
             error_msg = str(e)
             print(f"Pipeline Error: {error_msg}")
             
-            with SessionLocal() as db:
-                # Fallback: If we have an output path, we can downgrade to WARNING
-                if output_path and os.path.exists(output_path):
-                     print(f"Pipeline Validation Error (Non-Fatal): {error_msg}")
-                     self._update_status(db, job_id, "PERSISTENCE", "COMPLETED", "Completed with validation warnings.", progress=100)
-                     document_rec_fail = db.query(Document).filter_by(id=job_id).first()
-                     if document_rec_fail:
-                         document_rec_fail.status = "COMPLETED_WITH_WARNINGS"
-                         document_rec_fail.error_message = f"Validation Warning: {error_msg}"
-                         document_rec_fail.output_path = output_path
-                         db.commit()
-                     response["status"] = "success"
-                else:
-                    self._update_status(db, job_id, "PERSISTENCE", "FAILED", error_msg, progress=0)
-                    document_rec_fail = db.query(Document).filter_by(id=job_id).first()
-                    if document_rec_fail:
-                        document_rec_fail.status = "FAILED"
-                        document_rec_fail.error_message = error_msg
-                        db.commit()
-                    response["status"] = "error"
-                    response["message"] = f"Pipeline failed: {error_msg}"
+            # Fallback: If we have an output path, we can downgrade to WARNING
+            if output_path and os.path.exists(output_path):
+                print(f"Pipeline Validation Error (Non-Fatal): {error_msg}")
+                self._update_status(job_id, "PERSISTENCE", "COMPLETED", "Completed with validation warnings.", progress=100)
+                if sb:
+                    sb.table("documents").update({
+                        "status": "COMPLETED_WITH_WARNINGS",
+                        "error_message": f"Validation Warning: {error_msg}",
+                        "output_path": output_path
+                    }).eq("id", job_id).execute()
+                response["status"] = "success"
+            else:
+                self._update_status(job_id, "PERSISTENCE", "FAILED", error_msg, progress=0)
+                if sb:
+                    sb.table("documents").update({
+                        "status": "FAILED",
+                        "error_message": error_msg
+                    }).eq("id", job_id).execute()
+                response["status"] = "error"
+                response["message"] = f"Pipeline failed: {error_msg}"
                 
             print(f"Pipeline Error Traceback: {traceback.format_exc()}")
             
@@ -524,17 +534,23 @@ class PipelineOrchestrator:
         Re-run only validation and formatting on edited data.
         Non-destructive pass that creates a new DocumentResult.
         """
+        # 🛡️ SAFETY: Ensure job_id is string (not UUID object)
+        job_id = str(job_id)
+
         try:
-            # 1. Fetch original record in atomic session
-            with SessionLocal() as db:
-                doc_rec = db.query(Document).filter_by(id=job_id).first()
-                if not doc_rec:
-                    raise Exception("Original document not found")
-                filename = doc_rec.filename
-                source_output_path = doc_rec.output_path
+            sb = get_supabase_client()
+            if not sb:
+                raise Exception("Supabase client unavailable for edit flow.")
+
+            # 1. Fetch original record
+            doc_query = sb.table("documents").select("filename, output_path").eq("id", job_id).execute()
+            if not doc_query.data:
+                raise Exception("Original document not found")
+            
+            filename = doc_query.data[0]["filename"]
+            source_output_path = doc_query.data[0]["output_path"]
 
             # 2. Reconstruct doc_obj from structured_data
-            # We create a PipelineDocument from the edited sections
             pipeline_doc = PipelineDocument(document_id=job_id)
             sections = edited_structured_data.get("sections", {})
             idx = 0
@@ -550,19 +566,16 @@ class PipelineOrchestrator:
                     idx += 1
             
             # 3. Re-run Validation
-            with SessionLocal() as db:
-                doc_rec = db.query(Document).filter_by(id=job_id).first()
-                if not doc_rec:
-                    raise Exception("Original document not found")
-                self._update_status(db, job_id, "VALIDATION", "IN_PROGRESS", "Re-validating edits...", progress=30)
+            self._update_status(job_id, "VALIDATION", "IN_PROGRESS", "Re-validating edits...", progress=30)
+            
+            from app.pipeline.validation.validator import validate_document
             val_result = validate_document(pipeline_doc)
             validation_results = val_result.model_dump() if hasattr(val_result, 'model_dump') else val_result.dict() if hasattr(val_result, 'dict') else {}
             
             # 4. Re-run Formatting
-            with SessionLocal() as db:
-                self._update_status(db, job_id, "VALIDATION", "IN_PROGRESS", "Applying styles to edited content...", progress=60)
-            formatter = Formatter(templates_dir=self.templates_dir)
-            formatted_doc = formatter.format(pipeline_doc, template_name)
+            self._update_status(job_id, "VALIDATION", "IN_PROGRESS", "Applying styles to edited content...", progress=60)
+            formatter = Formatter(templates_dir=self.templates_dir, contracts_dir=self.contracts_dir)
+            formatted_doc = formatter.process(pipeline_doc)
             
             output_path = None
             if formatted_doc:
@@ -572,72 +585,69 @@ class PipelineOrchestrator:
                 out_name = f"{os.path.splitext(filename)[0]}_edited.docx"
                 output_path_rel = os.path.join(out_dir, out_name)
                 output_path = os.path.abspath(output_path_rel)
-                exporter.export(formatted_doc, output_path)
+                
+                pipeline_doc.output_path = output_path
+                exporter.process(pipeline_doc)
             
             # 5. Save current DocumentResult as a version BEFORE overwriting
-            with SessionLocal() as db:
-                existing_result = db.query(DocumentResult).filter_by(document_id=job_id).first()
-                doc_rec = db.query(Document).filter_by(id=job_id).first()
+            existing_result = sb.table("document_results").select("*").eq("document_id", job_id).execute()
+            
+            if existing_result.data:
+                # Get latest version number
+                versions = sb.table("document_versions").select("version_number").eq("document_id", job_id).order("version_number", desc=True).limit(1).execute()
                 
-                if existing_result:
-                    # Get latest version number to increment
-                    latest_version = db.query(DocumentVersion).filter_by(
-                        document_id=job_id
-                    ).order_by(DocumentVersion.version_number.desc()).first()
-                    
-                    if latest_version:
-                        try:
-                            last_num = int(latest_version.version_number.replace('v', ''))
-                            next_version_num = f"v{last_num + 1}"
-                        except:
-                            next_version_num = f"v_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
-                    else:
-                        next_version_num = "v1"
-                    
-                    version_record = DocumentVersion(
-                        document_id=job_id,
-                        version_number=next_version_num,
-                        edited_structured_data=existing_result.structured_data,
-                        output_path=source_output_path
-                    )
-                    db.add(version_record)
-                    
-                    existing_result.structured_data = edited_structured_data
-                    existing_result.validation_results = validation_results
-                    db.add(existing_result)
+                if versions.data:
+                    try:
+                        last_num = int(versions.data[0]["version_number"].replace('v', ''))
+                        next_version_num = f"v{last_num + 1}"
+                    except:
+                        next_version_num = f"v_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
                 else:
-                    explainer = AIExplainer()
-                    ai_explanations = explainer.explain_results(validation_results, template_name)
-                    validation_results["ai_explanations"] = ai_explanations
-                    
-                    new_result = DocumentResult(
-                        document_id=job_id,
-                        structured_data=edited_structured_data,
-                        validation_results=validation_results
-                    )
-                    db.add(new_result)
+                    next_version_num = "v1"
                 
-                if doc_rec:
-                    doc_rec.output_path = output_path
-                    db.add(doc_rec)
+                version_record = {
+                    "document_id": job_id,
+                    "version_number": next_version_num,
+                    "edited_structured_data": existing_result.data[0]["structured_data"],
+                    "output_path": source_output_path,
+                    "created_at": "now()"
+                }
+                sb.table("document_versions").insert(version_record).execute()
                 
-                db.commit()
-                self._update_status(db, job_id, "PERSISTENCE", "COMPLETED", "Edit re-formatted successfully.", progress=100)
+                sb.table("document_results").update({
+                    "structured_data": edited_structured_data,
+                    "validation_results": validation_results,
+                    "updated_at": "now()"
+                }).eq("document_id", job_id).execute()
+            else:
+                explainer = AIExplainer()
+                ai_explanations = explainer.explain_results(validation_results, template_name)
+                validation_results["ai_explanations"] = ai_explanations
+                
+                sb.table("document_results").insert({
+                    "document_id": job_id,
+                    "structured_data": edited_structured_data,
+                    "validation_results": validation_results,
+                    "created_at": "now()"
+                }).execute()
+            
+            sb.table("documents").update({
+                "output_path": output_path,
+                "updated_at": "now()"
+            }).eq("id", job_id).execute()
+            
+            self._update_status(job_id, "PERSISTENCE", "COMPLETED", "Edit re-formatted successfully.", progress=100)
             
             return {"status": "success", "output_path": output_path}
         except asyncio.CancelledError:
-            # Graceful shutdown for edit flow
             print(f"Graceful Shutdown: Edit flow {job_id} was cancelled by server reload/shutdown.")
             try:
-                with SessionLocal() as cleanup_db:
-                    self._update_status(cleanup_db, job_id, "SYSTEM", "FAILED", "Edit interrupted by server shutdown", progress=0)
-                    cleanup_db.commit()
+                self._update_status(job_id, "SYSTEM", "FAILED", "Edit interrupted by server shutdown", progress=0)
             except:
                 pass
             return {"status": "cancelled", "message": "Edit interrupted by server shutdown"}
         except Exception as e:
             import traceback
             print(f"Edit flow error: {e}")
-            with SessionLocal() as db:
-                self._update_status(db, job_id, "PERSISTENCE", "FAILED", f"Edit pass failed: {str(e)}", progress=0)
+            self._update_status(job_id, "PERSISTENCE", "FAILED", f"Edit pass failed: {str(e)}", progress=0)
             return {"status": "error", "message": str(e)}

@@ -146,6 +146,74 @@ class InputConverter:
              
         return output_path
 
+    def convert_to_pdf(self, input_path: str, job_id: str) -> str:
+        """
+        Convert input file to PDF.
+        Crucial for enabling AI analysis (GROBID/Docling) on DOCX inputs.
+        
+        Args:
+            input_path: Path to source file
+            job_id: Unique job identifier
+            
+        Returns:
+            Path to the resulting .pdf file
+        """
+        input_path = os.path.abspath(input_path)
+        if not os.path.exists(input_path):
+            raise FileNotFoundError(f"Input file not found: {input_path}")
+            
+        job_dir = os.path.join(self.temp_dir, str(job_id))
+        os.makedirs(job_dir, exist_ok=True)
+        
+        # Predict Output Path
+        input_name = Path(input_path).stem
+        output_path = os.path.join(job_dir, "input.pdf")
+        
+        # If input is already PDF, just copy it
+        if input_path.lower().endswith(".pdf"):
+            shutil.copy2(input_path, output_path)
+            return output_path
+
+        # Use LibreOffice for high-fidelity conversion
+        self._run_libreoffice_to_pdf(input_path, job_dir)
+        
+        # LibreOffice output handling
+        # It usually outputs [filename].pdf in the output dir
+        lo_output = os.path.join(job_dir, f"{input_name}.pdf")
+        
+        if os.path.exists(lo_output):
+            if os.path.exists(output_path):
+                try:
+                    os.remove(output_path)
+                except:
+                    pass
+            os.rename(lo_output, output_path)
+            return output_path
+        else:
+            raise ConversionError(f"LibreOffice failed to generate PDF at {lo_output}")
+
+    def _run_libreoffice_to_pdf(self, input_path: str, output_dir: str):
+        """Convert to PDF using LibreOffice (headless)."""
+        soffice = self._get_libreoffice_cmd()
+        
+        if not soffice:
+            raise ConversionError("LibreOffice not installed or not in PATH")
+            
+        try:
+            # soffice --headless --convert-to pdf input.docx --outdir ...
+            cmd = [
+                soffice,
+                "--headless",
+                "--convert-to", "pdf",
+                input_path,
+                "--outdir", output_dir
+            ]
+            subprocess.run(cmd, check=True, capture_output=True, timeout=180)
+        except subprocess.TimeoutExpired:
+            raise ConversionError("LibreOffice PDF conversion timed out after 180 seconds")
+        except subprocess.CalledProcessError as exc:
+            raise ConversionError(f"LibreOffice PDF conversion failed: {exc.stderr.decode() if exc.stderr else str(exc)}")
+
     def _run_pandoc(self, input_path: str, output_path: str):
         """
         Convert using Pandoc.
