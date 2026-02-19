@@ -158,35 +158,29 @@ class DoclingClient:
                 # 🚀 PERFORMANCE OPTIMIZATION: Check for Digital-Native PDF
                 # If the PDF has a dense text layer, we DISABLE OCR to save ~95% processing time.
                 do_ocr = True
-                try:
-                    import pypdf
-                    reader = pypdf.PdfReader(file_path)
-                    if len(reader.pages) > 0:
-                        page = reader.pages[0]
-                        text = page.extract_text()
-                        # Heuristic: If >50 chars of text found on first page, assume digital-native
-                        if text and len(text.strip()) > 50:
-                            logger.info(f"Digital-native PDF detected ({len(text)} chars on p1). Disabling OCR for speed.")
-                            do_ocr = False
-                except Exception as e:
-                    logger.warning(f"Failed to check text density: {e}. Defaulting to OCR=True")
+                # try:
+                #     import pypdf
+                #     reader = pypdf.PdfReader(file_path)
+                #     if len(reader.pages) > 0:
+                #         page = reader.pages[0]
+                #         text = page.extract_text()
+                #         # Heuristic: If >50 chars of text found on first page, assume digital-native
+                #         if text and len(text.strip()) > 50:
+                #             logger.info(f"Digital-native PDF detected ({len(text)} chars on p1). Disabling OCR for speed.")
+                #             do_ocr = False
+                # except Exception as e:
+                #     logger.warning(f"Failed to check text density: {e}. Defaulting to OCR=True")
 
                 # Configure pipeline options
                 # do_ocr=True/False based on density check
-                pipeline_options = PdfPipelineOptions(do_ocr=do_ocr)
+                # pipeline_options = PdfPipelineOptions(do_ocr=do_ocr)
                 
                 # If we MUST do OCR, prevent full page force to save some time
-                if do_ocr:
-                    pipeline_options.ocr_options.force_full_page_ocr = False
+                # if do_ocr:
+                #    pipeline_options.ocr_options.force_full_page_ocr = False
                 
-                # Configure accelerator if available (optional, keeping safe default)
-                # pipeline_options.accelerator_options.num_threads = 4 
-
-                doc_converter = DocumentConverter(
-                    format_options={
-                        InputFormat.PDF: pipeline_options
-                    }
-                )
+                # Use default options to prevent 'backend' attribute error in newer docling versions
+                doc_converter = DocumentConverter()
                 doc = doc_converter.convert(file_path).document
             
             except Exception as e:
@@ -241,9 +235,18 @@ class DoclingClient:
                          "cols": len(table.data.grid[0]) if table.data.grid else 0
                      })
             
+            # Safe handling of num_pages which can be a method or property depending on version
+            num_pages = 1
+            if hasattr(doc, 'num_pages'):
+                np = doc.num_pages
+                if callable(np):
+                    num_pages = np()
+                else:
+                    num_pages = np
+            
             result = {
                 "elements": elements,
-                "pages": doc.num_pages if hasattr(doc, 'num_pages') else 1
+                "pages": num_pages
             }
             
             logger.info(f"Docling analysis complete. Found {len(elements)} elements.")

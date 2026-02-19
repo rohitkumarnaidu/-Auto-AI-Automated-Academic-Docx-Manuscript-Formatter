@@ -203,9 +203,9 @@ class PipelineOrchestrator:
                 self._update_status(job_id, "EXTRACTION", "COMPLETED", "Text extracted successfully.", progress=20)
                 
                 # Phase 2.1: GROBID Metadata Extraction (Week 2)
-                # Extract metadata using GROBID before classification
                 # Phase 2: Parallel Extraction (Grobid + Docling)
-                # Run independent extraction tasks concurrently to save time
+                
+                # Only run AI extraction for PDF files directly
                 if file_ext == '.pdf':
                     self._update_status(job_id, "EXTRACTION", "IN_PROGRESS", "Extracting metadata and layout (Parallel)...", progress=22)
                     
@@ -215,11 +215,10 @@ class PipelineOrchestrator:
                             if self.grobid_client.is_available():
                                 try:
                                     print("🔬 Extracting metadata with GROBID...")
-                                    # Use correct method name: process_header_document
                                     return self.grobid_client.process_header_document(input_path)
                                 except Exception as e:
                                     print(f"⚠️ GROBID extraction failed: {e}")
-                            return {} # Return empty dict, not None
+                            return {}
 
                         def run_docling():
                             if self.docling_client.is_available():
@@ -228,7 +227,35 @@ class PipelineOrchestrator:
                                     return self.docling_client.analyze_layout(input_path)
                                 except Exception as e:
                                     print(f"⚠️ Docling analysis failed: {e}")
-                            return {} # Return empty dict, not None
+                            return {} 
+
+                        # Submit tasks
+                        future_grobid = executor.submit(run_grobid)
+                        future_docling = executor.submit(run_docling)
+                        
+                        # Get results (this blocks until both are done)
+                        grobid_metadata = future_grobid.result()
+                        layout_result = future_docling.result()
+
+                        # Process Grobid Result
+                        if grobid_metadata and isinstance(grobid_metadata, dict):
+                            if not hasattr(doc_obj, 'metadata') or doc_obj.metadata is None:
+                                from app.models import DocumentMetadata
+                                doc_obj.metadata = DocumentMetadata()
+                            doc_obj.metadata.ai_hints['grobid_metadata'] = grobid_metadata
+                            print(f"✅ GROBID extracted: Title='{grobid_metadata.get('title', 'N/A')}', Authors={len(grobid_metadata.get('authors', []))}")
+                        else:
+                             print(f"ℹ️ GROBID result unavailable (file_ext={file_ext})")
+
+                        # Process Docling Result
+                        if layout_result and isinstance(layout_result, dict):
+                            if not hasattr(doc_obj, 'metadata') or doc_obj.metadata is None:
+                                from app.models import DocumentMetadata
+                                doc_obj.metadata = DocumentMetadata()
+                            doc_obj.metadata.ai_hints['docling_layout'] = layout_result
+                            print(f"✅ Docling analyzed: {len(layout_result.get('elements', []))} elements found")
+                        else:
+                             print(f"ℹ️ Docling result unavailable (file_ext={file_ext})")
 
                         # Submit tasks
                         future_grobid = executor.submit(run_grobid)
