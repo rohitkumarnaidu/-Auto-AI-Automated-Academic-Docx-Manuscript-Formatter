@@ -132,7 +132,7 @@ export default function Landing() {
                                 <span className="material-symbols-outlined">lock</span>
                             </div>
                             <h4 className="text-xl font-bold text-slate-900 dark:text-white mb-3">IP Protection</h4>
-                            <p className="text-slate-600 dark:text-slate-400 leading-relaxed">Enterprise-grade encryption for your intellectual property. Your research stays private, and documents are deleted after processing.</p>
+                            <p className="text-slate-600 dark:text-slate-400 leading-relaxed">Enterprise-grade encryption for your intellectual property. Your research stays private and securely stored.</p>
                         </div>
                     </div>
                 </div>

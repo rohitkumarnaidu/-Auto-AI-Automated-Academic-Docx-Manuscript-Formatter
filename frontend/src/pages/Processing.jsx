@@ -113,7 +113,7 @@ export default function Processing() {
 
                 <p className="mt-8 text-slate-400 text-sm flex items-center gap-2">
                     <span className="material-symbols-outlined text-[18px]">verified_user</span>
-                    Your data is encrypted and will be deleted after processing.
+                    Your data is encrypted and stored securely.
                 </p>
             </main>
 
