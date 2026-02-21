@@ -84,6 +84,33 @@ class ABTestingFramework:
             # Store test result
             self.test_results.append(results)
             logger.info("ABTesting: test complete. Total tests: %d", len(self.test_results))
+            
+            # Fire-and-forget Supabase persistence
+            import threading
+            
+            def _persist():
+                try:
+                    from app.db.supabase_client import get_supabase_client
+                    sb = get_supabase_client()
+                    if not sb:
+                        return
+                    
+                    cmp = results.get("comparison", {})
+                    nvidia_res = results.get("nvidia") or {}
+                    deepseek_res = results.get("deepseek") or {}
+                    
+                    sb.table("ab_test_results").insert({
+                        "nvidia_latency": nvidia_res.get("latency"),
+                        "deepseek_latency": deepseek_res.get("latency"),
+                        "nvidia_success": nvidia_res.get("success", False),
+                        "deepseek_success": deepseek_res.get("success", False),
+                        "latency_winner": cmp.get("latency_winner"),
+                        "both_succeeded": cmp.get("both_succeeded", False)
+                    }).execute()
+                except Exception as exc:
+                    logger.warning("Failed to persist A/B test results to Supabase: %s", exc)
+            
+            threading.Thread(target=_persist, daemon=True).start()
 
         except Exception as exc:
             logger.error("ABTesting.run_ab_test failed: %s", exc, exc_info=True)

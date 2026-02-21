@@ -12,8 +12,14 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
+try:
+    from docxtpl import DocxTemplate
+    _DOCXTPL_AVAILABLE = True
+except ImportError:
+    DocxTemplate = None  # type: ignore[assignment,misc]
+    _DOCXTPL_AVAILABLE = False
+
 from docx import Document as WordDocument
-from docxtpl import DocxTemplate
 
 from app.models import Block, PipelineDocument as Document
 
@@ -26,8 +32,12 @@ class TemplateRenderer:
     def __init__(self, templates_dir: str = "app/templates"):
         self.templates_dir = Path(templates_dir)
 
-    def render(self, document: Document, template_name: str = "ieee") -> DocxTemplate:
+    def render(self, document: Document, template_name: str = "ieee") -> "DocxTemplate":
         """Render a template using document context."""
+        if not _DOCXTPL_AVAILABLE:
+            raise ImportError(
+                "docxtpl is not installed. Run: pip install 'docxtpl>=1.0.0'"
+            )
         if not document:
             raise ValueError("document must not be None")
         template_name = (template_name or "ieee").strip() or "ieee"

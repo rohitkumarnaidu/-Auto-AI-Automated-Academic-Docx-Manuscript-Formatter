@@ -32,7 +32,18 @@ class ParserFactory:
         except Exception as e:
             print(f"Warning: DocxParser initialization failed: {e}")
         
-        # PDF parser (requires PyMuPDF)
+        # Nougat PDF parser — PRIMARY for academic PDFs (Meta AI neural model)
+        # Must be registered BEFORE PdfParser so it takes priority for .pdf files
+        try:
+            from app.pipeline.parsing.nougat_parser import NougatParser
+            self.parsers.append(NougatParser())
+            print("Info: NougatParser (Meta AI) registered as primary PDF parser.")
+        except ImportError:
+            print("Info: Nougat not available (install with: pip install nougat-ocr). Using PyMuPDF for PDFs.")
+        except Exception as e:
+            print(f"Warning: NougatParser initialization failed: {e}. Falling back to PyMuPDF.")
+        
+        # PDF parser — FALLBACK (requires PyMuPDF)
         try:
             self.parsers.append(PdfParser())
         except ImportError:

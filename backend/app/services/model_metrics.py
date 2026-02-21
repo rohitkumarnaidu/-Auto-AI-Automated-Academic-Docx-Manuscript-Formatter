@@ -89,6 +89,32 @@ class ModelMetrics:
                 "score": quality_score,
                 "timestamp": datetime.utcnow().isoformat()
             })
+            
+        self._persist_metric(model, latency, success, quality_score)
+        
+    def _persist_metric(self, model: str, latency: float, success: bool, quality_score: Optional[float]):
+        """Persist to Supabase in a background thread to prevent pipeline crashes."""
+        import threading
+        
+        def _task():
+            try:
+                from app.db.supabase_client import get_supabase_client
+                import logging
+                sb = get_supabase_client()
+                if not sb:
+                    return
+                # latency_ms as requested
+                sb.table("model_metrics").insert({
+                    "model_name": model,
+                    "latency_ms": latency * 1000.0,
+                    "success": success,
+                    "quality_score": quality_score
+                }).execute()
+            except Exception as exc:
+                import logging
+                logging.getLogger(__name__).warning("Failed to persist model metric to Supabase: %s", exc)
+                
+        threading.Thread(target=_task, daemon=True).start()
     
     def record_fallback(self, from_model: str, to_model: str, reason: str):
         """Record a fallback event."""

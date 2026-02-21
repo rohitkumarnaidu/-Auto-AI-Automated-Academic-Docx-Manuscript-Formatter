@@ -30,9 +30,10 @@ class TestReasoningEngine:
         """Test Ollama server health check when server is available."""
         with patch('requests.get') as mock_get:
             mock_get.return_value.status_code = 200
-            engine = ReasoningEngine()
-            assert engine.ollama_available == True
-            assert engine.llm is not None
+            with patch('app.pipeline.intelligence.reasoning_engine.ChatOllama'):
+                engine = ReasoningEngine()
+                assert engine.ollama_available == True
+                assert engine.llm is not None
     
     @pytest.mark.llm
     def test_ollama_health_check_failure(self):

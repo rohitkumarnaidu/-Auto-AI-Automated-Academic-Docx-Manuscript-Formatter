@@ -39,32 +39,24 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # Check if this is an upload request (stricter limit)
         is_upload = request.url.path == "/api/documents/upload" and request.method == "POST"
         
-        # Determine client identifier: User ID (if auth) > IP
+        # BUG 3 FIX: Use only IP address as the key to prevent JWT-rotation bypass
         client_id = client_ip
-        try:
-            # Attempt to extract user_id from JWT in Auth header
-            auth_header = request.headers.get("Authorization")
-            if auth_header and auth_header.startswith("Bearer "):
-                from app.utils.auth import decode_jwt # Assuming this utility exists or similar
-                # For now, simplistic stable token hash or just rely on IP if decoding is complex here
-                # Better: Allow the auth middleware to run first, but this is a middleware.
-                # Simplest robust approach: Use Authorization header value as key if present
-                client_id = auth_header
-        except Exception:
-            pass # Fallback to IP
 
         if is_upload:
-            # Update limit to 10 per minute
-            self.uploads_per_minute = 10
+            # BUG 2 FIX: Removed self.uploads_per_minute = 10 line that overwrote init value
             
             # Clean up old upload requests (older than 1 minute)
-            self.upload_counts[client_id] = [
-                req_time for req_time in self.upload_counts[client_id]
-                if current_time - req_time < 60
-            ]
+            if client_id in self.upload_counts:
+                self.upload_counts[client_id] = [
+                    req_time for req_time in self.upload_counts[client_id]
+                    if current_time - req_time < 60
+                ]
+                # BUG 1 FIX: Delete empty lists to prevent memory leak
+                if not self.upload_counts[client_id]:
+                    del self.upload_counts[client_id]
             
             # Check upload rate limit
-            if len(self.upload_counts[client_id]) >= self.uploads_per_minute:
+            if client_id in self.upload_counts and len(self.upload_counts[client_id]) >= self.uploads_per_minute:
                 return JSONResponse(
                     status_code=429,
                     content={
@@ -78,13 +70,17 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             self.upload_counts[client_id].append(current_time)
         
         # Clean up old requests (older than 1 minute)
-        self.request_counts[client_ip] = [
-            req_time for req_time in self.request_counts[client_ip]
-            if current_time - req_time < 60
-        ]
+        if client_ip in self.request_counts:
+            self.request_counts[client_ip] = [
+                req_time for req_time in self.request_counts[client_ip]
+                if current_time - req_time < 60
+            ]
+            # BUG 1 FIX: Delete empty lists to prevent memory leak
+            if not self.request_counts[client_ip]:
+                del self.request_counts[client_ip]
         
         # Check general rate limit (60 per minute)
-        if len(self.request_counts[client_ip]) >= self.requests_per_minute:
+        if client_ip in self.request_counts and len(self.request_counts[client_ip]) >= self.requests_per_minute:
             return JSONResponse(
                 status_code=429,
                 content={

@@ -1,13 +1,10 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+﻿const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const SUPPORTED_EXPORT_FORMATS = ['docx', 'pdf', 'json'];
 const RETRYABLE_STATUS_CODES = [408, 429, 500, 502, 503, 504];
 const DEFAULT_MAX_RETRIES = 2;
 const BASE_RETRY_DELAY_MS = 500;
 const DEFAULT_DEBOUNCE_MS = 250;
 const DEBOUNCED_REQUESTS = new Map();
-const CSRF_HEADER_NAME = 'X-CSRF-Token';
-const CSRF_STORAGE_KEY = 'scholarform_csrf_token';
-const CSRF_COOKIE_NAMES = ['csrftoken', 'csrf_token', 'XSRF-TOKEN'];
 const SENSITIVE_INPUT_KEYS = /(password|otp|token|secret)/i;
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -17,44 +14,8 @@ const normalizeExportFormat = (format = 'docx') => {
     return SUPPORTED_EXPORT_FORMATS.includes(normalized) ? normalized : 'docx';
 };
 
-const getCookieValue = (name) => {
-    if (typeof document === 'undefined') {
-        return '';
-    }
 
-    const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const match = document.cookie.match(new RegExp(`(?:^|; )${escapedName}=([^;]*)`));
-    return match ? decodeURIComponent(match[1]) : '';
-};
 
-const createRandomToken = () => {
-    if (typeof window !== 'undefined' && window.crypto?.getRandomValues) {
-        const values = new Uint8Array(16);
-        window.crypto.getRandomValues(values);
-        return Array.from(values, (value) => value.toString(16).padStart(2, '0')).join('');
-    }
-    return `${Date.now().toString(16)}${Math.random().toString(16).slice(2)}`;
-};
-
-const getCSRFToken = () => {
-    for (const cookieName of CSRF_COOKIE_NAMES) {
-        const cookieToken = getCookieValue(cookieName);
-        if (cookieToken) {
-            return cookieToken;
-        }
-    }
-
-    if (typeof window === 'undefined') {
-        return '';
-    }
-
-    let token = window.sessionStorage.getItem(CSRF_STORAGE_KEY);
-    if (!token) {
-        token = createRandomToken();
-        window.sessionStorage.setItem(CSRF_STORAGE_KEY, token);
-    }
-    return token;
-};
 
 const sanitizeText = (value) => (
     String(value)
@@ -216,11 +177,6 @@ const fetchWithRetry = async (url, options = {}, retryConfig = {}) => {
 
 const getAuthorizedHeaders = async (initialHeaders = {}) => {
     const headers = { ...initialHeaders };
-    const csrfToken = getCSRFToken();
-
-    if (csrfToken && !headers[CSRF_HEADER_NAME]) {
-        headers[CSRF_HEADER_NAME] = csrfToken;
-    }
 
     try {
         const { supabase } = await import('../lib/supabaseClient');

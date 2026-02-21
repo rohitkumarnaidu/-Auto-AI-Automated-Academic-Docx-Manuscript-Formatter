@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+﻿import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Landing from './pages/Landing';
 import Upload from './pages/Upload';
 import Processing from './pages/Processing';
@@ -40,14 +40,14 @@ function App() {
                                     </ProtectedRoute>
                                 }
                             />
-                            <Route path="/upload" element={<Upload />} />
-                            <Route path="/processing" element={<Processing />} />
-                            <Route path="/results" element={<ValidationResults />} />
-                            <Route path="/download" element={<Download />} />
+                            <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
+                            <Route path="/processing" element={<ProtectedRoute><Processing /></ProtectedRoute>} />
+                            <Route path="/results" element={<ProtectedRoute><ValidationResults /></ProtectedRoute>} />
+                            <Route path="/download" element={<ProtectedRoute><Download /></ProtectedRoute>} />
                             <Route path="/error" element={<Error />} />
-                            <Route path="/compare" element={<Compare />} />
-                            <Route path="/preview" element={<Preview />} />
-                            <Route path="/edit" element={<Edit />} />
+                            <Route path="/compare" element={<ProtectedRoute><Compare /></ProtectedRoute>} />
+                            <Route path="/preview" element={<ProtectedRoute><Preview /></ProtectedRoute>} />
+                            <Route path="/edit" element={<ProtectedRoute><Edit /></ProtectedRoute>} />
                             <Route
                                 path="/history"
                                 element={

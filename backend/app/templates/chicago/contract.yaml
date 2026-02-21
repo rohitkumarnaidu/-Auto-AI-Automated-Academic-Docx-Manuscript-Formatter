@@ -1,0 +1,23 @@
+description: Chicago Manual of Style Template Contract
+styles:
+  # Structural
+  BLOCK_TITLE: "Title"
+  BLOCK_ABSTRACT_HEADING: "Abstract Heading"
+  BLOCK_ABSTRACT_BODY: "Abstract"
+
+  # Headings
+  BLOCK_HEADING_1: "Heading 1"
+  BLOCK_HEADING_2: "Heading 2"
+  BLOCK_HEADING_3: "Heading 3"
+  BLOCK_HEADING_4: "Heading 4"
+
+  # Content
+  BLOCK_BODY: "Normal"
+  BLOCK_LIST_ITEM: "List Bullet"
+
+  # References
+  BLOCK_REFERENCES_HEADING: "Heading 1"
+  BLOCK_REFERENCE_ENTRY: "Bibliography"
+
+  # Captions
+  BLOCK_CAPTION: "Caption"

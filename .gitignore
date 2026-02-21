@@ -66,6 +66,15 @@ htmlcov/
 # Local logs and test artifacts
 backend/logs/
 *.txt
+!requirements.txt
+!docs/*.md
+
+# Caches and DBs
+.mypy_cache/
+.tox/
+*.sqlite3
+.env.local
+.env.test
 !docs/*.md
 
 # Security reports

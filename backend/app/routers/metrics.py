@@ -4,7 +4,12 @@ Provides operational visibility into database connections, rate limiting, and sy
 """
 
 from fastapi import APIRouter, HTTPException
+from typing import Dict, Any
+
 from app.db.session import engine
+from app.services.model_metrics import get_model_metrics
+from app.services.ab_testing import get_ab_testing
+from app.db.supabase_client import get_supabase_client
 import logging
 
 router = APIRouter(prefix="/api/metrics", tags=["Metrics"])
@@ -113,3 +118,42 @@ async def health_check():
         health_status["status"] = "degraded"
     
     return health_status
+
+
+@router.get("/dashboard")
+async def get_metrics_dashboard() -> Dict[str, Any]:
+    """Get aggregated AI metrics and A/B testing results."""
+    # Local runtime metrics
+    model_metrics = get_model_metrics()
+    ab_testing = get_ab_testing()
+    
+    # Check Supabase connection
+    sb = get_supabase_client()
+    db_status = "connected" if sb is not None else "disconnected"
+    
+    db_ab_tests = 0
+    db_model_metrics = 0
+    
+    try:
+        if sb:
+            # Query the exact count of persisted rows
+            res_metrics = sb.table("model_metrics").select("id", count="exact").limit(1).execute()
+            db_model_metrics = res_metrics.count if res_metrics else 0
+            
+            res_ab = sb.table("ab_test_results").select("id", count="exact").limit(1).execute()
+            db_ab_tests = res_ab.count if res_ab else 0
+    except Exception as exc:
+        logger.warning("Failed to query metrics counts from Supabase: %s", exc)
+
+    return {
+        "status": "success",
+        "persistent_db_status": db_status,
+        "database_records": {
+            "model_metrics_count": db_model_metrics,
+            "ab_test_results_count": db_ab_tests
+        },
+        "live_metrics_summary": model_metrics.get_summary(),
+        "live_model_comparison": model_metrics.get_model_comparison(),
+        "live_ab_test_summary": ab_testing.get_test_summary()
+    }
+

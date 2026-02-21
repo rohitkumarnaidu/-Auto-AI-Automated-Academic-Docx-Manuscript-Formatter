@@ -200,6 +200,7 @@ class PipelineOrchestrator:
                         "original_file_path": input_path
                     }).eq("id", job_id).execute()
                     
+                    
                 self._update_status(job_id, "EXTRACTION", "COMPLETED", "Text extracted successfully.", progress=20)
                 
                 # Phase 2.1: GROBID Metadata Extraction (Week 2)
@@ -207,116 +208,65 @@ class PipelineOrchestrator:
                 
                 # Only run AI extraction for PDF files directly
                 if file_ext == '.pdf':
-                    self._update_status(job_id, "EXTRACTION", "IN_PROGRESS", "Extracting metadata and layout (Parallel)...", progress=22)
+                    # BUG-005 FIX: Skip if results already exist (e.g., from Agent V2)
+                    has_grobid = hasattr(doc_obj, 'metadata') and doc_obj.metadata and doc_obj.metadata.ai_hints.get('grobid_metadata')
+                    has_docling = hasattr(doc_obj, 'metadata') and doc_obj.metadata and doc_obj.metadata.ai_hints.get('docling_layout')
                     
-                    with ThreadPoolExecutor(max_workers=2) as executor:
-                        # Define wrapper functions for safe execution
-                        def run_grobid():
-                            if self.grobid_client.is_available():
-                                try:
-                                    print("🔬 Extracting metadata with GROBID...")
-                                    return self.grobid_client.process_header_document(input_path)
-                                except Exception as e:
-                                    print(f"⚠️ GROBID extraction failed: {e}")
-                            return {}
-
-                        def run_docling():
-                            if self.docling_client.is_available():
-                                try:
-                                    print("📐 Analyzing layout with Docling...")
-                                    return self.docling_client.analyze_layout(input_path)
-                                except Exception as e:
-                                    print(f"⚠️ Docling analysis failed: {e}")
-                            return {} 
-
-                        # Submit tasks
-                        future_grobid = executor.submit(run_grobid)
-                        future_docling = executor.submit(run_docling)
+                    if has_grobid and has_docling:
+                        print("✅ AI Extraction already completed (Agent V2). Skipping parallel pass.")
+                    else:
+                        self._update_status(job_id, "EXTRACTION", "IN_PROGRESS", "Extracting metadata and layout (Parallel)...", progress=22)
                         
-                        # Get results (this blocks until both are done)
-                        grobid_metadata = future_grobid.result()
-                        layout_result = future_docling.result()
+                        with ThreadPoolExecutor(max_workers=2) as executor:
+                            # Define wrapper functions for safe execution
+                            def run_grobid():
+                                if self.grobid_client.is_available():
+                                    try:
+                                        print("🔬 Extracting metadata with GROBID...")
+                                        return self.grobid_client.process_header_document(input_path)
+                                    except Exception as e:
+                                        print(f"⚠️ GROBID extraction failed: {e}")
+                                return {}
 
-                        # Process Grobid Result
-                        if grobid_metadata and isinstance(grobid_metadata, dict):
-                            if not hasattr(doc_obj, 'metadata') or doc_obj.metadata is None:
-                                from app.models import DocumentMetadata
-                                doc_obj.metadata = DocumentMetadata()
-                            doc_obj.metadata.ai_hints['grobid_metadata'] = grobid_metadata
-                            print(f"✅ GROBID extracted: Title='{grobid_metadata.get('title', 'N/A')}', Authors={len(grobid_metadata.get('authors', []))}")
-                        else:
-                             print(f"ℹ️ GROBID result unavailable (file_ext={file_ext})")
+                            def run_docling():
+                                if self.docling_client.is_available():
+                                    try:
+                                        print("📐 Analyzing layout with Docling...")
+                                        return self.docling_client.analyze_layout(input_path)
+                                    except Exception as e:
+                                        print(f"⚠️ Docling analysis failed: {e}")
+                                return {} 
 
-                        # Process Docling Result
-                        if layout_result and isinstance(layout_result, dict):
-                            if not hasattr(doc_obj, 'metadata') or doc_obj.metadata is None:
-                                from app.models import DocumentMetadata
-                                doc_obj.metadata = DocumentMetadata()
-                            doc_obj.metadata.ai_hints['docling_layout'] = layout_result
-                            print(f"✅ Docling analyzed: {len(layout_result.get('elements', []))} elements found")
-                        else:
-                             print(f"ℹ️ Docling result unavailable (file_ext={file_ext})")
+                            # Submit tasks
+                            future_grobid = executor.submit(run_grobid)
+                            future_docling = executor.submit(run_docling)
+                            
+                            # Get results (this blocks until both are done)
+                            grobid_metadata = future_grobid.result()
+                            layout_result = future_docling.result()
 
-                        # Submit tasks
-                        future_grobid = executor.submit(run_grobid)
-                        future_docling = executor.submit(run_docling)
-                        
-                        # Get results (this blocks until both are done)
-                        grobid_metadata = future_grobid.result()
-                        layout_result = future_docling.result()
+                            # Process Grobid Result
+                            if grobid_metadata and isinstance(grobid_metadata, dict):
+                                if not hasattr(doc_obj, 'metadata') or doc_obj.metadata is None:
+                                    from app.models import DocumentMetadata
+                                    doc_obj.metadata = DocumentMetadata()
+                                doc_obj.metadata.ai_hints['grobid_metadata'] = grobid_metadata
+                                print(f"✅ GROBID extracted: Title='{grobid_metadata.get('title', 'N/A')}', Authors={len(grobid_metadata.get('authors', []))}")
+                            else:
+                                 print(f"ℹ️ GROBID result unavailable (file_ext={file_ext})")
 
-                        # Process Grobid Result
-                        if grobid_metadata and isinstance(grobid_metadata, dict):
-                            if not hasattr(doc_obj, 'metadata') or doc_obj.metadata is None:
-                                from app.models import DocumentMetadata
-                                doc_obj.metadata = DocumentMetadata()
-                            doc_obj.metadata.ai_hints['grobid_metadata'] = grobid_metadata
-                            print(f"✅ GROBID extracted: Title='{grobid_metadata.get('title', 'N/A')}', Authors={len(grobid_metadata.get('authors', []))}")
-                        else:
-                             print(f"ℹ️ GROBID result unavailable (file_ext={file_ext})")
+                            # Process Docling Result
+                            if layout_result and isinstance(layout_result, dict):
+                                if not hasattr(doc_obj, 'metadata') or doc_obj.metadata is None:
+                                    from app.models import DocumentMetadata
+                                    doc_obj.metadata = DocumentMetadata()
+                                doc_obj.metadata.ai_hints['docling_layout'] = layout_result
+                                print(f"✅ Docling analyzed: {len(layout_result.get('elements', []))} elements found")
+                            else:
+                                 print(f"ℹ️ Docling result unavailable (file_ext={file_ext})")
 
-                        # Process Docling Result
-                        if layout_result and isinstance(layout_result, dict):
-                            if not hasattr(doc_obj, 'metadata') or doc_obj.metadata is None:
-                                from app.models import DocumentMetadata
-                                doc_obj.metadata = DocumentMetadata()
-                            doc_obj.metadata.ai_hints['docling_layout'] = layout_result
-                            print(f"✅ Docling analyzed: {len(layout_result.get('elements', []))} elements found")
-                        else:
-                             print(f"ℹ️ Docling result unavailable (file_ext={file_ext})")
-                
                 # Phase 2.5: Equation Standardization
                 self._update_status(job_id, "EXTRACTION", "IN_PROGRESS", "Standardizing equations...", progress=25)
-                
-                standardizer = get_equation_standardizer()
-                doc_obj = standardizer.process(doc_obj)
-                
-                # Phase 3: NLP Structural Analysis
-                self._update_status(job_id, "NLP_ANALYSIS", "IN_PROGRESS", progress=30)
-                
-                normalizer = TextNormalizer()
-                self._check_stage_interface(normalizer, "process", "TextNormalizer")
-                doc_obj = normalizer.process(doc_obj)
-                
-                # Layer 2: NLP Foundation (Semantic Parser)
-                # PHASE 2: AI Intelligence Stack (SciBERT Semantic Analysis)
-                # NOTE: This runs BEFORE structure detection to provide semantic hints
-                semantic_parser = get_semantic_parser()
-                semantic_blocks = []
-                try:
-                    # Use getattr for maximum safety against interface drift
-                    if hasattr(semantic_parser, "detect_boundaries"):
-                        doc_obj.blocks = semantic_parser.detect_boundaries(doc_obj.blocks)
-                    
-                    if hasattr(semantic_parser, "reconcile_fragmented_headings"):
-                        doc_obj.blocks = semantic_parser.reconcile_fragmented_headings(doc_obj.blocks)
-                except Exception as e:
-                    print(f"AI ERROR (Layer 2 - Preprocessing): {e}. Continuing with structure detection.")
-
-                # Back to deterministic processing
-                detector = StructureDetector(contracts_dir=self.contracts_dir)
-                self._check_stage_interface(detector, "process", "StructureDetector")
-                doc_obj = detector.process(doc_obj)
                 
                 # CRITICAL: SemanticParser NLP predictions MUST run AFTER structure detection
                 # and BEFORE classification to populate metadata["nlp_confidence"]
@@ -358,6 +308,35 @@ class PipelineOrchestrator:
                 
                 # Phase 4: AI Validation & Formatting
                 self._update_status(job_id, "VALIDATION", "IN_PROGRESS", progress=60)
+                
+                # ------ CROSSREF VALIDATION (NEW) ------
+                with safe_execution("CrossRef Citation Validation"):
+                    try:
+                        from app.services.crossref_client import get_crossref_client
+                        crossref = get_crossref_client()
+                        if hasattr(doc_obj, "references") and doc_obj.references:
+                            print(f"🔬 Validating {len(doc_obj.references)} references against CrossRef...")
+                            with ThreadPoolExecutor(max_workers=4) as cr_exec:
+                                def validate_ref(ref):
+                                    raw = getattr(ref, "raw_text", getattr(ref, "text", None))
+                                    if raw:
+                                        res = crossref.validate_citation(raw)
+                                        if res:
+                                            # Support both dict and Pydantic models blindly
+                                            if not hasattr(ref, "metadata") or ref.metadata is None:
+                                                ref.metadata = {}
+                                            if isinstance(ref.metadata, dict):
+                                                ref.metadata["crossref_validation"] = res
+                                            elif hasattr(ref.metadata, "__setitem__"):
+                                                ref.metadata["crossref_validation"] = res
+                                            else:
+                                                setattr(ref.metadata, "crossref_validation", res)
+                                
+                                list(cr_exec.map(validate_ref, doc_obj.references))
+                    except Exception as e:
+                        print(f"⚠️ CrossRef validation skipped (Non-Fatal): {e}")
+                # ----------------------------------------
+                
                 self._update_status(job_id, "VALIDATION", "IN_PROGRESS", "Applying styles and templates...", progress=70)
                 
                 # Layer 1 & 3: RAG + DeepSeek Reasoning

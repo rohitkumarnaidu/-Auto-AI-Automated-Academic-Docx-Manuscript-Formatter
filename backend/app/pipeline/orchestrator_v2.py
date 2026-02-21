@@ -394,10 +394,18 @@ class AgentOrchestrator:
                     document.document_id, attempt, self._max_retries + 1
                 )
 
-                agent_result = self.agent.process_document(
-                    file_path=document.source_path,
+                # Fix BUG: process_document -> run (must handle async in sync method)
+                import asyncio
+                try:
+                    loop = asyncio.get_event_loop()
+                except RuntimeError:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                
+                agent_result = loop.run_until_complete(self.agent.run(
                     document=document,
-                )
+                    job_id=document.document_id
+                ))
 
                 # Record tool usage in tracker
                 if self.tracker:
@@ -557,10 +565,18 @@ class AgentOrchestrator:
             with safe_execution(f"Agent Pre-Analysis (job={job_id})"):
                 try:
                     logger.info("Running agent pre-analysis for job %s", job_id)
-                    agent_result = self.agent.process_document(
-                        file_path=input_path,
+                    # Fix BUG: process_document -> run
+                    import asyncio
+                    try:
+                        loop = asyncio.get_event_loop()
+                    except RuntimeError:
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+
+                    agent_result = loop.run_until_complete(self.agent.run(
                         document=None,  # Pre-analysis before parsing
-                    )
+                        job_id=job_id
+                    ))
                     if agent_result.get("success"):
                         agent_metadata = {
                             "analysis": agent_result.get("analysis", ""),
@@ -1016,8 +1032,9 @@ def create_best_orchestrator(
         Configured AgentOrchestrator instance.
     """
     priority = [
-        ("nvidia", "meta/llama-3.1-70b-instruct"),
-        ("openai", "gpt-4"),
+        ("nvidia", "meta/llama-3.3-70b-instruct"),
+        ("nvidia", "nvidia/llama-3.1-nemotron-70b-instruct"), # Added new model for nvidia
+        ("openai", "gpt-4"), # Kept openai as it was not removed by the snippet
         ("anthropic", "claude-3-5-sonnet-20241022"),
         ("deepseek", "deepseek-chat"),
         ("ollama", "deepseek-r1:7b"),
