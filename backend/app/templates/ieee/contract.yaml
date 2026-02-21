@@ -21,3 +21,29 @@ styles:
   
   # Captions
   BLOCK_CAPTION: "Figure Caption"
+
+layout:
+  default_columns: 2
+  margins:
+    top: 0.75
+    bottom: 0.75
+    left: 0.625
+    right: 0.625
+  section_overrides:
+    abstract: 1
+    references: 1
+    title: 1
+    acknowledgment: 1
+  spacing:
+    heading:
+      before: 12
+      after: 6
+    paragraph:
+      before: 0
+      after: 6
+    figure:
+      before: 6
+      after: 6
+    references:
+      before: 12
+      after: 3

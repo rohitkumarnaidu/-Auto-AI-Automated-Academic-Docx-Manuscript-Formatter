@@ -2,6 +2,7 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 
 import { useAuth } from './AuthContext';
 import { getDocuments } from '../services/api';
+import { isCompleted, isFailed, isProcessing } from '../constants/status';
 
 const DocumentContext = createContext();
 
@@ -53,7 +54,17 @@ export const DocumentProvider = ({ children }) => {
         if (savedJob) {
             try {
                 const parsedJob = JSON.parse(savedJob);
-                setJob(parsedJob);
+                const normalizedStatus = parsedJob?.status;
+                setJob({
+                    ...parsedJob,
+                    status: isCompleted(normalizedStatus)
+                        ? 'completed'
+                        : isFailed(normalizedStatus)
+                            ? 'failed'
+                            : isProcessing(normalizedStatus)
+                                ? 'processing'
+                                : normalizedStatus,
+                });
             } catch (e) {
                 console.error("Failed to hydrate job:", e);
                 sessionStorage.removeItem('scholarform_currentJob');

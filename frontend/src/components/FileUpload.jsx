@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 
-const ALLOWED_UPLOAD_EXTENSIONS = ['.docx', '.pdf', '.tex'];
+const ACCEPTED_FORMATS = '.docx,.pdf,.tex,.txt,.html,.htm,.md,.markdown,.doc';
+const ACCEPTED_EXTENSIONS = ['.docx', '.pdf', '.tex', '.txt', '.html', '.htm', '.md', '.markdown', '.doc'];
 const MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024;
 
 const isAllowedUploadFile = (selectedFile) => {
@@ -13,7 +14,7 @@ const isAllowedUploadFile = (selectedFile) => {
         .toLowerCase();
 
     return (
-        ALLOWED_UPLOAD_EXTENSIONS.includes(fileExtension) &&
+        ACCEPTED_EXTENSIONS.includes(fileExtension) &&
         selectedFile.size > 0 &&
         selectedFile.size <= MAX_UPLOAD_SIZE_BYTES
     );
@@ -28,7 +29,7 @@ export default function FileUpload({ onFileSelect }) {
 
     const validateAndSelect = (file) => {
         if (!isAllowedUploadFile(file)) {
-            setValidationError('Invalid file. Only .docx, .pdf, or .tex up to 50MB are allowed.');
+            setValidationError('Unsupported file format. Please upload: DOCX, PDF, TEX, TXT, HTML, MD, or DOC.');
             return;
         }
 
@@ -80,7 +81,7 @@ export default function FileUpload({ onFileSelect }) {
                 type="file"
                 className="hidden"
                 onChange={handleChange}
-                accept=".docx,.pdf,.tex"
+                accept={ACCEPTED_FORMATS}
             />
             <div className="flex flex-col items-center gap-4">
                 <div className={`w-16 h-16 rounded-full flex items-center justify-center text-primary ${fileName ? 'bg-green-100 text-green-600' : 'bg-primary/10'}`}>
@@ -92,7 +93,7 @@ export default function FileUpload({ onFileSelect }) {
                     <p className="text-slate-900 dark:text-white text-lg font-bold">
                         {fileName ? fileName : 'Drag and drop your manuscript here'}
                     </p>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Supported formats: DOCX, PDF, TEX (Max 50MB)</p>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Supported formats: DOCX, PDF, TEX, TXT, HTML/HTM, MD/MARKDOWN, DOC (Max 50MB)</p>
                     {validationError ? (
                         <p className="text-red-600 text-xs mt-2">{validationError}</p>
                     ) : null}

@@ -6,6 +6,7 @@ import ExportDialog from '../components/ExportDialog';
 import { useDocument } from '../context/DocumentContext';
 import { useAuth } from '../context/AuthContext';
 import { downloadExport } from '../services/api';
+import { isCompleted, isFailed, isProcessing } from '../constants/status';
 
 export default function Download() {
     const navigate = useNavigate();
@@ -25,8 +26,11 @@ export default function Download() {
         );
     }
 
+    const normalizedJobStatus = job.status?.toUpperCase();
+    const processingState = isProcessing(job.status) || ['RUNNING', 'IN_PROGRESS'].includes(normalizedJobStatus);
+
     // GATING: Processing State
-    if (job.status === 'processing' || job.status === 'RUNNING' || job.status === 'IN_PROGRESS') {
+    if (processingState) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-background-light dark:bg-background-dark">
                 <div className="flex flex-col items-center gap-4">
@@ -40,7 +44,7 @@ export default function Download() {
     }
 
     // GATING: Failed State
-    if (job.status === 'failed' || job.status === 'FAILED') {
+    if (isFailed(job.status)) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-background-light dark:bg-background-dark">
                 <div className="p-8 max-w-md text-center">
@@ -50,6 +54,22 @@ export default function Download() {
                     <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Formatting Failed</h2>
                     <p className="text-slate-500 mb-6">{job.error || "An unexpected error occurred during processing."}</p>
                     <button onClick={() => navigate('/upload')} className="bg-primary text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 transition-colors">Try Again</button>
+                </div>
+            </div>
+        );
+    }
+
+    if (!isCompleted(job.status)) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center bg-background-light dark:bg-background-dark">
+                <div className="p-8 max-w-md text-center">
+                    <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Document Not Ready</h2>
+                    <p className="text-slate-500 mb-6">
+                        This manuscript is still being prepared. Return to Upload to continue.
+                    </p>
+                    <button onClick={() => navigate('/upload')} className="bg-primary text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 transition-colors">
+                        Return to Upload
+                    </button>
                 </div>
             </div>
         );

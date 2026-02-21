@@ -11,7 +11,8 @@ from app.db.supabase_client import get_supabase_client
 from app.models import (
     Block, 
     BlockType,
-    TemplateInfo
+    TemplateInfo,
+    PipelineDocument,
 )
 from app.pipeline.parsing.parser_factory import ParserFactory
 from app.pipeline.normalization.normalizer import Normalizer as TextNormalizer
@@ -191,6 +192,21 @@ class PipelineOrchestrator:
                 
                 raw_text = "\n".join([b.text for b in doc_obj.blocks])
 
+                # FEAT 40: Nougat OCR fallback for scanned PDFs
+                if (not doc_obj.blocks or all(b.text.strip() == "" for b in doc_obj.blocks)) and file_ext == '.pdf':
+                    try:
+                        from app.pipeline.parsing.nougat_parser import NougatParser
+                        logger.info("Empty extraction for PDF — trying Nougat OCR fallback for job %s", job_id)
+                        nougat = NougatParser()
+                        nougat_doc = nougat.parse(input_path, job_id)
+                        if nougat_doc.blocks and any(b.text.strip() for b in nougat_doc.blocks):
+                            doc_obj = nougat_doc
+                            doc_obj.formatting_options = formatting_options
+                            raw_text = "\n".join([b.text for b in doc_obj.blocks])
+                            logger.info("Nougat OCR produced %d blocks for job %s", len(doc_obj.blocks), job_id)
+                    except Exception as nougat_exc:
+                        logger.warning("Nougat OCR fallback failed for job %s: %s", job_id, nougat_exc)
+
                 if template_name:
                     doc_obj.template = TemplateInfo(template_name=template_name)
                 
@@ -270,6 +286,7 @@ class PipelineOrchestrator:
                 
                 # CRITICAL: SemanticParser NLP predictions MUST run AFTER structure detection
                 # and BEFORE classification to populate metadata["nlp_confidence"]
+                semantic_parser = get_semantic_parser()
                 try:
                     semantic_blocks = semantic_parser.analyze_blocks(doc_obj.blocks)
                     
@@ -574,7 +591,7 @@ class PipelineOrchestrator:
             # 3. Re-run Validation
             self._update_status(job_id, "VALIDATION", "IN_PROGRESS", "Re-validating edits...", progress=30)
             
-            from app.pipeline.validation.validator import validate_document
+            from app.pipeline.validation import validate_document
             val_result = validate_document(pipeline_doc)
             validation_results = val_result.model_dump() if hasattr(val_result, 'model_dump') else val_result.dict() if hasattr(val_result, 'dict') else {}
             

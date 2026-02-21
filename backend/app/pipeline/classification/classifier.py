@@ -38,6 +38,21 @@ class ContentClassifier(PipelineStage):
         self.acknowledgements_keywords = ["acknowledgements", "acknowledgments", "funding", "conflicts of interest", "author contributions", "declaration of interest"]
         self.references_keywords = {"references", "bibliography", "works cited"}
         
+        # FEAT 49: Footnote and appendix detection patterns
+        self.footnote_patterns = [
+            r'^\d+\s',       # "1 Some footnote text"
+            r'^\[\d+\]',     # "[1] Footnote"
+            r'^†',           # Dagger footnote marker
+            r'^‡',           # Double dagger
+            r'^※',           # Reference mark
+            r'^\*\s',        # Asterisk footnote
+        ]
+        self.appendix_keywords = [
+            "appendix", "annex", "annexure",
+            "supplement", "supplementary",
+            "supporting information", "supporting material",
+        ]
+        
         # Heuristics for affiliation detection
         self.affiliation_indicators = {
             "university", "college", "department", "institute", "school", 
@@ -320,6 +335,13 @@ class ContentClassifier(PipelineStage):
                             block.block_type = BlockType.ACKNOWLEDGEMENTS
                             block.semantic_intent = "ACKNOWLEDGEMENTS"
                             current_section_type = "acknowledgements"
+                    # FEAT 49: Appendix detection
+                    elif any(k in section_name for k in self.appendix_keywords):
+                        block.block_type = BlockType.HEADING_1
+                        block.semantic_intent = "APPENDIX_HEADING"
+                        block.metadata["semantic_intent"] = "APPENDIX_HEADING"
+                        block.metadata["is_appendix"] = True
+                        current_section_type = "appendix"
                     else:
                         if level == 1:
                             block.block_type = BlockType.HEADING_1
@@ -570,6 +592,15 @@ class ContentClassifier(PipelineStage):
                 if not text:
                     continue
                 
+                # FEAT 49: Footnote pattern detection
+                is_footnote = any(re.match(pat, text) for pat in self.footnote_patterns)
+                if is_footnote:
+                    block.block_type = BlockType.FOOTNOTE
+                    block.semantic_intent = "FOOTNOTE"
+                    block.metadata["classification_method"] = "regex_footnote_pattern"
+                    block.metadata["confidence"] = 0.85
+                    continue
+
                 # NLP Simulation: Check for Equation-like content
                 if re.search(r'[=+\-]{2,}|\\sum|\\alpha', text):
                     # FORENSIC FIX: Enable BlockType.EQUATION support

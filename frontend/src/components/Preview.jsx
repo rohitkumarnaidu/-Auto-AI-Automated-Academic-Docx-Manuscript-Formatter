@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Navbar from './Navbar';
+import { isCompleted } from '../constants/status';
 
 function buildSectionChunks(structuredData) {
     if (!structuredData?.sections || typeof structuredData.sections !== 'object') {
@@ -182,7 +183,7 @@ export default function Preview({
 
                     <button
                         onClick={onDownload}
-                        disabled={job?.status !== 'COMPLETED'}
+                        disabled={!isCompleted(job?.status)}
                         className="flex items-center gap-1.5 px-4 py-1.5 bg-primary text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-400"
                     >
                         <span className="material-symbols-outlined text-[18px]">download</span>

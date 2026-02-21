@@ -1,11 +1,13 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useDocument } from '../context/DocumentContext';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 
-const ALLOWED_UPLOAD_EXTENSIONS = ['.docx', '.pdf', '.tex'];
+// FIX 31: Extended to match backend-supported formats
+const ALLOWED_UPLOAD_EXTENSIONS = ['.docx', '.pdf', '.tex', '.txt', '.html', '.htm', '.md', '.markdown', '.doc'];
+const ACCEPTED_FORMATS_STRING = '.docx,.pdf,.tex,.txt,.html,.htm,.md,.markdown,.doc';
 const MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024;
 
 const isAllowedUploadFile = (selectedFile) => {
@@ -36,6 +38,10 @@ export default function Upload() {
     const [statusMessage, setStatusMessage] = useState('Initializing...');
     const [template, setTemplate] = useState('none');
     const [category, setCategory] = useState('none'); // New State for Dropdown Filter
+    // FIX 34: Inline file error instead of navigate('/error')
+    const [fileError, setFileError] = useState(null);
+    // FEAT 43: Upload cancellation
+    const [abortController, setAbortController] = useState(null);
     // New Formatting Options
     const [addPageNumbers, setAddPageNumbers] = useState(true);
     const [addBorders, setAddBorders] = useState(false);
@@ -175,14 +181,12 @@ export default function Upload() {
     }, [isProcessing, job, navigate, setJob]);
 
     const handleFileChange = (e) => {
-
+        setFileError(null);
         const selectedFile = e.target.files[0];
         if (selectedFile) {
             if (!isAllowedUploadFile(selectedFile)) {
-                // navigate('/error'); // User request: "If FAILED: ... Keep user on Upload page"
-                // But this is client-side validation failure. I'll stick to alert or simple return for now, or existing logic.
-                // Existing logic was navigate('/error'). I'll keep it for invalid definition, but for polling failure I removed navigate.
-                navigate('/error');
+                // FIX 34: Inline error instead of navigate('/error')
+                setFileError('Unsupported file format. Please upload: DOCX, PDF, TEX, TXT, HTML, MD, or DOC.');
                 return;
             }
             setFile(selectedFile);
@@ -209,10 +213,12 @@ export default function Upload() {
         e.preventDefault();
         if (isProcessing) return;
         setIsDragging(false);
+        setFileError(null);
         const droppedFile = e.dataTransfer.files[0];
         if (droppedFile) {
             if (!isAllowedUploadFile(droppedFile)) {
-                navigate('/error');
+                // FIX 34: Inline error instead of navigate('/error')
+                setFileError('Unsupported file format. Please upload: DOCX, PDF, TEX, TXT, HTML, MD, or DOC.');
                 return;
             }
             setFile(droppedFile);
@@ -224,6 +230,25 @@ export default function Upload() {
             }
         }
     };
+
+    // FEAT 43: Cancel processing
+    const handleCancel = useCallback(() => {
+        if (abortController) abortController.abort();
+        setIsProcessing(false);
+        setCurrentStep(0);
+        setProgress(0);
+        setStatusMessage('Processing cancelled.');
+    }, [abortController]);
+
+    // FEAT 46: Keyboard shortcuts
+    useEffect(() => {
+        const handler = (e) => {
+            if (e.ctrlKey && e.key === 'Enter') handleProcess();
+            if (e.key === 'Escape') handleCancel();
+        };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+    }, [handleCancel]);
 
     const formatFileSize = (bytes) => {
         if (bytes === 0) return '0 Bytes';
@@ -714,8 +739,9 @@ export default function Upload() {
                                             {file ? 'File selected' : 'Drag and drop your manuscript here'}
                                         </p>
                                         <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-                                            {file ? `File: ${file.name} (${formatFileSize(file.size)})` : 'Supported formats: DOCX, PDF, TEX (Max 50MB)'}
+                                            {file ? `File: ${file.name} (${formatFileSize(file.size)})` : 'Supported formats: DOCX, PDF, DOC, TEX, TXT, HTML, MD (Max 50MB)'}
                                         </p>
+                                        {fileError && <p className="text-red-500 text-sm mt-2 font-medium">{fileError}</p>}
                                     </div>
                                 </div>
                                 <input
@@ -723,7 +749,7 @@ export default function Upload() {
                                     ref={fileInputRef}
                                     className="hidden"
                                     onChange={handleFileChange}
-                                    accept=".docx,.pdf,.tex"
+                                    accept={ACCEPTED_FORMATS_STRING}
                                     disabled={isProcessing}
                                 />
                                 <button
@@ -854,6 +880,17 @@ export default function Upload() {
                                 </span>
                                 {isProcessing ? 'Processing Manuscript...' : progress === 100 ? 'Re-process Manuscript' : 'Process Document'}
                             </button>
+
+                            {/* FEAT 43: Cancel button */}
+                            {isProcessing && (
+                                <button
+                                    onClick={handleCancel}
+                                    className="w-full mt-3 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 font-bold py-3 rounded-xl border border-red-200 dark:border-red-800 flex items-center justify-center gap-2 transition-all"
+                                >
+                                    <span className="material-symbols-outlined text-lg">cancel</span>
+                                    Cancel Processing
+                                </button>
+                            )}
                         </div>
 
                         {/* 3. Post-Processing Actions - ALWAYS SHOW */}

@@ -1,7 +1,7 @@
 import logging
 import os
 import uuid
-from typing import Optional
+from typing import Optional, Dict, Any, List
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, BackgroundTasks, Query, Form
@@ -145,6 +145,36 @@ async def upload_document(
         if file_size == 0:
             raise HTTPException(status_code=400, detail="File is empty. Please upload a valid document.")
 
+        # ── Magic bytes validation ─────────────────────────────────────────
+        MAGIC_BYTES_MAP = {
+            b'\x50\x4b\x03\x04': {'.docx', '.doc'},  # PK zip (Office docs)
+            b'\x50\x4b\x05\x06': {'.docx', '.doc'},  # PK zip (empty archive)
+            b'%PDF': {'.pdf'},
+        }
+        TEXT_EXTENSIONS = {'.tex', '.txt', '.html', '.htm', '.md', '.markdown'}
+
+        if file_ext not in TEXT_EXTENSIONS:
+            header = file_content[:4]
+            matched = False
+            for magic, allowed_exts in MAGIC_BYTES_MAP.items():
+                if header[:len(magic)] == magic and file_ext in allowed_exts:
+                    matched = True
+                    break
+            if not matched:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"File content does not match the '{file_ext}' extension. Possible file type spoofing."
+                )
+        else:
+            # For text formats, verify valid UTF-8
+            try:
+                file_content.decode('utf-8')
+            except UnicodeDecodeError:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"File is not valid UTF-8 text for extension '{file_ext}'."
+                )
+
         # ── File storage ───────────────────────────────────────────────────────
 
         job_id = uuid.uuid4()
@@ -258,7 +288,7 @@ async def get_status(
 @router.post("/{job_id}/edit")
 async def edit_document(
     job_id: str,
-    data: dict,
+    data: Dict[str, Any],
     background_tasks: BackgroundTasks,
     current_user: Optional[User] = Depends(get_optional_user)
 ):
@@ -471,3 +501,136 @@ async def download_document(
     except Exception as e:
         logger.error("Error downloading document %s: %s", job_id, e)
         raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")
+
+
+@router.delete("/{job_id}")
+async def delete_document(
+    job_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Delete a document and its associated output files.
+    Requires authentication and ownership verification.
+    """
+    try:
+        doc = DocumentService.get_document(job_id)
+        if not doc:
+            raise HTTPException(status_code=404, detail="Document not found")
+
+        # Ownership check
+        if doc.get("user_id") is not None:
+            if str(doc["user_id"]) != str(current_user.id):
+                raise HTTPException(status_code=403, detail="Not authorized to delete this document")
+
+        # Remove output file if it exists
+        output_path = doc.get("output_path")
+        if output_path and os.path.exists(output_path):
+            try:
+                os.remove(output_path)
+            except OSError as e:
+                logger.warning("Failed to remove output file %s: %s", output_path, e)
+
+        # Remove uploaded file if it exists
+        original_path = doc.get("original_file_path")
+        if original_path and os.path.exists(original_path):
+            try:
+                os.remove(original_path)
+            except OSError as e:
+                logger.warning("Failed to remove uploaded file %s: %s", original_path, e)
+
+        # Delete from database
+        DocumentService.delete_document(job_id)
+
+        return {"status": "deleted", "job_id": job_id}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error deleting document %s: %s", job_id, e)
+        raise HTTPException(status_code=500, detail=f"Delete failed: {str(e)}")
+
+
+# ── FEAT 39: Batch Upload ──────────────────────────────────────────────────────
+
+@router.post("/batch-upload")
+@safe_async_function(fallback_value={"error": "Batch upload failed"}, error_message="Batch upload")
+async def batch_upload(
+    background_tasks: BackgroundTasks,
+    files: List[UploadFile] = File(...),
+    template: str = Form("none"),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Upload multiple documents at once. Each file is processed independently.
+    Maximum 10 files per batch.
+    """
+    _require_db()
+
+    if len(files) > 10:
+        raise HTTPException(status_code=400, detail="Maximum 10 files per batch upload.")
+
+    results = []
+    for file in files:
+        job_id = str(uuid.uuid4())
+        try:
+            # Validate file extension
+            ext = os.path.splitext(file.filename or "")[1].lower()
+            allowed = {'.docx', '.pdf', '.tex', '.txt', '.html', '.htm', '.md', '.markdown', '.doc'}
+            if ext not in allowed:
+                results.append({
+                    "filename": file.filename,
+                    "status": "rejected",
+                    "reason": f"Unsupported format: {ext}",
+                })
+                continue
+
+            # Save file
+            safe_name = f"{job_id}{ext}"
+            file_path = os.path.join(UPLOAD_DIR, safe_name)
+            content = await file.read()
+
+            if len(content) > settings.MAX_FILE_SIZE:
+                results.append({
+                    "filename": file.filename,
+                    "status": "rejected",
+                    "reason": f"File exceeds {settings.MAX_FILE_SIZE // (1024*1024)}MB limit",
+                })
+                continue
+
+            with open(file_path, "wb") as f:
+                f.write(content)
+
+            # Create DB record
+            DocumentService.create_document(
+                document_id=job_id,
+                filename=file.filename,
+                file_path=file_path,
+                template=template,
+                user_id=current_user.id if current_user else None,
+            )
+
+            # Start background processing
+            orchestrator = PipelineOrchestrator()
+            background_tasks.add_task(
+                orchestrator.run_pipeline,
+                input_path=file_path,
+                job_id=job_id,
+                template_name=template,
+                formatting_options={},
+            )
+
+            results.append({
+                "filename": file.filename,
+                "job_id": job_id,
+                "status": "processing",
+            })
+
+        except Exception as e:
+            logger.error("Batch upload failed for %s: %s", file.filename, e)
+            results.append({
+                "filename": file.filename,
+                "status": "failed",
+                "reason": str(e),
+            })
+
+    return {"jobs": results, "total": len(results)}

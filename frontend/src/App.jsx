@@ -16,6 +16,7 @@ import ForgotPassword from './pages/ForgotPassword';
 import VerifyOTP from './pages/VerifyOTP';
 import ResetPassword from './pages/ResetPassword';
 import Preview from './pages/Preview';
+import TemplateEditor from './pages/TemplateEditor';
 
 import { DocumentProvider } from './context/DocumentContext';
 import { AuthProvider } from './context/AuthContext';
@@ -59,6 +60,14 @@ function App() {
                             <Route path="/login" element={<Login />} />
                             <Route path="/signup" element={<Signup />} />
                             <Route path="/templates" element={<Templates />} />
+                            <Route
+                                path="/template-editor"
+                                element={
+                                    <ProtectedRoute>
+                                        <TemplateEditor />
+                                    </ProtectedRoute>
+                                }
+                            />
                             <Route path="/forgot-password" element={<ForgotPassword />} />
                             <Route path="/verify-otp" element={<VerifyOTP />} />
                             <Route path="/reset-password" element={<ResetPassword />} />

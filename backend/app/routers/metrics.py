@@ -3,10 +3,10 @@ Metrics and Monitoring Endpoints
 Provides operational visibility into database connections, rate limiting, and system health.
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from typing import Dict, Any
+from app.utils.dependencies import get_current_user
 
-from app.db.session import engine
 from app.services.model_metrics import get_model_metrics
 from app.services.ab_testing import get_ab_testing
 from app.db.supabase_client import get_supabase_client
@@ -18,26 +18,28 @@ logger = logging.getLogger(__name__)
 @router.get("/db")
 async def get_database_metrics():
     """
-    Get database connection pool metrics.
+    Get database health metrics via Supabase client.
     
     Returns:
-        - size: Total pool size
-        - checked_in: Available connections
-        - checked_out: Active connections
-        - overflow: Overflow connections created
-        - total: Total connections (pool + overflow)
+        - status: Connection health (healthy/unavailable)
+        - backend: Database backend type
     """
     try:
-        pool = engine.pool
-        
-        metrics = {
-            "pool_size": pool.size(),
-            "checked_in": pool.checkedin(),
-            "checked_out": pool.checkedout(),
-            "overflow": pool.overflow(),
-            "total_connections": pool.size() + pool.overflow(),
-            "status": "healthy" if pool.checkedin() > 0 else "warning"
-        }
+        sb = get_supabase_client()
+        if sb:
+            # Simple health probe — fetch row count from a lightweight table
+            result = sb.table("documents").select("id", count="exact").limit(0).execute()
+            metrics = {
+                "status": "healthy",
+                "backend": "supabase",
+                "document_count": result.count if hasattr(result, 'count') else 0,
+            }
+        else:
+            metrics = {
+                "status": "unavailable",
+                "backend": "supabase",
+                "document_count": 0,
+            }
         
         logger.info(f"Database metrics: {metrics}")
         return metrics
@@ -49,9 +51,10 @@ async def get_database_metrics():
         )
 
 @router.post("/log-error")
-async def log_frontend_error(error_data: dict):
+async def log_frontend_error(error_data: dict, current_user=Depends(get_current_user)):
     """
     Endpoint for logging frontend errors to the backend.
+    Requires authentication.
     
     Payload:
         - message: Error message
@@ -86,13 +89,13 @@ async def log_frontend_error(error_data: dict):
         return {"status": "error", "message": str(e)}
 
 @router.get("/health")
-async def health_check():
+async def health_check(current_user=Depends(get_current_user)):
     """
     Comprehensive health check endpoint.
+    Requires authentication.
     
     Returns:
         - status: overall health status
-        - database: database connection status
         - components: individual component statuses
     """
     health_status = {
@@ -104,13 +107,14 @@ async def health_check():
         }
     }
     
-    # Check database connection
+    # Check database connection via Supabase
     try:
-        pool = engine.pool
-        if pool.checkedin() > 0:
+        sb = get_supabase_client()
+        if sb:
+            sb.table("documents").select("id", count="exact").limit(0).execute()
             health_status["components"]["database"] = "healthy"
         else:
-            health_status["components"]["database"] = "degraded"
+            health_status["components"]["database"] = "unavailable"
             health_status["status"] = "degraded"
     except Exception as e:
         logger.error(f"Database health check failed: {e}")

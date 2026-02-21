@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDocument } from '../context/DocumentContext';
 import Navbar from '../components/Navbar';
+import { isCompleted } from '../constants/status';
 
 export default function Edit() {
     const navigate = useNavigate();
@@ -29,7 +30,7 @@ export default function Edit() {
         );
     }
 
-    const handleSave = async () => {
+    const handleSave = useCallback(async () => {
         if (isSaving) return;
         setIsSaving(true);
         try {
@@ -60,7 +61,11 @@ export default function Edit() {
         } finally {
             setIsSaving(false);
         }
-    };
+    }, [content, isSaving, job, navigate, setJob]);
+
+    const handleCancel = useCallback(() => {
+        navigate('/history');
+    }, [navigate]);
 
     const handleRevalidate = () => {
         // Simple local validation check
@@ -73,6 +78,21 @@ export default function Edit() {
         // Clear message after 5 seconds
         setTimeout(() => setValidationMessage(null), 5000);
     };
+
+    useEffect(() => {
+        const handler = (e) => {
+            if (e.ctrlKey && e.key === 'Enter') {
+                e.preventDefault();
+                handleSave();
+            }
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                handleCancel();
+            }
+        };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+    }, [handleCancel, handleSave]);
 
     return (
         <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-display">
@@ -99,7 +119,7 @@ export default function Edit() {
                     </button>
                     <button
                         onClick={() => navigate('/download')}
-                        disabled={job?.status !== 'COMPLETED'}
+                        disabled={!isCompleted(job?.status)}
                         className="flex items-center gap-1.5 px-4 py-1.5 bg-primary text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-400"
                     >
                         <span className="material-symbols-outlined text-[18px]">description</span>

@@ -6,6 +6,7 @@ import Stepper from '../components/Stepper';
 import StatusBadge from '../components/StatusBadge';
 import { useDocument } from '../context/DocumentContext';
 import { getJobStatus } from '../services/api';
+import { isCompleted, isFailed } from '../constants/status';
 
 const PHASE_MAPPING = {
     'UPLOADED': 0,
@@ -45,7 +46,7 @@ export default function Processing() {
                 const stepIndex = PHASE_MAPPING[currentPhase] !== undefined ? PHASE_MAPPING[currentPhase] : 1;
                 setActiveStep(stepIndex);
 
-                if (statusData.status === 'COMPLETED') {
+                if (isCompleted(statusData.status)) {
                     clearInterval(interval);
                     // Update context job to complete
                     setJob(prev => ({
@@ -55,7 +56,7 @@ export default function Processing() {
                         progress: 100
                     }));
                     navigate('/results');
-                } else if (statusData.status === 'FAILED') {
+                } else if (isFailed(statusData.status)) {
                     clearInterval(interval);
                     setJob(prev => ({
                         ...prev,

@@ -1,5 +1,9 @@
 """baseline_schema
 
+Baseline migration — schema is managed directly by Supabase.
+This intentional no-op placeholder maintains Alembic revision history
+compatibility so that future migrations can build on this baseline.
+
 Revision ID: 530ab1236474
 Revises: 
 Create Date: 2026-02-08 18:50:29.904227

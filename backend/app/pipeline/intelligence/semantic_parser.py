@@ -1,8 +1,19 @@
 import torch
+import logging
 from typing import List, Dict, Any
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, logging as transformers_logging
 from app.models import PipelineDocument as Document, Block, BlockType
 from app.pipeline.safety import safe_function
+
+# FEAT 44: Language detection (optional dependency)
+try:
+    from langdetect import detect as detect_language
+    HAS_LANGDETECT = True
+except ImportError:
+    HAS_LANGDETECT = False
+    detect_language = None
+
+logger = logging.getLogger(__name__)
 
 # Silence non-critical transformer loading warnings
 transformers_logging.set_verbosity_error()
@@ -81,18 +92,39 @@ class SemanticParser:
         self._load_model()
         semantic_blocks = []
         
+        # FEAT 44: Language detection — skip SciBERT for non-English documents
+        combined_text = " ".join(b.text for b in blocks[:10] if b.text)[:500]
+        detected_lang = "en"
+        if HAS_LANGDETECT and combined_text.strip():
+            try:
+                detected_lang = detect_language(combined_text)
+            except Exception:
+                detected_lang = "en"  # Default to English on detection failure
+        
+        use_transformer = detected_lang == "en" and self.model is not None
+        if not use_transformer and detected_lang != "en":
+            logger.warning("Non-English document detected (%s). Using heuristic-only mode.", detected_lang)
+        
         # 1. Heading Repair Logic (e.g., '2' + 'ethodology')
         repaired_blocks = self._repair_fragmented_headings(blocks)
         
         for i, block in enumerate(repaired_blocks):
-            prediction = self._predict_block_type(block.text)
+            if use_transformer:
+                prediction = self._predict_block_type(block.text)
+            else:
+                # Heuristic-only for non-English: classify by position and structure
+                prediction = {"type": "BODY", "confidence": 0.5}
+                text = block.text.strip()
+                if text and len(text) < 80 and text[0].isupper():
+                    prediction = {"type": "HEADING", "confidence": 0.6}
             
             # Create SemanticBlock Structure (as requested)
             semantic_block = {
                 "block_id": i,
                 "raw_text": block.text,
                 "predicted_section_type": prediction["type"],
-                "confidence_score": prediction["confidence"]
+                "confidence_score": prediction["confidence"],
+                "detected_language": detected_lang,
             }
             semantic_blocks.append(semantic_block)
             

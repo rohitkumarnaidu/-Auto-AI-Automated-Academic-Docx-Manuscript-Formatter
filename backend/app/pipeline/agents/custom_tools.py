@@ -2,7 +2,7 @@
 Custom tool creation framework for user-defined tools.
 """
 import logging
-from typing import Type, Dict, Any, Optional, Callable
+from typing import Type, Dict, Any, Optional, Callable, List
 from pydantic import BaseModel, Field, create_model
 from langchain.tools import BaseTool
 

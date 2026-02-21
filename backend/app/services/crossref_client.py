@@ -3,8 +3,8 @@ import json
 import logging
 import requests
 from urllib.parse import quote_plus
-from functools import lru_cache
 from typing import Dict, Any, Optional
+from app.config.settings import settings
 
 try:
     import redis
@@ -27,8 +27,10 @@ class CrossRefClient:
     
     BASE_URL = "https://api.crossref.org/works"
     
-    def __init__(self, contact_email: str = "mailto:bot@scholarform.com"):
-        self.headers = {"User-Agent": f"ScholarFormValidation/1.0 ({contact_email})"}
+    def __init__(self, contact_email: Optional[str] = None):
+        email = contact_email or getattr(settings, 'CROSSREF_MAILTO', 'mailto:bot@scholarform.com')
+        self.headers = {"User-Agent": f"ScholarFormValidation/1.0 ({email})"}
+        self._api_cache: Dict[str, Dict[str, Any]] = {}  # Instance-level cache (no lru_cache memory leak)
         
     def _get_cache(self, key: str) -> Optional[Dict[str, Any]]:
         """Attempt to fetch from Redis."""
@@ -49,12 +51,15 @@ class CrossRefClient:
             except Exception:
                 pass
 
-    @lru_cache(maxsize=2000)
     def _fetch_api(self, query: str) -> Dict[str, Any]:
         """
-        The actual network call. Wrapped in an LRU memory cache 
-        so we stay within rate limits even if Redis is offline.
+        The actual network call with instance-level dict cache.
+        Avoids @lru_cache on instance method which can leak memory.
         """
+        # Check instance cache first
+        if query in self._api_cache:
+            return self._api_cache[query]
+
         url = f"{self.BASE_URL}?query.bibliographic={quote_plus(query)}&rows=1"
         try:
             # Short timeout to prevent orchestrator lagging
@@ -84,6 +89,12 @@ class CrossRefClient:
         except Exception as e:
             logger.warning(f"CrossRef JSON parse error: {e}")
             return {}
+        finally:
+            # Trim cache to prevent unbounded growth (keep last 2000)
+            if len(self._api_cache) > 2000:
+                keys = list(self._api_cache.keys())
+                for k in keys[:len(keys) - 2000]:
+                    del self._api_cache[k]
 
     def validate_citation(self, raw_text: str) -> Dict[str, Any]:
         """

@@ -78,6 +78,13 @@ class RagEngine:
         self.backend = "native"
 
         try:
+            # NumPy 2.0+ removed np.float_, np.int_ etc. which ChromaDB may reference
+            # Pre-patch to prevent AttributeError at import time
+            if not hasattr(np, 'float_'):
+                np.float_ = np.float64  # Restore removed alias for compatibility
+            if not hasattr(np, 'int_'):
+                np.int_ = np.int64
+
             import chromadb
             self.client = chromadb.PersistentClient(path=self.persist_directory)
             self.collection = self.client.get_or_create_collection(self._collection_name)

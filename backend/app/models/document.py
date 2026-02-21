@@ -13,7 +13,6 @@ class Document(Base):
     status = Column(String, nullable=False)
     original_file_path = Column(String, nullable=True) # Path to the uploaded file
     raw_text = Column(String, nullable=True) # Extracted raw text
-    raw_text = Column(String, nullable=True) # Extracted raw text
     output_path = Column(String, nullable=True)
     formatting_options = Column(JSON, nullable=True) # Stores { "page_size": "A4", "toc": true, ... }
     

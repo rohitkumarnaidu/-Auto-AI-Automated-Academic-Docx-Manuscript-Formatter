@@ -129,7 +129,7 @@ class NvidiaClient:
             },
             {
                 "role": "user",
-                "content": f"Analyze this document and identify its sections:\n\n{text[:2000]}",
+                "content": f"Analyze this document and identify its sections:\n\n{text[:4000]}",
             },
         ]
         response = self.chat(messages, model="llama-70b", temperature=0.3)
@@ -144,6 +144,19 @@ class NvidiaClient:
     def analyze_figure(self, image_path: str, caption: Optional[str] = None) -> Optional[str]:
         """Analyze figure/diagram using Llama 3.2 11B Vision."""
         try:
+            # Determine media type from file extension
+            ext = image_path.lower()
+            if ext.endswith(('.png',)):
+                media_type = "image/png"
+            elif ext.endswith(('.jpg', '.jpeg')):
+                media_type = "image/jpeg"
+            elif ext.endswith(('.gif',)):
+                media_type = "image/gif"
+            elif ext.endswith(('.webp',)):
+                media_type = "image/webp"
+            else:
+                media_type = "image/jpeg"  # Default fallback
+
             with open(image_path, "rb") as f:
                 image_data = base64.b64encode(f.read()).decode()
 
@@ -157,7 +170,7 @@ class NvidiaClient:
                     "role": "user",
                     "content": [
                         {"type": "text", "text": text_content},
-                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_data}"}},
+                        {"type": "image_url", "image_url": {"url": f"data:{media_type};base64,{image_data}"}},
                     ],
                 }
             ]
@@ -175,7 +188,7 @@ class NvidiaClient:
             },
             {
                 "role": "user",
-                "content": f"Check if this document follows {template.upper()} formatting requirements:\n\n{document_text[:1500]}",
+                "content": f"Check if this document follows {template.upper()} formatting requirements:\n\n{document_text[:2500]}",
             },
         ]
         response = self.chat(messages, model="llama-70b", temperature=0.3)

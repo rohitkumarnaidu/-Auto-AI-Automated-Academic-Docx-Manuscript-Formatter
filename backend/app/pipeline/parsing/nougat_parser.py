@@ -113,13 +113,13 @@ def _classify_nougat_line(line: str) -> BlockType:
     if not stripped:
         return BlockType.UNKNOWN
 
-    # Section headings: ## Heading or # Heading
-    if stripped.startswith("# "):
-        return BlockType.HEADING
-    if stripped.startswith("## "):
-        return BlockType.HEADING
+    # Section headings: map markdown depth to HEADING_1..HEADING_3
     if stripped.startswith("### "):
-        return BlockType.HEADING
+        return BlockType.HEADING_3
+    if stripped.startswith("## "):
+        return BlockType.HEADING_2
+    if stripped.startswith("# "):
+        return BlockType.HEADING_1
 
     # Abstract
     if stripped.lower().startswith("abstract"):
@@ -127,7 +127,7 @@ def _classify_nougat_line(line: str) -> BlockType:
 
     # References section
     if stripped.lower() in ("references", "bibliography"):
-        return BlockType.HEADING
+        return BlockType.HEADING_1
 
     # Equations (LaTeX delimiters)
     if stripped.startswith("\\[") or stripped.startswith("$$"):

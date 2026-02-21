@@ -1,3 +1,5 @@
+# RESERVED: Celery task definitions for future distributed processing.
+# Not currently wired into the FastAPI runtime — kept for planned Redis/Celery migration.
 import os
 import logging
 import time

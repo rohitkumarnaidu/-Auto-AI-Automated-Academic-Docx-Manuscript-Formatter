@@ -112,8 +112,8 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
                         <>
                             <Link to="/dashboard" className={getTabClasses('dashboard')}>Dashboard</Link>
                             <Link to="/upload" className={getTabClasses('upload')}>Upload</Link>
-                            <Link to="/generate" className={getTabClasses('generate')}>Generate</Link>
                             <Link to="/templates" className={getTabClasses('templates')}>Templates</Link>
+                            <Link to="/template-editor" className={getTabClasses('template-editor')}>Template Editor</Link>
                             <Link to="/results" className={getTabClasses('results')}>Validate Results</Link>
                             <Link to="/history" className={getTabClasses('history')}>My Manuscripts</Link>
                         </>
@@ -121,8 +121,8 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
                         <>
                             <Link to="/" className={getTabClasses('dashboard')}>Home</Link>
                             <Link to="/upload" className={getTabClasses('upload')}>Upload</Link>
-                            <Link to="/generate" className={getTabClasses('generate')}>Generate</Link>
                             <Link to="/templates" className={getTabClasses('templates')}>Templates</Link>
+                            <Link to="/template-editor" className={getTabClasses('template-editor')}>Template Editor</Link>
                         </>
                     )}
                 </nav>

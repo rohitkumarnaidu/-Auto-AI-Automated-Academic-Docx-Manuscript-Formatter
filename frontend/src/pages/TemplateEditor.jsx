@@ -1,0 +1,241 @@
+import { useEffect, useState } from 'react';
+import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
+
+const CUSTOM_TEMPLATES_KEY = 'scholarform_custom_templates';
+
+const DEFAULT_SETTINGS = {
+    name: '',
+    fontFamily: 'Times New Roman',
+    fontSize: 12,
+    marginTop: 1,
+    marginBottom: 1,
+    marginLeft: 1,
+    marginRight: 1,
+    lineSpacing: 1.5,
+    headerText: '',
+    footerText: '',
+};
+
+export default function TemplateEditor() {
+    const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+    const [savedTemplates, setSavedTemplates] = useState([]);
+    const [saveMessage, setSaveMessage] = useState('');
+
+    useEffect(() => {
+        try {
+            const saved = JSON.parse(localStorage.getItem(CUSTOM_TEMPLATES_KEY) || '[]');
+            setSavedTemplates(Array.isArray(saved) ? saved : []);
+        } catch {
+            setSavedTemplates([]);
+        }
+    }, []);
+
+    const updateSetting = (key, value) => {
+        setSettings((prev) => ({
+            ...prev,
+            [key]: value,
+        }));
+    };
+
+    const handleSaveTemplate = () => {
+        const timestamp = new Date().toISOString();
+        const templateName = settings.name?.trim() || `Custom Template ${savedTemplates.length + 1}`;
+        const template = {
+            id: timestamp,
+            name: templateName,
+            settings: {
+                fontFamily: settings.fontFamily,
+                fontSize: Number(settings.fontSize),
+                margins: {
+                    top: Number(settings.marginTop),
+                    bottom: Number(settings.marginBottom),
+                    left: Number(settings.marginLeft),
+                    right: Number(settings.marginRight),
+                },
+                lineSpacing: Number(settings.lineSpacing),
+                headerText: settings.headerText,
+                footerText: settings.footerText,
+            },
+            createdAt: timestamp,
+        };
+
+        const next = [template, ...savedTemplates];
+        setSavedTemplates(next);
+        localStorage.setItem(CUSTOM_TEMPLATES_KEY, JSON.stringify(next));
+        setSaveMessage(`Saved "${templateName}" as a custom template.`);
+        setSettings((prev) => ({
+            ...DEFAULT_SETTINGS,
+            fontFamily: prev.fontFamily,
+            fontSize: prev.fontSize,
+            lineSpacing: prev.lineSpacing,
+        }));
+    };
+
+    return (
+        <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-display">
+            <Navbar variant="app" activeTab="template-editor" />
+
+            <main className="max-w-5xl mx-auto w-full px-6 py-8 flex-1">
+                <div className="mb-8">
+                    <h1 className="text-3xl font-black text-slate-900 dark:text-white">Template Editor</h1>
+                    <p className="text-slate-500 dark:text-slate-400 mt-2">
+                        Create and save a custom formatting template for your manuscript workflow.
+                    </p>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <section className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm space-y-5">
+                        <h2 className="text-lg font-bold text-slate-900 dark:text-white">Formatting Settings</h2>
+
+                        <div>
+                            <label className="block text-sm font-semibold mb-2">Template Name</label>
+                            <input
+                                value={settings.name}
+                                onChange={(e) => updateSetting('name', e.target.value)}
+                                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                placeholder="My Journal Style"
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-semibold mb-2">Font Family</label>
+                                <select
+                                    value={settings.fontFamily}
+                                    onChange={(e) => updateSetting('fontFamily', e.target.value)}
+                                    className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                >
+                                    <option>Times New Roman</option>
+                                    <option>Arial</option>
+                                    <option>Calibri</option>
+                                    <option>Georgia</option>
+                                    <option>Cambria</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-semibold mb-2">Font Size (pt)</label>
+                                <input
+                                    type="number"
+                                    min="8"
+                                    max="18"
+                                    value={settings.fontSize}
+                                    onChange={(e) => updateSetting('fontSize', e.target.value)}
+                                    className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 className="text-sm font-semibold mb-2">Margins (inches)</h3>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <input
+                                    type="number"
+                                    step="0.1"
+                                    min="0.25"
+                                    value={settings.marginTop}
+                                    onChange={(e) => updateSetting('marginTop', e.target.value)}
+                                    className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                    placeholder="Top"
+                                />
+                                <input
+                                    type="number"
+                                    step="0.1"
+                                    min="0.25"
+                                    value={settings.marginBottom}
+                                    onChange={(e) => updateSetting('marginBottom', e.target.value)}
+                                    className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                    placeholder="Bottom"
+                                />
+                                <input
+                                    type="number"
+                                    step="0.1"
+                                    min="0.25"
+                                    value={settings.marginLeft}
+                                    onChange={(e) => updateSetting('marginLeft', e.target.value)}
+                                    className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                    placeholder="Left"
+                                />
+                                <input
+                                    type="number"
+                                    step="0.1"
+                                    min="0.25"
+                                    value={settings.marginRight}
+                                    onChange={(e) => updateSetting('marginRight', e.target.value)}
+                                    className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                    placeholder="Right"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-semibold mb-2">Line Spacing</label>
+                                <input
+                                    type="number"
+                                    step="0.1"
+                                    min="1"
+                                    max="3"
+                                    value={settings.lineSpacing}
+                                    onChange={(e) => updateSetting('lineSpacing', e.target.value)}
+                                    className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-semibold mb-2">Header Text</label>
+                            <input
+                                value={settings.headerText}
+                                onChange={(e) => updateSetting('headerText', e.target.value)}
+                                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                placeholder="Optional running header"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-semibold mb-2">Footer Text</label>
+                            <input
+                                value={settings.footerText}
+                                onChange={(e) => updateSetting('footerText', e.target.value)}
+                                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                placeholder="Optional footer"
+                            />
+                        </div>
+
+                        <button
+                            onClick={handleSaveTemplate}
+                            className="w-full md:w-auto px-5 py-2.5 rounded-lg bg-primary text-white font-bold hover:bg-blue-700 transition-colors"
+                        >
+                            Save Custom Template
+                        </button>
+
+                        {saveMessage ? (
+                            <p className="text-sm text-green-600 dark:text-green-400">{saveMessage}</p>
+                        ) : null}
+                    </section>
+
+                    <aside className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+                        <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Saved Templates</h2>
+                        {savedTemplates.length === 0 ? (
+                            <p className="text-sm text-slate-500 dark:text-slate-400">No custom templates saved yet.</p>
+                        ) : (
+                            <div className="space-y-3 max-h-[500px] overflow-y-auto">
+                                {savedTemplates.map((savedTemplate) => (
+                                    <div key={savedTemplate.id} className="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+                                        <p className="font-semibold text-sm">{savedTemplate.name}</p>
+                                        <p className="text-xs text-slate-500 mt-1">
+                                            {savedTemplate.settings.fontFamily}, {savedTemplate.settings.fontSize}pt, {savedTemplate.settings.lineSpacing} spacing
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </aside>
+                </div>
+            </main>
+
+            <Footer variant="app" />
+        </div>
+    );
+}

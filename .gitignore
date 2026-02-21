@@ -80,3 +80,7 @@ backend/logs/
 # Security reports
 bandit_report.json
 docs/security/
+
+# GIT 37: Runtime artifacts — NOT tracked
+backend/uploads/
+backend/manual_tests/output/
