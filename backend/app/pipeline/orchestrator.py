@@ -5,7 +5,7 @@ Pipeline Orchestrator - Coordinates all processing stages.
 import os
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 from app.db.supabase_client import get_supabase_client
 from app.models import (
@@ -607,7 +607,7 @@ class PipelineOrchestrator:
                         last_num = int(versions.data[0]["version_number"].replace('v', ''))
                         next_version_num = f"v{last_num + 1}"
                     except:
-                        next_version_num = f"v_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
+                        next_version_num = f"v_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
                 else:
                     next_version_num = "v1"
                 

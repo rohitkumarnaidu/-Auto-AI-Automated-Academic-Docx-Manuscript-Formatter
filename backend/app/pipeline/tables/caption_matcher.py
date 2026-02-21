@@ -6,7 +6,7 @@ Links extracted Table objects to their corresponding caption blocks.
 import logging
 import re
 from typing import List, Optional, Dict, Tuple
-from datetime import datetime
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ class TableCaptionMatcher(PipelineStage):
         """
         Match captions to tables in the document.
         """
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
         
         try:
             blocks = document.blocks
@@ -147,7 +147,7 @@ class TableCaptionMatcher(PipelineStage):
             return document
         
         # 4. Final Processing History Update
-        end_time = datetime.utcnow()
+        end_time = datetime.now(timezone.utc)
         duration_ms = int((end_time - start_time).total_seconds() * 1000)
         
         document.add_processing_stage(

@@ -9,7 +9,7 @@ import logging
 import re
 import os
 from typing import List, Optional, Tuple, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +64,7 @@ class CaptionMatcher(PipelineStage):
         """
         Match specific figures to captions in the document.
         """
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
         
         try:
             blocks = document.blocks
@@ -106,7 +106,7 @@ class CaptionMatcher(PipelineStage):
             return document
         
         # Update processing history
-        end_time = datetime.utcnow()
+        end_time = datetime.now(timezone.utc)
         duration_ms = int((end_time - start_time).total_seconds() * 1000)
         
         message = f"Linked {match_count} captions to figures"
@@ -120,7 +120,7 @@ class CaptionMatcher(PipelineStage):
             duration_ms=duration_ms
         )
         
-        document.updated_at = datetime.utcnow()
+        document.updated_at = datetime.now(timezone.utc)
         
         return document
 

@@ -24,7 +24,7 @@ IMPORTANT:
 """
 
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.models import PipelineDocument as Document, Block, Table, DocumentMetadata
 from app.utils.text_utils import (
@@ -61,7 +61,7 @@ class Normalizer(PipelineStage):
         Returns:
             Document with normalized text content
         """
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
         
         # Track initial block count for audit logging
         initial_block_count = len(document.blocks)
@@ -91,7 +91,7 @@ class Normalizer(PipelineStage):
         # Note: Figures don't have text to normalize (only captions, which come later)
         
         # Update processing history
-        end_time = datetime.utcnow()
+        end_time = datetime.now(timezone.utc)
         duration_ms = int((end_time - start_time).total_seconds() * 1000)
         
         document.add_processing_stage(
@@ -101,7 +101,7 @@ class Normalizer(PipelineStage):
             duration_ms=duration_ms
         )
         
-        document.updated_at = datetime.utcnow()
+        document.updated_at = datetime.now(timezone.utc)
         
         return document
     

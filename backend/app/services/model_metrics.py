@@ -12,7 +12,7 @@ Tracks:
 import time
 import json
 from typing import Dict, Any, List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from collections import defaultdict
 
 
@@ -81,13 +81,13 @@ class ModelMetrics:
         
         metrics["total_latency"] += latency
         metrics["avg_latency"] = metrics["total_latency"] / metrics["total_calls"]
-        metrics["last_used"] = datetime.utcnow().isoformat()
+        metrics["last_used"] = datetime.now(timezone.utc).isoformat()
         
         if quality_score is not None:
             self.quality_scores.append({
                 "model": model,
                 "score": quality_score,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             })
             
         self._persist_metric(model, latency, success, quality_score)
@@ -122,7 +122,7 @@ class ModelMetrics:
             "from": from_model,
             "to": to_model,
             "reason": reason,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         })
     
     def get_summary(self) -> Dict[str, Any]:
@@ -168,7 +168,7 @@ class ModelMetrics:
             "quality_scores": self.quality_scores,
             "summary": self.get_summary(),
             "comparison": self.get_model_comparison(),
-            "exported_at": datetime.utcnow().isoformat()
+            "exported_at": datetime.now(timezone.utc).isoformat()
         }
         
         with open(filepath, 'w') as f:

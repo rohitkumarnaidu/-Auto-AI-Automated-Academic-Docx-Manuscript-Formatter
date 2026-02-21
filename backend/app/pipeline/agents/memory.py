@@ -4,7 +4,7 @@ Agent memory system for pattern recognition across documents.
 import json
 import os
 from typing import Dict, List, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -72,7 +72,7 @@ class AgentMemory:
         
         pattern_entry = {
             "context": context,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "count": 1
         }
         
@@ -84,7 +84,7 @@ class AgentMemory:
         for existing in target_list:
             if existing["context"].get("document_type") == context.get("document_type"):
                 existing["count"] = existing.get("count", 1) + 1
-                existing["timestamp"] = datetime.utcnow().isoformat()
+                existing["timestamp"] = datetime.now(timezone.utc).isoformat()
                 similar_found = True
                 break
         
@@ -106,7 +106,7 @@ class AgentMemory:
             "type": error_type,
             "message": error_message,
             "solution": solution,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "occurrences": 1
         }
         
@@ -114,7 +114,7 @@ class AgentMemory:
         for existing in self.errors:
             if existing["type"] == error_type and existing["message"] == error_message:
                 existing["occurrences"] += 1
-                existing["timestamp"] = datetime.utcnow().isoformat()
+                existing["timestamp"] = datetime.now(timezone.utc).isoformat()
                 if solution:
                     existing["solution"] = solution
                 self._save_json(self.errors_file, self.errors)
@@ -142,7 +142,7 @@ class AgentMemory:
         metric = self.metrics[metric_name]
         metric["values"].append({
             "value": value,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "metadata": metadata or {}
         })
         
@@ -228,7 +228,7 @@ class AgentMemory:
             "field": field,
             "original": original_value,
             "corrected": corrected_value,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
         
         self.corrections.append(correction_entry)

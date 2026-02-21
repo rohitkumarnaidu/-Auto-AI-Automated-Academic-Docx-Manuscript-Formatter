@@ -10,7 +10,7 @@ Output: Document with BlockType assigned
 
 import re
 from typing import List, Optional, Dict, Any, Set
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.models import PipelineDocument as Document, Block, BlockType
 from app.pipeline.base import PipelineStage
@@ -63,7 +63,7 @@ class ContentClassifier(PipelineStage):
         Returns:
             Document with updated BlockTypes
         """
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
         try:
             return self._run_classification(document, start_time)
         except Exception as exc:
@@ -431,7 +431,7 @@ class ContentClassifier(PipelineStage):
                     block.metadata["classification_method"] = "fallback_last_resort"
                 
         # Update processing history
-        end_time = datetime.utcnow()
+        end_time = datetime.now(timezone.utc)
         duration_ms = int((end_time - start_time).total_seconds() * 1000)
 
         document.add_processing_stage(
@@ -441,7 +441,7 @@ class ContentClassifier(PipelineStage):
             duration_ms=duration_ms
         )
 
-        document.updated_at = datetime.utcnow()
+        document.updated_at = datetime.now(timezone.utc)
         return document
     
     def _find_first_section_index(self, blocks: List[Block]) -> int:

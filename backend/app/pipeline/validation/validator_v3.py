@@ -8,7 +8,7 @@ the entire pipeline.
 
 import logging
 from typing import List, Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from pydantic import BaseModel, Field
 
 from app.models import PipelineDocument as Document, BlockType, Figure
@@ -28,7 +28,7 @@ class ValidationResult(BaseModel):
     errors: List[str] = Field(default_factory=list)
     warnings: List[str] = Field(default_factory=list)
     stats: Dict[str, Any] = Field(default_factory=dict)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class DocumentValidator(PipelineStage):
@@ -57,7 +57,7 @@ class DocumentValidator(PipelineStage):
         """
         Run all validation checks.
         """
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
         
         errors = []
         warnings = []
@@ -109,7 +109,7 @@ class DocumentValidator(PipelineStage):
         document.validation_warnings = warnings
         
         # Log
-        duration_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
+        duration_ms = int((datetime.now(timezone.utc) - start_time).total_seconds() * 1000)
         document.add_processing_stage(
             stage_name="validation",
             status="success" if is_valid else "warning",

@@ -80,6 +80,6 @@ def generate_document_id(prefix: str = "doc") -> str:
     Returns:
         Document ID in format 'prefix_timestamp' (e.g., 'doc_20240202_103045')
     """
-    from datetime import datetime
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    from datetime import datetime, timezone
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     return f"{prefix}_{timestamp}"

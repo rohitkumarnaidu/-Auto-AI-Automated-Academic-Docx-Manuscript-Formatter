@@ -1,6 +1,6 @@
 
 import unittest
-from datetime import datetime
+from datetime import datetime, timezone
 from app.models import PipelineDocument as Document, Block, BlockType, Equation
 from app.pipeline.parsing.parser import DocxParser
 from app.pipeline.classification.classifier import ContentClassifier
@@ -21,7 +21,7 @@ class TestEquationLogic(unittest.TestCase):
     def test_02_classifier_support(self):
         """Verify Classifier assigns BlockType.EQUATION."""
         print("\n[Test 02] Verifying Classifier supports Equation detection...")
-        doc = Document(document_id="test", original_filename="test.docx", created_at=datetime.utcnow(), updated_at=datetime.utcnow())
+        doc = Document(document_id="test", original_filename="test.docx", created_at=datetime.now(timezone.utc), updated_at=datetime.now(timezone.utc))
         
         # Create block with equation-like text
         block = Block(
@@ -43,7 +43,7 @@ class TestEquationLogic(unittest.TestCase):
     def test_03_formatter_sorting(self):
         """Verify Formatter sorts by block_index."""
         print("\n[Test 03] Verifying Formatter sorting logic...")
-        doc = Document(document_id="test", original_filename="test.docx", created_at=datetime.utcnow(), updated_at=datetime.utcnow())
+        doc = Document(document_id="test", original_filename="test.docx", created_at=datetime.now(timezone.utc), updated_at=datetime.now(timezone.utc))
         
         # Scenario: 
         # Block 0 (Intro)

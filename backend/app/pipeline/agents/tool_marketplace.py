@@ -6,7 +6,7 @@ import requests
 import json
 from typing import List, Dict, Any, Optional
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 import hashlib
 
 logger = logging.getLogger(__name__)
@@ -89,7 +89,7 @@ class ToolMarketplace:
             "version": version,
             "tags": tags or [],
             "code_hash": code_hash,
-            "published_at": datetime.utcnow().isoformat()
+            "published_at": datetime.now(timezone.utc).isoformat()
         }
         
         try:
@@ -217,7 +217,7 @@ class ToolMarketplace:
             # Install (save to installed registry)
             self.installed_tools[tool_name] = {
                 "version": tool["version"],
-                "installed_at": datetime.utcnow().isoformat(),
+                "installed_at": datetime.now(timezone.utc).isoformat(),
                 "code": tool["code"],
                 "description": tool["description"]
             }

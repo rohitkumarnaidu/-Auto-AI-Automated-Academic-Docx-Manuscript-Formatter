@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<style xmlns="http://purl.org/net/xbiblio/csl" version="1.0" class="in-text" default-locale="en-US">
+  <info>
+    <title>ACM (Minimal)</title>
+    <id>https://eclearnix.local/styles/acm-minimal</id>
+    <link href="https://eclearnix.local/styles/acm-minimal" rel="self"/>
+    <author><name>ECLearnIX</name></author>
+    <category citation-format="numeric"/>
+    <updated>2026-02-21T00:00:00+00:00</updated>
+  </info>
+
+  <macro name="author">
+    <names variable="author" delimiter=", ">
+      <name and="text" />
+      <substitute><text value="Unknown Author"/></substitute>
+    </names>
+  </macro>
+
+  <macro name="container">
+    <group delimiter=", ">
+      <text variable="container-title"/>
+      <text variable="volume" prefix="vol. "/>
+      <text variable="issue" prefix="no. "/>
+      <text variable="page" prefix="pp. "/>
+    </group>
+  </macro>
+
+  <macro name="year">
+    <date variable="issued"><date-part name="year"/></date>
+  </macro>
+
+  <macro name="identifier">
+    <choose>
+      <if variable="DOI"><text variable="DOI" prefix="doi:"/></if>
+      <else-if variable="URL"><text variable="URL"/></else-if>
+    </choose>
+  </macro>
+
+  <citation collapse="citation-number">
+    <layout prefix="[" suffix="]" delimiter=", ">
+      <text variable="citation-number"/>
+    </layout>
+  </citation>
+
+  <bibliography>
+    <layout>
+      <text variable="citation-number" prefix="[" suffix="] "/>
+      <text macro="author" suffix=", "/>
+      <text variable="title"  suffix=", "/>
+      <text macro="container"/>
+      <text macro="year" prefix=", " suffix=". "/>
+      <text macro="identifier"/>
+    </layout>
+  </bibliography>
+</style>

@@ -4,7 +4,7 @@ Exporter Module - Handles saving of formatted documents.
 
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from app.models import PipelineDocument as Document
 from app.pipeline.export.jats_generator import JATSGenerator
@@ -142,7 +142,7 @@ class Exporter:
             "tables": [table.model_dump(mode="json") for table in doc_obj.tables],
             "equations": [equation.model_dump(mode="json") for equation in doc_obj.equations],
             "processing_history": [stage.model_dump(mode="json") for stage in doc_obj.processing_history],
-            "exported_at": datetime.utcnow().isoformat(),
+            "exported_at": datetime.now(timezone.utc).isoformat(),
         }
 
     def _build_markdown(self, doc_obj: Document) -> str:

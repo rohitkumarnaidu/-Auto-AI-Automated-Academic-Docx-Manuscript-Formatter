@@ -4,7 +4,7 @@ Multi-document learning for cross-document insights.
 import logging
 import json
 from typing import List, Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -101,7 +101,7 @@ class MultiDocumentLearner:
 
         record: Dict[str, Any] = {
             "document_id": document_id,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "metadata": metadata,
             "metrics": metrics,
         }
@@ -177,7 +177,7 @@ class MultiDocumentLearner:
         # Quality trends
         self.insights["quality_trends"].append(
             {
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "success": bool(metrics.get("success", False)),
                 "errors": int(metrics.get("validation_errors", 0)),
             }

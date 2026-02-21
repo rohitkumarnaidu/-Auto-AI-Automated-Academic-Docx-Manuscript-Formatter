@@ -2,7 +2,7 @@ from __future__ import annotations
 import logging
 from enum import Enum
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from pydantic import BaseModel, Field, field_validator
 from app.models.block import Block
 from app.models.figure import Figure
@@ -43,7 +43,7 @@ class ProcessingStage(BaseModel):
     status: str
     message: Optional[str] = None
     duration_ms: Optional[int] = None
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class PipelineDocument(BaseModel):
@@ -85,8 +85,8 @@ class PipelineDocument(BaseModel):
     processing_history: List[ProcessingStage] = Field(default_factory=list)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     @field_validator("document_id")
     @classmethod
@@ -112,7 +112,7 @@ class PipelineDocument(BaseModel):
                 duration_ms=duration_ms,
             )
             self.processing_history.append(stage)
-            self.updated_at = datetime.utcnow()
+            self.updated_at = datetime.now(timezone.utc)
         except Exception as exc:
             logger.error("Failed to add processing stage '%s': %s", stage_name, exc)
 

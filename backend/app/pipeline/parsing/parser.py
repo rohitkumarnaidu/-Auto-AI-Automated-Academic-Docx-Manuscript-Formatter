@@ -18,7 +18,7 @@ IMPORTANT:
 import io
 import os
 from typing import List, Optional, Tuple, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from docx import Document as DocxDocument
@@ -117,8 +117,8 @@ class DocxParser(BaseParser):
             document_id=document_id,
             original_filename=Path(docx_path).name,
             source_path=docx_path,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc)
         )
         
         # Extract core properties

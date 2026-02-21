@@ -12,7 +12,7 @@ import os
 import re
 import logging
 from typing import List, Tuple, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -257,8 +257,8 @@ class NougatParser(BaseParser):
             document_id=document_id,
             original_filename=Path(file_path).name,
             source_path=file_path,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
         )
 
         document.metadata = DocumentMetadata()

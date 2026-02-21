@@ -133,7 +133,13 @@ class NvidiaClient:
             },
         ]
         response = self.chat(messages, model="llama-70b", temperature=0.3)
-        return {"analysis": response, "model": "llama-3.3-70b", "confidence": 0.85}
+        # Compute confidence from response quality
+        confidence = 0.0
+        if response:
+            section_keywords = ["abstract", "introduction", "method", "result", "discussion", "conclusion", "reference"]
+            detected = sum(1 for kw in section_keywords if kw in response.lower())
+            confidence = min(1.0, 0.3 + (detected / len(section_keywords)) * 0.7)
+        return {"analysis": response, "model": "llama-3.3-70b", "confidence": round(confidence, 2)}
 
     def analyze_figure(self, image_path: str, caption: Optional[str] = None) -> Optional[str]:
         """Analyze figure/diagram using Llama 3.2 11B Vision."""

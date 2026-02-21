@@ -9,7 +9,7 @@ Output: Document with structure hints attached to blocks
 """
 
 from typing import List, Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from statistics import mean, median
 
 from app.models import PipelineDocument as Document, Block, BlockType
@@ -46,7 +46,7 @@ class StructureDetector(PipelineStage):
         Detect structure in a normalized document.
         """
         with safe_execution("StructureDetector.process"):
-            start_time = datetime.utcnow()
+            start_time = datetime.now(timezone.utc)
             
             # Step 0: ENFORCE NORMALIZATION
             # User requirement: Normalizer must run before StructureDetector
@@ -92,7 +92,7 @@ class StructureDetector(PipelineStage):
         self._validate_hierarchy(document.blocks)
         
         # Update processing history
-        end_time = datetime.utcnow()
+        end_time = datetime.now(timezone.utc)
         duration_ms = int((end_time - start_time).total_seconds() * 1000)
         
         num_headings = len(heading_candidates)
@@ -105,7 +105,7 @@ class StructureDetector(PipelineStage):
             duration_ms=duration_ms
         )
         
-        document.updated_at = datetime.utcnow()
+        document.updated_at = datetime.now(timezone.utc)
         
         # Store detected headings for debugging
         self.detected_headings = heading_candidates

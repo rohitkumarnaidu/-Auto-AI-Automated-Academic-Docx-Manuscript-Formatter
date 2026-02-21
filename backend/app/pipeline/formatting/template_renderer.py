@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import logging
 import tempfile
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -88,7 +88,7 @@ class TemplateRenderer:
                 "title": title,
                 "authors": authors,
                 "affiliations": affiliations,
-                "date": datetime.utcnow().strftime("%B %d, %Y"),
+                "date": datetime.now(timezone.utc).strftime("%B %d, %Y"),
                 "abstract": abstract_text,
                 "keywords": keywords,
                 "sections": sections,

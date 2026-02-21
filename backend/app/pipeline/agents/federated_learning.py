@@ -4,7 +4,7 @@ Federated learning across multiple deployments.
 import logging
 import json
 from typing import List, Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -111,7 +111,7 @@ class FederatedLearningNode:
 
         update: Dict[str, Any] = {
             "node_id": self.node_id,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "update_type": update_type,
             "data": data,
             "version": self.global_model.get("version", 0),
@@ -264,7 +264,7 @@ class FederatedLearningNode:
             "version": self.global_model.get("version", 0) + 1,
             "patterns": aggregated_patterns,
             "statistics": aggregated_metrics,
-            "last_updated": datetime.utcnow().isoformat(),
+            "last_updated": datetime.now(timezone.utc).isoformat(),
             "contributing_nodes": contributing_nodes,
         }
 

@@ -7,7 +7,7 @@ Parses unstructured reference strings into structured metadata.
 import logging
 import re
 from typing import List, Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ class ReferenceParser(PipelineStage):
         """
         Extract and parse references from the document.
         """
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
         
         try:
             blocks = document.get_blocks_by_type(BlockType.REFERENCE_ENTRY)
@@ -78,7 +78,7 @@ class ReferenceParser(PipelineStage):
             return document
         
         # Log
-        end_time = datetime.utcnow()
+        end_time = datetime.now(timezone.utc)
         duration_ms = int((end_time - start_time).total_seconds() * 1000)
         
         document.add_processing_stage(

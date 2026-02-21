@@ -4,7 +4,7 @@ Performance metrics tracking for agent vs legacy comparison.
 import time
 import logging
 from typing import Dict, Any, Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 from dataclasses import dataclass, asdict
 from pathlib import Path
 import json
@@ -180,7 +180,7 @@ class PerformanceTracker:
         legacy_metrics = [m for m in metrics_list if m["orchestrator_type"] == "legacy"]
         
         summary = {
-            "last_updated": datetime.utcnow().isoformat(),
+            "last_updated": datetime.now(timezone.utc).isoformat(),
             "total_runs": len(metrics_list),
             "agent": self._calculate_stats(agent_metrics),
             "legacy": self._calculate_stats(legacy_metrics)
