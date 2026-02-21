@@ -37,3 +37,9 @@ ALTER TABLE public.ab_test_results ENABLE ROW LEVEL SECURITY;
 -- but we allow select for authenticated backend users if needed).
 CREATE POLICY "Allow read access to anyone" ON public.model_metrics FOR SELECT USING (true);
 CREATE POLICY "Allow read access to anyone" ON public.ab_test_results FOR SELECT USING (true);
+
+-- FIX 47: Indexes for Documents Table Queries
+CREATE INDEX IF NOT EXISTS idx_documents_user_id ON public.documents (user_id);
+CREATE INDEX IF NOT EXISTS idx_documents_status ON public.documents (status);
+CREATE INDEX IF NOT EXISTS idx_documents_created_at ON public.documents (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_documents_template_name ON public.documents (template_name);

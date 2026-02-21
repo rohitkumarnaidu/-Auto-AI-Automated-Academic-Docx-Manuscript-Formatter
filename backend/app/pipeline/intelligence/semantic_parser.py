@@ -42,10 +42,10 @@ class SemanticParser:
             self.tokenizer = model_store.get_model("scibert_tokenizer")
             self.model = model_store.get_model("scibert_model")
             self._is_loaded = True
-            print("SemanticParser: Reusing global SciBERT from ModelStore.")
+            logger.info("SemanticParser: Reusing global SciBERT from ModelStore.")
             return
 
-        print(f"SemanticParser: Loading SciBERT model ({self.model_name})...")
+        logger.info("SemanticParser: Loading SciBERT model (%s)...", self.model_name)
         try:
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
             self.model = AutoModelForSequenceClassification.from_pretrained(
@@ -54,9 +54,9 @@ class SemanticParser:
             )
             self.model.eval()
             self._is_loaded = True
-            print("SemanticParser: Model loaded successfully.")
+            logger.info("SemanticParser: Model loaded successfully.")
         except Exception as e:
-            print(f"Warning: Failed to load transformer {self.model_name}: {e}")
+            logger.warning("Failed to load transformer %s: %s", self.model_name, e)
             self.model = None
             self._is_loaded = True
 
@@ -69,7 +69,7 @@ class SemanticParser:
         try:
             return self._repair_fragmented_headings(blocks)
         except Exception as e:
-            print(f"SemanticParser Guard: detect_boundaries failed: {e}. Returning original blocks.")
+            logger.warning("SemanticParser Guard: detect_boundaries failed: %s. Returning original blocks.", e)
             return blocks
 
     def reconcile_fragmented_headings(self, blocks: List[Block]) -> List[Block]:
@@ -80,7 +80,7 @@ class SemanticParser:
         try:
             return self._repair_fragmented_headings(blocks)
         except Exception as e:
-            print(f"SemanticParser Guard: reconcile_fragmented_headings failed: {e}. Returning original blocks.")
+            logger.warning("SemanticParser Guard: reconcile_fragmented_headings failed: %s. Returning original blocks.", e)
             return blocks
 
     @safe_function(fallback_value=[], error_message="SemanticParser.analyze_blocks failed")

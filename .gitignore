@@ -14,6 +14,8 @@ downloads/
 eggs/
 .eggs/
 lib/
+!frontend/src/lib/
+!frontend/src/lib/supabaseClient.js
 lib64/
 parts/
 sdist/
@@ -84,3 +86,7 @@ docs/security/
 # GIT 37: Runtime artifacts — NOT tracked
 backend/uploads/
 backend/manual_tests/output/
+backend/logs/
+*.pyc
+__pycache__/
+.env

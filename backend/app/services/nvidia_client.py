@@ -109,6 +109,15 @@ class NvidiaClient:
                 if not choices:
                     logger.warning("NvidiaClient.chat: API returned empty choices.")
                     return ""
+                
+                if hasattr(response, 'usage') and response.usage:
+                    logger.info(
+                        "NVIDIA NIM usage: prompt=%s, completion=%s, total=%s tokens",
+                        getattr(response.usage, 'prompt_tokens', 0),
+                        getattr(response.usage, 'completion_tokens', 0),
+                        getattr(response.usage, 'total_tokens', 0)
+                    )
+                
                 return choices[0].message.content or ""
             except Exception as exc:
                 logger.error("NvidiaClient.chat: direct API call failed: %s", exc)

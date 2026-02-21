@@ -40,6 +40,61 @@ def _require_db():
 
 # ── Endpoints ──────────────────────────────────────────────────────────────────
 
+# ── Endpoint to get processing status (SSE) ────────────────────────────
+
+@router.post("/upload/chunked")
+async def upload_document_chunked(
+    file_id: str = Form(...),
+    chunk_index: int = Form(...),
+    total_chunks: int = Form(...),
+    file: UploadFile = File(...),
+    current_user: Optional[User] = Depends(get_optional_user)
+):
+    """
+    FEAT 42: Chunked file upload for large documents
+    """
+    _require_db()
+    
+    # Store chunks in a temporary directory
+    from pathlib import Path
+    upload_dir = Path("data/uploads/temp")
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Save the chunk
+    chunk_path = upload_dir / f"{file_id}.part{chunk_index}"
+    try:
+        content = await file.read()
+        with open(chunk_path, "wb") as f:
+            f.write(content)
+            
+        # Check if all chunks have been received
+        received_chunks = len(list(upload_dir.glob(f"{file_id}.part*")))
+        if received_chunks == total_chunks:
+            # Reassemble the file
+            final_path = upload_dir / f"{file_id}_complete"
+            with open(final_path, "wb") as outfile:
+                for i in range(total_chunks):
+                    part_path = upload_dir / f"{file_id}.part{i}"
+                    if part_path.exists():
+                        with open(part_path, "rb") as infile:
+                            outfile.write(infile.read())
+                        os.remove(part_path)  # Cleanup piece
+                        
+            return {
+                "status": "complete",
+                "message": "All chunks received and reassembled successfully.",
+                "file_id": file_id
+            }
+            
+        return {
+            "status": "chunk_received",
+            "chunk_index": chunk_index,
+            "total_chunks": total_chunks
+        }
+    except Exception as e:
+        logger.error(f"Error handling chunked upload: {e}")
+        raise HTTPException(status_code=500, detail="Failed to upload chunk.")
+
 @router.get("")
 async def list_documents(
     status: Optional[str] = Query(None, description="Filter by status (RUNNING, COMPLETED, FAILED)"),

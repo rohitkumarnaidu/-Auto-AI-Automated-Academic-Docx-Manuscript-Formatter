@@ -21,16 +21,8 @@ export default function Edit() {
         }
     }, [job]);
 
-    if (!job) {
-        return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-background-light dark:bg-background-dark">
-                <p className="text-slate-500 mb-4">No document loaded for editing.</p>
-                <button onClick={() => navigate('/upload')} className="text-primary font-bold hover:underline">Return to Upload</button>
-            </div>
-        );
-    }
-
     const handleSave = useCallback(async () => {
+        if (!job) return;
         if (isSaving) return;
         setIsSaving(true);
         try {
@@ -93,6 +85,15 @@ export default function Edit() {
         window.addEventListener('keydown', handler);
         return () => window.removeEventListener('keydown', handler);
     }, [handleCancel, handleSave]);
+
+    if (!job) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center bg-background-light dark:bg-background-dark">
+                <p className="text-slate-500 mb-4">No document loaded for editing.</p>
+                <button onClick={() => navigate('/upload')} className="text-primary font-bold hover:underline">Return to Upload</button>
+            </div>
+        );
+    }
 
     return (
         <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-display">

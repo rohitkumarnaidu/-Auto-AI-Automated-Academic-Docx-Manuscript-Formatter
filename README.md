@@ -1,101 +1,63 @@
-# 🎓 ScholarForm AI — Automated Academic Manuscript Formatter
+# ScholarForm AI - Automated Academic Manuscript Formatter
 
-> Transform your research into publication-ready documents in minutes using AI-powered formatting and validation.
+ScholarForm AI formats academic manuscripts into publisher-ready outputs using deterministic rules plus AI-assisted analysis.
 
-## ✨ Features
+## AI/ML Stack
+- **SciBERT** (`allenai/scibert_scivocab_uncased`) for section/semantic classification
+- **NVIDIA NIM**:
+  - Llama 3.3 70B Instruct (text reasoning and compliance analysis)
+  - Llama 3.2 11B Vision (figure/table analysis)
+- **DeepSeek R1 via Ollama** for local inference fallback
+- **RAG with BGE-M3** embeddings for style-rule retrieval
+- **GROBID** for PDF metadata/reference extraction
+- **Docling** for document structure extraction
 
-- **Multi-format ingestion:** DOCX, PDF, LaTeX, TXT, HTML, Markdown, DOC
-- **Publisher templates:** IEEE, ACM, Springer, APA, Nature (+ custom template editor)
-- **AI-powered pipeline:** SciBERT classification, NVIDIA NIM semantic audit, language detection
-- **Smart extraction:** Nougat OCR fallback for scanned PDFs, GROBID/Docling integration
-- **Multi-column layout:** Contract-driven column configs (2-col body, 1-col abstract)
-- **Real-time progress:** SSE streaming with 6-step pipeline status
-- **Batch upload:** Process up to 10 documents at once
-- **Validation report:** Errors, warnings, AI recommendations
+## Required Environment Variables
 
-## 🤖 AI/ML Stack
+Backend:
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_JWT_SECRET`
+- `NVIDIA_API_KEY`
+- `OLLAMA_BASE_URL`
 
-| Component | Model / Tool | Purpose |
-|-----------|-------------|---------|
-| **SciBERT** | `allenai/scibert_scivocab_uncased` | Academic section classification |
-| **NVIDIA NIM** | Llama 3.3 70B Instruct | Structure analysis, compliance checks |
-| **NVIDIA NIM** | Llama 3.2 11B Vision | Figure/table quality analysis |
-| **DeepSeek R1** | Via Ollama | Local inference fallback |
-| **RAG Engine** | BGE-M3 + ChromaDB | Style guide rule retrieval |
-| **GROBID** | Self-hosted | PDF header/reference extraction |
-| **Docling** | IBM | Document structure analysis |
-| **Nougat** | Meta | OCR for scanned PDFs |
-| **langdetect** | | Document language detection |
+Frontend:
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+- `VITE_API_BASE_URL`
 
-## 🔧 Required Environment Variables
+## Quick Setup
 
-```env
-# Supabase (Required)
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-SUPABASE_JWT_SECRET=your-jwt-secret
-
-# Frontend
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key
-VITE_API_URL=http://localhost:8000
-
-# AI Services (Optional — graceful degradation)
-NVIDIA_API_KEY=nvapi-xxx
-OLLAMA_BASE_URL=http://localhost:11434
-GROBID_URL=http://localhost:8070
-
-# Infrastructure (Optional)
-REDIS_URL=redis://localhost:6379/0
-CROSSREF_MAILTO=your-email@example.com
-```
-
-## 🚀 Quick Start
-
-### Backend
+1. Install dependencies:
 ```bash
 cd backend
 python -m venv venv
-venv\Scripts\activate  # Windows
+venv\Scripts\activate
 pip install -r requirements.txt
+```
+
+2. Set backend env vars in `backend/.env`.
+
+3. Run backend:
+```bash
 uvicorn app.main:app --reload --port 8000
 ```
 
-### Frontend
+4. Install and run frontend:
 ```bash
-cd frontend
+cd ../frontend
 npm install
 npm run dev
 ```
 
-## 📁 Project Structure
+5. Open app:
+- Frontend: `http://localhost:5173`
+- API docs: `http://localhost:8000/docs`
 
-```
-automated-manuscript-formatter/
-├── backend/
-│   ├── app/
-│   │   ├── main.py              # FastAPI entrypoint
-│   │   ├── pipeline/            # Core processing pipeline
-│   │   │   ├── orchestrator.py  # Job orchestration
-│   │   │   ├── parsing/         # DOCX, PDF, LaTeX, Nougat parsers
-│   │   │   ├── classification/  # SciBERT + rule-based classifier
-│   │   │   ├── intelligence/    # SemanticParser, RAG engine
-│   │   │   ├── formatting/      # Contract-driven DOCX formatter
-│   │   │   └── validation/      # Template compliance validator
-│   │   ├── routers/             # API endpoints
-│   │   ├── services/            # NVIDIA, CrossRef, Supabase clients
-│   │   └── templates/           # Publisher configs (contract.yaml)
-│   └── requirements.txt
-├── frontend/
-│   ├── src/
-│   │   ├── pages/               # Upload, Processing, Dashboard, etc.
-│   │   ├── components/          # Navbar, Stepper, FileUpload, etc.
-│   │   ├── context/             # Auth, Document, Theme providers
-│   │   └── services/api.js      # API client with retry/debounce
-│   └── package.json
-└── docs/                        # Architecture, API reference
-```
-
-## 📄 License
-MIT
+## Core Endpoints
+- `POST /api/documents/upload`
+- `GET /api/documents/{job_id}/status`
+- `GET /api/documents/{job_id}/preview`
+- `GET /api/documents/{job_id}/compare`
+- `GET /api/documents/{job_id}/download`
+- `POST /api/documents/{job_id}/edit`

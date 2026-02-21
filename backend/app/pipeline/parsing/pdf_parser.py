@@ -75,6 +75,15 @@ class PdfParser(BaseParser):
             pdf_doc = fitz.open(file_path)
         except Exception as e:
             raise ValueError(f"Failed to open PDF file: {e}")
+
+        # FIX #15: Check for password-protected/encrypted PDFs
+        if pdf_doc.is_encrypted:
+            # Try decrypting with empty password (some PDFs are "owner-locked" but readable)
+            if not pdf_doc.authenticate(""):
+                pdf_doc.close()
+                raise ValueError(
+                    "This PDF is password-protected. Please remove the password and re-upload."
+                )
         
         # Convert document_id to string if needed
         if not isinstance(document_id, str):
