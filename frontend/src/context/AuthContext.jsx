@@ -36,7 +36,7 @@ export const AuthProvider = ({ children }) => {
                     console.warn("Auth: Invalid session detected, signing out.");
                     await supabase.auth.signOut();
                     sessionStorage.clear();
-                    localStorage.removeItem('scholarform_job');
+                    sessionStorage.removeItem('scholarform_currentJob');
                     if (mounted) {
                         setUser(null);
                         setIsLoggedIn(false);
@@ -70,7 +70,7 @@ export const AuthProvider = ({ children }) => {
                 setUser(null);
                 setIsLoggedIn(false);
                 sessionStorage.clear();
-                localStorage.removeItem('scholarform_job');
+                sessionStorage.removeItem('scholarform_currentJob');
             } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
                 // For sign-in/refresh, we trust the session but access_token must exist
                 if (session?.user && session?.access_token) {
@@ -157,7 +157,7 @@ export const AuthProvider = ({ children }) => {
             setUser(null);
             setIsLoggedIn(false);
             sessionStorage.clear();
-            localStorage.removeItem('scholarform_job');
+            sessionStorage.removeItem('scholarform_currentJob');
         }
     };
 

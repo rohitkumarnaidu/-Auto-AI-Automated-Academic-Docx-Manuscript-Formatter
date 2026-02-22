@@ -4,7 +4,7 @@ import os
 import logging
 import time
 from celery import Celery
-from app.pipeline.orchestrator_v2 import create_orchestrator
+from app.pipeline.orchestrator import PipelineOrchestrator
 
 # ── Old ORM imports (kept for reference, replaced by DocumentService) ──────────
 # from app.db.session import SessionLocal
@@ -49,9 +49,9 @@ def process_document_task(document_id: str, use_agent: bool = True):
         })
 
         # ── Run pipeline ───────────────────────────────────────────────────────
-        orchestrator = create_orchestrator(use_agent=use_agent)
+        orchestrator = PipelineOrchestrator()
         start_time = time.time()
-        orchestrator.process(doc_row)
+        orchestrator.run_pipeline(input_path=doc_row["original_file_path"], job_id=document_id)
         processing_time = time.time() - start_time
 
         # ── Mark as COMPLETED ──────────────────────────────────────────────────

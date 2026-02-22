@@ -48,7 +48,7 @@ async def upload_document_chunked(
     chunk_index: int = Form(...),
     total_chunks: int = Form(...),
     file: UploadFile = File(...),
-    current_user: Optional[User] = Depends(get_optional_user)
+    current_user: User = Depends(get_current_user)
 ):
     """
     FEAT 42: Chunked file upload for large documents
@@ -60,16 +60,27 @@ async def upload_document_chunked(
     upload_dir = Path("data/uploads/temp")
     upload_dir.mkdir(parents=True, exist_ok=True)
     
-    # Save the chunk
+    # Save the chunk with 5MB limit
     chunk_path = upload_dir / f"{file_id}.part{chunk_index}"
     try:
         content = await file.read()
+        if len(content) > 5 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="Chunk exceeds 5MB limit.")
+            
         with open(chunk_path, "wb") as f:
             f.write(content)
             
         # Check if all chunks have been received
         received_chunks = len(list(upload_dir.glob(f"{file_id}.part*")))
         if received_chunks == total_chunks:
+            # Validate total assembled size before merging
+            import os
+            total_size = sum(p.stat().st_size for p in upload_dir.glob(f"{file_id}.part*"))
+            if total_size > settings.MAX_FILE_SIZE:
+                for p in upload_dir.glob(f"{file_id}.part*"):
+                    p.unlink()
+                raise HTTPException(status_code=413, detail=f"Total file size exceeds limit.")
+
             # Reassemble the file
             final_path = upload_dir / f"{file_id}_complete"
             with open(final_path, "wb") as outfile:
@@ -171,7 +182,6 @@ async def upload_document(
 
     logger.debug("upload_document received template='%s' from request.", template)
 
-    MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
     ALLOWED_EXTENSIONS = {'.docx', '.pdf', '.tex', '.txt', '.html', '.htm', '.md', '.markdown', '.doc'}
 
     try:
@@ -191,10 +201,10 @@ async def upload_document(
         file_content = await file.read()
         file_size = len(file_content)
 
-        if file_size > MAX_FILE_SIZE:
+        if file_size > settings.MAX_FILE_SIZE:
             raise HTTPException(
                 status_code=413,
-                detail=f"File too large ({file_size / 1024 / 1024:.1f}MB). Maximum size is {MAX_FILE_SIZE / 1024 / 1024}MB"
+                detail=f"File too large ({file_size / 1024 / 1024:.1f}MB). Maximum size is {settings.MAX_FILE_SIZE / 1024 / 1024:.0f}MB"
             )
 
         if file_size == 0:
@@ -453,7 +463,7 @@ async def get_comparison_data(
         formatted_text = ""
         structured_data = result.get("structured_data")
         if structured_data and isinstance(structured_data, dict):
-            blocks = structured_data.get("blocks", [])
+            blocks = structured_data.get("blocks") or structured_data.get("sections", [])
             formatted_text = "\n\n".join([
                 block.get("text", "") for block in blocks
                 if isinstance(block, dict) and block.get("text")
@@ -621,8 +631,8 @@ async def batch_upload(
     """
     _require_db()
 
-    if len(files) > 10:
-        raise HTTPException(status_code=400, detail="Maximum 10 files per batch upload.")
+    if len(files) > settings.MAX_BATCH_FILES:
+        raise HTTPException(status_code=400, detail=f"Maximum {settings.MAX_BATCH_FILES} files per batch upload.")
 
     results = []
     for file in files:
@@ -648,7 +658,7 @@ async def batch_upload(
                 results.append({
                     "filename": file.filename,
                     "status": "rejected",
-                    "reason": f"File exceeds {settings.MAX_FILE_SIZE // (1024*1024)}MB limit",
+                    "reason": f"File exceeds {settings.MAX_FILE_SIZE // (1024 * 1024)}MB limit",
                 })
                 continue
 
@@ -657,11 +667,11 @@ async def batch_upload(
 
             # Create DB record
             DocumentService.create_document(
-                document_id=job_id,
+                doc_id=job_id,
                 filename=file.filename,
-                file_path=file_path,
+                original_file_path=file_path,
                 template=template,
-                user_id=current_user.id if current_user else None,
+                user_id=str(current_user.id) if current_user else None,
             )
 
             # Start background processing
@@ -685,7 +695,7 @@ async def batch_upload(
             results.append({
                 "filename": file.filename,
                 "status": "failed",
-                "reason": str(e),
+                "reason": "An internal error occurred during batch processing.",
             })
 
     return {"jobs": results, "total": len(results)}

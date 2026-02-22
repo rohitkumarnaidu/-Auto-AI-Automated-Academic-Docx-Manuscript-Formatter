@@ -41,6 +41,15 @@ from app.pipeline.services import GROBIDClient, DoclingClient
 # Safety Hardening
 from app.pipeline.safety import safe_execution
 
+import logging
+import threading
+
+logger = logging.getLogger(__name__)
+
+# Concurrent job limiter — prevents OOM from unlimited parallel pipelines
+_MAX_CONCURRENT_JOBS = 5
+_pipeline_semaphore = threading.Semaphore(_MAX_CONCURRENT_JOBS)
+
 class PipelineOrchestrator:
     """
     Runs the full document processing pipeline from input file to final output.
@@ -127,6 +136,17 @@ class PipelineOrchestrator:
         except Exception as e:
             print(f"❌ Supabase status update failed for job {document_id}: {e}")
 
+    def _run_with_timeout(self, func, timeout_sec: int, *args, **kwargs):
+        """Helper to run a synchronous pipeline stage with a strict timeout."""
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(func, *args, **kwargs)
+            try:
+                return future.result(timeout=timeout_sec)
+            except concurrent.futures.TimeoutError:
+                logger.error("Pipeline stage timed out after %ds", timeout_sec)
+                raise TimeoutError(f"Stage timed out after {timeout_sec}s")
+
     def run_pipeline(
         self, 
         input_path: str, 
@@ -137,8 +157,25 @@ class PipelineOrchestrator:
         """
         Execute full pipeline sequentially in the background.
         """
-        # DEBUG LOG
-        print(f"DEBUG: Orchestrator.run_pipeline started with template_name='{template_name}', options={formatting_options}")
+        if not _pipeline_semaphore.acquire(blocking=False):
+            logger.warning("Pipeline semaphore full. Job %s rejected (Too Many Requests)", job_id)
+            self._update_status(job_id, "SYSTEM", "FAILED", "Too many concurrent jobs. Please try again later.")
+            return {"status": "failed", "reason": "Server is busy"}
+
+        try:
+            return self._run_pipeline_internal(input_path, job_id, template_name, formatting_options)
+        finally:
+            _pipeline_semaphore.release()
+
+    def _run_pipeline_internal(
+        self, 
+        input_path: str, 
+        job_id: str, 
+        template_name: Optional[str] = "IEEE",
+        formatting_options: Dict[str, Any] = None
+    ) -> Dict[str, Any]:
+        """Internal pipeline execution logic."""
+        logger.debug("Orchestrator.run_pipeline started with template='%s', options=%s", template_name, formatting_options)
         
         if formatting_options is None:
             formatting_options = {}
@@ -176,13 +213,13 @@ class PipelineOrchestrator:
                 
                 if file_ext in parser_supported_formats:
                     # Parse original file directly (no Pandoc/LibreOffice needed!)
-                    print(f"✅ Parsing {file_ext} directly with ParserFactory (no conversion)")
+                    logger.info("Parsing %s directly with ParserFactory (no conversion)", file_ext)
                     parser = factory.get_parser(input_path)
                     doc_obj = parser.parse(input_path, job_id)
                     doc_obj.formatting_options = formatting_options  # Inject Options
                     docx_path = input_path  # Keep original path for reference
                 else:
-                    print(f"ℹ️ Converting {file_ext} to DOCX first...")
+                    logger.info("Converting %s to DOCX first...", file_ext)
                     docx_path = self.converter.convert_to_docx(input_path, job_id)
                     
                     # Parse the converted DOCX
@@ -229,7 +266,7 @@ class PipelineOrchestrator:
                     has_docling = hasattr(doc_obj, 'metadata') and doc_obj.metadata and doc_obj.metadata.ai_hints.get('docling_layout')
                     
                     if has_grobid and has_docling:
-                        print("✅ AI Extraction already completed (Agent V2). Skipping parallel pass.")
+                        logger.info("AI Extraction already completed (Agent V2). Skipping parallel pass.")
                     else:
                         self._update_status(job_id, "EXTRACTION", "IN_PROGRESS", "Extracting metadata and layout (Parallel)...", progress=22)
                         
@@ -238,28 +275,38 @@ class PipelineOrchestrator:
                             def run_grobid():
                                 if self.grobid_client.is_available():
                                     try:
-                                        print("🔬 Extracting metadata with GROBID...")
+                                        logger.info("Extracting metadata with GROBID...")
                                         return self.grobid_client.process_header_document(input_path)
                                     except Exception as e:
-                                        print(f"⚠️ GROBID extraction failed: {e}")
+                                        logger.warning("GROBID extraction failed: %s", e)
                                 return {}
 
                             def run_docling():
                                 if self.docling_client.is_available():
                                     try:
-                                        print("📐 Analyzing layout with Docling...")
+                                        logger.info("Analyzing layout with Docling...")
                                         return self.docling_client.analyze_layout(input_path)
                                     except Exception as e:
-                                        print(f"⚠️ Docling analysis failed: {e}")
+                                        logger.warning("Docling analysis failed: %s", e)
                                 return {} 
 
                             # Submit tasks
                             future_grobid = executor.submit(run_grobid)
                             future_docling = executor.submit(run_docling)
                             
-                            # Get results (this blocks until both are done)
-                            grobid_metadata = future_grobid.result()
-                            layout_result = future_docling.result()
+                            # Get results (this blocks until both are done or timeout)
+                            import concurrent.futures
+                            try:
+                                grobid_metadata = future_grobid.result(timeout=120)
+                            except concurrent.futures.TimeoutError:
+                                logger.warning("GROBID extraction timed out after 120s")
+                                grobid_metadata = {}
+                                
+                            try:
+                                layout_result = future_docling.result(timeout=120)
+                            except concurrent.futures.TimeoutError:
+                                logger.warning("Docling analysis timed out after 120s")
+                                layout_result = {}
 
                             # Process Grobid Result
                             if grobid_metadata and isinstance(grobid_metadata, dict):
@@ -267,9 +314,9 @@ class PipelineOrchestrator:
                                     from app.models import DocumentMetadata
                                     doc_obj.metadata = DocumentMetadata()
                                 doc_obj.metadata.ai_hints['grobid_metadata'] = grobid_metadata
-                                print(f"✅ GROBID extracted: Title='{grobid_metadata.get('title', 'N/A')}', Authors={len(grobid_metadata.get('authors', []))}")
+                                logger.info("GROBID extracted: Title='%s', Authors=%d", grobid_metadata.get('title', 'N/A'), len(grobid_metadata.get('authors', [])))
                             else:
-                                 print(f"ℹ️ GROBID result unavailable (file_ext={file_ext})")
+                                 logger.info("GROBID result unavailable (file_ext=%s)", file_ext)
 
                             # Process Docling Result
                             if layout_result and isinstance(layout_result, dict):
@@ -277,9 +324,9 @@ class PipelineOrchestrator:
                                     from app.models import DocumentMetadata
                                     doc_obj.metadata = DocumentMetadata()
                                 doc_obj.metadata.ai_hints['docling_layout'] = layout_result
-                                print(f"✅ Docling analyzed: {len(layout_result.get('elements', []))} elements found")
+                                logger.info("Docling analyzed: %d elements found", len(layout_result.get('elements', [])))
                             else:
-                                 print(f"ℹ️ Docling result unavailable (file_ext={file_ext})")
+                                 logger.info("Docling result unavailable (file_ext=%s)", file_ext)
 
                 # Phase 2.5: Equation Standardization
                 self._update_status(job_id, "EXTRACTION", "IN_PROGRESS", "Standardizing equations...", progress=25)
@@ -288,7 +335,7 @@ class PipelineOrchestrator:
                 # and BEFORE classification to populate metadata["nlp_confidence"]
                 semantic_parser = get_semantic_parser()
                 try:
-                    semantic_blocks = semantic_parser.analyze_blocks(doc_obj.blocks)
+                    semantic_blocks = self._run_with_timeout(semantic_parser.analyze_blocks, 60, doc_obj.blocks)
                     
                     # Update block metadata with AI predictions
                     for i, b in enumerate(doc_obj.blocks):
@@ -402,7 +449,7 @@ class PipelineOrchestrator:
                 from app.pipeline.validation.validator_v3 import DocumentValidator
                 validator = DocumentValidator(contracts_dir=self.contracts_dir)
                 self._check_stage_interface(validator, "process", "DocumentValidator")
-                doc_obj = validator.process(doc_obj)
+                doc_obj = self._run_with_timeout(validator.process, 60, doc_obj)
                 
                 # GUARDRAIL 2: YAML Contract Override
                 # Validation logic in validator.py already uses YAML contract as Truth.
@@ -418,7 +465,7 @@ class PipelineOrchestrator:
                 
                 formatter = Formatter(templates_dir=self.templates_dir, contracts_dir=self.contracts_dir)
                 self._check_stage_interface(formatter, "process", "Formatter")
-                doc_obj = formatter.process(doc_obj)
+                doc_obj = self._run_with_timeout(formatter.process, 60, doc_obj)
                 
                 output_path = None
                 if hasattr(doc_obj, 'generated_doc') and doc_obj.generated_doc:
@@ -520,11 +567,11 @@ class PipelineOrchestrator:
         except Exception as e:
             import traceback
             error_msg = str(e)
-            print(f"Pipeline Error: {error_msg}")
+            logger.error("Pipeline Error: %s", error_msg)
             
             # Fallback: If we have an output path, we can downgrade to WARNING
             if output_path and os.path.exists(output_path):
-                print(f"Pipeline Validation Error (Non-Fatal): {error_msg}")
+                logger.warning("Pipeline Validation Error (Non-Fatal): %s", error_msg)
                 self._update_status(job_id, "PERSISTENCE", "COMPLETED", "Completed with validation warnings.", progress=100)
                 if sb:
                     sb.table("documents").update({
@@ -543,7 +590,7 @@ class PipelineOrchestrator:
                 response["status"] = "error"
                 response["message"] = f"Pipeline failed: {error_msg}"
                 
-            print(f"Pipeline Error Traceback: {traceback.format_exc()}")
+            logger.error("Pipeline Error Traceback: %s", traceback.format_exc())
             
         return response
 

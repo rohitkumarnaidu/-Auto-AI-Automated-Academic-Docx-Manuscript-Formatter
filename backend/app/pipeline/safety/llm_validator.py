@@ -7,10 +7,10 @@ try:
     import guardrails
     from guardrails import Guard
     HAS_GUARDRAILS = True
-    print("✅ Guardrails AI loaded for robust LLM validation.")
+    print("[SUCCESS] Guardrails AI loaded for robust LLM validation.")
 except ImportError:
     HAS_GUARDRAILS = False
-    print("ℹ️ Guardrails AI unavailable. Falling back to native Pydantic validation (validator_guard.py).")
+    print("[INFO] Guardrails AI unavailable. Falling back to native Pydantic validation (validator_guard.py).")
 
 # Gracefully import the old wrapper as a fallback
 try:
@@ -75,12 +75,12 @@ def guard_llm_output(schema: Type[BaseModel], error_return_value: Optional[Any] 
                     return val
                     
                 # If Guardrails returned None (failed validation severely)
-                print(f"🛡️ Guardrails AI: Schema rejected JSON payload for {func.__name__}")
+                print(f"[GUARDRAILS] Schema rejected JSON payload for {func.__name__}")
                 return error_return_value or {}
                 
             except Exception as e:
                 # Catch Guardrails specific parsing errors securely
-                print(f"🛡️ Guardrails AI: Exception in {func.__name__}: {e}")
+                print(f"[GUARDRAILS] Exception in {func.__name__}: {e}")
                 import traceback
                 traceback.print_exc()
                 # Provide graceful degradation via error_return_value instead of crashing pipeline

@@ -1,0 +1,47 @@
+[
+    {
+        "template": "IEEE",
+        "category": "formatting",
+        "guideline": "Use Times New Roman font, 10pt size for the main body text. The document must be formatted in a two-column layout."
+    },
+    {
+        "template": "IEEE",
+        "category": "headings",
+        "guideline": "Level 1 headings should be uppercase, centered, and numbered with Roman numerals. Level 2 headings should be italicized, left-aligned, and numbered with capital letters."
+    },
+    {
+        "template": "IEEE",
+        "category": "references",
+        "guideline": "References must be numbered sequentially in square brackets, e.g., [1]. The reference list should be ordered by appearance in the text."
+    },
+    {
+        "template": "APA",
+        "category": "formatting",
+        "guideline": "Use margins of 1 inch on all sides. The text should be double-spaced throughout the manuscript, including the reference list. Preferred font is Times New Roman 12pt or Calibri 11pt."
+    },
+    {
+        "template": "APA",
+        "category": "headings",
+        "guideline": "Level 1 headings must be centered, bold, and title case. Level 2 headings must be flush left, bold, and title case."
+    },
+    {
+        "template": "APA",
+        "category": "references",
+        "guideline": "Citations in text should use the author-date format (e.g., Smith, 2023). The reference list must be arranged alphabetically by the authors' last names and use a hanging indent."
+    },
+    {
+        "template": "Springer",
+        "category": "formatting",
+        "guideline": "The manuscript should be compiled in a single column layout unless specified otherwise by the specific journal. Standard font is Times 10pt."
+    },
+    {
+        "template": "Springer",
+        "category": "headings",
+        "guideline": "Primary headings should be bold and left-aligned. Decimal numbering scheme is frequently used for sections, e.g., 1, 1.1, 1.1.1."
+    },
+    {
+        "template": "Springer",
+        "category": "references",
+        "guideline": "Reference style varies by discipline (Math/Phys vs Life Sciences). As a general baseline, use numbered citations for physics/math, and name-year citations for life sciences."
+    }
+]

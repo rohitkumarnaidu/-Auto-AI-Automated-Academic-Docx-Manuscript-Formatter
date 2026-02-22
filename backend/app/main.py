@@ -35,6 +35,8 @@ async def lifespan(app: FastAPI):
     Note: This project intentionally avoids automated pipeline testing at this stage.
     """
     # ── STARTUP ──
+    # DISABLED: Auto-delete feature temporarily removed per user request
+    # cleanup_task = asyncio.create_task(cleanup_old_uploads())
     with safe_execution("Application Startup"):
         # ── Supabase-py: reset interrupted jobs ───────────────────────────────
         try:
@@ -109,6 +111,16 @@ app.add_middleware(
 # Rate Limiting Middleware (DoS Protection)
 app.add_middleware(RateLimitMiddleware, requests_per_minute=60)
 
+# Security Headers Middleware (CSP, X-Frame-Options, etc.)
+from app.middleware.security_headers import SecurityHeadersMiddleware, MaxBodySizeMiddleware
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(MaxBodySizeMiddleware, max_size=60 * 1024 * 1024)  # 60MB global limit
+
+# HTTPS Redirect (production only)
+if settings.FORCE_HTTPS:
+    from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
+    app.add_middleware(HTTPSRedirectMiddleware)
+
 # Include Routers
 app.include_router(auth.router)
 app.include_router(documents.router)
@@ -119,7 +131,7 @@ app.include_router(metrics.router)
 
 # Feedback Loop (Industry Standard)
 from app.routers import feedback
-app.include_router(feedback.router)
+app.include_router(feedback.router, prefix="/api")
 
 # Streaming Responses (Next-Gen)
 from app.routers import stream
@@ -133,9 +145,10 @@ async def global_exception_handler(request: Request, exc: Exception):
     Returns 500 but keeps the server alive.
     """
     with safe_execution("Global Exception Handler"):
+        logger.error("Unhandled exception: %s", exc, exc_info=True)
         return JSONResponse(
             status_code=500,
-            content={"detail": "Internal Server Error (Safely Handled)", "error": str(exc)},
+            content={"detail": "An internal server error occurred."},
         )
 
 
@@ -191,4 +204,7 @@ async def health_check():
     except Exception:
         health_status["components"]["ai_models"] = "error"
 
-    return health_status
+    # Return 503 if any component is degraded
+    status_code = 200 if health_status["status"] == "healthy" else 503
+    return JSONResponse(content=health_status, status_code=status_code)
+

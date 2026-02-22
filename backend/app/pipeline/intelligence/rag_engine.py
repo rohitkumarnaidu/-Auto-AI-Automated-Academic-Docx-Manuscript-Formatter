@@ -119,6 +119,38 @@ class RagEngine:
                 f"model={self.active_model_name}"
             )
 
+        # ---- Auto-Seed Default Guidelines ---- #
+        self._seed_if_empty()
+
+    def _seed_if_empty(self):
+        """Auto-seed default guidelines if the knowledge base is completely empty."""
+        try:
+            # Check if store already has data
+            if len(self.knowledge_base) > 0:
+                return
+            if self.chroma_enabled and self.collection.count() > 0:
+                return
+                
+            default_file = os.path.join(os.path.dirname(__file__), "default_guidelines.json")
+            if not os.path.exists(default_file):
+                logger.warning("RagEngine: default_guidelines.json not found, cannot seed.")
+                return
+                
+            logger.info("RagEngine: Knowledge base is empty. Seeding from default_guidelines.json...")
+            with open(default_file, "r") as f:
+                guidelines = json.load(f)
+                
+            for item in guidelines:
+                self.add_guideline(
+                    publisher=item["template"], 
+                    section=item["category"], 
+                    text=item["guideline"],
+                    metadata={"source": "auto-seed"}
+                )
+            logger.info("RagEngine: Auto-seeding complete.")
+        except Exception as e:
+            logger.error("RagEngine: Failed to seed default guidelines: %s", e)
+
     # ------------------------------------------------------------------ #
     #  Model loading
     # ------------------------------------------------------------------ #

@@ -16,8 +16,17 @@ class ErrorBoundary extends React.Component {
         };
     }
 
-    componentDidCatch(error, errorInfo) {
+    async componentDidCatch(error, errorInfo) {
         console.error('UI rendering error captured by ErrorBoundary:', error, errorInfo);
+        try {
+            const { logFrontendError } = await import('../services/api');
+            await logFrontendError({
+                message: `ErrorBoundary caught: ${error?.message || String(error)}`,
+                stack: `${error?.stack || ''}\nComponent Stack: ${errorInfo?.componentStack || ''}`
+            });
+        } catch (e) {
+            console.warn('Failed to log error boundary capture to telemetry', e);
+        }
     }
 
     handleRetry = () => {

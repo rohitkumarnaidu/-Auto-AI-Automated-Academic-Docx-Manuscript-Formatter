@@ -3,8 +3,9 @@ Streaming callback handler for real-time agent updates.
 """
 import logging
 from typing import Any, Dict, List, Optional
-from langchain.callbacks.base import BaseCallbackHandler
-from langchain.schema import AgentAction, AgentFinish, LLMResult
+from langchain_core.callbacks.base import BaseCallbackHandler
+from langchain_core.agents import AgentAction, AgentFinish
+from langchain_core.outputs import LLMResult
 
 logger = logging.getLogger(__name__)
 

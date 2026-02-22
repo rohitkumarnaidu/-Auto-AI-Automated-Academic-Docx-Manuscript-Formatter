@@ -4,8 +4,7 @@ LangChain-based document processing agent with enhancements.
 import os
 import logging
 from typing import Optional, Dict, Any, List, Callable
-from langchain.agents import AgentExecutor, create_openai_functions_agent
-from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.prompts import PromptTemplate
 from app.pipeline.agents.tools.metadata_tool import MetadataExtractionTool
 from app.pipeline.agents.tools.layout_tool import LayoutAnalysisTool
 from app.pipeline.agents.tools.validation_tool import ValidationTool
@@ -109,21 +108,34 @@ class DocumentAgent:
             memory_summary = self.memory.get_memory_summary()
             system_prompt += f"\n\n## Memory Context\n{memory_summary}"
         
-        # Create agent prompt
-        self.prompt = ChatPromptTemplate.from_messages([
-            ("system", system_prompt),
-            ("human", "{input}"),
-            MessagesPlaceholder(variable_name="agent_scratchpad")
-        ])
+        # Add React formatting requirements
+        system_prompt += "\n\nUse the following format:\nQuestion: the input question you must answer\nThought: you should always think about what to do\nAction: the action to take, should be one of [{tool_names}]\nAction Input: the input to the action\nObservation: the result of the action\n... (this Thought/Action/Action Input/Observation can repeat N times)\nThought: I now know the final answer\nFinal Answer: the final answer to the original input question\n\nBegin!\nQuestion: {input}\nThought:{agent_scratchpad}"
         
-        # Create agent
-        self.agent = create_openai_functions_agent(
+        # Create agent prompt
+        self.prompt = PromptTemplate.from_template(system_prompt)
+        self.agent = None
+        self.executor = None
+        self._agent_import_error: Optional[str] = None
+        self._initialize_executor()
+
+    def _initialize_executor(self) -> None:
+        """Initialize LangChain ReAct executor when supported by installed version."""
+        try:
+            from langchain.agents import AgentExecutor, create_react_agent
+        except Exception as e:
+            self._agent_import_error = str(e)
+            logger.warning(
+                "LangChain agent API unavailable. Falling back to direct tool execution. Error: %s",
+                e,
+            )
+            return
+
+        self.agent = create_react_agent(
             llm=self.llm,
             tools=self.tools,
             prompt=self.prompt
         )
-        
-        # Create executor with optional streaming
+
         executor_kwargs = {
             "agent": self.agent,
             "tools": self.tools,
@@ -132,10 +144,10 @@ class DocumentAgent:
             "handle_parsing_errors": True,
             "return_intermediate_steps": True
         }
-        
+
         if self.streaming_callback:
             executor_kwargs["callbacks"] = [self.streaming_callback]
-        
+
         self.executor = AgentExecutor(**executor_kwargs)
     
     @safe_async_function(fallback_value={"status": "error", "message": "Agent crashed safely"}, error_message="DocumentAgent.run")
@@ -169,8 +181,15 @@ class DocumentAgent:
                 if best_pattern:
                     logger.info(f"Found similar pattern in memory: {best_pattern}")
             
-            # Construct input message
             doc_path = document.filename if document else "Unknown File"
+            if self.executor is None:
+                logger.warning(
+                    "Executing direct tool fallback because agent executor is unavailable: %s",
+                    self._agent_import_error or "unknown error",
+                )
+                return self._run_direct_fallback(document=document, doc_path=doc_path)
+
+            # Construct input message
             input_message = f"""
 Please analyze the document at: {doc_path}
 
@@ -215,6 +234,58 @@ Provide a comprehensive analysis and recommend the best processing approach.
                 "error": str(e),
                 "should_fallback": True
             }
+
+    def _run_direct_fallback(self, document: Optional[PipelineDocument], doc_path: str) -> Dict[str, Any]:
+        """
+        Run tools directly when LangChain agent APIs are unavailable.
+        """
+        intermediate_steps = []
+        analysis_parts = []
+
+        def _append_step(tool_name: str, output: str) -> None:
+            intermediate_steps.append((tool_name, output))
+            analysis_parts.append(f"## {tool_name}\n{output}")
+
+        try:
+            metadata_tool = next((t for t in self.tools if isinstance(t, MetadataExtractionTool)), None)
+            if metadata_tool:
+                _append_step(metadata_tool.name, metadata_tool._run(file_path=doc_path))
+
+            layout_tool = next((t for t in self.tools if isinstance(t, LayoutAnalysisTool)), None)
+            if layout_tool:
+                _append_step(layout_tool.name, layout_tool._run(file_path=doc_path))
+
+            reference_tool = next((t for t in self.tools if isinstance(t, ReferenceExtractionTool)), None)
+            if reference_tool:
+                _append_step(reference_tool.name, reference_tool._run(file_path=doc_path))
+
+            figure_tool = next((t for t in self.tools if isinstance(t, FigureAnalysisTool)), None)
+            if figure_tool:
+                _append_step(figure_tool.name, figure_tool._run(file_path=doc_path))
+
+            validation_tool = next((t for t in self.tools if isinstance(t, ValidationTool)), None)
+            if validation_tool:
+                doc_id = document.document_id if document else "N/A"
+                _append_step(validation_tool.name, validation_tool._run(document_id=doc_id))
+
+            result = {
+                "output": "\n\n".join(analysis_parts),
+                "intermediate_steps": intermediate_steps
+            }
+            return {
+                "success": True,
+                "analysis": result.get("output", ""),
+                "intermediate_steps": result.get("intermediate_steps", []),
+                "should_fallback": self._should_fallback(result),
+                "streaming_events": []
+            }
+        except Exception as e:
+            logger.error("Direct fallback execution failed: %s", e)
+            return {
+                "success": False,
+                "error": str(e),
+                "should_fallback": True
+            }
     
     def _execute_with_retry(self, input_message: str) -> Dict[str, Any]:
         """
@@ -230,6 +301,10 @@ Provide a comprehensive analysis and recommend the best processing approach.
         
         for attempt in range(self.max_retries):
             try:
+                if self.executor is None:
+                    raise RuntimeError(
+                        f"Agent executor unavailable due to import error: {self._agent_import_error}"
+                    )
                 logger.info(f"Agent execution attempt {attempt + 1}/{self.max_retries}")
                 
                 # Clear streaming events for new attempt

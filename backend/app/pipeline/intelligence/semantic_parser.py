@@ -112,11 +112,28 @@ class SemanticParser:
             if use_transformer:
                 prediction = self._predict_block_type(block.text)
             else:
-                # Heuristic-only for non-English: classify by position and structure
+                # Improved Heuristic-only fallback
                 prediction = {"type": "BODY", "confidence": 0.5}
                 text = block.text.strip()
-                if text and len(text) < 80 and text[0].isupper():
-                    prediction = {"type": "HEADING", "confidence": 0.6}
+                upper_text = text.upper()
+                
+                if len(text) < 150:
+                    if upper_text.startswith("ABSTRACT"):
+                        prediction = {"type": "ABSTRACT", "confidence": 0.8}
+                    elif upper_text.startswith("REFERENCES") or upper_text.startswith("BIBLIOGRAPHY"):
+                        prediction = {"type": "REFERENCES", "confidence": 0.8}
+                    elif upper_text.startswith("ACKNOWLEDGEMENTS") or upper_text.startswith("ACKNOWLEDGMENTS"):
+                        prediction = {"type": "ACKNOWLEDGEMENTS", "confidence": 0.8}
+                    elif upper_text.startswith("METHODOLOGY") or upper_text.startswith("METHODS"):
+                        prediction = {"type": "METHODOLOGY", "confidence": 0.8}
+                    elif upper_text.startswith("CONCLUSION"):
+                        prediction = {"type": "CONCLUSION", "confidence": 0.8}
+                    elif text.startswith("Figure") or text.startswith("Fig."):
+                        prediction = {"type": "FIGURE_CAPTION", "confidence": 0.7}
+                    elif text.startswith("Table"):
+                        prediction = {"type": "TABLE_CAPTION", "confidence": 0.7}
+                    elif text and text[0].isupper() and len(text) < 80:
+                        prediction = {"type": "HEADING", "confidence": 0.6}
             
             # Create SemanticBlock Structure (as requested)
             semantic_block = {
@@ -143,8 +160,12 @@ class SemanticParser:
             probs = torch.softmax(outputs.logits, dim=1)
             confidence, label_idx = torch.max(probs, dim=1)
             
-        # Map label index to internal types (Simplified)
-        labels = ["HEADING", "ABSTRACT", "BODY", "REFERENCES", "FIGURE_CAPTION"]
+        # Map label index to internal types (Expanded from 5 to 12)
+        labels = [
+            "HEADING", "ABSTRACT", "BODY", "REFERENCES", "FIGURE_CAPTION",
+            "TABLE_CAPTION", "ACKNOWLEDGEMENTS", "EQUATION", "METHODOLOGY", 
+            "CONCLUSION", "AUTHOR_INFO", "TITLE"
+        ]
         predicted_label = labels[label_idx.item()] if label_idx.item() < len(labels) else "BODY"
         
         return {

@@ -90,3 +90,6 @@ backend/logs/
 *.pyc
 __pycache__/
 .env
+
+# Semantic store runtime artifacts
+backend/db/semantic_store/*/

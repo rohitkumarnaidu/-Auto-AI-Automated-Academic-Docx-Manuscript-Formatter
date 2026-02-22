@@ -39,6 +39,14 @@ if _PS:
         ALGORITHM: str = "HS256"
         CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
 
+        # Upload Limits
+        MAX_FILE_SIZE: int = 50 * 1024 * 1024  # 50 MB
+        MAX_BATCH_FILES: int = 10
+
+        # Deployment
+        FORCE_HTTPS: bool = False
+        DEBUG: bool = True
+
         # Template
         DEFAULT_TEMPLATE: str = "none"
 

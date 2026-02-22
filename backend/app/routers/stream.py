@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/stream", tags=["Streaming"])
 
+# NOTE: In-memory SSE queue. For multi-worker deployment, replace with Redis pub/sub.
 # Global event queue for simple broadcasting (per job_id)
 # In production, use Redis or a proper message queue
 job_event_queues: Dict[str, asyncio.Queue] = {}

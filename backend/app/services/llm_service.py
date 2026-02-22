@@ -28,6 +28,31 @@ LLM_NVIDIA   = "nvidia_nim/meta/llama-3.3-70b-instruct"
 LLM_DEEPSEEK = "ollama/deepseek-r1"
 LLM_GPT4     = "gpt-4"
 
+# ── Prompt injection guard ───────────────────────────────────────────────── #
+import re
+
+_INJECTION_PATTERNS = [
+    re.compile(r'(?i)(ignore|forget|disregard)\s+(all\s+)?(previous|above|prior)\s+(instructions?|prompts?|rules?)'),
+    re.compile(r'(?i)you\s+are\s+now\s+(a|an)\s+'),
+    re.compile(r'(?i)system\s*:\s*'),
+    re.compile(r'(?i)new\s+instructions?\s*:'),
+]
+MAX_LLM_INPUT_LENGTH = 8000
+
+
+def sanitize_for_llm(text: str) -> str:
+    """
+    Sanitize user-provided text before sending to LLM.
+    Strips known injection patterns and truncates to safe length.
+    """
+    if not text:
+        return text
+    for pattern in _INJECTION_PATTERNS:
+        text = pattern.sub('[CONTENT_FILTERED]', text)
+    if len(text) > MAX_LLM_INPUT_LENGTH:
+        text = text[:MAX_LLM_INPUT_LENGTH] + "\n[... content truncated for safety ...]"
+    return text
+
 
 def generate(
     messages: List[Dict[str, str]],

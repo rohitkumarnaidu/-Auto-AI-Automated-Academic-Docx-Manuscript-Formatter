@@ -1,5 +1,5 @@
 ﻿const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-const SUPPORTED_EXPORT_FORMATS = ['docx', 'pdf', 'json'];
+const SUPPORTED_EXPORT_FORMATS = ['docx', 'pdf', 'json', 'markdown', 'html', 'latex', 'jats'];
 const RETRYABLE_STATUS_CODES = [408, 429, 500, 502, 503, 504];
 const DEFAULT_MAX_RETRIES = 2;
 const BASE_RETRY_DELAY_MS = 500;
@@ -327,7 +327,7 @@ export const getDocuments = async (params = {}) => {
 /**
  * Uploads a document with template and processing options.
  */
-export const uploadDocument = async (file, template, options = {}) => {
+export const uploadDocument = async (file, template, options = {}, signal = null) => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('template', sanitizeText(template));
@@ -339,10 +339,13 @@ export const uploadDocument = async (file, template, options = {}) => {
     formData.append('generate_toc', options.generate_toc ?? false);
     formData.append('page_size', sanitizeText(options.page_size || 'Letter'));
 
-    return handleRequest('/api/documents/upload', {
+    const fetchOptions = {
         method: 'POST',
         body: formData,
-    });
+    };
+    if (signal) fetchOptions.signal = signal;
+
+    return handleRequest('/api/documents/upload', fetchOptions);
 };
 
 /**
@@ -417,7 +420,10 @@ export const downloadFile = async (jobId, format = 'docx') => {
         }
 
         const blob = await response.blob();
-        return window.URL.createObjectURL(blob);
+        const url = window.URL.createObjectURL(blob);
+        // Auto-revoke after 5 minutes to prevent memory leak
+        setTimeout(() => window.URL.revokeObjectURL(url), 300000);
+        return url;
     } catch (error) {
         const message = getFriendlyErrorMessage({
             error,
