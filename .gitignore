@@ -93,3 +93,6 @@ __pycache__/
 
 # Semantic store runtime artifacts
 backend/db/semantic_store/*/
+
+# AI Audit Artifacts
+FILE_BY_FILE_AUDIT.csv

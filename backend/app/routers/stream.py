@@ -3,12 +3,14 @@ Streaming Response Router
 Provides Server-Sent Events (SSE) for real-time agent feedback.
 """
 
+import os
+import redis as sync_redis
+import redis.asyncio as aioredis
 import asyncio
 import json
 import logging
-import time
-from typing import AsyncGenerator, Dict
-from fastapi import APIRouter, Request, HTTPException, Depends
+from typing import AsyncGenerator
+from fastapi import APIRouter, Request, Depends
 from sse_starlette.sse import EventSourceResponse
 from app.utils.dependencies import get_current_user
 
@@ -17,70 +19,45 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/stream", tags=["Streaming"])
 
-# NOTE: In-memory SSE queue. For multi-worker deployment, replace with Redis pub/sub.
-# Global event queue for simple broadcasting (per job_id)
-# In production, use Redis or a proper message queue
-job_event_queues: Dict[str, asyncio.Queue] = {}
-_queue_timestamps: Dict[str, float] = {}  # Track creation time for TTL cleanup
-_QUEUE_TTL_SECONDS = 3600  # 1 hour
-
-
-def _cleanup_stale_queues():
-    """Remove queues older than TTL to prevent memory leaks."""
-    now = time.time()
-    stale_ids = [
-        jid for jid, ts in _queue_timestamps.items()
-        if now - ts > _QUEUE_TTL_SECONDS
-    ]
-    for jid in stale_ids:
-        job_event_queues.pop(jid, None)
-        _queue_timestamps.pop(jid, None)
-    if stale_ids:
-        logger.info("Cleaned up %d stale event queues", len(stale_ids))
-
+# Phase 5: Redis Pub/Sub for SSE
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
+async_redis = aioredis.from_url(REDIS_URL)
+sync_redis_client = sync_redis.from_url(REDIS_URL)
 
 async def event_generator(job_id: str, request: Request) -> AsyncGenerator[dict, None]:
     """
-    Generate SSE events for a specific job.
+    Generate SSE events for a specific job using Redis Pub/Sub.
     """
-    # Clean up stale queues on each new subscription
-    _cleanup_stale_queues()
-
-    if job_id not in job_event_queues:
-        job_event_queues[job_id] = asyncio.Queue()
-        _queue_timestamps[job_id] = time.time()
-        
-    queue = job_event_queues[job_id]
+    pubsub = async_redis.pubsub()
+    await pubsub.subscribe(f"job:{job_id}")
     
     try:
-        # collaborative yield to let other tasks run
+        # Initial connection event
         yield {
             "event": "connected",
             "data": json.dumps({"message": f"Connected to stream for job {job_id}"})
         }
         
-        while True:
-            # Check if client disconnected
+        async for message in pubsub.listen():
             if await request.is_disconnected():
                 logger.info(f"Client disconnected from stream {job_id}")
                 break
-                
-            try:
-                # Wait for next event with timeout to allow disconnect check
-                event = await asyncio.wait_for(queue.get(), timeout=1.0)
-                yield event
-                queue.task_done()
-            except asyncio.TimeoutError:
-                # Send keepalive comment
-                yield {"comment": "keepalive"}
+            
+            if message["type"] == "message":
+                try:
+                    event_data = json.loads(message["data"])
+                    yield event_data
+                except Exception as e:
+                    logger.error(f"Error parsing Redis message: {e}")
+            
+            # Note: sse-starlette handles keepalive automatically if configured, 
+            # or we can rely on pubsub.listen() blocking until a message arrives.
                 
     except asyncio.CancelledError:
         logger.info(f"Stream cancelled for job {job_id}")
     finally:
-        # Clean up completed job queues
-        if job_id in job_event_queues:
-            job_event_queues.pop(job_id, None)
-            _queue_timestamps.pop(job_id, None)
+        await pubsub.unsubscribe(f"job:{job_id}")
+        await pubsub.close()
 
 @router.get("/{job_id}")
 async def stream_job_events(
@@ -96,14 +73,13 @@ async def stream_job_events(
 
 def emit_event(job_id: str, event_type: str, data: dict):
     """
-    Emit an event to the job's stream.
+    Emit an event to the job's stream via Redis Pub/Sub.
+    Sync-friendly for use in pipeline threads.
     """
-    if job_id in job_event_queues:
-        queue = job_event_queues[job_id]
-        asyncio.create_task(queue.put({
-            "event": event_type,
-            "data": json.dumps(data)
-        }))
-    else:
-        # Queue might not be created if no client is listening yet
-        pass
+    try:
+        sync_redis_client.publish(
+            f"job:{job_id}", 
+            json.dumps({"event": event_type, "data": data})
+        )
+    except Exception as e:
+        logger.error(f"Failed to publish Redis event: {e}")

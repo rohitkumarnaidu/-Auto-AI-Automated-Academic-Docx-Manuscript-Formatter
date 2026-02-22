@@ -127,6 +127,7 @@ class DocumentService:
         template: Optional[str],
         original_file_path: Optional[str] = None,
         formatting_options: Optional[Dict[str, Any]] = None,
+        file_hash: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
         """
         Insert a new document row.
@@ -142,7 +143,7 @@ class DocumentService:
             payload: Dict[str, Any] = {
                 "id": str(doc_id),
                 "filename": filename,
-                "status": "RUNNING",
+                "status": "PROCESSING",
                 "progress": 0,
             }
             if user_id:
@@ -153,6 +154,8 @@ class DocumentService:
                 payload["original_file_path"] = original_file_path
             if formatting_options:
                 payload["formatting_options"] = formatting_options
+            if file_hash:
+                payload["file_hash"] = file_hash
 
             result = sb.table("documents").insert(payload).execute()
             return result.data[0] if result.data else None

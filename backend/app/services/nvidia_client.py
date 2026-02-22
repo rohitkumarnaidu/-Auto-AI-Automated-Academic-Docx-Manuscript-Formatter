@@ -150,8 +150,9 @@ class NvidiaClient:
             confidence = min(1.0, 0.3 + (detected / len(section_keywords)) * 0.7)
         return {"analysis": response, "model": "llama-3.3-70b", "confidence": round(confidence, 2)}
 
-    def analyze_figure(self, image_path: str, caption: Optional[str] = None) -> Optional[str]:
+    def analyze_figure(self, image_path: str, caption: Optional[str] = None) -> str:
         """Analyze figure/diagram using Llama 3.2 11B Vision."""
+        fallback_text = caption if caption else "Figure (AI analysis unavailable)"
         try:
             # Determine media type from file extension
             ext = image_path.lower()
@@ -167,7 +168,21 @@ class NvidiaClient:
                 media_type = "image/jpeg"  # Default fallback
 
             with open(image_path, "rb") as f:
-                image_data = base64.b64encode(f.read()).decode()
+                raw_data = f.read()
+
+            if len(raw_data) > 2_000_000:
+                from PIL import Image
+                import io
+                img = Image.open(io.BytesIO(raw_data))
+                if img.mode in ("RGBA", "P") and media_type == "image/jpeg":
+                    img = img.convert("RGB")
+                img.thumbnail((1024, 1024))
+                buffer = io.BytesIO()
+                save_format = 'PNG' if media_type == 'image/png' else 'JPEG'
+                img.save(buffer, format=save_format)
+                raw_data = buffer.getvalue()
+
+            image_data = base64.b64encode(raw_data).decode()
 
             text_content = (
                 f"This figure has caption: '{caption}'. Provide additional context:"
@@ -183,10 +198,14 @@ class NvidiaClient:
                     ],
                 }
             ]
-            return self.chat(messages, model="llama-vision", temperature=0.5, max_tokens=512)
+            
+            # API might throw or return empty string when key is missing/invalid
+            result = self.chat(messages, model="llama-vision", temperature=0.5, max_tokens=512)
+            return result if result else fallback_text
+            
         except Exception as exc:
             logger.warning("NvidiaClient.analyze_figure: vision analysis failed: %s", exc)
-            return None
+            return fallback_text
 
     def validate_template_compliance(self, document_text: str, template: str) -> Dict[str, Any]:
         """Check if document complies with template requirements."""

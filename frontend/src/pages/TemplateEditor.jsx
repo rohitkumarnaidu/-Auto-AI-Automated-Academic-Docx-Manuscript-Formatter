@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import { getCustomTemplates, saveCustomTemplate } from '../services/api';
 
 const CUSTOM_TEMPLATES_KEY = 'scholarform_custom_templates';
 
@@ -17,18 +18,80 @@ const DEFAULT_SETTINGS = {
     footerText: '',
 };
 
+const templateToYaml = (template) => {
+    const safeString = (value) => `"${String(value || '').replace(/"/g, '\\"')}"`;
+
+    return [
+        `id: ${safeString(template.id)}`,
+        `name: ${safeString(template.name)}`,
+        `createdAt: ${safeString(template.createdAt)}`,
+        'settings:',
+        `  fontFamily: ${safeString(template.settings.fontFamily)}`,
+        `  fontSize: ${Number(template.settings.fontSize)}`,
+        '  margins:',
+        `    top: ${Number(template.settings.margins.top)}`,
+        `    bottom: ${Number(template.settings.margins.bottom)}`,
+        `    left: ${Number(template.settings.margins.left)}`,
+        `    right: ${Number(template.settings.margins.right)}`,
+        `  lineSpacing: ${Number(template.settings.lineSpacing)}`,
+        `  headerText: ${safeString(template.settings.headerText)}`,
+        `  footerText: ${safeString(template.settings.footerText)}`,
+    ].join('\n');
+};
+
+const readLocalTemplates = () => {
+    try {
+        const saved = JSON.parse(localStorage.getItem(CUSTOM_TEMPLATES_KEY) || '[]');
+        return Array.isArray(saved) ? saved : [];
+    } catch {
+        return [];
+    }
+};
+
+const normalizeTemplateCollection = (payload) => {
+    if (Array.isArray(payload)) {
+        return payload;
+    }
+    if (Array.isArray(payload?.templates)) {
+        return payload.templates;
+    }
+    if (Array.isArray(payload?.data)) {
+        return payload.data;
+    }
+    return [];
+};
+
 export default function TemplateEditor() {
     const [settings, setSettings] = useState(DEFAULT_SETTINGS);
     const [savedTemplates, setSavedTemplates] = useState([]);
     const [saveMessage, setSaveMessage] = useState('');
+    const [saving, setSaving] = useState(false);
 
     useEffect(() => {
-        try {
-            const saved = JSON.parse(localStorage.getItem(CUSTOM_TEMPLATES_KEY) || '[]');
-            setSavedTemplates(Array.isArray(saved) ? saved : []);
-        } catch {
-            setSavedTemplates([]);
-        }
+        const localTemplates = readLocalTemplates();
+        setSavedTemplates(localTemplates);
+
+        let isMounted = true;
+
+        const syncTemplatesFromApi = async () => {
+            try {
+                const payload = await getCustomTemplates();
+                const apiTemplates = normalizeTemplateCollection(payload);
+                if (!isMounted || apiTemplates.length === 0) {
+                    return;
+                }
+                setSavedTemplates(apiTemplates);
+                localStorage.setItem(CUSTOM_TEMPLATES_KEY, JSON.stringify(apiTemplates));
+            } catch (error) {
+                console.info('Template list API unavailable. Using local templates.', error);
+            }
+        };
+
+        syncTemplatesFromApi();
+
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
     const updateSetting = (key, value) => {
@@ -38,7 +101,34 @@ export default function TemplateEditor() {
         }));
     };
 
-    const handleSaveTemplate = () => {
+    const saveTemplateLocal = (template) => {
+        setSavedTemplates((previousTemplates) => {
+            const next = [template, ...previousTemplates];
+            localStorage.setItem(CUSTOM_TEMPLATES_KEY, JSON.stringify(next));
+            return next;
+        });
+    };
+
+    const exportTemplateYaml = (template) => {
+        const yamlContent = templateToYaml(template);
+        const blob = new Blob([yamlContent], { type: 'text/yaml;charset=utf-8' });
+        const url = window.URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        const safeName = String(template.name || 'custom-template')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+        anchor.download = `${safeName || 'custom-template'}.yaml`;
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+        setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+    };
+
+    const handleSaveTemplate = async () => {
+        setSaving(true);
+        setSaveMessage('');
         const timestamp = new Date().toISOString();
         const templateName = settings.name?.trim() || `Custom Template ${savedTemplates.length + 1}`;
         const template = {
@@ -60,16 +150,23 @@ export default function TemplateEditor() {
             createdAt: timestamp,
         };
 
-        const next = [template, ...savedTemplates];
-        setSavedTemplates(next);
-        localStorage.setItem(CUSTOM_TEMPLATES_KEY, JSON.stringify(next));
-        setSaveMessage(`Saved "${templateName}" as a custom template.`);
+        try {
+            await saveCustomTemplate(template);
+            saveTemplateLocal(template);
+            setSaveMessage(`Saved "${templateName}" to backend and local cache.`);
+        } catch (error) {
+            saveTemplateLocal(template);
+            setSaveMessage(`Saved "${templateName}" locally (API unavailable).`);
+            console.warn('Template API save failed. Falling back to localStorage.', error);
+        }
+
         setSettings((prev) => ({
             ...DEFAULT_SETTINGS,
             fontFamily: prev.fontFamily,
             fontSize: prev.fontSize,
             lineSpacing: prev.lineSpacing,
         }));
+        setSaving(false);
     };
 
     return (
@@ -205,9 +302,10 @@ export default function TemplateEditor() {
 
                         <button
                             onClick={handleSaveTemplate}
+                            disabled={saving}
                             className="w-full md:w-auto px-5 py-2.5 rounded-lg bg-primary text-white font-bold hover:bg-blue-700 transition-colors"
                         >
-                            Save Custom Template
+                            {saving ? 'Saving...' : 'Save Custom Template'}
                         </button>
 
                         {saveMessage ? (
@@ -227,6 +325,13 @@ export default function TemplateEditor() {
                                         <p className="text-xs text-slate-500 mt-1">
                                             {savedTemplate.settings.fontFamily}, {savedTemplate.settings.fontSize}pt, {savedTemplate.settings.lineSpacing} spacing
                                         </p>
+                                        <button
+                                            onClick={() => exportTemplateYaml(savedTemplate)}
+                                            className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
+                                        >
+                                            <span className="material-symbols-outlined text-[14px]">download</span>
+                                            Export YAML
+                                        </button>
                                     </div>
                                 ))}
                             </div>

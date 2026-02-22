@@ -1,3 +1,4 @@
+import os
 import redis
 import json
 import logging
@@ -64,6 +65,28 @@ class RedisCache:
         except Exception as e:
             logger.error(f"Error writing to Redis cache: {e}")
 
+    def get_llm_result(self, cache_key: str) -> Optional[str]:
+        """Retrieve cached LLM result."""
+        if not self.client:
+            return None
+        try:
+            cached_data = self.client.get(cache_key)
+            if cached_data:
+                logger.info(f"LLM Cache hit for key: {cache_key}")
+                return cached_data
+        except Exception as e:
+            logger.error(f"Error reading from LLM Redis cache: {e}")
+        return None
+
+    def set_llm_result(self, cache_key: str, text: str, ttl: int = 86400):
+        """Cache LLM text result for 24h by default."""
+        if not self.client:
+            return
+        try:
+            self.client.setex(cache_key, ttl, text)
+            logger.info(f"Cached LLM results for key: {cache_key} (TTL: {ttl}s)")
+        except Exception as e:
+            logger.error(f"Error writing to LLM Redis cache: {e}")
+
 # Global instance
-import os
 redis_cache = RedisCache()

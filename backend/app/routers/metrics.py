@@ -107,6 +107,18 @@ async def health_check(current_user=Depends(get_current_user)):
         }
     }
     
+    # Check LLM health
+    try:
+        from app.services.llm_service import check_health as llm_check_health
+        llm_health = await llm_check_health()
+        health_status["components"]["llm_nvidia"] = llm_health.get("nvidia", "unknown")
+        health_status["components"]["llm_deepseek"] = llm_health.get("deepseek", "unknown")
+        
+        if llm_health.get("nvidia") != "healthy" and llm_health.get("deepseek") != "healthy":
+            health_status["status"] = "degraded"
+    except Exception as e:
+        logger.error(f"LLM health check failed: {e}")
+
     # Check database connection via Supabase
     try:
         sb = get_supabase_client()

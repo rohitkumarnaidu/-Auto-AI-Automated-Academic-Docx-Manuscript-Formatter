@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useDocument } from '../context/DocumentContext';
 import Navbar from '../components/Navbar';
 import { isCompleted } from '../constants/status';
+import { submitEdit } from '../services/api';
 
 export default function Edit() {
     const navigate = useNavigate();
@@ -26,7 +27,6 @@ export default function Edit() {
         if (isSaving) return;
         setIsSaving(true);
         try {
-            const { submitEdit } = await import('../services/api');
             // Basic parsing: Treat the whole content as one 'BODY' section for now, 
             // since we don't have a structured editor yet.
             // In a real scenario, we'd enable block-based editing.

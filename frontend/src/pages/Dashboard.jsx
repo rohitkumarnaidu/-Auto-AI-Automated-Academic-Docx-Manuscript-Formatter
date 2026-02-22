@@ -1,12 +1,20 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useDocument } from '../context/DocumentContext';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import { isCompleted, isProcessing } from '../constants/status';
+import { useDocuments } from '../services/api';
 export default function Dashboard() {
     const { user } = useAuth();
-    const { history, refreshHistory, loadingHistory } = useDocument();
-    const recentJobs = history ? history.slice(0, 5) : []; // Show 5 most recent
+    const {
+        data: documentsPayload,
+        isLoading: loadingHistory,
+        isFetching: fetchingHistory,
+        refetch: refreshHistory,
+    } = useDocuments({ limit: 20 });
+
+    const history = documentsPayload?.documents || [];
+    const recentJobs = history.slice(0, 5); // Show 5 most recent
 
     const displayName = user?.user_metadata?.full_name || "Researcher";
 
@@ -81,10 +89,10 @@ export default function Dashboard() {
                     <div className="flex items-center gap-4">
                         <button
                             onClick={() => refreshHistory()}
-                            disabled={loadingHistory}
+                            disabled={loadingHistory || fetchingHistory}
                             className="text-primary text-sm font-semibold hover:underline flex items-center gap-1 disabled:opacity-50"
                         >
-                            <span className={`material-symbols-outlined text-sm ${loadingHistory ? 'animate-spin' : ''}`}>refresh</span>
+                            <span className={`material-symbols-outlined text-sm ${(loadingHistory || fetchingHistory) ? 'animate-spin' : ''}`}>refresh</span>
                             Refresh
                         </button>
                         <Link className="text-primary text-sm font-semibold hover:underline flex items-center gap-1" to="/history">
@@ -118,44 +126,49 @@ export default function Dashboard() {
                                         </td>
                                     </tr>
                                 ) : (
-                                    recentJobs.map((job, index) => (
-                                        <tr key={job.id || index} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                                            <td className="px-6 py-5">
-                                                <div className="flex items-center gap-3">
-                                                    <span className="material-symbols-outlined text-slate-400">article</span>
-                                                    <span className="text-slate-900 dark:text-white font-medium">{job.originalFileName || 'Untitled'}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-5">
-                                                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${job.status === 'completed'
-                                                    ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                                                    : job.status === 'processing'
-                                                        ? 'bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary'
-                                                        : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
-                                                    }`}>
-                                                    <span className={`w-1.5 h-1.5 rounded-full mr-2 ${job.status === 'completed' ? 'bg-green-600 dark:bg-green-400' : 'bg-primary animate-pulse'
-                                                        }`}></span>
-                                                    {job.status === 'completed' ? 'Validated' : job.status === 'processing' ? 'In Progress' : 'Pending'}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-5 text-slate-500 dark:text-slate-400 text-sm">
-                                                {new Date(job.timestamp).toLocaleString('en-US', {
-                                                    month: 'short',
-                                                    day: 'numeric',
-                                                    year: 'numeric',
-                                                    hour: '2-digit',
-                                                    minute: '2-digit'
-                                                })}
-                                            </td>
-                                            <td className="px-6 py-5 text-right">
-                                                {job.status === 'completed' ? (
-                                                    <Link to="/download" className="text-primary hover:text-primary/80 font-bold text-sm transition-colors">Download</Link>
-                                                ) : (
-                                                    <Link to="/upload" className="text-primary hover:text-primary/80 font-bold text-sm transition-colors">Continue</Link>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))
+                                    recentJobs.map((job, index) => {
+                                        const completed = isCompleted(job.status);
+                                        const processing = isProcessing(job.status);
+
+                                        return (
+                                            <tr key={job.id || index} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                                                <td className="px-6 py-5">
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="material-symbols-outlined text-slate-400">article</span>
+                                                        <span className="text-slate-900 dark:text-white font-medium">{job.originalFileName || 'Untitled'}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-5">
+                                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${completed
+                                                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                                                        : processing
+                                                            ? 'bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary'
+                                                            : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
+                                                        }`}>
+                                                        <span className={`w-1.5 h-1.5 rounded-full mr-2 ${completed ? 'bg-green-600 dark:bg-green-400' : 'bg-primary animate-pulse'
+                                                            }`}></span>
+                                                        {completed ? 'Validated' : processing ? 'In Progress' : 'Pending'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-5 text-slate-500 dark:text-slate-400 text-sm">
+                                                    {new Date(job.timestamp).toLocaleString('en-US', {
+                                                        month: 'short',
+                                                        day: 'numeric',
+                                                        year: 'numeric',
+                                                        hour: '2-digit',
+                                                        minute: '2-digit'
+                                                    })}
+                                                </td>
+                                                <td className="px-6 py-5 text-right">
+                                                    {completed ? (
+                                                        <Link to="/download" className="text-primary hover:text-primary/80 font-bold text-sm transition-colors">Download</Link>
+                                                    ) : (
+                                                        <Link to="/upload" className="text-primary hover:text-primary/80 font-bold text-sm transition-colors">Continue</Link>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
                                 )}
                             </tbody>
                         </table>

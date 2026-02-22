@@ -1,12 +1,15 @@
 import os
 import yaml
+import logging
 from typing import Dict, Any, Optional
+
+logger = logging.getLogger(__name__)
 
 class ContractLoader:
     """
     Loads and provides access to template contracts.
     """
-    def __init__(self, contracts_dir: str = "app/pipeline/contracts"):
+    def __init__(self, contracts_dir: str = "app/templates"):
         self.contracts_dir = contracts_dir
         self._cache: Dict[str, Dict[str, Any]] = {}
 
@@ -20,7 +23,10 @@ class ContractLoader:
 
         contract_path = os.path.join(self.contracts_dir, name, "contract.yaml")
         if not os.path.exists(contract_path):
-            raise FileNotFoundError(f"Contract not found for publisher: {name}")
+            logger.warning("Contract not found for '%s', falling back to 'none'", name)
+            contract_path = os.path.join(self.contracts_dir, "none", "contract.yaml")
+            if not os.path.exists(contract_path):
+                raise FileNotFoundError(f"Fallback contract 'none' not found. Original requested: {name}")
 
         try:
             with open(contract_path, 'r') as f:

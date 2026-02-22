@@ -11,6 +11,35 @@ export default defineConfig({
             '@testing-library/user-event': fileURLToPath(new URL('./node_modules/@testing-library/user-event', import.meta.url)),
         },
     },
+    build: {
+        rollupOptions: {
+            output: {
+                manualChunks(id) {
+                    if (!id.includes('node_modules')) {
+                        return;
+                    }
+
+                    if (id.includes('@supabase')) {
+                        return 'vendor-supabase';
+                    }
+
+                    if (id.includes('react-router')) {
+                        return 'vendor-router';
+                    }
+
+                    if (id.includes('react-dom') || id.includes(`${'/'}react${'/'}`)) {
+                        return 'vendor-react';
+                    }
+
+                    if (id.includes(`${'/'}diff${'/'}`)) {
+                        return 'vendor-diff';
+                    }
+
+                    return 'vendor-misc';
+                },
+            },
+        },
+    },
     server: {
         fs: {
             allow: ['..'],

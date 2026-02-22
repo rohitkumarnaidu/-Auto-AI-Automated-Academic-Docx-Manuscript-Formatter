@@ -1,24 +1,97 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDocument } from '../context/DocumentContext';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import { isCompleted, isFailed } from '../constants/status';
+import { useDocuments } from '../services/api';
+
+const toTimestamp = (value) => new Date(value || 0).getTime();
+
+const buildVersionedHistory = (records) => {
+    const groups = new Map();
+
+    records.forEach((record) => {
+        const key = String(record.originalFileName || record.filename || 'untitled').toLowerCase();
+        if (!groups.has(key)) {
+            groups.set(key, []);
+        }
+        groups.get(key).push(record);
+    });
+
+    const versionMetaById = new Map();
+
+    groups.forEach((group) => {
+        const sortedGroup = [...group].sort((left, right) => toTimestamp(left.timestamp) - toTimestamp(right.timestamp));
+        sortedGroup.forEach((record, index) => {
+            if (!record?.id) return;
+            versionMetaById.set(record.id, {
+                versionNumber: index + 1,
+                totalVersions: sortedGroup.length,
+                previous: index > 0 ? sortedGroup[index - 1] : null,
+            });
+        });
+    });
+
+    return records.map((record, index) => {
+        const fallbackMeta = {
+            versionNumber: 1,
+            totalVersions: 1,
+            previous: null,
+        };
+        const meta = record?.id ? versionMetaById.get(record.id) || fallbackMeta : fallbackMeta;
+        const previous = meta.previous;
+        const diffIndicators = [meta.versionNumber > 1 ? 'Reprocessed' : 'Original'];
+
+        if (previous) {
+            const previousTemplate = String(previous.template || '').toUpperCase();
+            const currentTemplate = String(record.template || '').toUpperCase();
+            const previousStatus = String(previous.status || '').toUpperCase();
+            const currentStatus = String(record.status || '').toUpperCase();
+
+            if (previousTemplate !== currentTemplate) {
+                diffIndicators.push('Template changed');
+            }
+            if (previousStatus !== currentStatus) {
+                diffIndicators.push('Status changed');
+            }
+            if (toTimestamp(record.updated_at || record.timestamp) > toTimestamp(previous.updated_at || previous.timestamp)) {
+                diffIndicators.push('New revision');
+            }
+        }
+
+        return {
+            ...record,
+            key: record.id || `${record.originalFileName || 'record'}-${record.timestamp || index}`,
+            versionNumber: meta.versionNumber,
+            totalVersions: meta.totalVersions,
+            diffIndicators,
+        };
+    });
+};
 
 export default function History() {
     const navigate = useNavigate();
-    const { history, setJob } = useDocument();
+    const { setJob } = useDocument();
+    const { data: documentsPayload, isLoading } = useDocuments({ limit: 50 });
+
+    const history = useMemo(() => {
+        const records = documentsPayload?.documents || [];
+        return [...records].sort((left, right) => toTimestamp(right.timestamp) - toTimestamp(left.timestamp));
+    }, [documentsPayload]);
+
+    const versionedHistory = useMemo(() => buildVersionedHistory(history), [history]);
 
     const handleRestore = (item) => {
-        // Since we stored a sanitized version in history, we set it as the current active job
         setJob(item);
         navigate('/results');
     };
 
     const stats = {
-        total: history.length,
-        valid: history.filter(h => h.status === 'completed' && (!h.result?.errors || h.result.errors.length === 0)).length,
-        warnings: history.filter(h => h.result?.warnings?.length > 0).length,
-        errors: history.filter(h => h.status === 'failed' || (h.result?.errors?.length > 0)).length
+        total: versionedHistory.length,
+        valid: versionedHistory.filter((item) => isCompleted(item.status) && (!item.result?.errors || item.result.errors.length === 0)).length,
+        warnings: versionedHistory.filter((item) => item.result?.warnings?.length > 0 || item.status === 'COMPLETED_WITH_WARNINGS').length,
+        errors: versionedHistory.filter((item) => isFailed(item.status) || (item.result?.errors?.length > 0)).length,
     };
 
     return (
@@ -67,7 +140,7 @@ export default function History() {
                         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
                             <div className="border-b border-slate-200 dark:border-slate-800 px-6 py-4 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
                                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">All Versions</h3>
-                                <span className="text-xs text-slate-500">{history.length} records found</span>
+                                <span className="text-xs text-slate-500">{versionedHistory.length} records found</span>
                             </div>
 
                             <div className="overflow-x-auto">
@@ -76,21 +149,28 @@ export default function History() {
                                         <tr className="bg-slate-50/50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 uppercase text-[11px] font-bold tracking-widest">
                                             <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-800">Date / Time</th>
                                             <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-800">Manuscript Name</th>
+                                            <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-800">Version</th>
                                             <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-800">Template</th>
                                             <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-800">Status</th>
                                             <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 text-right">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
-                                        {history.length === 0 ? (
+                                        {isLoading ? (
                                             <tr>
-                                                <td colSpan="5" className="px-6 py-12 text-center text-slate-500">
+                                                <td colSpan="6" className="px-6 py-12 text-center text-slate-500">
+                                                    Loading processing history...
+                                                </td>
+                                            </tr>
+                                        ) : versionedHistory.length === 0 ? (
+                                            <tr>
+                                                <td colSpan="6" className="px-6 py-12 text-center text-slate-500">
                                                     No processing history found. Start by uploading a manuscript.
                                                 </td>
                                             </tr>
                                         ) : (
-                                            history.map((item) => (
-                                                <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors group">
+                                            versionedHistory.map((item) => (
+                                                <tr key={item.key} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors group">
                                                     <td className="px-6 py-5 whitespace-nowrap">
                                                         <span className="text-slate-600 dark:text-slate-400 text-sm">
                                                             {new Date(item.timestamp).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
@@ -103,12 +183,29 @@ export default function History() {
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-5">
+                                                        <div className="flex flex-col gap-1">
+                                                            <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                                                                v{item.versionNumber} / {item.totalVersions}
+                                                            </span>
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {item.diffIndicators.map((indicator) => (
+                                                                    <span
+                                                                        key={`${item.key}-${indicator}`}
+                                                                        className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                                                                    >
+                                                                        {indicator}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-5">
                                                         <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 uppercase">
                                                             {item.template}
                                                         </span>
                                                     </td>
                                                     <td className="px-6 py-5">
-                                                        {item.status === 'completed' ? (
+                                                        {isCompleted(item.status) ? (
                                                             <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full w-fit ${item.result?.errors?.length > 0 ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
                                                                 <span className="material-symbols-outlined !text-sm">{item.result?.errors?.length > 0 ? 'error' : 'check_circle'}</span>
                                                                 <span className="text-xs font-bold">{item.result?.errors?.length > 0 ? 'Issue Detect' : 'Passed'}</span>

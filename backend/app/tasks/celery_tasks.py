@@ -41,9 +41,9 @@ def process_document_task(document_id: str, use_agent: bool = True):
         return False
 
     try:
-        # ── Mark as RUNNING ────────────────────────────────────────────────────
+        # ── Mark as PROCESSING ────────────────────────────────────────────────────
         DocumentService.update_document(document_id, {
-            "status": "RUNNING",
+            "status": "PROCESSING",
             "progress": 10,
             "current_stage": "Initializing agent orchestration...",
         })

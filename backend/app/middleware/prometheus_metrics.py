@@ -56,6 +56,12 @@ ACTIVE_PROCESSING_JOBS = Gauge(
     "Number of currently active processing jobs"
 )
 
+LLM_FAILURES_TOTAL = Counter(
+    "llm_failures_total",
+    "Total number of LLM API failures",
+    ["provider"]
+)
+
 # --- Middleware ---
 
 async def prometheus_metrics_middleware(request: Request, call_next: Callable) -> Response:
@@ -95,6 +101,10 @@ class MetricsManager:
     def record_llm_usage(provider: str, model: str, input_tokens: int, output_tokens: int):
         AGENT_LLM_TOKENS_TOTAL.labels(provider=provider, model=model, type="input").inc(input_tokens)
         AGENT_LLM_TOKENS_TOTAL.labels(provider=provider, model=model, type="output").inc(output_tokens)
+    
+    @staticmethod
+    def record_llm_failure(provider: str):
+        LLM_FAILURES_TOTAL.labels(provider=provider).inc()
     
     @staticmethod
     def record_retry():

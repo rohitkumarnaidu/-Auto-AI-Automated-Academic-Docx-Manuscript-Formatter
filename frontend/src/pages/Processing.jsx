@@ -1,23 +1,27 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import Stepper from '../components/Stepper';
 import StatusBadge from '../components/StatusBadge';
 import { useDocument } from '../context/DocumentContext';
-import { getJobStatus } from '../services/api';
+import { useDocumentStatus } from '../services/api';
 import { isCompleted, isFailed } from '../constants/status';
 
 const PHASE_MAPPING = {
-    'UPLOADED': 0,
-    'PARSING': 2,
-    'CLASSIFICATION': 3,
-    'INTELLIGENCE': 4,
-    'VALIDATION': 5,
-    'FORMATTING': 6,
-    'EXPORT': 6,
-    'COMPLETED': 7,
-    'FAILED': 7
+    UPLOADED: 0,
+    UPLOAD: 1,
+    PARSING: 2,
+    EXTRACTION: 2,
+    CLASSIFICATION: 3,
+    INTELLIGENCE: 4,
+    NLP_ANALYSIS: 4,
+    VALIDATION: 5,
+    FORMATTING: 6,
+    EXPORT: 6,
+    PERSISTENCE: 7,
+    COMPLETED: 7,
+    FAILED: 7,
 };
 
 export default function Processing() {
@@ -26,52 +30,80 @@ export default function Processing() {
     const [progress, setProgress] = useState(0);
     const [phase, setPhase] = useState('Initializing...');
     const [activeStep, setActiveStep] = useState(0);
+    const notifyCompletion = useCallback(() => {
+        if (typeof window === 'undefined' || !('Notification' in window)) {
+            return;
+        }
+
+        if (Notification.permission === 'granted') {
+            new Notification('ScholarForm AI', { body: 'Your document is ready!' });
+        }
+    }, []);
+
+    const { data: statusData, error: statusError } = useDocumentStatus(job?.id, {
+        enabled: Boolean(job?.id),
+        refetchInterval: 1500,
+        staleTime: 0,
+    });
 
     useEffect(() => {
         if (!job) {
             navigate('/upload');
+        }
+    }, [job, navigate]);
+
+    useEffect(() => {
+        if (!job) {
+            return;
+        }
+        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission().catch(() => { });
+        }
+    }, [job]);
+
+    useEffect(() => {
+        if (!statusData || !job) {
             return;
         }
 
-        // Poll for status
-        const interval = setInterval(async () => {
-            try {
-                const statusData = await getJobStatus(job.id);
+        const nextPhase = statusData.phase || statusData.current_phase || 'UPLOADED';
+        const normalizedPhase = String(nextPhase).toUpperCase();
+        const stepIndex = PHASE_MAPPING[normalizedPhase] !== undefined ? PHASE_MAPPING[normalizedPhase] : 1;
 
-                // Update local UI state
-                setProgress(statusData.progress_percentage || 0);
-                setPhase(statusData.message || statusData.current_phase || 'Processing...');
+        setProgress(statusData.progress_percentage || 0);
+        setPhase(statusData.message || nextPhase || 'Processing...');
+        setActiveStep(stepIndex);
 
-                const currentPhase = statusData.current_phase || 'UPLOADED';
-                const stepIndex = PHASE_MAPPING[currentPhase] !== undefined ? PHASE_MAPPING[currentPhase] : 1;
-                setActiveStep(stepIndex);
+        if (isCompleted(statusData.status)) {
+            setJob((previousJob) => ({
+                ...(previousJob || {}),
+                status: statusData.status,
+                result: statusData,
+                progress: 100,
+                phase: nextPhase,
+            }));
+            notifyCompletion();
+            navigate('/results');
+            return;
+        }
 
-                if (isCompleted(statusData.status)) {
-                    clearInterval(interval);
-                    // Update context job to complete
-                    setJob(prev => ({
-                        ...prev,
-                        status: 'completed',
-                        result: statusData,
-                        progress: 100
-                    }));
-                    navigate('/results');
-                } else if (isFailed(statusData.status)) {
-                    clearInterval(interval);
-                    setJob(prev => ({
-                        ...prev,
-                        status: 'failed',
-                        error: statusData.message
-                    }));
-                    navigate('/error');
-                }
-            } catch (error) {
-                console.error("Polling error:", error);
-            }
-        }, 1500);
+        if (isFailed(statusData.status)) {
+            setJob((previousJob) => ({
+                ...(previousJob || {}),
+                status: statusData.status,
+                error: statusData.message,
+                phase: nextPhase,
+            }));
+            navigate('/error');
+        }
+    }, [job, navigate, notifyCompletion, setJob, statusData]);
 
-        return () => clearInterval(interval);
-    }, [job, navigate, setJob]);
+    useEffect(() => {
+        if (!statusError || !job) {
+            return;
+        }
+        console.error('Polling error:', statusError);
+    }, [job, statusError]);
 
     return (
         <div className="min-h-screen flex flex-col bg-background-light dark:bg-background-dark">

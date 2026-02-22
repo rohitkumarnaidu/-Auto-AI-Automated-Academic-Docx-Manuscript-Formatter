@@ -9,6 +9,12 @@ import TemplateSelector from '../components/upload/TemplateSelector';
 import FormattingOptions from '../components/upload/FormattingOptions';
 import ProcessingStepper from '../components/upload/ProcessingStepper';
 import { isCompleted, isFailed, isProcessing as isStatusProcessing } from '../constants/status';
+import {
+    CHUNK_UPLOAD_THRESHOLD_BYTES,
+    uploadChunked,
+    uploadDocumentWithProgress,
+    useDocumentStatus,
+} from '../services/api';
 
 const ACCEPTED_EXTENSIONS = ['.docx', '.pdf', '.tex', '.txt', '.html', '.htm', '.md', '.markdown', '.doc'];
 const ACCEPTED_FORMATS = '.docx,.pdf,.tex,.txt,.html,.htm,.md,.markdown,.doc';
@@ -34,6 +40,8 @@ export default function Upload() {
     const { isLoggedIn } = useAuth();
     const { job, setJob } = useDocument();
     const fileInputRef = useRef(null);
+    const terminalStatusHandledRef = useRef(false);
+    const completionNotificationSentRef = useRef(false);
     const [file, setFile] = useState(null);
     const [isDragging, setIsDragging] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -53,6 +61,16 @@ export default function Upload() {
     const [generateTOC, setGenerateTOC] = useState(false);
     const [pageSize, setPageSize] = useState('Letter');
     const navigate = useNavigate();
+
+    const sendCompletionNotification = useCallback(() => {
+        if (typeof window === 'undefined' || !('Notification' in window)) {
+            return;
+        }
+
+        if (Notification.permission === 'granted') {
+            new Notification('ScholarForm AI', { body: 'Your document is ready!' });
+        }
+    }, []);
 
     // Mapping backend phases to UI Steps
     // Backend phases: UPLOAD, EXTRACTION, NLP_ANALYSIS, VALIDATION, FORMATTING, PERSISTENCE
@@ -78,114 +96,139 @@ export default function Upload() {
         { id: 7, title: 'Exporting Result', desc: 'Generating publication-ready file...' },
     ];
 
-    // Job Restoration Logic (for page reloads)
+    const { data: statusData, error: statusError } = useDocumentStatus(job?.id, {
+        enabled: Boolean(job?.id) && isProcessing,
+        refetchInterval: isProcessing ? 2000 : false,
+        staleTime: 0,
+    });
+
+    // Sync local upload UI state with the persisted job from context/session storage.
     useEffect(() => {
-        const checkSavedJob = async () => {
-            const savedJob = sessionStorage.getItem('scholarform_currentJob');
-            if (savedJob) {
-                try {
-                    const parsedJob = JSON.parse(savedJob);
-                    const { getJobStatus } = await import('../services/api');
+        if (!job) {
+            return;
+        }
 
-                    // Validate against backend - Source of Truth
-                    const statusData = await getJobStatus(parsedJob.id);
+        const normalizedStatus = job.status?.toUpperCase();
+        const currentlyProcessing = isStatusProcessing(normalizedStatus)
+            || ['RUNNING', 'IN_PROGRESS'].includes(normalizedStatus);
 
-                    // If we get here, job exists on backend
-                    setJob({
-                        ...parsedJob,
-                        status: statusData.status || parsedJob.status,
-                    });
-                    setProgress(statusData.progress_percentage || 0);
-                    if (statusData.message) setStatusMessage(statusData.message);
-                    if (statusData.phase) setCurrentStep(getStepFromPhase(statusData.phase));
-
-                    if (isStatusProcessing(statusData.status) || ['RUNNING', 'IN_PROGRESS'].includes(statusData.status?.toUpperCase())) {
-                        setIsProcessing(true);
-                    } else if (isCompleted(statusData.status)) {
-                        // Job is finished. ensure UI reflects this without clearing state.
-                        setIsProcessing(false);
-                        setProgress(100);
-                        setCurrentStep(7);
-                    }
-                } catch (error) {
-                    console.warn("Found stale job in storage, clearing:", error);
-                    sessionStorage.removeItem('scholarform_currentJob');
-                    setJob(null);
-                    setIsProcessing(false);
-                    setProgress(0);
-                    setCurrentStep(0);
-                }
+        if (currentlyProcessing) {
+            setIsProcessing(true);
+            if (typeof job.progress === 'number') {
+                setProgress(job.progress);
             }
-        };
+            if (job.phase) {
+                setCurrentStep(getStepFromPhase(job.phase));
+            } else {
+                setCurrentStep((step) => (step > 0 ? step : 1));
+            }
+            if (statusMessage === 'Initializing...') {
+                setStatusMessage('Resuming previous processing job...');
+            }
+            return;
+        }
 
-        checkSavedJob();
-    }, [setJob]);
+        if (isCompleted(normalizedStatus)) {
+            setIsProcessing(false);
+            setProgress(100);
+            setCurrentStep(7);
+            setStatusMessage('Processing complete!');
+            return;
+        }
+
+        if (isFailed(normalizedStatus)) {
+            setIsProcessing(false);
+            if (job.error) {
+                setStatusMessage(`Failed: ${job.error}`);
+            }
+        }
+    }, [job, statusMessage]);
 
     const handleReviewClick = (path) => {
         navigate(path);
     };
 
-    // REAL-TIME POLLING
+    // Real-time status updates via React Query.
     useEffect(() => {
-        let interval;
-        if (isProcessing && job?.id) {
-            interval = setInterval(async () => {
-                try {
-                    const { getJobStatus } = await import('../services/api');
-                    const statusData = await getJobStatus(job.id);
-
-                    // 1. Update Progress
-                    setProgress(statusData.progress_percentage || 0);
-
-                    // 2. Update Status Message & Step
-                    // Use backend message if available, otherwise fallback
-                    if (statusData.message) setStatusMessage(statusData.message);
-
-                    if (statusData.phase) {
-                        setCurrentStep(getStepFromPhase(statusData.phase));
-                    }
-
-                    // 3. Handle Completion
-                    if (isCompleted(statusData.status)) {
-                        setIsProcessing(false);
-                        setProgress(100);
-                        setCurrentStep(7);
-                        setStatusMessage(statusData.status === 'COMPLETED_WITH_WARNINGS'
-                            ? `Completed with warnings: ${statusData.message}`
-                            : 'Processing complete!');
-
-                        const completedJob = {
-                            ...job,
-                            status: statusData.status,
-                            progress: 100,
-                            outputPath: statusData.output_path,
-                            warnings: statusData.status === 'COMPLETED_WITH_WARNINGS' ? statusData.message : null
-                        };
-                        setJob(completedJob);
-                        sessionStorage.setItem('scholarform_currentJob', JSON.stringify(completedJob));
-
-                        // Navigate to results
-                        setTimeout(() => navigate('/download'), 500);
-                    }
-                    // 4. Handle Failure
-                    else if (isFailed(statusData.status)) {
-                        setIsProcessing(false);
-                        console.error("Job failed:", statusData.message);
-                        setStatusMessage(`Failed: ${statusData.message}`);
-                        // Optionally navigate to error page or stay here to retry
-                        // navigate('/error'); 
-                        // Staying on page helps user see the error and retry easily.
-                        // But user request says "If FAILED: Show backend error, Keep user on Upload page, Allow retry"
-                        // But the previous code navigated to /error. I will follow "Keep user on Upload page" as per stricter 1495 prompt.
-                    }
-                } catch (error) {
-                    console.error("Polling error:", error);
-                    // Continue polling on transient network errors
-                }
-            }, 2000);
+        if (!statusData || !job) {
+            return;
         }
-        return () => clearInterval(interval);
-    }, [isProcessing, job, navigate, setJob]);
+
+        setProgress(statusData.progress_percentage || 0);
+        if (statusData.message) {
+            setStatusMessage(statusData.message);
+        }
+        if (statusData.phase) {
+            setCurrentStep(getStepFromPhase(statusData.phase));
+        }
+
+        const normalizedStatus = statusData.status?.toUpperCase();
+        const currentlyProcessing = isStatusProcessing(normalizedStatus)
+            || ['RUNNING', 'IN_PROGRESS'].includes(normalizedStatus);
+
+        if (currentlyProcessing) {
+            terminalStatusHandledRef.current = false;
+            completionNotificationSentRef.current = false;
+            setIsProcessing(true);
+            return;
+        }
+
+        if (isCompleted(normalizedStatus)) {
+            if (terminalStatusHandledRef.current) {
+                return;
+            }
+            terminalStatusHandledRef.current = true;
+            setIsProcessing(false);
+            setProgress(100);
+            setCurrentStep(7);
+            setStatusMessage(statusData.status === 'COMPLETED_WITH_WARNINGS'
+                ? `Completed with warnings: ${statusData.message}`
+                : 'Processing complete!');
+
+            const completedJob = {
+                ...job,
+                status: statusData.status,
+                progress: 100,
+                outputPath: statusData.output_path,
+                phase: statusData.phase,
+                warnings: statusData.status === 'COMPLETED_WITH_WARNINGS' ? statusData.message : null,
+            };
+            setJob(completedJob);
+            sessionStorage.setItem('scholarform_currentJob', JSON.stringify(completedJob));
+
+            if (!completionNotificationSentRef.current) {
+                sendCompletionNotification();
+                completionNotificationSentRef.current = true;
+            }
+
+            setTimeout(() => navigate('/download'), 500);
+            return;
+        }
+
+        if (isFailed(normalizedStatus)) {
+            if (terminalStatusHandledRef.current) {
+                return;
+            }
+            terminalStatusHandledRef.current = true;
+            setIsProcessing(false);
+            console.error('Job failed:', statusData.message);
+            setStatusMessage(`Failed: ${statusData.message}`);
+            setJob((previousJob) => ({
+                ...(previousJob || {}),
+                status: statusData.status,
+                error: statusData.message,
+                progress: statusData.progress_percentage || 0,
+                phase: statusData.phase,
+            }));
+        }
+    }, [job, navigate, sendCompletionNotification, setJob, statusData]);
+
+    useEffect(() => {
+        if (!statusError || !isProcessing) {
+            return;
+        }
+        console.error('Polling error:', statusError);
+    }, [isProcessing, statusError]);
 
     const handleFileChange = (e) => {
         setFileError(null);
@@ -246,6 +289,8 @@ export default function Upload() {
         setCurrentStep(0);
         setProgress(0);
         setStatusMessage('Processing cancelled.');
+        terminalStatusHandledRef.current = false;
+        completionNotificationSentRef.current = false;
     }, [abortController]);
 
     const formatFileSize = (bytes) => {
@@ -256,63 +301,122 @@ export default function Upload() {
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
 
-    const handleProcess = async () => {
+    const handleProcess = useCallback(async () => {
         // Allow processing if file exists and NOT currently processing.
         // Even if progress was 100% (previous job), we allow starting a new one.
-        if (file && !isProcessing) {
-            const controller = new AbortController();
-            setAbortController(controller);
-            setIsProcessing(true);
-            setProgress(0);
-            setCurrentStep(1);
-            setStatusMessage("Initiating upload...");
+        if (!file || isProcessing) {
+            return;
+        }
 
-            try {
-                const { uploadDocument } = await import('../services/api');
-                // Pass real options to backend
-                const result = await uploadDocument(file, template, {
-                    add_page_numbers: addPageNumbers,
-                    add_borders: addBorders,
-                    add_cover_page: addCoverPage,
-                    generate_toc: generateTOC,
-                    page_size: pageSize
+        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission().catch(() => { });
+        }
+
+        const controller = new AbortController();
+        setAbortController(controller);
+        setIsProcessing(true);
+        setProgress(0);
+        setCurrentStep(1);
+        setStatusMessage('Initiating upload...');
+        terminalStatusHandledRef.current = false;
+        completionNotificationSentRef.current = false;
+
+        const uploadOptions = {
+            add_page_numbers: addPageNumbers,
+            add_borders: addBorders,
+            add_cover_page: addCoverPage,
+            generate_toc: generateTOC,
+            page_size: pageSize,
+        };
+
+        try {
+            let result = null;
+            const shouldUseChunkedUpload = file.size > CHUNK_UPLOAD_THRESHOLD_BYTES && isLoggedIn;
+
+            if (shouldUseChunkedUpload) {
+                setStatusMessage('Large file detected. Uploading chunks...');
+                const chunkedResult = await uploadChunked(file, {
+                    signal: controller.signal,
+                    onProgress: ({ chunkIndex, totalChunks, percent }) => {
+                        setProgress(percent);
+                        setStatusMessage(`Uploading chunk ${chunkIndex + 1}/${totalChunks} (${percent}%)...`);
+                    },
                 });
 
-                if (controller.signal.aborted) {
-                    return;
+                if (chunkedResult?.job_id) {
+                    result = chunkedResult;
+                    setStatusMessage('Chunk upload complete. Processing started...');
+                } else {
+                    setProgress(0);
+                    setStatusMessage('Chunk upload complete. Finalizing upload...');
                 }
-
-                const newJob = {
-                    id: result.job_id,
-                    timestamp: new Date().toISOString(),
-                    status: 'processing',
-                    originalFileName: file.name,
-                    template: template,
-                    flags: {
-                        page_numbers: addPageNumbers,
-                        borders: addBorders,
-                        cover_page: addCoverPage,
-                        toc: generateTOC,
-                        page_size: pageSize
-                    },
-                    progress: 0
-                };
-                setJob(newJob);
-                sessionStorage.setItem('scholarform_currentJob', JSON.stringify(newJob));
-
-            } catch (error) {
-                if (controller.signal.aborted) {
-                    return;
-                }
-                console.error("Upload failed:", error);
-                setIsProcessing(false);
-                setStatusMessage(`Upload failed: ${error.message}`);
-                // navigate('/error'); // Keep user on page to retry
-            } finally {
-                setAbortController((activeController) => (activeController === controller ? null : activeController));
+            } else if (file.size > CHUNK_UPLOAD_THRESHOLD_BYTES) {
+                setStatusMessage('Large file detected. Uploading in single request mode...');
             }
+
+            if (controller.signal.aborted) {
+                return;
+            }
+
+            if (!result) {
+                result = await uploadDocumentWithProgress(file, template, uploadOptions, {
+                    signal: controller.signal,
+                    onProgress: (uploadPercent) => {
+                        setProgress(uploadPercent);
+                        setStatusMessage(`Uploading manuscript... ${uploadPercent}%`);
+                    },
+                });
+            }
+
+            if (controller.signal.aborted || !result?.job_id) {
+                if (!result?.job_id) {
+                    throw new Error('Upload response missing job id.');
+                }
+                return;
+            }
+
+            const newJob = {
+                id: result.job_id,
+                timestamp: new Date().toISOString(),
+                status: 'processing',
+                phase: 'UPLOAD',
+                originalFileName: file.name,
+                template,
+                flags: {
+                    page_numbers: addPageNumbers,
+                    borders: addBorders,
+                    cover_page: addCoverPage,
+                    toc: generateTOC,
+                    page_size: pageSize,
+                },
+                progress: 0,
+            };
+            setStatusMessage('Upload complete. Processing started...');
+            setProgress(0);
+            setJob(newJob);
+            sessionStorage.setItem('scholarform_currentJob', JSON.stringify(newJob));
+        } catch (error) {
+            if (controller.signal.aborted) {
+                return;
+            }
+            console.error('Upload failed:', error);
+            setIsProcessing(false);
+            setStatusMessage(`Upload failed: ${error.message}`);
+        } finally {
+            setAbortController((activeController) => (activeController === controller ? null : activeController));
         }
-    };
+    }, [
+        addBorders,
+        addCoverPage,
+        addPageNumbers,
+        file,
+        generateTOC,
+        isLoggedIn,
+        isProcessing,
+        pageSize,
+        setJob,
+        template,
+    ]);
 
     // FEAT 46: Keyboard shortcuts
     useEffect(() => {

@@ -1,5 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import {
+    signup as apiSignup,
+    login as apiLogin,
+    forgotPassword as apiForgotPassword,
+    verifyOtp as apiVerifyOtp,
+    resetPassword as apiResetPassword,
+} from '../services/api';
 
 const AuthContext = createContext();
 
@@ -90,7 +97,6 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     const signUp = async (signupData) => {
-        const { signup: apiSignup } = await import('../services/api');
         try {
             setLoading(true);
             const data = await apiSignup(signupData);
@@ -121,7 +127,6 @@ export const AuthProvider = ({ children }) => {
     };
 
     const signIn = async (email, password) => {
-        const { login: apiLogin } = await import('../services/api');
         try {
             const data = await apiLogin({ email, password });
 
@@ -161,8 +166,15 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    const refreshSession = async () => {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (user && !error) {
+            setUser(user);
+            setIsLoggedIn(true);
+        }
+    };
+
     const forgotPassword = async (email) => {
-        const { forgotPassword: apiForgotPassword } = await import('../services/api');
         try {
             const data = await apiForgotPassword({ email });
             return { data, error: null };
@@ -172,7 +184,6 @@ export const AuthProvider = ({ children }) => {
     };
 
     const verifyOtp = async (email, otp) => {
-        const { verifyOtp: apiVerifyOtp } = await import('../services/api');
         try {
             const data = await apiVerifyOtp({ email, otp });
             return { data, error: null };
@@ -182,7 +193,6 @@ export const AuthProvider = ({ children }) => {
     };
 
     const resetPassword = async (email, otp, newPassword) => {
-        const { resetPassword: apiResetPassword } = await import('../services/api');
         try {
             const data = await apiResetPassword({ email, otp, new_password: newPassword });
             return { data, error: null };
@@ -198,6 +208,7 @@ export const AuthProvider = ({ children }) => {
         signIn,
         signInWithGoogle,
         signOut,
+        refreshSession,
         forgotPassword,
         verifyOtp,
         resetPassword,

@@ -1,72 +1,51 @@
 """
 Database Layer Tests
-Tests database connection, models, and CRUD operations.
+Tests database connection and Supabase client properly initializes.
 """
 
 import pytest
 from unittest.mock import Mock, patch, MagicMock
-from sqlalchemy.exc import OperationalError
 
 class TestDatabaseLayer:
     """Test suite for database layer."""
     
     @pytest.mark.database
-    def test_session_creation(self):
-        """Test database session can be created."""
-        with patch('app.db.session.create_engine') as mock_engine:
-            with patch('app.db.session.sessionmaker') as mock_sessionmaker:
-                from app.db.session import SessionLocal
+    def test_supabase_client_creation(self):
+        """Test Supabase client can be created."""
+        with patch('app.db.supabase_client.create_client') as mock_create_client:
+            with patch('app.db.supabase_client.settings') as mock_settings:
+                mock_settings.SUPABASE_URL = "http://localhost:8000"
+                mock_settings.SUPABASE_SERVICE_ROLE_KEY = "test_key"
                 
-                # Should not raise exception
-                assert SessionLocal is not None
+                from app.db.supabase_client import get_supabase_client
+                
+                client = get_supabase_client()
+                assert mock_create_client.called
     
     @pytest.mark.database
     def test_graceful_degradation_on_connection_failure(self):
         """Test graceful degradation when database unavailable."""
-        with patch('app.db.session.SessionLocal') as mock_session:
-            # Mock connection failure
-            mock_session.side_effect = OperationalError("Connection failed", None, None)
+        with patch('app.db.supabase_client.create_client') as mock_create_client:
+            mock_create_client.side_effect = Exception("Connection failed")
             
-            # Application should handle this gracefully
-            try:
-                db = mock_session()
-            except OperationalError:
-                # Expected - app should catch this
-                pass
-    
-    @pytest.mark.database
-    def test_connection_pool_configuration(self):
-        """Test connection pool is properly configured."""
-        with patch('app.db.session.create_engine') as mock_engine:
-            from app.db.session import engine
+            from app.db.supabase_client import get_supabase_client
             
-            # Verify engine was created (connection pooling configured)
-            assert engine is not None
+            # Should handle exception and return None
+            client = get_supabase_client()
+            assert client is None
     
     @pytest.mark.database
-    def test_document_model_fields(self):
-        """Test Document model has required fields."""
-        from app.models import Document
-        
-        # Check model has expected attributes
-        assert hasattr(Document, 'id')
-        assert hasattr(Document, 'status')
-        assert hasattr(Document, 'error_message')
-    
-    @pytest.mark.database
-    def test_sql_injection_prevention(self):
-        """Test SQLAlchemy prevents SQL injection."""
-        # SQLAlchemy uses parameterized queries by default
-        # This test verifies the ORM is being used correctly
-        from app.models import Document
-        
-        # Attempting SQL injection should be escaped
-        malicious_input = "'; DROP TABLE documents; --"
-        
-        # This should be safe with SQLAlchemy ORM
-        # (would need actual DB to test, but structure is correct)
-        assert True  # Placeholder - structure uses ORM correctly
-
+    def test_missing_credentials(self):
+        """Test client creation fails gracefully with missing credentials."""
+        with patch('app.db.supabase_client.settings') as mock_settings:
+            mock_settings.SUPABASE_URL = ""
+            mock_settings.SUPABASE_SERVICE_ROLE_KEY = ""
+            
+            from app.db.supabase_client import get_supabase_client
+            
+            # Should handle missing creds and return None
+            client = get_supabase_client()
+            assert client is None
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-m", "database"])

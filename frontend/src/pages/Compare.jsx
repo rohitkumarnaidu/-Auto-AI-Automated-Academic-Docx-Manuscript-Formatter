@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import * as Diff from 'diff';
 import { useDocument } from '../context/DocumentContext';
 import Navbar from '../components/Navbar';
+import { getComparison } from '../services/api';
 
 export default function Compare() {
     const navigate = useNavigate();
@@ -20,7 +21,6 @@ export default function Compare() {
         const loadComparison = async () => {
             if (job?.id) {
                 try {
-                    const { getComparison } = await import('../services/api');
                     const data = await getComparison(job.id);
 
                     if (data.formatted?.structured_data) {

@@ -1,0 +1,49 @@
+description: Numeric Citation Style Contract
+styles:
+  # Structural
+  BLOCK_TITLE: "Paper Title"
+  BLOCK_ABSTRACT_HEADING: "Abstract Heading"
+  BLOCK_ABSTRACT_BODY: "Abstract"
+  
+  # Headings
+  BLOCK_HEADING_1: "Heading 1"
+  BLOCK_HEADING_2: "Heading 2"
+  BLOCK_HEADING_3: "Heading 3"
+  BLOCK_HEADING_4: "Heading 4"
+  
+  # Content
+  BLOCK_BODY: "Body Text"
+  BLOCK_LIST_ITEM: "List Bullet"
+  
+  # References
+  BLOCK_REFERENCES_HEADING: "Heading 1"
+  BLOCK_REFERENCE_ENTRY: "References"
+  
+  # Captions
+  BLOCK_CAPTION: "Figure Caption"
+
+layout:
+  default_columns: 1
+  margins:
+    top: 1.0
+    bottom: 1.0
+    left: 1.0
+    right: 1.0
+  section_overrides:
+    abstract: 1
+    references: 1
+    title: 1
+    acknowledgment: 1
+  spacing:
+    heading:
+      before: 12
+      after: 6
+    paragraph:
+      before: 0
+      after: 6
+    figure:
+      before: 6
+      after: 6
+    references:
+      before: 12
+      after: 3

@@ -1,4 +1,5 @@
 import React from 'react';
+import { logFrontendError } from '../services/api';
 
 class ErrorBoundary extends React.Component {
     constructor(props) {
@@ -19,7 +20,6 @@ class ErrorBoundary extends React.Component {
     async componentDidCatch(error, errorInfo) {
         console.error('UI rendering error captured by ErrorBoundary:', error, errorInfo);
         try {
-            const { logFrontendError } = await import('../services/api');
             await logFrontendError({
                 message: `ErrorBoundary caught: ${error?.message || String(error)}`,
                 stack: `${error?.stack || ''}\nComponent Stack: ${errorInfo?.componentStack || ''}`

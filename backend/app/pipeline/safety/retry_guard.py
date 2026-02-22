@@ -1,69 +1,60 @@
-"""
-retry_guard.py - Tenacity-backed retry decorator.
-
-Backward-compatible public API:
-  retry_guard(max_retries, base_delay, max_delay, backoff_factor, exceptions)
-  retry_on_failure  <- alias
-"""
+import time
 import logging
-from typing import Type, Tuple, Union
+import asyncio
+from functools import wraps
+from typing import Callable, Any
 
 logger = logging.getLogger(__name__)
 
-try:
-    from tenacity import (
-        retry, stop_after_attempt, wait_exponential_jitter,
-        retry_if_exception_type, before_sleep_log,
-    )
-    _TENACITY = True
-except ImportError:
-    _TENACITY = False
-    logger.warning("tenacity not installed - legacy retry active. pip install tenacity")
-
-
-def retry_guard(
-    max_retries: int = 3,
-    base_delay: float = 1.0,
-    max_delay: float = 10.0,
-    backoff_factor: float = 2.0,
-    exceptions: Union[Type[Exception], Tuple[Type[Exception], ...]] = (Exception,),
-):
-    """Decorator: exponential backoff retries (tenacity-powered when available)."""
-    if _TENACITY:
-        exc_t = exceptions if isinstance(exceptions, tuple) else (exceptions,)
-        def decorator(func):
-            return retry(
-                stop=stop_after_attempt(max_retries),
-                wait=wait_exponential_jitter(
-                    initial=base_delay, max=max_delay,
-                    exp_base=backoff_factor, jitter=base_delay * 0.1,
-                ),
-                retry=retry_if_exception_type(exc_t),
-                before_sleep=before_sleep_log(logger, logging.WARNING),
-                reraise=True,
-            )(func)
-        return decorator
-
-    # --- Legacy fallback ---
-    import time, random, functools
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            attempt, delay = 0, base_delay
-            while attempt < max_retries:
-                try:
-                    return func(*args, **kwargs)
-                except exceptions as exc:
-                    attempt += 1
-                    if attempt >= max_retries:
-                        logger.error("%s failed after %d attempts: %s", func.__name__, max_retries, exc)
-                        raise
-                    sleep = min(delay + random.uniform(0, 0.1 * delay), max_delay)
-                    logger.warning("%s attempt %d/%d, retry in %.2fs: %s", func.__name__, attempt, max_retries, sleep, exc)
-                    time.sleep(sleep)
-                    delay *= backoff_factor
-        return wrapper
+def retry_with_backoff(max_retries: int = 2, backoff_factor: float = 1.0, base_delay: float = None):
+    """
+    Decorator to retry a function (sync or async) with exponential backoff.
+    """
+    if base_delay is not None:
+        backoff_factor = base_delay
+    def decorator(func: Callable) -> Callable:
+        if asyncio.iscoroutinefunction(func):
+            @wraps(func)
+            async def async_wrapper(*args, **kwargs) -> Any:
+                retries = 0
+                while True:
+                    try:
+                        return await func(*args, **kwargs)
+                    except Exception as e:
+                        if retries >= max_retries:
+                            logger.error("Function '%s' failed permanently after %d retries. Final error: %s", func.__name__, max_retries, e)
+                            raise
+                        
+                        retries += 1
+                        sleep_time = backoff_factor * (2 ** (retries - 1))
+                        logger.warning("Function '%s' failed: %s. Retrying %d/%d in %ds...", func.__name__, e, retries, max_retries, sleep_time)
+                        await asyncio.sleep(sleep_time)
+            return async_wrapper
+        else:
+            @wraps(func)
+            def sync_wrapper(*args, **kwargs) -> Any:
+                retries = 0
+                while True:
+                    try:
+                        return func(*args, **kwargs)
+                    except Exception as e:
+                        if retries >= max_retries:
+                            logger.error("Function '%s' failed permanently after %d retries. Final error: %s", func.__name__, max_retries, e)
+                            raise
+                        
+                        retries += 1
+                        sleep_time = backoff_factor * (2 ** (retries - 1))
+                        logger.warning("Function '%s' failed: %s. Retrying %d/%d in %ds...", func.__name__, e, retries, max_retries, sleep_time)
+                        time.sleep(sleep_time)
+            return sync_wrapper
     return decorator
 
+def execute_with_retry(func: Callable, *args, max_retries: int = 2, backoff_factor: float = 1.0, **kwargs) -> Any:
+    """Helper to apply retry dynamically inline."""
+    @retry_with_backoff(max_retries=max_retries, backoff_factor=backoff_factor)
+    def wrapped_func():
+        return func(*args, **kwargs)
+    
+    return wrapped_func()
 
-retry_on_failure = retry_guard  # backward-compat alias
+retry_guard = retry_with_backoff

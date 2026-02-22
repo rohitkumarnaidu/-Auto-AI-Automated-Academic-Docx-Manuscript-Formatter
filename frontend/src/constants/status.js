@@ -4,6 +4,7 @@ export const STATUS = {
     COMPLETED: 'COMPLETED',
     COMPLETED_WITH_WARNINGS: 'COMPLETED_WITH_WARNINGS',
     FAILED: 'FAILED',
+    CANCELLED: 'CANCELLED',
 };
 
 export function isCompleted(status) {
@@ -12,7 +13,8 @@ export function isCompleted(status) {
 }
 
 export function isProcessing(status) {
-    return status?.toUpperCase() === STATUS.PROCESSING;
+    const s = status?.toUpperCase();
+    return s === STATUS.PROCESSING;
 }
 
 export function isFailed(status) {

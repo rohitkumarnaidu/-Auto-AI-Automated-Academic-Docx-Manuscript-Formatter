@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Navbar from './Navbar';
 import { isCompleted } from '../constants/status';
+import { getPreview } from '../services/api';
 
 function buildSectionChunks(structuredData) {
     if (!structuredData?.sections || typeof structuredData.sections !== 'object') {
@@ -57,7 +58,6 @@ export default function Preview({
             setVisibleSections([]);
 
             try {
-                const { getPreview } = await import('../services/api');
                 const data = await getPreview(job.id, { debounceMs: 350 });
 
                 if (isCancelled) {

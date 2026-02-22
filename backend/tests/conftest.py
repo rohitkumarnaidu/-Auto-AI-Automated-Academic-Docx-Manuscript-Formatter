@@ -4,6 +4,23 @@ conftest.py — shared pytest fixtures for ScholarForm AI backend tests.
 from __future__ import annotations
 
 import pytest
+from unittest.mock import MagicMock, patch
+
+@pytest.fixture(autouse=True)
+def mock_redis():
+    """Mock Redis globally for all tests."""
+    with patch("app.routers.stream.sync_redis_client") as mock_stream_sync:
+        with patch("app.routers.stream.async_redis") as mock_stream_async:
+            with patch("app.middleware.rate_limit.redis") as mock_limit:
+                with patch("app.cache.redis_cache.redis.Redis") as mock_cache:
+                    mock_stream_sync.return_value = MagicMock()
+                    mock_stream_async.return_value = MagicMock()
+                    yield {
+                        "stream_sync": mock_stream_sync,
+                        "stream_async": mock_stream_async,
+                        "rate_limit": mock_limit,
+                        "cache": mock_cache
+                    }
 
 from app.models import (
     Block,

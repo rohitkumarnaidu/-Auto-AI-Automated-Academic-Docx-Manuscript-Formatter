@@ -96,15 +96,19 @@ class TestGROBIDPipelineIntegration:
     def test_pipeline_with_grobid_integration(self, orchestrator, sample_pdf_path):
         """Test full pipeline with GROBID metadata injection."""
         # Mock the database session
-        with patch("app.pipeline.orchestrator.SessionLocal") as mock_session_cls:
-            mock_session = MagicMock()
-            mock_session_cls.return_value = mock_session
-            mock_session.__enter__.return_value = mock_session
+        with patch("app.pipeline.orchestrator.get_supabase_client") as mock_sb:
+            mock_client = MagicMock()
+            mock_sb.return_value = mock_client
             
-            # Mock document record
-            mock_doc = MagicMock()
-            mock_doc.status = "PENDING"
-            mock_session.query.return_value.filter_by.return_value.first.return_value = mock_doc
+            # Mock Supabase table operations
+            mock_table = MagicMock()
+            mock_client.table.return_value = mock_table
+            mock_table.select.return_value = mock_table
+            mock_table.update.return_value = mock_table
+            mock_table.insert.return_value = mock_table
+            mock_table.eq.return_value = mock_table
+            mock_table.match.return_value = mock_table
+            mock_table.execute.return_value = MagicMock(data=[])
             
             # Run pipeline
             start_time = time.time()

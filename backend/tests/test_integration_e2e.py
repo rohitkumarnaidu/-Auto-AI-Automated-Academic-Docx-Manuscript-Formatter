@@ -23,24 +23,46 @@ class TestEndToEndIntegration:
     
     @pytest.fixture
     def mock_db_session(self):
-        """Mock SQLAlchemy session to capture DB updates without real DB."""
-        with patch("app.pipeline.orchestrator.SessionLocal") as mock_session_cls:
-            mock_session = MagicMock()
-            mock_session_cls.return_value = mock_session
-            mock_session.__enter__.return_value = mock_session
+        """Mock Supabase client to capture DB updates without real DB."""
+        with patch("app.pipeline.orchestrator.get_supabase_client") as mock_sb:
+            mock_client = MagicMock()
+            mock_sb.return_value = mock_client
             
-            # Mock Document record
-            mock_doc_rec = MagicMock()
-            mock_doc_rec.status = "PENDING"
-            mock_doc_rec.output_path = None
+            # Mock Supabase table operations (chained method pattern)
+            mock_table = MagicMock()
+            mock_client.table.return_value = mock_table
+            mock_table.select.return_value = mock_table
+            mock_table.update.return_value = mock_table
+            mock_table.insert.return_value = mock_table
+            mock_table.eq.return_value = mock_table
+            mock_table.match.return_value = mock_table
+            mock_table.execute.return_value = MagicMock(data=[])
             
-            # Mock query().filter_by().first()
-            mock_session.query.return_value.filter_by.return_value.first.return_value = mock_doc_rec
-            
-            yield mock_session, mock_doc_rec
+            yield mock_client
 
     @pytest.fixture
-    def orchestrator(self):
+    def mock_ai_engines(self):
+        """Mock AI engines and services to prevent real model loading/API calls."""
+        with patch("app.pipeline.intelligence.reasoning_engine.get_reasoning_engine") as mock_re:
+            with patch("app.pipeline.intelligence.rag_engine.get_rag_engine") as mock_rag:
+                with patch("app.pipeline.intelligence.semantic_parser.get_semantic_parser") as mock_sem:
+                    with patch("app.pipeline.orchestrator.GROBIDClient") as mock_grobid:
+                        with patch("app.pipeline.orchestrator.DoclingClient") as mock_docling:
+                            mock_re.return_value = MagicMock()
+                            mock_rag.return_value = MagicMock()
+                            mock_sem.return_value = MagicMock()
+                            mock_grobid.return_value = MagicMock()
+                            mock_docling.return_value = MagicMock()
+                            yield {
+                                "reasoning": mock_re.return_value,
+                                "rag": mock_rag.return_value,
+                                "semantic": mock_sem.return_value,
+                                "grobid": mock_grobid.return_value,
+                                "docling": mock_docling.return_value
+                            }
+
+    @pytest.fixture
+    def orchestrator(self, mock_ai_engines):
         return PipelineOrchestrator(templates_dir="app/templates", temp_dir="temp")
 
     def test_samples_exist(self, samples_dir):
@@ -52,7 +74,7 @@ class TestEndToEndIntegration:
 
     def test_end_to_end_pipeline(self, orchestrator, samples_dir, mock_db_session):
         """Run full pipeline and measure performance."""
-        mock_session, mock_doc_rec = mock_db_session
+        mock_client = mock_db_session
         pdf_files = list(samples_dir.glob("*.pdf"))[:2]
         
         if not pdf_files:

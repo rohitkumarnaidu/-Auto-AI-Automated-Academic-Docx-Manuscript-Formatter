@@ -1,18 +1,17 @@
-"""
-Rate Limiting Middleware for FastAPI
-Prevents DoS attacks by limiting requests per IP address.
-"""
-
+import os
+import redis.asyncio as aioredis
+import time
 from fastapi import Request, HTTPException
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
-import time
-from collections import defaultdict
-from typing import Dict, Tuple
+
+# Initialize Redis client for shared rate limiting
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
+redis = aioredis.from_url(REDIS_URL, decode_responses=True)
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """
-    Rate limiting middleware.
+    Redis-based rate limiting middleware.
     
     Default: 60 requests per minute per IP address.
     Upload endpoint: 5 uploads per minute per IP address.
@@ -21,9 +20,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     def __init__(self, app, requests_per_minute: int = 60):
         super().__init__(app)
         self.requests_per_minute = requests_per_minute
-        self.request_counts: Dict[str, list] = defaultdict(list)
-        # Separate tracking for upload endpoint (stricter limit)
-        self.upload_counts: Dict[str, list] = defaultdict(list)
         self.uploads_per_minute = 5
     
     async def dispatch(self, request: Request, call_next):
@@ -34,64 +30,42 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if request.url.path == "/health":
             return await call_next(request)
         
-        current_time = time.time()
-        
         # Check if this is an upload request (stricter limit)
         is_upload = request.url.path == "/api/documents/upload" and request.method == "POST"
         
-        # BUG 3 FIX: Use only IP address as the key to prevent JWT-rotation bypass
-        client_id = client_ip
-
+        # Determine limits and keys
+        # We use current minute bucket for simple windowing
+        current_window = int(time.time() / 60)
+        
         if is_upload:
-            # BUG 2 FIX: Removed self.uploads_per_minute = 10 line that overwrote init value
+            limit = self.uploads_per_minute
+            key = f"ratelimit:upload:{client_ip}:{current_window}"
+            error_msg = f"Maximum {limit} uploads per minute allowed."
+        else:
+            limit = self.requests_per_minute
+            key = f"ratelimit:general:{client_ip}:{current_window}"
+            error_msg = f"Maximum {limit} requests per minute allowed."
+
+        try:
+            # Phase 5: Redis-based Rate Limiting
+            count = await redis.incr(key)
+            if count == 1:
+                # Set TTL to 61 seconds (slightly over the window)
+                await redis.expire(key, 61)
             
-            # Clean up old upload requests (older than 1 minute)
-            if client_id in self.upload_counts:
-                self.upload_counts[client_id] = [
-                    req_time for req_time in self.upload_counts[client_id]
-                    if current_time - req_time < 60
-                ]
-                # BUG 1 FIX: Delete empty lists to prevent memory leak
-                if not self.upload_counts[client_id]:
-                    del self.upload_counts[client_id]
-            
-            # Check upload rate limit
-            if client_id in self.upload_counts and len(self.upload_counts[client_id]) >= self.uploads_per_minute:
+            if count > limit:
                 return JSONResponse(
                     status_code=429,
                     content={
-                        "error": "Upload rate limit exceeded",
-                        "message": f"Maximum {self.uploads_per_minute} uploads per minute allowed. Please wait before uploading again.",
+                        "error": "Rate limit exceeded",
+                        "message": error_msg,
                         "retry_after": 60
                     }
                 )
-            
-            # Record this upload
-            self.upload_counts[client_id].append(current_time)
-        
-        # Clean up old requests (older than 1 minute)
-        if client_ip in self.request_counts:
-            self.request_counts[client_ip] = [
-                req_time for req_time in self.request_counts[client_ip]
-                if current_time - req_time < 60
-            ]
-            # BUG 1 FIX: Delete empty lists to prevent memory leak
-            if not self.request_counts[client_ip]:
-                del self.request_counts[client_ip]
-        
-        # Check general rate limit (60 per minute)
-        if client_ip in self.request_counts and len(self.request_counts[client_ip]) >= self.requests_per_minute:
-            return JSONResponse(
-                status_code=429,
-                content={
-                    "error": "Rate limit exceeded",
-                    "message": f"Maximum {self.requests_per_minute} requests per minute allowed",
-                    "retry_after": 60
-                }
-            )
-        
-        # Record this request
-        self.request_counts[client_ip].append(current_time)
+        except Exception as e:
+            # Fallback: if Redis is down, we allow the request but log it
+            # In a strict production system, you might want to block instead
+            print(f"⚠️ Rate limit Redis error: {e}")
         
         # Process request
         response = await call_next(request)

@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 # ── Type aliases ──────────────────────────────────────────────────────────────
 
 ExportFormat = Literal["docx", "json", "markdown", "pdf", "jats", "xml"]
-DocumentStatus = Literal["RUNNING", "COMPLETED", "FAILED", "UNSTABLE", "ERROR"]
+DocumentStatus = Literal["PENDING", "PROCESSING", "COMPLETED", "COMPLETED_WITH_WARNINGS", "FAILED", "CANCELLED"]
 PageSize = Literal["Letter", "A4", "Legal"]
 TemplateChoice = Literal["IEEE", "Springer", "APA", "Nature", "Vancouver", "none"]
 
@@ -37,7 +37,7 @@ class DocumentUploadResponse(BaseModel):
 
     message: str = Field(..., description="Human-readable confirmation.")
     job_id: str = Field(..., description="UUID of the processing job.")
-    status: DocumentStatus = Field("RUNNING", description="Initial job status.")
+    status: DocumentStatus = Field("PROCESSING", description="Initial job status.")
 
 
 # ── Status Schemas ────────────────────────────────────────────────────────────

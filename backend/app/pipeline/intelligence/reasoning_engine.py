@@ -60,7 +60,8 @@ class ReasoningEngine:
     """
     
     def __init__(self, timeout: int = 30):
-        self.nvidia_api_key = "ignore"  # Loaded from env in real usage
+        import os
+        self.nvidia_api_key = os.environ.get("NVIDIA_API_KEY", "")  # Loaded from env in real usage
         
         # Ollama Configuration
         self.ollama_base_url = "http://localhost:11434"

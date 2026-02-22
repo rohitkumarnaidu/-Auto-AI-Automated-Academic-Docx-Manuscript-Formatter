@@ -22,10 +22,11 @@ class TestPipeline:
     @pytest.mark.pipeline
     def test_contract_loading(self):
         """Test contract loading for templates."""
-        from app.pipeline.contracts.contract_loader import load_contract
+        from app.pipeline.contracts.loader import ContractLoader
         
+        loader = ContractLoader()
         # Test loading 'none' template contract
-        contract = load_contract("none")
+        contract = loader.load("none")
         
         assert contract is not None
         assert "spacing" in contract or "publisher" in contract
@@ -33,9 +34,10 @@ class TestPipeline:
     @pytest.mark.pipeline
     def test_contract_validation(self):
         """Test contract has required fields."""
-        from app.pipeline.contracts.contract_loader import load_contract
+        from app.pipeline.contracts.loader import ContractLoader
         
-        contract = load_contract("none")
+        loader = ContractLoader()
+        contract = loader.load("none")
         
         # Should have spacing configuration
         assert contract is not None

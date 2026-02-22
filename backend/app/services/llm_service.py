@@ -54,6 +54,16 @@ def sanitize_for_llm(text: str) -> str:
     return text
 
 
+def _cache_key(messages: List[Dict[str, str]], model: str, temperature: float) -> str:
+    import json
+    import hashlib
+    try:
+        msg_str = json.dumps(messages, sort_keys=True)
+    except Exception:
+        msg_str = str(messages)
+    key_input = f"{model}:{temperature}:{msg_str}"
+    return "llm_cache:" + hashlib.sha256(key_input.encode()).hexdigest()
+
 def generate(
     messages: List[Dict[str, str]],
     model: str = LLM_NVIDIA,
@@ -81,8 +91,19 @@ def generate(
     Raises:
         Exception: On API error — callers should catch and fall back.
     """
+    key = _cache_key(messages, model, temperature)
+    from app.cache.redis_cache import redis_cache
+    
+    # ── Cache Lookup ──
+    cached = redis_cache.get_llm_result(key)
+    if cached:
+        return cached
+
     if not LITELLM_AVAILABLE:
-        return _generate_fallback(messages, model, temperature, max_tokens, timeout, api_key, api_base)
+        result = _generate_fallback(messages, model, temperature, max_tokens, timeout, api_key, api_base)
+        if result:
+            redis_cache.set_llm_result(key, result)
+        return result
 
     kwargs: Dict[str, Any] = {
         "model": model,
@@ -119,7 +140,10 @@ def generate(
     if not choices:
         logger.warning("llm_service.generate: empty choices from %s", model)
         return ""
-    return choices[0].message.content or ""
+    text = choices[0].message.content or ""
+    if text:
+        redis_cache.set_llm_result(key, text)
+    return text
 
 
 def generate_with_fallback(
@@ -142,6 +166,10 @@ def generate_with_fallback(
                 logger.info("llm_service: Tier 1 (NVIDIA) succeeded.")
                 return {"text": text, "model": LLM_NVIDIA, "tier": 1}
         except Exception as exc:
+            try:
+                from app.middleware.prometheus_metrics import MetricsManager
+                MetricsManager.record_llm_failure("nvidia")
+            except Exception: pass
             logger.warning("llm_service: Tier 1 (NVIDIA) failed: %s — trying DeepSeek.", exc)
 
     # Tier 2: DeepSeek via Ollama
@@ -151,6 +179,10 @@ def generate_with_fallback(
             logger.info("llm_service: Tier 2 (DeepSeek) succeeded.")
             return {"text": text, "model": LLM_DEEPSEEK, "tier": 2}
     except Exception as exc:
+        try:
+            from app.middleware.prometheus_metrics import MetricsManager
+            MetricsManager.record_llm_failure("deepseek")
+        except Exception: pass
         logger.warning("llm_service: Tier 2 (DeepSeek) failed: %s — no LLM available.", exc)
 
     raise LLMUnavailableError("All LLM tiers failed. Use rule-based fallback.")
@@ -204,3 +236,37 @@ def _ollama_http(messages, model_name, temperature, max_tokens, base_url, timeou
     )
     resp.raise_for_status()
     return resp.json().get("response", "")
+
+async def check_health() -> Dict[str, str]:
+    """Check health of underlying LLM providers."""
+    results = {}
+    
+    # Check NVIDIA
+    try:
+        nvidia_key = os.getenv("NVIDIA_API_KEY")
+        if nvidia_key:
+            results["nvidia"] = "healthy"
+        else:
+            results["nvidia"] = "unconfigured"
+    except Exception:
+        results["nvidia"] = "unavailable"
+        
+    # Check Ollama/DeepSeek
+    try:
+        import httpx
+        base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            resp = await client.get(f"{base_url}/api/tags")
+            if resp.status_code == 200:
+                tags = resp.json()
+                models = [m.get("name", "") for m in tags.get("models", [])]
+                if any("deepseek" in m for m in models):
+                    results["deepseek"] = "healthy"
+                else:
+                    results["deepseek"] = "model_missing"
+            else:
+                results["deepseek"] = "unavailable"
+    except Exception:
+        results["deepseek"] = "unavailable"
+        
+    return results

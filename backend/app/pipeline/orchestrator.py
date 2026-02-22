@@ -29,17 +29,17 @@ from app.pipeline.formatting.formatter import Formatter
 from app.pipeline.export.exporter import Exporter
 from app.pipeline.input_conversion.converter import InputConverter
 from app.pipeline.contracts.loader import ContractLoader
+# from app.routers.stream import emit_event  # Moved to local scope inside _update_status
 from app.pipeline.equations.standardizer import get_equation_standardizer
 
 # Phase 2: AI Intelligence Stack
-from app.pipeline.intelligence.rag_engine import get_rag_engine
-from app.pipeline.intelligence.reasoning_engine import get_reasoning_engine
-from app.pipeline.intelligence.semantic_parser import get_semantic_parser
+# Note: Engines are imported locally within methods to prevent circular dependencies
 
 # Week 2: GROBID and Docling Services
 from app.pipeline.services import GROBIDClient, DoclingClient
 # Safety Hardening
 from app.pipeline.safety import safe_execution
+from app.pipeline.safety.retry_guard import execute_with_retry, retry_with_backoff
 
 import logging
 import threading
@@ -93,6 +93,8 @@ class PipelineOrchestrator:
             return
 
         try:
+            # Phase 5: Redis Pub/Sub for SSE
+            from app.routers.stream import emit_event
             # 1. Update/Upsert ProcessingStatus
             # Match is safest for upsert logic
             data = {
@@ -122,7 +124,7 @@ class PipelineOrchestrator:
                 if phase == "PERSISTENCE":
                     doc_data["status"] = "COMPLETED"
                 else:
-                    doc_data["status"] = "RUNNING"
+                    doc_data["status"] = "PROCESSING"
             elif status == "FAILED":
                 doc_data["status"] = "FAILED"
                 doc_data["error_message"] = message
@@ -133,8 +135,55 @@ class PipelineOrchestrator:
                 doc_data["progress"] = progress
             
             sb.table("documents").update(doc_data).eq("id", document_id).execute()
+
+            # 3. Emit SSE Event for Real-time Feedback
+            emit_event(document_id, "status_update", {
+                "phase": phase,
+                "status": status,
+                "message": message,
+                "progress": progress
+            })
         except Exception as e:
             print(f"❌ Supabase status update failed for job {document_id}: {e}")
+
+    def _persist_partial_result(self, job_id: str, doc_obj: PipelineDocument, sb: Any):
+        """A11: Saves partial document state to Supabase when a pipeline stage fails."""
+        if not sb or not doc_obj:
+            return
+            
+        logger.info("Persisting partial results for failed job %s", job_id)
+        try:
+            # Reconstruct partial structured data
+            structured_data = {
+                "sections": {},
+                "metadata": doc_obj.metadata.model_dump(mode='json') if hasattr(doc_obj, 'metadata') and doc_obj.metadata else {},
+                "references": [ref.model_dump(mode='json') for ref in getattr(doc_obj, 'references', [])],
+                "history": [s.model_dump(mode='json') for s in getattr(doc_obj, 'processing_history', [])],
+                "partial": True
+            }
+            for b in getattr(doc_obj, 'blocks', []):
+                if getattr(b, 'block_type', None):
+                    bt_val = b.block_type.value if hasattr(b.block_type, 'value') else str(b.block_type)
+                    if bt_val not in structured_data["sections"]:
+                        structured_data["sections"][bt_val] = []
+                    structured_data["sections"][bt_val].append(b.text)
+            
+            # Upsert into document_results
+            existing = sb.table("document_results").select("id").eq("document_id", job_id).execute()
+            doc_result_data = {
+                "document_id": job_id,
+                "structured_data": structured_data,
+                "validation_results": {"is_valid": False, "errors": ["Pipeline crashed early"]},
+                "updated_at": "now()"
+            }
+            if existing.data:
+                sb.table("document_results").update(doc_result_data).eq("document_id", job_id).execute()
+            else:
+                doc_result_data["created_at"] = "now()"
+                sb.table("document_results").insert(doc_result_data).execute()
+                
+        except Exception as e:
+            logger.error("Failed to persist partial result for %s: %s", job_id, e)
 
     def _run_with_timeout(self, func, timeout_sec: int, *args, **kwargs):
         """Helper to run a synchronous pipeline stage with a strict timeout."""
@@ -146,6 +195,56 @@ class PipelineOrchestrator:
             except concurrent.futures.TimeoutError:
                 logger.error("Pipeline stage timed out after %ds", timeout_sec)
                 raise TimeoutError(f"Stage timed out after {timeout_sec}s")
+
+    # --- A10: Decorated Pipeline Stages ---
+
+    @retry_with_backoff(max_retries=2, backoff_factor=1.0)
+    def _run_extraction_stage(self, factory, input_path, job_id, formatting_options, file_ext):
+        """Phase 2: Text Extraction"""
+        if file_ext in ['.pdf', '.txt', '.html', '.htm', '.md', '.markdown', '.tex', '.latex']:
+            logger.info("Parsing %s directly with ParserFactory (no conversion)", file_ext)
+            parser = factory.get_parser(input_path)
+            doc_obj = parser.parse(input_path, job_id)
+        else:
+            logger.info("Converting %s to DOCX first...", file_ext)
+            docx_path = self.converter.convert_to_docx(input_path, job_id)
+            parser = factory.get_parser(docx_path)
+            doc_obj = parser.parse(docx_path, job_id)
+        doc_obj.formatting_options = formatting_options
+        return doc_obj
+
+    @retry_with_backoff(max_retries=1, backoff_factor=1.0)
+    def _run_structure_detection(self, doc_obj):
+        """Phase 2.6: Structure Detection"""
+        structure_detector = StructureDetector(contracts_dir=self.contracts_dir)
+        return structure_detector.process(doc_obj)
+
+    @retry_with_backoff(max_retries=2, backoff_factor=1.0)
+    def _run_semantic_parsing(self, doc_obj):
+        """Semantic Analysis Layer 2"""
+        from app.pipeline.intelligence.semantic_parser import get_semantic_parser
+        semantic_parser = get_semantic_parser()
+        semantic_blocks = self._run_with_timeout(semantic_parser.analyze_blocks, 60, doc_obj.blocks)
+        for i, b in enumerate(doc_obj.blocks):
+            if i < len(semantic_blocks):
+                b.metadata["semantic_intent"] = semantic_blocks[i]["predicted_section_type"]
+                b.metadata["nlp_confidence"] = semantic_blocks[i]["confidence_score"]
+        return doc_obj
+
+    @retry_with_backoff(max_retries=2, backoff_factor=1.0)
+    def _run_classification(self, doc_obj):
+        classifier = ContentClassifier()
+        return classifier.process(doc_obj)
+
+    @retry_with_backoff(max_retries=2, backoff_factor=1.0)
+    def _run_validation_stage(self, doc_obj):
+        validator = DocumentValidator(contracts_dir=self.contracts_dir)
+        return self._run_with_timeout(validator.process, 60, doc_obj)
+
+    @retry_with_backoff(max_retries=2, backoff_factor=1.0)
+    def _run_formatting_stage(self, doc_obj):
+        formatter = Formatter(templates_dir=self.templates_dir, contracts_dir=self.contracts_dir)
+        return self._run_with_timeout(formatter.process, 60, doc_obj)
 
     def run_pipeline(
         self, 
@@ -202,7 +301,7 @@ class PipelineOrchestrator:
                 self._update_status(job_id, "UPLOAD", "COMPLETED", "File uploaded and job created.", progress=5)
                 
                 # Phase 2: Text Extraction
-                self._update_status(job_id, "EXTRACTION", "IN_PROGRESS", progress=10)
+                self._update_status(job_id, "EXTRACTION", "PROCESSING", progress=10)
                 
                 # Check if we can parse the file directly without conversion
                 factory = ParserFactory()
@@ -212,20 +311,10 @@ class PipelineOrchestrator:
                 parser_supported_formats = ['.pdf', '.txt', '.html', '.htm', '.md', '.markdown', '.tex', '.latex']
                 
                 if file_ext in parser_supported_formats:
-                    # Parse original file directly (no Pandoc/LibreOffice needed!)
-                    logger.info("Parsing %s directly with ParserFactory (no conversion)", file_ext)
-                    parser = factory.get_parser(input_path)
-                    doc_obj = parser.parse(input_path, job_id)
-                    doc_obj.formatting_options = formatting_options  # Inject Options
-                    docx_path = input_path  # Keep original path for reference
+                    # Use decorated extraction stage
+                    doc_obj = self._run_extraction_stage(factory, input_path, job_id, formatting_options, file_ext)
                 else:
-                    logger.info("Converting %s to DOCX first...", file_ext)
-                    docx_path = self.converter.convert_to_docx(input_path, job_id)
-                    
-                    # Parse the converted DOCX
-                    parser = factory.get_parser(docx_path)
-                    doc_obj = parser.parse(docx_path, job_id)
-                    doc_obj.formatting_options = formatting_options # Inject Options
+                    doc_obj = self._run_extraction_stage(factory, input_path, job_id, formatting_options, file_ext)
                 
                 raw_text = "\n".join([b.text for b in doc_obj.blocks])
 
@@ -268,7 +357,7 @@ class PipelineOrchestrator:
                     if has_grobid and has_docling:
                         logger.info("AI Extraction already completed (Agent V2). Skipping parallel pass.")
                     else:
-                        self._update_status(job_id, "EXTRACTION", "IN_PROGRESS", "Extracting metadata and layout (Parallel)...", progress=22)
+                        self._update_status(job_id, "EXTRACTION", "PROCESSING", "Extracting metadata and layout (Parallel)...", progress=22)
                         
                         with ThreadPoolExecutor(max_workers=2) as executor:
                             # Define wrapper functions for safe execution
@@ -329,49 +418,50 @@ class PipelineOrchestrator:
                                  logger.info("Docling result unavailable (file_ext=%s)", file_ext)
 
                 # Phase 2.5: Equation Standardization
-                self._update_status(job_id, "EXTRACTION", "IN_PROGRESS", "Standardizing equations...", progress=25)
+                self._update_status(job_id, "EXTRACTION", "PROCESSING", "Standardizing equations...", progress=25)
+                
+                # Phase 2.6: Structure Detection (heading/section identification)
+                self._check_cancelled(job_id)
+                self._update_status(job_id, "EXTRACTION", "PROCESSING", "Detecting document structure...", progress=28)
+                try:
+                    doc_obj = self._run_structure_detection(doc_obj)
+                    num_headings = len(getattr(doc_obj, 'detected_headings', []))
+                    logger.info("StructureDetector found %d headings for job %s", num_headings, job_id)
+                except Exception as sd_err:
+                    logger.warning("StructureDetector failed for job %s: %s. Proceeding without structure metadata.", job_id, sd_err)
                 
                 # CRITICAL: SemanticParser NLP predictions MUST run AFTER structure detection
                 # and BEFORE classification to populate metadata["nlp_confidence"]
-                semantic_parser = get_semantic_parser()
                 try:
-                    semantic_blocks = self._run_with_timeout(semantic_parser.analyze_blocks, 60, doc_obj.blocks)
-                    
-                    # Update block metadata with AI predictions
-                    for i, b in enumerate(doc_obj.blocks):
-                        if i < len(semantic_blocks):
-                            b.metadata["semantic_intent"] = semantic_blocks[i]["predicted_section_type"]
-                            b.metadata["nlp_confidence"] = semantic_blocks[i]["confidence_score"]
+                    doc_obj = self._run_semantic_parsing(doc_obj)
                 except Exception as e:
                     print(f"AI ERROR (Layer 2 - NLP Analysis): {e}. Falling back to Phase-1 Heuristics.")
                 
-                self._update_status(job_id, "NLP_ANALYSIS", "IN_PROGRESS", "Classifying content...", progress=40)
-                classifier = ContentClassifier()
-                self._check_stage_interface(classifier, "process", "ContentClassifier")
-                doc_obj = classifier.process(doc_obj)
+                self._update_status(job_id, "NLP_ANALYSIS", "PROCESSING", "Classifying content...", progress=40)
+                doc_obj = self._run_classification(doc_obj)
                 
                 self._check_stage_interface(self.analyzer, "process", "ContentAnalyzer")
-                doc_obj = self.analyzer.process(doc_obj)
+                doc_obj = execute_with_retry(self.analyzer.process, doc_obj)
                 
                 caption_matcher = CaptionMatcher(enable_vision=True)
                 self._check_stage_interface(caption_matcher, "process", "CaptionMatcher")
-                doc_obj = caption_matcher.process(doc_obj)
+                doc_obj = execute_with_retry(caption_matcher.process, doc_obj)
                 
                 table_caption_matcher = TableCaptionMatcher()
                 self._check_stage_interface(table_caption_matcher, "process", "TableCaptionMatcher")
-                doc_obj = table_caption_matcher.process(doc_obj)
+                doc_obj = execute_with_retry(table_caption_matcher.process, doc_obj)
                 
                 ref_parser = ReferenceParser()
                 self._check_stage_interface(ref_parser, "process", "ReferenceParser")
-                doc_obj = ref_parser.process(doc_obj)
+                doc_obj = execute_with_retry(ref_parser.process, doc_obj)
                 
                 self._check_stage_interface(self.ref_normalizer, "process", "ReferenceFormatterEngine")
-                doc_obj = self.ref_normalizer.process(doc_obj)
+                doc_obj = execute_with_retry(self.ref_normalizer.process, doc_obj)
                 
                 self._update_status(job_id, "NLP_ANALYSIS", "COMPLETED", "Structural analysis complete.", progress=50)
                 
                 # Phase 4: AI Validation & Formatting
-                self._update_status(job_id, "VALIDATION", "IN_PROGRESS", progress=60)
+                self._update_status(job_id, "VALIDATION", "PROCESSING", progress=60)
                 
                 # ------ CROSSREF VALIDATION (NEW) ------
                 with safe_execution("CrossRef Citation Validation"):
@@ -401,9 +491,11 @@ class PipelineOrchestrator:
                         print(f"⚠️ CrossRef validation skipped (Non-Fatal): {e}")
                 # ----------------------------------------
                 
-                self._update_status(job_id, "VALIDATION", "IN_PROGRESS", "Applying styles and templates...", progress=70)
+                self._update_status(job_id, "VALIDATION", "PROCESSING", "Applying styles and templates...", progress=70)
                 
                 # Layer 1 & 3: RAG + DeepSeek Reasoning
+                from app.pipeline.intelligence.rag_engine import get_rag_engine
+                from app.pipeline.intelligence.reasoning_engine import get_reasoning_engine
                 rag = get_rag_engine()
                 reasoner = get_reasoning_engine()
                 
@@ -446,10 +538,7 @@ class PipelineOrchestrator:
                     
                     doc_obj.metadata.ai_hints["semantic_advice"] = semantic_advice
 
-                from app.pipeline.validation.validator_v3 import DocumentValidator
-                validator = DocumentValidator(contracts_dir=self.contracts_dir)
-                self._check_stage_interface(validator, "process", "DocumentValidator")
-                doc_obj = self._run_with_timeout(validator.process, 60, doc_obj)
+                doc_obj = self._run_validation_stage(doc_obj)
                 
                 # GUARDRAIL 2: YAML Contract Override
                 # Validation logic in validator.py already uses YAML contract as Truth.
@@ -463,9 +552,7 @@ class PipelineOrchestrator:
                     "ai_semantic_audit": semantic_advice # Integrated for Compare UI
                 }
                 
-                formatter = Formatter(templates_dir=self.templates_dir, contracts_dir=self.contracts_dir)
-                self._check_stage_interface(formatter, "process", "Formatter")
-                doc_obj = self._run_with_timeout(formatter.process, 60, doc_obj)
+                doc_obj = self._run_formatting_stage(doc_obj)
                 
                 output_path = None
                 if hasattr(doc_obj, 'generated_doc') and doc_obj.generated_doc:
@@ -490,7 +577,7 @@ class PipelineOrchestrator:
                     raise Exception("Formatting stage failed to generate output artifact.")
                 
                 # Phase 5: Persistence (Benchmarked: 100%)
-                self._update_status(job_id, "PERSISTENCE", "IN_PROGRESS", progress=90)
+                self._update_status(job_id, "PERSISTENCE", "PROCESSING", progress=90)
 
                 explainer = AIExplainer()
                 ai_explanations = explainer.explain_results(validation_results, template_name)
@@ -569,6 +656,13 @@ class PipelineOrchestrator:
             error_msg = str(e)
             logger.error("Pipeline Error: %s", error_msg)
             
+            # Phase 3 - A11: Add partial result persistence on failure
+            if 'doc_obj' in locals() and doc_obj is not None:
+                try:
+                    self._persist_partial_result(job_id, doc_obj, sb)
+                except Exception as persist_err:
+                    logger.error("Failed to persist partial result for job %s: %s", job_id, persist_err)
+            
             # Fallback: If we have an output path, we can downgrade to WARNING
             if output_path and os.path.exists(output_path):
                 logger.warning("Pipeline Validation Error (Non-Fatal): %s", error_msg)
@@ -636,14 +730,14 @@ class PipelineOrchestrator:
                     idx += 1
             
             # 3. Re-run Validation
-            self._update_status(job_id, "VALIDATION", "IN_PROGRESS", "Re-validating edits...", progress=30)
+            self._update_status(job_id, "VALIDATION", "PROCESSING", "Re-validating edits...", progress=30)
             
             from app.pipeline.validation import validate_document
             val_result = validate_document(pipeline_doc)
             validation_results = val_result.model_dump() if hasattr(val_result, 'model_dump') else val_result.dict() if hasattr(val_result, 'dict') else {}
             
             # 4. Re-run Formatting
-            self._update_status(job_id, "VALIDATION", "IN_PROGRESS", "Applying styles to edited content...", progress=60)
+            self._update_status(job_id, "VALIDATION", "PROCESSING", "Applying styles to edited content...", progress=60)
             formatter = Formatter(templates_dir=self.templates_dir, contracts_dir=self.contracts_dir)
             formatted_doc = formatter.process(pipeline_doc)
             

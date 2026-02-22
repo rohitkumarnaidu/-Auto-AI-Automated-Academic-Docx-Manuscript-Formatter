@@ -1,4 +1,7 @@
 ﻿const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+import { supabase } from '../lib/supabaseClient';
+import { useQuery } from '@tanstack/react-query';
+
 const SUPPORTED_EXPORT_FORMATS = ['docx', 'pdf', 'json', 'markdown', 'html', 'latex', 'jats'];
 const RETRYABLE_STATUS_CODES = [408, 429, 500, 502, 503, 504];
 const DEFAULT_MAX_RETRIES = 2;
@@ -6,6 +9,8 @@ const BASE_RETRY_DELAY_MS = 500;
 const DEFAULT_DEBOUNCE_MS = 250;
 const DEBOUNCED_REQUESTS = new Map();
 const SENSITIVE_INPUT_KEYS = /(password|otp|token|secret)/i;
+const CHUNK_SIZE_BYTES = 5 * 1024 * 1024;
+export const CHUNK_UPLOAD_THRESHOLD_BYTES = 10 * 1024 * 1024;
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -17,9 +22,17 @@ const normalizeExportFormat = (format = 'docx') => {
 
 
 
+const removeControlChars = (input) => (
+    Array.from(String(input ?? ''))
+        .filter((char) => {
+            const code = char.charCodeAt(0);
+            return code >= 32 && code !== 127;
+        })
+        .join('')
+);
+
 const sanitizeText = (value) => (
-    String(value)
-        .replace(/[\u0000-\u001F\u007F]/g, '')
+    removeControlChars(value)
         .replace(/[<>]/g, '')
         .trim()
 );
@@ -179,7 +192,6 @@ const getAuthorizedHeaders = async (initialHeaders = {}) => {
     const headers = { ...initialHeaders };
 
     try {
-        const { supabase } = await import('../lib/supabaseClient');
         const {
             data: { session },
         } = await supabase.auth.getSession();
@@ -316,12 +328,53 @@ const handleRequestDebounced = (endpoint, options = {}, debounceMs = DEFAULT_DEB
    DOCUMENT APIs
    ===================== */
 
+const normalizeQueryParams = (params = {}) => (
+    Object.fromEntries(
+        Object.entries(params || {})
+            .filter(([, value]) => value !== undefined && value !== null && value !== '')
+            .sort(([left], [right]) => left.localeCompare(right))
+    )
+);
+
+const mapDocumentRecord = (doc) => ({
+    ...doc,
+    originalFileName: doc?.filename,
+    timestamp: doc?.created_at,
+});
+
+const parseResponseJson = (responseText) => {
+    if (!responseText) return {};
+    try {
+        return JSON.parse(responseText);
+    } catch {
+        return {};
+    }
+};
+
 /**
  * Fetches the list of documents for the current user.
  */
 export const getDocuments = async (params = {}) => {
-    const query = new URLSearchParams(params).toString();
-    return handleRequest(`/api/documents?${query}`);
+    const normalizedParams = normalizeQueryParams(params);
+    const query = new URLSearchParams(normalizedParams).toString();
+    const endpoint = query ? `/api/documents?${query}` : '/api/documents';
+    return handleRequest(endpoint);
+};
+
+export const useDocuments = (params = {}, queryOptions = {}) => {
+    const normalizedParams = normalizeQueryParams(params);
+
+    return useQuery({
+        queryKey: ['documents', normalizedParams],
+        queryFn: () => getDocuments(normalizedParams),
+        select: (data) => ({
+            ...data,
+            documents: Array.isArray(data?.documents)
+                ? data.documents.map(mapDocumentRecord)
+                : [],
+        }),
+        ...queryOptions,
+    });
 };
 
 /**
@@ -332,7 +385,6 @@ export const uploadDocument = async (file, template, options = {}, signal = null
     formData.append('file', file);
     formData.append('template', sanitizeText(template));
 
-    // New Formatting Options
     formData.append('add_page_numbers', options.add_page_numbers ?? true);
     formData.append('add_borders', options.add_borders ?? false);
     formData.append('add_cover_page', options.add_cover_page ?? true);
@@ -349,11 +401,179 @@ export const uploadDocument = async (file, template, options = {}, signal = null
 };
 
 /**
+ * Uploads a document with real client-side progress (XMLHttpRequest).
+ */
+export const uploadDocumentWithProgress = async (
+    file,
+    template,
+    options = {},
+    { signal = null, onProgress = null } = {}
+) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('template', sanitizeText(template));
+
+    formData.append('add_page_numbers', options.add_page_numbers ?? true);
+    formData.append('add_borders', options.add_borders ?? false);
+    formData.append('add_cover_page', options.add_cover_page ?? true);
+    formData.append('generate_toc', options.generate_toc ?? false);
+    formData.append('page_size', sanitizeText(options.page_size || 'Letter'));
+
+    const headers = await getAuthorizedHeaders();
+
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `${API_BASE_URL}/api/documents/upload`);
+        xhr.withCredentials = true;
+
+        Object.entries(headers).forEach(([header, value]) => {
+            if (value !== undefined && value !== null) {
+                xhr.setRequestHeader(header, value);
+            }
+        });
+
+        xhr.upload.onprogress = (event) => {
+            if (!event.lengthComputable || typeof onProgress !== 'function') {
+                return;
+            }
+            const percent = Math.round((event.loaded / event.total) * 100);
+            onProgress(percent, event);
+        };
+
+        xhr.onerror = () => {
+            reject(new Error('Upload failed due to a network error.'));
+        };
+
+        xhr.onabort = () => {
+            reject(new DOMException('Upload was cancelled.', 'AbortError'));
+        };
+
+        xhr.onload = () => {
+            const responsePayload = parseResponseJson(xhr.responseText);
+            if (xhr.status >= 200 && xhr.status < 300) {
+                resolve(responsePayload);
+                return;
+            }
+
+            const fallbackMessage = `Upload failed (${xhr.status})`;
+            reject(
+                new Error(
+                    getFriendlyErrorMessage({
+                        status: xhr.status,
+                        errorData: responsePayload,
+                        fallbackMessage,
+                    })
+                )
+            );
+        };
+
+        if (signal) {
+            if (signal.aborted) {
+                xhr.abort();
+                return;
+            }
+            const abortHandler = () => xhr.abort();
+            signal.addEventListener('abort', abortHandler, { once: true });
+            xhr.onloadend = () => signal.removeEventListener('abort', abortHandler);
+        }
+
+        xhr.send(formData);
+    });
+};
+
+/**
+ * Uploads large files in chunks before triggering normal processing.
+ */
+export const uploadChunked = async (file, options = {}) => {
+    if (!(file instanceof File)) {
+        throw new Error('Invalid file supplied for chunked upload.');
+    }
+
+    const chunkSize = options.chunkSize || CHUNK_SIZE_BYTES;
+    const onProgress = typeof options.onProgress === 'function' ? options.onProgress : null;
+    const signal = options.signal || null;
+    const totalChunks = Math.max(1, Math.ceil(file.size / chunkSize));
+    let finalChunkResponse = null;
+
+    const fileId = typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+    for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex += 1) {
+        if (signal?.aborted) {
+            throw new DOMException('Chunked upload cancelled.', 'AbortError');
+        }
+
+        const start = chunkIndex * chunkSize;
+        const end = Math.min(file.size, start + chunkSize);
+        const chunkBlob = file.slice(start, end);
+        const formData = new FormData();
+        formData.append('file_id', fileId);
+        formData.append('chunk_index', String(chunkIndex));
+        formData.append('total_chunks', String(totalChunks));
+        formData.append('file', chunkBlob, `${file.name}.part${chunkIndex}`);
+
+        const headers = await getAuthorizedHeaders();
+        const response = await fetchWithRetry(`${API_BASE_URL}/api/documents/upload/chunked`, {
+            method: 'POST',
+            headers,
+            body: formData,
+            credentials: 'include',
+            signal,
+        });
+
+        const responsePayload = await response.json().catch(() => ({}));
+        finalChunkResponse = responsePayload;
+        if (!response.ok) {
+            throw new Error(
+                getFriendlyErrorMessage({
+                    status: response.status,
+                    errorData: responsePayload,
+                    fallbackMessage: `Chunk upload failed (${response.status})`,
+                })
+            );
+        }
+
+        if (onProgress) {
+            const loaded = Math.min(file.size, end);
+            const percent = Math.round((loaded / file.size) * 100);
+            onProgress({
+                chunkIndex,
+                totalChunks,
+                loaded,
+                total: file.size,
+                percent,
+                response: responsePayload,
+            });
+        }
+    }
+
+    if (finalChunkResponse && typeof finalChunkResponse === 'object') {
+        return {
+            ...finalChunkResponse,
+            file_id: finalChunkResponse.file_id || fileId,
+            total_chunks: finalChunkResponse.total_chunks || totalChunks,
+        };
+    }
+
+    return { file_id: fileId, total_chunks: totalChunks, status: 'complete' };
+};
+
+/**
  * Polls the processing status of a job.
  */
 export const getJobStatus = async (jobId) => {
     return handleRequest(`/api/documents/${jobId}/status`);
 };
+
+export const useDocumentStatus = (jobId, queryOptions = {}) => (
+    useQuery({
+        queryKey: ['document-status', jobId],
+        queryFn: () => getJobStatus(jobId),
+        ...queryOptions,
+        enabled: Boolean(jobId) && (queryOptions.enabled ?? true),
+    })
+);
 
 /**
  * Fetches the preview data (structured content + validation results).
@@ -488,6 +708,25 @@ export const downloadExport = async (jobId, format = 'docx') => {
         });
         return window.URL.createObjectURL(blob);
     }
+};
+
+/**
+ * Fetches custom template presets for the current user.
+ */
+export const getCustomTemplates = async () => {
+    return handleRequest('/api/templates/custom');
+};
+
+/**
+ * Persists a custom template preset for the current user.
+ */
+export const saveCustomTemplate = async (template) => {
+    const sanitizedTemplate = sanitizePayload(template);
+    return handleRequest('/api/templates/custom', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ template: sanitizedTemplate }),
+    });
 };
 
 /* =====================
