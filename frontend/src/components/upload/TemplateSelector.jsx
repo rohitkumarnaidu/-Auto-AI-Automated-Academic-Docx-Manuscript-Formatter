@@ -12,10 +12,10 @@ export default function TemplateSelector({
     return (
         <div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-                <div className="flex items-center gap-4 w-full sm:w-auto">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 w-full sm:w-auto">
                     <h2 className="text-xl font-bold text-slate-900 dark:text-white whitespace-nowrap">Select Template</h2>
 
-                    <div className="relative flex-1 sm:w-64 group">
+                    <div className="relative w-full sm:w-64 group">
                         <select
                             value={category}
                             onChange={(e) => onCategoryChange(e.target.value)}
@@ -40,12 +40,12 @@ export default function TemplateSelector({
             </div>
 
             <div className="relative group/carousel">
-                <div className={`flex overflow-x-auto gap-6 pb-8 pt-4 px-4 snap-x scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600 scrollbar-track-transparent max-w-[920px] mx-auto ${category !== 'none' ? 'justify-center' : ''}`}>
+                <div className={`flex overflow-x-auto gap-4 sm:gap-6 pb-8 pt-4 px-1 sm:px-4 snap-x scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600 scrollbar-track-transparent max-w-[920px] mx-auto ${category !== 'none' ? 'justify-start sm:justify-center' : ''}`}>
                     {category === 'none' && (
                         <>
                             <div
                                 onClick={() => !isProcessing && onTemplateSelect('none')}
-                                className={`shrink-0 w-[280px] snap-start cursor-pointer group relative rounded-xl border-2 transition-all duration-300 overflow-hidden ${template === 'none' ? 'border-primary bg-primary/5 ring-4 ring-primary/10' : 'border-dashed border-slate-300 dark:border-slate-700 bg-transparent hover:border-primary/50'}`}
+                                className={`shrink-0 w-[240px] sm:w-[280px] snap-start cursor-pointer group relative rounded-xl border-2 transition-all duration-300 overflow-hidden ${template === 'none' ? 'border-primary bg-primary/5 ring-4 ring-primary/10' : 'border-dashed border-slate-300 dark:border-slate-700 bg-transparent hover:border-primary/50'}`}
                             >
                                 <div className="aspect-[3/4] flex flex-col items-center justify-center p-8 text-center relative">
                                     {file ? (
@@ -79,7 +79,7 @@ export default function TemplateSelector({
 
                             <div
                                 onClick={() => !isProcessing && onTemplateSelect('modern_red')}
-                                className={`shrink-0 w-[280px] snap-start cursor-pointer group relative rounded-xl border-2 transition-all duration-300 overflow-hidden bg-white dark:bg-slate-900 ${template === 'modern_red' ? 'border-primary ring-4 ring-primary/10 shadow-xl shadow-primary/10' : 'border-slate-200 dark:border-slate-800 hover:border-primary/50 hover:shadow-lg'}`}
+                                className={`shrink-0 w-[240px] sm:w-[280px] snap-start cursor-pointer group relative rounded-xl border-2 transition-all duration-300 overflow-hidden bg-white dark:bg-slate-900 ${template === 'modern_red' ? 'border-primary ring-4 ring-primary/10 shadow-xl shadow-primary/10' : 'border-slate-200 dark:border-slate-800 hover:border-primary/50 hover:shadow-lg'}`}
                             >
                                 <div className="aspect-[3/4] bg-white p-6 flex flex-col relative overflow-hidden select-none shadow-inner">
                                     <div className="w-full text-center mb-6">
@@ -120,7 +120,7 @@ export default function TemplateSelector({
 
                             <div
                                 onClick={() => !isProcessing && onTemplateSelect('modern_gold')}
-                                className={`shrink-0 w-[280px] snap-start cursor-pointer group relative rounded-xl border-2 transition-all duration-300 overflow-hidden bg-white dark:bg-slate-900 ${template === 'modern_gold' ? 'border-primary ring-4 ring-primary/10 shadow-xl shadow-primary/10' : 'border-slate-200 dark:border-slate-800 hover:border-primary/50 hover:shadow-lg'}`}
+                                className={`shrink-0 w-[240px] sm:w-[280px] snap-start cursor-pointer group relative rounded-xl border-2 transition-all duration-300 overflow-hidden bg-white dark:bg-slate-900 ${template === 'modern_gold' ? 'border-primary ring-4 ring-primary/10 shadow-xl shadow-primary/10' : 'border-slate-200 dark:border-slate-800 hover:border-primary/50 hover:shadow-lg'}`}
                             >
                                 <div className="aspect-[3/4] bg-white p-6 flex flex-col relative overflow-hidden select-none shadow-inner">
                                     <div className="w-full bg-slate-900 py-2.5 px-4 mb-4 rounded-sm shadow-sm flex items-center justify-between">
@@ -165,7 +165,7 @@ export default function TemplateSelector({
 
                             <div
                                 onClick={() => !isProcessing && onTemplateSelect('modern_blue')}
-                                className={`shrink-0 w-[280px] snap-start cursor-pointer group relative rounded-xl border-2 transition-all duration-300 overflow-hidden bg-white dark:bg-slate-900 ${template === 'modern_blue' ? 'border-primary ring-4 ring-primary/10 shadow-xl shadow-primary/10' : 'border-slate-200 dark:border-slate-800 hover:border-primary/50 hover:shadow-lg'}`}
+                                className={`shrink-0 w-[240px] sm:w-[280px] snap-start cursor-pointer group relative rounded-xl border-2 transition-all duration-300 overflow-hidden bg-white dark:bg-slate-900 ${template === 'modern_blue' ? 'border-primary ring-4 ring-primary/10 shadow-xl shadow-primary/10' : 'border-slate-200 dark:border-slate-800 hover:border-primary/50 hover:shadow-lg'}`}
                             >
                                 <div className="aspect-[3/4] bg-white p-6 flex flex-col relative overflow-hidden select-none shadow-inner">
                                     <div className="w-full bg-blue-600 text-white rounded-md mb-2 p-3 shadow-md">
@@ -210,7 +210,7 @@ export default function TemplateSelector({
                     {category === 'ieee' && (
                         <div
                             onClick={() => !isProcessing && onTemplateSelect('ieee')}
-                            className={`shrink-0 w-[280px] snap-start cursor-pointer group relative rounded-xl border-2 transition-all duration-300 overflow-hidden bg-white dark:bg-slate-900 ${template === 'ieee' ? 'border-primary ring-4 ring-primary/10 shadow-xl shadow-primary/10' : 'border-slate-200 dark:border-slate-800 hover:border-primary/50 hover:shadow-lg'}`}
+                            className={`shrink-0 w-[240px] sm:w-[280px] snap-start cursor-pointer group relative rounded-xl border-2 transition-all duration-300 overflow-hidden bg-white dark:bg-slate-900 ${template === 'ieee' ? 'border-primary ring-4 ring-primary/10 shadow-xl shadow-primary/10' : 'border-slate-200 dark:border-slate-800 hover:border-primary/50 hover:shadow-lg'}`}
                         >
                             <div className="aspect-[3/4] bg-slate-50 dark:bg-slate-800 p-6 flex flex-col gap-2 relative overflow-hidden select-none">
                                 <div className="w-full h-4 bg-slate-200 dark:bg-slate-700 mb-4 mx-auto flex items-center justify-center rounded-sm border border-slate-300 dark:border-slate-600">
@@ -257,7 +257,7 @@ export default function TemplateSelector({
                     {category === 'springer' && (
                         <div
                             onClick={() => !isProcessing && onTemplateSelect('springer')}
-                            className={`shrink-0 w-[280px] snap-start cursor-pointer group relative rounded-xl border-2 transition-all duration-300 overflow-hidden bg-white dark:bg-slate-900 ${template === 'springer' ? 'border-primary ring-4 ring-primary/10 shadow-xl shadow-primary/10' : 'border-slate-200 dark:border-slate-800 hover:border-primary/50 hover:shadow-lg'}`}
+                            className={`shrink-0 w-[240px] sm:w-[280px] snap-start cursor-pointer group relative rounded-xl border-2 transition-all duration-300 overflow-hidden bg-white dark:bg-slate-900 ${template === 'springer' ? 'border-primary ring-4 ring-primary/10 shadow-xl shadow-primary/10' : 'border-slate-200 dark:border-slate-800 hover:border-primary/50 hover:shadow-lg'}`}
                         >
                             <div className="aspect-[3/4] bg-slate-50 dark:bg-slate-800 p-8 flex flex-col items-center relative overflow-hidden select-none">
                                 <div className="w-full h-10 bg-slate-800 dark:bg-slate-700 mb-6 flex items-center justify-center rounded-sm shadow-md">
@@ -294,7 +294,7 @@ export default function TemplateSelector({
                     {category === 'apa' && (
                         <div
                             onClick={() => !isProcessing && onTemplateSelect('apa')}
-                            className={`shrink-0 w-[280px] snap-start cursor-pointer group relative rounded-xl border-2 transition-all duration-300 overflow-hidden bg-white dark:bg-slate-900 ${template === 'apa' ? 'border-primary ring-4 ring-primary/10 shadow-xl shadow-primary/10' : 'border-slate-200 dark:border-slate-800 hover:border-primary/50 hover:shadow-lg'}`}
+                            className={`shrink-0 w-[240px] sm:w-[280px] snap-start cursor-pointer group relative rounded-xl border-2 transition-all duration-300 overflow-hidden bg-white dark:bg-slate-900 ${template === 'apa' ? 'border-primary ring-4 ring-primary/10 shadow-xl shadow-primary/10' : 'border-slate-200 dark:border-slate-800 hover:border-primary/50 hover:shadow-lg'}`}
                         >
                             <div className="aspect-[3/4] bg-slate-50 dark:bg-slate-800 p-6 flex flex-col relative overflow-hidden select-none">
                                 <div className="w-full h-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm p-4 relative">

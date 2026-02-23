@@ -146,6 +146,23 @@ class PipelineOrchestrator:
         except Exception as e:
             print(f"❌ Supabase status update failed for job {document_id}: {e}")
 
+    def _check_cancelled(self, job_id: str):
+        """Check if the job has been cancelled by the user in Supabase."""
+        try:
+            sb = get_supabase_client()
+            if not sb:
+                return
+
+            response = sb.table("documents").select("status").eq("id", job_id).execute()
+            if response.data and response.data[0].get("status") == "CANCELLED":
+                import asyncio
+                logger.info("Pipeline job %s was cancelled by user.", job_id)
+                raise asyncio.CancelledError("Job was cancelled by the user")
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.warning("Failed to check cancellation status for job %s: %s", job_id, e)
+
     def _persist_partial_result(self, job_id: str, doc_obj: PipelineDocument, sb: Any):
         """A11: Saves partial document state to Supabase when a pipeline stage fails."""
         if not sb or not doc_obj:

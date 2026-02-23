@@ -100,8 +100,8 @@ export default function Edit() {
             <Navbar variant="app" />
 
             {/* Sub-Header / Breadcrumbs & Quick Actions */}
-            <div className="flex items-center justify-between px-6 py-2 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 animate-in slide-in-from-top duration-300">
-                <div className="flex items-center gap-2 overflow-hidden">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 px-4 sm:px-6 py-2 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 animate-in slide-in-from-top duration-300">
+                <div className="flex items-center gap-2 overflow-hidden min-w-0">
                     <button onClick={() => navigate('/history')} className="text-slate-500 dark:text-slate-400 text-sm font-medium hover:text-primary whitespace-nowrap">My Manuscripts</button>
                     <span className="text-slate-400">/</span>
                     <span className="text-slate-900 dark:text-white text-sm font-semibold truncate">{title}</span>
@@ -109,30 +109,30 @@ export default function Edit() {
                         {isSaving ? 'Saving...' : 'Saved'}
                     </span>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                     <button onClick={handleSave} className="flex items-center gap-1.5 px-3 py-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
                         <span className="material-symbols-outlined text-[18px]">save</span>
-                        <span className="text-sm font-medium">Save</span>
+                        <span className="text-sm font-medium hidden sm:inline">Save</span>
                     </button>
                     <button onClick={handleRevalidate} className="flex items-center gap-1.5 px-3 py-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
                         <span className="material-symbols-outlined text-[18px]">refresh</span>
-                        <span className="text-sm font-medium">Local Validate</span>
+                        <span className="text-sm font-medium hidden sm:inline">Local Validate</span>
                     </button>
                     <button
                         onClick={() => navigate('/download')}
                         disabled={!isCompleted(job?.status)}
-                        className="flex items-center gap-1.5 px-4 py-1.5 bg-primary text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-400"
+                        className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 bg-primary text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-400"
                     >
                         <span className="material-symbols-outlined text-[18px]">description</span>
-                        <span className="text-sm font-bold">Export</span>
+                        <span className="text-sm font-bold hidden sm:inline">Export</span>
                     </button>
                 </div>
             </div>
 
             {/* Main Layout */}
-            <div className="flex flex-1 overflow-hidden">
+            <div className="flex flex-1 flex-col xl:flex-row overflow-hidden">
                 {/* Editor View */}
-                <main className="flex-1 overflow-y-auto bg-background-light dark:bg-background-dark p-8 flex justify-center">
+                <main className="flex-1 overflow-y-auto bg-background-light dark:bg-background-dark p-4 sm:p-6 lg:p-8 flex justify-center">
                     <div className="w-full max-w-[850px]">
                         {/* Validation Message Banner */}
                         {validationMessage && (
@@ -154,12 +154,12 @@ export default function Edit() {
                         )}
 
                         {/* Manuscript Paper Area */}
-                        <article className="manuscript-paper bg-white dark:bg-slate-900 min-h-[1100px] p-16 rounded-sm border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
-                            <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-8 focus:outline-none" contentEditable spellCheck={false}>
+                        <article className="manuscript-paper bg-white dark:bg-slate-900 min-h-[700px] lg:min-h-[1100px] p-5 sm:p-8 lg:p-16 rounded-sm border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
+                            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white mb-6 sm:mb-8 focus:outline-none" contentEditable spellCheck={false}>
                                 {title.replace(/_/g, ' ')}
                             </h1>
                             <textarea
-                                className="w-full min-h-[800px] bg-transparent resize-none border-none focus:ring-0 p-0 text-lg leading-relaxed text-slate-700 dark:text-slate-300 font-serif"
+                                className="w-full min-h-[520px] sm:min-h-[700px] bg-transparent resize-none border-none focus:ring-0 p-0 text-base sm:text-lg leading-relaxed text-slate-700 dark:text-slate-300 font-serif"
                                 value={content}
                                 onChange={(e) => setContent(e.target.value)}
                                 placeholder="Start typing your manuscript..."
@@ -170,7 +170,7 @@ export default function Edit() {
                 </main>
 
                 {/* Right Sidebar: Validation Feedback */}
-                <aside className="w-80 border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col">
+                <aside className="w-full xl:w-80 border-t xl:border-t-0 xl:border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col max-h-[360px] xl:max-h-none">
                     <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
                         <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
                             <span className="material-symbols-outlined text-primary">analytics</span>
@@ -204,17 +204,17 @@ export default function Edit() {
             </div>
 
             {/* Bottom Status Bar */}
-            <footer className="h-8 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between px-6 text-[10px] font-medium text-slate-500 dark:text-slate-400">
-                <div className="flex items-center gap-4">
+            <footer className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 px-4 sm:px-6 py-2 text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                <div className="flex flex-wrap items-center gap-4">
                     <span>Words: {content.split(/\s+/).filter(Boolean).length}</span>
                     <span>Status: {isSaving ? 'Syncing...' : 'Up to date'}</span>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex flex-wrap items-center gap-4">
                     <div className="flex items-center gap-1.5">
                         <span className="material-symbols-outlined text-[12px]">schedule</span>
                         <span>Last saved: {lastSaved}</span>
                     </div>
-                    <span>ID: {job.id}</span>
+                    <span className="break-all">ID: {job.id}</span>
                 </div>
             </footer>
         </div>

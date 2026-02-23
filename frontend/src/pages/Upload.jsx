@@ -452,7 +452,7 @@ export default function Upload() {
         <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen">
             <Navbar variant="app" activeTab="upload" />
 
-            <main className="max-w-[1280px] mx-auto px-6 py-8">
+            <main className="max-w-[1280px] mx-auto px-4 sm:px-6 py-6 sm:py-8">
                 {/* NEW HEADER SECTION: Category & Style Selection */}
                 <div className="mb-12 space-y-8">
                     <CategoryTabs />
@@ -467,10 +467,10 @@ export default function Upload() {
                     />
                 </div>
                 <div className="mb-8">
-                    <h1 className="text-slate-900 dark:text-white text-4xl font-black leading-tight tracking-[-0.033em]">
+                    <h1 className="text-slate-900 dark:text-white text-3xl sm:text-4xl font-black leading-tight tracking-[-0.033em]">
                         Upload Manuscript
                     </h1>
-                    <p className="text-slate-500 dark:text-slate-400 text-lg mt-2">
+                    <p className="text-slate-500 dark:text-slate-400 text-base sm:text-lg mt-2">
                         {isLoggedIn
                             ? 'Transform your research into a publication-ready document in minutes.'
                             : 'Professional academic formatting in seconds. No account required to start.'}
@@ -517,7 +517,7 @@ export default function Upload() {
                                 <button
                                     onClick={() => fileInputRef.current.click()}
                                     disabled={isProcessing}
-                                    className={`flex min-w-[140px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-11 px-6 bg-primary text-white text-sm font-bold tracking-wide shadow-md hover:bg-blue-700 transition-all ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    className={`flex w-full sm:w-auto min-w-[140px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-11 px-6 bg-primary text-white text-sm font-bold tracking-wide shadow-md hover:bg-blue-700 transition-all ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 >
                                     Browse Files
                                 </button>

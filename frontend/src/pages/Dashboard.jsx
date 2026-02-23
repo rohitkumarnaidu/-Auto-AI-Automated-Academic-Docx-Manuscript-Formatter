@@ -22,12 +22,12 @@ export default function Dashboard() {
         <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
             <Navbar variant="app" activeTab="dashboard" />
 
-            <main className="flex-1 max-w-[1280px] mx-auto w-full px-6 py-8">
+            <main className="flex-1 max-w-[1280px] mx-auto w-full px-4 sm:px-6 py-6 sm:py-8">
                 {/* PageHeading Component */}
                 <div className="mb-10">
                     <div className="flex flex-col gap-2">
-                        <h1 className="text-slate-900 dark:text-white text-4xl font-black leading-tight tracking-tight">Welcome back, {displayName}</h1>
-                        <p className="text-slate-500 dark:text-slate-400 text-lg font-normal leading-normal max-w-2xl">Manage your academic manuscripts, track validation status, and ensure formatting compliance for upcoming publications.</p>
+                        <h1 className="text-slate-900 dark:text-white text-3xl sm:text-4xl font-black leading-tight tracking-tight">Welcome back, {displayName}</h1>
+                        <p className="text-slate-500 dark:text-slate-400 text-base sm:text-lg font-normal leading-normal max-w-2xl">Manage your academic manuscripts, track validation status, and ensure formatting compliance for upcoming publications.</p>
                     </div>
                 </div>
 
@@ -84,7 +84,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* SectionHeader Component */}
-                <div className="flex items-center justify-between mb-4 px-1">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 px-1 gap-3">
                     <h2 className="text-slate-900 dark:text-white text-2xl font-bold tracking-tight">Recent Activity</h2>
                     <div className="flex items-center gap-4">
                         <button

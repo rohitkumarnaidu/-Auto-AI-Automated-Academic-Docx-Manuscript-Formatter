@@ -149,8 +149,8 @@ export default function Preview({
         <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-display">
             <Navbar variant="app" />
 
-            <div className="flex items-center justify-between px-6 py-3 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 animate-in slide-in-from-top duration-300">
-                <div className="flex items-center gap-2 overflow-hidden">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 px-4 sm:px-6 py-3 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 animate-in slide-in-from-top duration-300">
+                <div className="flex items-center gap-2 overflow-hidden min-w-0">
                     <button
                         onClick={onUpload}
                         className="text-slate-500 dark:text-slate-400 text-sm font-medium hover:text-primary whitespace-nowrap"
@@ -166,9 +166,9 @@ export default function Preview({
                     </span>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 w-full lg:w-auto">
                     {isIncrementalLoadActive ? (
-                        <span className="text-xs text-slate-500 mr-2 flex items-center gap-1">
+                        <span className="text-xs text-slate-500 mr-2 flex items-center gap-1 flex-1">
                             <span className="material-symbols-outlined text-[14px] animate-spin">
                                 progress_activity
                             </span>
@@ -184,7 +184,7 @@ export default function Preview({
                     <button
                         onClick={onDownload}
                         disabled={!isCompleted(job?.status)}
-                        className="flex items-center gap-1.5 px-4 py-1.5 bg-primary text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-400"
+                        className="flex items-center justify-center gap-1.5 px-4 py-1.5 bg-primary text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-400 w-full sm:w-auto"
                     >
                         <span className="material-symbols-outlined text-[18px]">download</span>
                         <span className="text-sm font-bold">Download Final</span>
@@ -192,11 +192,11 @@ export default function Preview({
                 </div>
             </div>
 
-            <div className="flex flex-1 overflow-hidden">
-                <main className="flex-1 overflow-y-auto bg-slate-50 dark:bg-background-dark p-8 flex justify-center">
+            <div className="flex flex-1 flex-col xl:flex-row overflow-hidden">
+                <main className="flex-1 overflow-y-auto bg-slate-50 dark:bg-background-dark p-4 sm:p-6 lg:p-8 flex justify-center">
                     <div className="w-full max-w-[850px]">
-                        <article className="manuscript-paper bg-white dark:bg-slate-900 min-h-[1100px] p-16 rounded-sm border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden pointer-events-none select-none">
-                            <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-8">
+                        <article className="manuscript-paper bg-white dark:bg-slate-900 min-h-[700px] lg:min-h-[1100px] p-5 sm:p-8 lg:p-16 rounded-sm border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden pointer-events-none select-none">
+                            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white mb-6 sm:mb-8">
                                 {title.replace(/_/g, ' ')}
                             </h1>
 
@@ -206,7 +206,7 @@ export default function Preview({
                                 </div>
                             ) : null}
 
-                            <div className="w-full text-lg leading-relaxed text-slate-700 dark:text-slate-300 font-serif space-y-6">
+                            <div className="w-full text-base sm:text-lg leading-relaxed text-slate-700 dark:text-slate-300 font-serif space-y-6">
                                 {visibleSections.map((item, index) => (
                                     <section key={`${item.section}-${index}`} className="animate-in fade-in duration-200">
                                         <h2 className="text-base font-semibold uppercase tracking-wide mb-2 text-slate-700 dark:text-slate-200">
@@ -220,7 +220,7 @@ export default function Preview({
                     </div>
                 </main>
 
-                <aside className="w-80 border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col hidden xl:flex">
+                <aside className="w-full xl:w-80 border-t xl:border-t-0 xl:border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col xl:max-h-none max-h-[360px]">
                     <div className="p-4 border-b border-slate-200 dark:border-slate-800">
                         <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
                             <span className="material-symbols-outlined text-primary">analytics</span>
@@ -262,7 +262,7 @@ export default function Preview({
                 </aside>
             </div>
 
-            <footer className="h-8 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center justify-center px-6 text-[10px] font-medium text-slate-400 uppercase tracking-widest">
+            <footer className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center justify-center px-4 sm:px-6 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-widest text-center">
                 <span>ScholarForm AI Preview Mode - Read Only</span>
             </footer>
         </div>

@@ -58,7 +58,7 @@ class TestGROBIDPipelineIntegration:
             pytest.skip("GROBID service not available")
         
         # Extract metadata
-        metadata = grobid_client.extract_metadata(str(sample_pdf_path))
+        metadata = grobid_client.process_header_document(str(sample_pdf_path))
         
         # Verify metadata structure
         assert metadata is not None, "Metadata should not be None"
@@ -82,7 +82,7 @@ class TestGROBIDPipelineIntegration:
         
         # Measure response time
         start_time = time.time()
-        metadata = grobid_client.extract_metadata(str(sample_pdf_path))
+        metadata = grobid_client.process_header_document(str(sample_pdf_path))
         duration = time.time() - start_time
         
         print(f"\n⏱️  GROBID response time: {duration:.2f}s")
@@ -131,7 +131,7 @@ class TestGROBIDPipelineIntegration:
             pytest.skip("GROBID service not available")
         
         # Extract metadata
-        grobid_metadata = grobid_client.extract_metadata(str(sample_pdf_path))
+        grobid_metadata = grobid_client.process_header_document(str(sample_pdf_path))
         
         # Create a document and inject metadata
         doc = PipelineDocument(
@@ -155,7 +155,7 @@ class TestGROBIDPipelineIntegration:
         """Test GROBID error handling with invalid input."""
         # Test with non-existent file
         with pytest.raises(GROBIDException):
-            grobid_client.extract_metadata("nonexistent.pdf")
+            grobid_client.process_header_document("nonexistent.pdf")
         
         print(f"\n✅ Error handling works correctly")
     
@@ -170,7 +170,7 @@ class TestGROBIDPipelineIntegration:
         
         for i in range(num_requests):
             start_time = time.time()
-            metadata = grobid_client.extract_metadata(str(sample_pdf_path))
+            metadata = grobid_client.process_header_document(str(sample_pdf_path))
             duration = time.time() - start_time
             durations.append(duration)
             
@@ -198,7 +198,7 @@ class TestGROBIDFallback:
         with patch("app.pipeline.orchestrator.GROBIDClient") as mock_grobid:
             mock_instance = MagicMock()
             mock_instance.is_available.return_value = False
-            mock_instance.extract_metadata.return_value = {
+            mock_instance.process_header_document.return_value = {
                 "title": "",
                 "authors": [],
                 "abstract": ""

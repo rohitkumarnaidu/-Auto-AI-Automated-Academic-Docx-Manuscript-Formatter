@@ -86,18 +86,18 @@ export default function Compare() {
         <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-50 min-h-screen flex flex-col">
             <Navbar variant="app" />
 
-            <main className="flex-1 flex flex-col max-w-[1600px] mx-auto w-full px-4 lg:px-10 py-6 animate-in fade-in duration-500">
+            <main className="flex-1 flex flex-col max-w-[1600px] mx-auto w-full px-4 sm:px-6 lg:px-10 py-6 animate-in fade-in duration-500">
                 {/* Section Header */}
                 <div className="flex flex-col md:flex-row md:items-end justify-between mb-2">
                     <div>
                         <nav className="flex text-xs text-slate-500 mb-1 gap-2 items-center">
                             <Link className="hover:underline" to="/history">Documents</Link>
                             <span className="material-symbols-outlined text-[14px]">chevron_right</span>
-                            <span className="font-medium">{job.originalFileName}</span>
+                            <span className="font-medium break-all">{job.originalFileName}</span>
                         </nav>
                         <h1 className="text-slate-900 dark:text-white text-2xl font-bold leading-tight tracking-[-0.015em]">Document Comparison</h1>
                     </div>
-                    <div className="flex items-center gap-2 mt-4 md:mt-0">
+                    <div className="flex flex-wrap items-center gap-2 mt-4 md:mt-0">
                         <button
                             onClick={() => setIsPaused(!isPaused)}
                             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${isPaused ? 'bg-amber-50 border-amber-200 text-amber-600' : 'bg-primary/5 border-primary/20 text-primary hover:bg-primary/10'}`}
@@ -110,9 +110,10 @@ export default function Compare() {
                 </div>
 
                 {/* Toolbar & Control Bar */}
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm mb-6 flex flex-col sm:flex-row items-center justify-between p-2">
-                    <div className="flex items-center gap-1 w-full sm:w-auto">
-                        <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-lg mr-4">
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm mb-6 flex flex-col gap-3 p-2">
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full">
+                            <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-lg sm:mr-2 overflow-x-auto">
                             <button
                                 onClick={() => setViewMode('text')}
                                 className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-bold transition-all ${viewMode === 'text' ? 'bg-white dark:bg-slate-700 shadow-sm text-primary' : 'text-slate-500 dark:text-slate-400 hover:text-primary'}`}
@@ -132,39 +133,38 @@ export default function Compare() {
                             )}
 
                         </div>
-                        <div className="flex h-10 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 p-1">
-                            <label onClick={() => setScrollSync(!scrollSync)} className={`cursor-pointer flex h-full items-center justify-center rounded-md px-3 text-xs transition-all ${scrollSync ? 'bg-white dark:bg-slate-700 shadow-sm text-primary font-bold' : 'text-slate-500 dark:text-slate-400 font-medium hover:text-primary'}`}>
-                                <span className="material-symbols-outlined text-[18px] mr-1">sync_alt</span>
-                                <span className="truncate">Sync: {scrollSync ? 'ON' : 'OFF'}</span>
-                            </label>
-                            <label onClick={() => setHighlights(!highlights)} className={`cursor-pointer flex h-full items-center justify-center rounded-md px-3 text-xs transition-all ${highlights ? 'bg-white dark:bg-slate-700 shadow-sm text-primary font-bold' : 'text-slate-500 dark:text-slate-400 font-medium hover:text-primary'}`}>
-                                <span className="material-symbols-outlined text-[18px] mr-1">auto_fix_high</span>
-                                <span className="truncate">Highlights: {highlights ? 'ON' : 'OFF'}</span>
-                            </label>
+                            <div className="flex h-10 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 p-1">
+                                <label onClick={() => setScrollSync(!scrollSync)} className={`cursor-pointer flex h-full items-center justify-center rounded-md px-3 text-xs transition-all ${scrollSync ? 'bg-white dark:bg-slate-700 shadow-sm text-primary font-bold' : 'text-slate-500 dark:text-slate-400 font-medium hover:text-primary'}`}>
+                                    <span className="material-symbols-outlined text-[18px] mr-1">sync_alt</span>
+                                    <span className="truncate">Sync: {scrollSync ? 'ON' : 'OFF'}</span>
+                                </label>
+                                <label onClick={() => setHighlights(!highlights)} className={`cursor-pointer flex h-full items-center justify-center rounded-md px-3 text-xs transition-all ${highlights ? 'bg-white dark:bg-slate-700 shadow-sm text-primary font-bold' : 'text-slate-500 dark:text-slate-400 font-medium hover:text-primary'}`}>
+                                    <span className="material-symbols-outlined text-[18px] mr-1">auto_fix_high</span>
+                                    <span className="truncate">Highlights: {highlights ? 'ON' : 'OFF'}</span>
+                                </label>
+                            </div>
                         </div>
-                    </div>
-                    <div className="flex items-center gap-4 mt-2 sm:mt-0">
-                        <div className="flex gap-1 border-r border-slate-200 dark:border-slate-700 pr-4 mr-2">
+
+                        <div className="flex items-center gap-2 self-end sm:self-auto">
                             <button onClick={() => navigate('/download')} className="p-2 text-slate-500 hover:text-primary transition-colors" title="Download">
                                 <span className="material-symbols-outlined">file_download</span>
                             </button>
+                            <button
+                                onClick={() => {
+                                    navigate('/edit');
+                                }}
+                                className="flex items-center justify-center rounded-lg h-10 bg-primary text-white gap-2 px-4 sm:px-6 text-sm font-bold shadow-md hover:bg-blue-600 transition-all"
+                            >
+                                <span className="material-symbols-outlined">edit_note</span>
+                                <span className="truncate">Edit Version</span>
+                            </button>
                         </div>
-                        <button
-                            onClick={() => {
-                                // If we're here and it was processing, it will stay paused during Edit
-                                navigate('/edit');
-                            }}
-                            className="flex items-center justify-center rounded-lg h-10 bg-primary text-white gap-2 px-6 text-sm font-bold shadow-md hover:bg-blue-600 transition-all"
-                        >
-                            <span className="material-symbols-outlined">edit_note</span>
-                            <span className="truncate">Edit Version</span>
-                        </button>
                     </div>
                 </div>
 
                 {/* Side-by-Side Split View OR Structured Data View */}
                 {viewMode === 'text' ? (
-                    <div className="flex-1 flex gap-4 min-h-[600px]">
+                    <div className="flex-1 flex flex-col lg:flex-row gap-4 min-h-[600px]">
                         {/* Left Panel: Original */}
                         <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
                             <div className="px-6 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 flex justify-between items-center">
@@ -188,7 +188,7 @@ export default function Compare() {
                             </div>
                         </div>
 
-                        <div className="flex flex-col items-center justify-center px-0 text-slate-300 dark:text-slate-700">
+                        <div className="hidden lg:flex flex-col items-center justify-center px-0 text-slate-300 dark:text-slate-700">
                             <span className="material-symbols-outlined">link</span>
                         </div>
 
@@ -243,8 +243,8 @@ export default function Compare() {
                 )}
 
                 {/* Diff Summary Footer */}
-                <div className="mt-4 flex items-center justify-between px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-xs">
-                    <div className="flex items-center gap-6">
+                <div className="mt-4 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-xs">
+                    <div className="flex flex-wrap items-center gap-4 sm:gap-6">
                         <div className="flex items-center gap-2">
                             <span className="w-3 h-3 rounded-full bg-diff-add border border-green-300"></span>
                             <span className="font-medium">Insertions</span>
@@ -254,12 +254,12 @@ export default function Compare() {
                             <span className="font-medium">Formatting Changes</span>
                         </div>
                     </div>
-                    <div className="flex items-center gap-4 text-slate-500">
+                    <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-slate-500">
                         <span className="flex items-center gap-1">
                             <span className="material-symbols-outlined text-[16px]">info</span>
                             Real-time synchronization active
                         </span>
-                        <span className="border-l border-slate-300 dark:border-slate-600 pl-4">Job ID: {job.id}</span>
+                        <span className="sm:border-l border-slate-300 dark:border-slate-600 sm:pl-4 break-all">Job ID: {job.id}</span>
                     </div>
                 </div>
             </main>

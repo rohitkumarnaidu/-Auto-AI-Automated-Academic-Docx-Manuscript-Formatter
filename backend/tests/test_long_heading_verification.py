@@ -6,7 +6,7 @@ after removing the hard rejection guards.
 """
 
 import pytest
-from app.models import Block, BlockStyle, BlockType
+from app.models import Block, TextStyle, BlockType
 from app.pipeline.structure_detection.heading_rules import (
     analyze_heading_candidate,
     is_likely_heading_by_style
@@ -24,7 +24,7 @@ def test_long_heading_detection():
         text=long_heading_text,
         index=100,
         block_type=BlockType.UNKNOWN,
-        style=BlockStyle(
+        style=TextStyle(
             bold=True,
             font_size=14.0
         )
@@ -56,7 +56,7 @@ def test_long_heading_detection():
         text=very_long_text,
         index=200,
         block_type=BlockType.UNKNOWN,
-        style=BlockStyle(bold=True, font_size=14.0)
+        style=TextStyle(bold=True, font_size=14.0)
     )
     
     is_heading_vl, score_vl = is_likely_heading_by_style(very_long_block, avg_font_size=12.0)
@@ -79,7 +79,7 @@ def test_author_detection_without_comma():
         text="John Smith and Jane Doe",  # No comma, but has capitalized words
         index=100,
         block_type=BlockType.UNKNOWN,
-        style=BlockStyle()
+        style=TextStyle()
     )
     
     doc = PipelineDocument(

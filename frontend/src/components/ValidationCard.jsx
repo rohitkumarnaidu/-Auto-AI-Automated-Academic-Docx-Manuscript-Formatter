@@ -36,12 +36,12 @@ export default function ValidationCard({ type = "error", title, description, bad
                     <span className="material-symbols-outlined">{s.icon}</span>
                 </div>
                 <div className="flex-1">
-                    <div className="flex items-center justify-between mb-1">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-1">
                         <h3 className="font-bold text-slate-900 dark:text-white">{title}</h3>
-                        <span className={`${s.badgeBg} ${s.badgeText} text-[10px] font-black uppercase px-2 py-0.5 rounded`}>{badge}</span>
+                        <span className={`${s.badgeBg} ${s.badgeText} text-[10px] font-black uppercase px-2 py-0.5 rounded w-fit`}>{badge}</span>
                     </div>
                     <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed">{description}</p>
-                    <div className="mt-4 flex items-center gap-4">
+                    <div className="mt-4 flex flex-wrap items-center gap-3 sm:gap-4">
                         <button className="text-primary text-xs font-bold hover:underline flex items-center gap-1" onClick={onAction}>
                             <span className="material-symbols-outlined text-xs">map</span>
                             Locate in doc

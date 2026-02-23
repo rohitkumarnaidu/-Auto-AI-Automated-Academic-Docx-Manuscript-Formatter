@@ -3,8 +3,8 @@ export default function Footer({ variant = 'app' }) {
         return (
             <footer className="bg-slate-50 dark:bg-background-dark border-t border-slate-200 dark:border-slate-800 pt-16 pb-8">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-12 mb-12">
-                        <div className="col-span-2 md:col-span-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-10 mb-12">
+                        <div className="sm:col-span-2 md:col-span-1">
                             <div className="flex items-center gap-2 mb-6">
                                 <div className="bg-primary text-white p-1 rounded-md flex items-center justify-center">
                                     <span className="material-symbols-outlined text-sm">auto_stories</span>
@@ -48,8 +48,8 @@ export default function Footer({ variant = 'app' }) {
                         </div>
                     </div>
                     <div className="pt-8 border-t border-slate-200 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4 text-center md:text-left">
-                        <p className="text-xs text-slate-400">© {new Date().getFullYear()} ManuscriptFormatter SaaS Platform. All Rights Reserved.</p>
-                        <div className="flex items-center gap-6">
+                        <p className="text-xs text-slate-400">(c) {new Date().getFullYear()} ManuscriptFormatter SaaS Platform. All Rights Reserved.</p>
+                        <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
                             <div className="flex items-center gap-1 opacity-50 grayscale">
                                 <span className="material-symbols-outlined text-xs">shield</span>
                                 <span className="text-[10px] font-bold">GDPR COMPLIANT</span>
@@ -65,15 +65,14 @@ export default function Footer({ variant = 'app' }) {
         );
     }
 
-    // App Footer
     return (
-        <footer className="max-w-[1280px] mx-auto px-6 py-10 mt-12 border-t border-slate-200 dark:border-slate-800">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+        <footer className="max-w-[1280px] mx-auto px-4 sm:px-6 py-8 sm:py-10 mt-10 sm:mt-12 border-t border-slate-200 dark:border-slate-800">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4 sm:gap-6">
                 <div className="flex items-center gap-2 text-slate-400">
                     <span className="material-symbols-outlined text-xl">auto_stories</span>
-                    <span className="text-sm font-medium">© {new Date().getFullYear()} ScholarForm AI. Built for Academics.</span>
+                    <span className="text-sm font-medium text-center md:text-left">(c) {new Date().getFullYear()} ScholarForm AI. Built for Academics.</span>
                 </div>
-                <div className="flex gap-6">
+                <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
                     <a href="#" className="text-sm text-slate-500 hover:text-primary">Terms of Service</a>
                     <a href="#" className="text-sm text-slate-500 hover:text-primary">Privacy Policy</a>
                     <a href="#" className="text-sm text-slate-500 hover:text-primary">Support</a>

@@ -6,13 +6,13 @@ export default function Templates() {
         <div className="bg-background-light dark:bg-background-dark font-display text-[#0d131b] dark:text-slate-200 min-h-screen flex flex-col">
             <Navbar variant="app" />
 
-            <main className="px-10 lg:px-40 flex flex-1 justify-center py-10">
+            <main className="px-4 sm:px-6 lg:px-10 flex flex-1 justify-center py-8 sm:py-10">
                 <div className="layout-content-container flex flex-col max-w-[1200px] flex-1">
                     {/* Header Section */}
                     <div className="flex flex-col gap-6 p-4">
                         <div className="flex flex-wrap justify-between items-end gap-3">
-                            <div className="flex min-w-72 flex-col gap-3">
-                                <p className="text-[#0d131b] dark:text-white text-4xl font-black leading-tight tracking-[-0.033em]">Journal Template Library</p>
+                            <div className="flex flex-col gap-3">
+                                <p className="text-[#0d131b] dark:text-white text-3xl sm:text-4xl font-black leading-tight tracking-[-0.033em]">Journal Template Library</p>
                                 <p className="text-[#4c6c9a] dark:text-slate-400 text-base font-normal leading-normal">Browse and select official academic formatting templates for your manuscript.</p>
                             </div>
                         </div>
@@ -157,7 +157,7 @@ export default function Templates() {
                     </div>
 
                     {/* Pagination */}
-                    <div className="flex items-center justify-center gap-4 mt-12 py-6 border-t border-slate-200 dark:border-slate-800">
+                    <div className="flex items-center justify-center gap-2 sm:gap-4 mt-12 py-6 border-t border-slate-200 dark:border-slate-800 flex-wrap">
                         <button className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 transition-colors">
                             <span className="material-symbols-outlined">chevron_left</span>
                         </button>

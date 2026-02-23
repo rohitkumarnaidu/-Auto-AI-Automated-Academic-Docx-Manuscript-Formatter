@@ -6,7 +6,7 @@ export default function ProcessingStepper({
     steps,
 }) {
     return (
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm sticky top-24">
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm lg:sticky lg:top-24">
             <div className="p-6 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-lg font-bold text-slate-900 dark:text-white">Processing Status</h2>
@@ -29,14 +29,14 @@ export default function ProcessingStepper({
                 </div>
             </div>
 
-            <div className="p-6 space-y-6">
+            <div className="p-5 sm:p-6 space-y-5 sm:space-y-6">
                 {steps.map((step) => {
                     const isStepCompleted = currentStep > step.id || progress === 100;
                     const isStepActive = currentStep === step.id && isProcessing;
                     const isPending = currentStep < step.id;
 
                     return (
-                        <div key={step.id} className={`flex items-start gap-4 transition-opacity duration-500 ${isPending ? 'opacity-50' : 'opacity-100'}`}>
+                        <div key={step.id} className={`flex items-start gap-3 sm:gap-4 transition-opacity duration-500 ${isPending ? 'opacity-50' : 'opacity-100'}`}>
                             <div className="flex flex-col items-center">
                                 <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border-2 transition-all ${isStepCompleted ? 'bg-green-100 border-green-100 text-green-600' :
                                     isStepActive ? 'bg-primary/20 border-primary text-primary' :
@@ -55,7 +55,7 @@ export default function ProcessingStepper({
                                 )}
                             </div>
                             <div className="pt-1">
-                                <p className={`text-sm font-bold transition-colors ${isStepActive ? 'text-primary' : 'text-slate-900 dark:text-white'}`}>
+                                <p className={`text-sm font-bold leading-snug transition-colors ${isStepActive ? 'text-primary' : 'text-slate-900 dark:text-white'}`}>
                                     {step.title}
                                 </p>
                                 <p className="text-xs text-slate-500 mt-1">

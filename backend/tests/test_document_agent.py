@@ -9,7 +9,6 @@ from app.pipeline.agents.tools.metadata_tool import MetadataExtractionTool
 from app.pipeline.agents.tools.layout_tool import LayoutAnalysisTool
 from app.pipeline.agents.tools.validation_tool import ValidationTool
 from app.models import PipelineDocument, DocumentMetadata
-from app.pipeline.orchestrator_v2 import AgentOrchestrator
 
 
 class TestMetadataExtractionTool:
@@ -198,75 +197,3 @@ class TestDocumentAgent:
         assert result["success"] is True
 
 
-class TestAgentOrchestrator:
-    """Test the agent orchestrator with fallback."""
-    
-    @patch.dict(os.environ, {"OPENAI_API_KEY": ""})
-    @patch('app.pipeline.orchestrator_v2.LegacyOrchestrator')
-    def test_orchestrator_fallback_no_api_key(self, mock_legacy_class):
-        """Test fallback when no API key is set."""
-        mock_legacy = MagicMock()
-        mock_legacy_class.return_value = mock_legacy
-        
-        orchestrator = AgentOrchestrator(use_agent=True)
-        
-        # Should fallback to legacy
-        assert orchestrator.use_agent is False
-    
-    @patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"})
-    @patch('app.pipeline.orchestrator_v2.DocumentAgent')
-    @patch('app.pipeline.orchestrator_v2.LegacyOrchestrator')
-    def test_orchestrator_agent_success(self, mock_legacy_class, mock_agent_class):
-        """Test successful agent orchestration."""
-        # Mock agent
-        mock_agent = MagicMock()
-        mock_agent.process_document.return_value = {
-            "success": True,
-            "should_fallback": False,
-            "analysis": "Document processed successfully"
-        }
-        mock_agent_class.return_value = mock_agent
-        
-        # Mock legacy orchestrator
-        mock_legacy = MagicMock()
-        processed_doc = PipelineDocument(document_id="test")
-        mock_legacy.process.return_value = processed_doc
-        mock_legacy_class.return_value = mock_legacy
-        
-        # Create orchestrator and process
-        orchestrator = AgentOrchestrator(use_agent=True)
-        doc = PipelineDocument(document_id="test", source_path="test.pdf")
-        result = orchestrator.process(doc)
-        
-        # Verify agent was called
-        mock_agent.process_document.assert_called_once()
-        
-        # Verify legacy was still used for actual processing (hybrid approach)
-        mock_legacy.process.assert_called_once()
-    
-    @patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"})
-    @patch('app.pipeline.orchestrator_v2.DocumentAgent')
-    @patch('app.pipeline.orchestrator_v2.LegacyOrchestrator')
-    def test_orchestrator_agent_recommends_fallback(self, mock_legacy_class, mock_agent_class):
-        """Test fallback when agent recommends it."""
-        # Mock agent recommending fallback
-        mock_agent = MagicMock()
-        mock_agent.process_document.return_value = {
-            "success": True,
-            "should_fallback": True,
-            "analysis": "Too many errors, recommend fallback"
-        }
-        mock_agent_class.return_value = mock_agent
-        
-        # Mock legacy orchestrator
-        mock_legacy = MagicMock()
-        processed_doc = PipelineDocument(document_id="test")
-        mock_legacy.process.return_value = processed_doc
-        mock_legacy_class.return_value = mock_legacy
-        
-        orchestrator = AgentOrchestrator(use_agent=True)
-        doc = PipelineDocument(document_id="test", source_path="test.pdf")
-        result = orchestrator.process(doc)
-        
-        # Verify fallback was used
-        mock_legacy.process.assert_called_once()

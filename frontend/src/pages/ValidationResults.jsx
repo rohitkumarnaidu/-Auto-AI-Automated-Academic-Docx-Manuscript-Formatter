@@ -66,9 +66,9 @@ function ValidationResults() {
         <>
             <Navbar variant="app" />
 
-            <main className="max-w-5xl mx-auto px-4 py-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 {/* Breadcrumbs */}
-                <nav className="flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400">
+                <nav className="flex flex-wrap items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400">
                     <a href="#" className="hover:text-primary transition-colors">My Files</a>
                     <span className="material-symbols-outlined text-xs">chevron_right</span>
                     <span className="text-slate-900 dark:text-slate-100">Validation Results</span>
@@ -77,15 +77,15 @@ function ValidationResults() {
                 {/* Page Heading */}
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                     <div className="space-y-2">
-                        <h1 className="text-4xl font-black tracking-tight text-slate-900 dark:text-white">Validation Results Analysis</h1>
-                        <p className="text-slate-500 dark:text-slate-400 text-lg">Diagnostic report for <span className="font-mono text-slate-700 dark:text-slate-200">{job.originalFileName}</span></p>
+                        <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white">Validation Results Analysis</h1>
+                        <p className="text-slate-500 dark:text-slate-400 text-base sm:text-lg break-words">Diagnostic report for <span className="font-mono text-slate-700 dark:text-slate-200 break-all">{job.originalFileName}</span></p>
                     </div>
-                    <div className="flex gap-3">
-                        <button onClick={() => navigate('/upload')} className="flex items-center justify-center rounded-lg h-11 px-6 bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm font-bold hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors">
+                    <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                        <button onClick={() => navigate('/upload')} className="flex w-full sm:w-auto items-center justify-center rounded-lg h-11 px-6 bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm font-bold hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors">
                             <span className="material-symbols-outlined mr-2 text-lg">upload_file</span>
                             Re-upload
                         </button>
-                        <button onClick={() => navigate('/download')} className="flex items-center justify-center rounded-lg h-11 px-6 bg-primary text-white text-sm font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all">
+                        <button onClick={() => navigate('/download')} className="flex w-full sm:w-auto items-center justify-center rounded-lg h-11 px-6 bg-primary text-white text-sm font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all">
                             <span className="material-symbols-outlined mr-2 text-lg">download</span>
                             Verify & Download
                         </button>
@@ -98,7 +98,7 @@ function ValidationResults() {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div className="space-y-1">
                                 <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Filename</p>
-                                <p className="text-slate-900 dark:text-slate-100 font-semibold truncate">{job.originalFileName}</p>
+                                <p className="text-slate-900 dark:text-slate-100 font-semibold break-all">{job.originalFileName}</p>
                             </div>
                             <div className="space-y-1">
                                 <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Formatting Template</p>
@@ -126,7 +126,7 @@ function ValidationResults() {
                             <span className="text-red-700 dark:text-red-400 font-bold text-sm">Errors</span>
                             <span className="material-symbols-outlined text-red-600 dark:text-red-400">error</span>
                         </div>
-                        <p className="text-4xl font-black text-red-700 dark:text-red-400">{errors.length}</p>
+                        <p className="text-3xl sm:text-4xl font-black text-red-700 dark:text-red-400">{errors.length}</p>
                         <p className="text-xs text-red-600/70 dark:text-red-400/50 mt-1 font-medium italic">{errors.length > 0 ? 'Require immediate attention' : 'No critical issues'}</p>
                     </div>
                     <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 rounded-xl p-6 flex flex-col">
@@ -134,7 +134,7 @@ function ValidationResults() {
                             <span className="text-amber-700 dark:text-amber-400 font-bold text-sm">Warnings</span>
                             <span className="material-symbols-outlined text-amber-600 dark:text-amber-400">warning</span>
                         </div>
-                        <p className="text-4xl font-black text-amber-700 dark:text-amber-400">{warnings.length}</p>
+                        <p className="text-3xl sm:text-4xl font-black text-amber-700 dark:text-amber-400">{warnings.length}</p>
                         <p className="text-xs text-amber-600/70 dark:text-amber-400/50 mt-1 font-medium italic">Formatting improvements</p>
                     </div>
                     <div className="bg-primary/5 dark:bg-primary/10 border border-primary/10 dark:border-primary/20 rounded-xl p-6 flex flex-col">
@@ -142,14 +142,14 @@ function ValidationResults() {
                             <span className="text-primary font-bold text-sm">AI Advisory</span>
                             <span className="material-symbols-outlined text-primary">auto_awesome</span>
                         </div>
-                        <p className="text-4xl font-black text-primary">{advisories.length}</p>
+                        <p className="text-3xl sm:text-4xl font-black text-primary">{advisories.length}</p>
                         <p className="text-xs text-primary/70 mt-1 font-medium italic">Insights and optimizations</p>
                     </div>
                 </div>
 
                 {/* Feedback Section */}
                 <div className="space-y-6">
-                    <div className="flex items-center border-b border-slate-200 dark:border-slate-800 overflow-x-auto">
+                    <div className="flex items-center border-b border-slate-200 dark:border-slate-800 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
                         <button
                             onClick={() => setActiveTab('all')}
                             className={`px-6 py-3 font-bold text-sm transition-colors border-b-2 whitespace-nowrap ${activeTab === 'all'

@@ -99,16 +99,16 @@ export default function History() {
             <Navbar variant="app" activeTab="history" />
 
             {/* Page Content */}
-            <main className="flex flex-1 justify-center py-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="layout-content-container flex flex-col w-full max-w-[1280px] px-4 md:px-10">
+            <main className="flex flex-1 justify-center py-6 sm:py-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="layout-content-container flex flex-col w-full max-w-[1280px] px-4 sm:px-6 md:px-10">
                     {/* PageHeading */}
                     <div className="flex flex-wrap justify-between items-end gap-4 mb-8">
                         <div className="flex flex-col gap-2">
-                            <h1 className="text-slate-900 dark:text-white text-3xl font-black tracking-tight">Manuscript Processing History</h1>
+                            <h1 className="text-slate-900 dark:text-white text-2xl sm:text-3xl font-black tracking-tight">Manuscript Processing History</h1>
                             <p className="text-slate-500 dark:text-slate-400 text-base max-w-2xl">Track and manage your document versions, template compliance, and validation results.</p>
                         </div>
                         <div className="flex gap-3">
-                            <Link to="/upload" className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg font-bold text-sm hover:bg-blue-700 transition-colors shadow-lg shadow-primary/20">
+                            <Link to="/upload" className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg font-bold text-sm hover:bg-blue-700 transition-colors shadow-lg shadow-primary/20 w-full sm:w-auto justify-center">
                                 <span className="material-symbols-outlined">file_upload</span>
                                 <span>Process New Manuscript</span>
                             </Link>
@@ -218,7 +218,7 @@ export default function History() {
                                                         )}
                                                     </td>
                                                     <td className="px-6 py-5">
-                                                        <div className="flex justify-end items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <div className="flex justify-end items-center gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                                                             <button onClick={() => handleRestore(item)} className="bg-primary/10 text-primary text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-primary hover:text-white transition-all">
                                                                 Open Corrected
                                                             </button>

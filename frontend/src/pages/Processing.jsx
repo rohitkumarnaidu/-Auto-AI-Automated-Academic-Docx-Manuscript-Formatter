@@ -109,17 +109,17 @@ export default function Processing() {
         <div className="min-h-screen flex flex-col bg-background-light dark:bg-background-dark">
             <Navbar variant="app" />
 
-            <main className="flex-1 flex flex-col items-center justify-center p-6">
+            <main className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6">
                 <div className="max-w-2xl w-full bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden animate-in fade-in zoom-in duration-500">
-                    <div className="p-8 border-b border-slate-100 dark:border-slate-800 text-center">
+                    <div className="p-6 sm:p-8 border-b border-slate-100 dark:border-slate-800 text-center">
                         <div className="inline-flex items-center justify-center size-20 rounded-full bg-primary/10 text-primary mb-6 animate-pulse">
                             <span className="material-symbols-outlined text-5xl">sync</span>
                         </div>
-                        <h1 className="text-3xl font-black text-slate-900 dark:text-white mb-2 tracking-tight">Processing Manuscript</h1>
+                        <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mb-2 tracking-tight">Processing Manuscript</h1>
                         <p className="text-slate-500 dark:text-slate-400">Our AI is analyzing your document structure, verifying references, and applying the target template.</p>
                     </div>
 
-                    <div className="p-8 space-y-8">
+                    <div className="p-6 sm:p-8 space-y-8">
                         <div>
                             <div className="flex items-center justify-between mb-2">
                                 <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Overall Progress</span>
@@ -135,12 +135,12 @@ export default function Processing() {
                         </div>
                     </div>
 
-                    <div className="p-6 bg-slate-50 dark:bg-slate-800/30 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                        <div className="flex items-center gap-2">
+                    <div className="p-4 sm:p-6 bg-slate-50 dark:bg-slate-800/30 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                        <div className="flex items-center gap-2 min-w-0">
                             <StatusBadge status="processing" />
-                            <span className="text-xs font-medium text-slate-500">Executing: {phase}</span>
+                            <span className="text-xs font-medium text-slate-500 truncate">Executing: {phase}</span>
                         </div>
-                        <p className="text-[10px] text-slate-400 font-mono">Job ID: {job?.id || 'Initializing...'}</p>
+                        <p className="text-[10px] text-slate-400 font-mono break-all sm:text-right">Job ID: {job?.id || 'Initializing...'}</p>
                     </div>
                 </div>
 

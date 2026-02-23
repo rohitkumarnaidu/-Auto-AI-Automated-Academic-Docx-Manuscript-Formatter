@@ -173,9 +173,9 @@ export default function TemplateEditor() {
         <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-display">
             <Navbar variant="app" activeTab="template-editor" />
 
-            <main className="max-w-5xl mx-auto w-full px-6 py-8 flex-1">
+            <main className="max-w-5xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-8 flex-1">
                 <div className="mb-8">
-                    <h1 className="text-3xl font-black text-slate-900 dark:text-white">Template Editor</h1>
+                    <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">Template Editor</h1>
                     <p className="text-slate-500 dark:text-slate-400 mt-2">
                         Create and save a custom formatting template for your manuscript workflow.
                     </p>
