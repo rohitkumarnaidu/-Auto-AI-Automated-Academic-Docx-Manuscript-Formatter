@@ -155,50 +155,61 @@ async def global_exception_handler(request: Request, exc: Exception):
 @app.get("/ready")
 async def readiness_probe():
     """
-    Readiness probe for operational environments.
-    Checks availability of critical dependencies.
+    Readiness probe for operational environments (K8s, Docker).
+    Checks availability of critical dependencies and AI models.
     """
-    from app.db.supabase_client import get_supabase_client
-    checks = {}
+    import httpx
+    from app.db.supabase_client import get_supabase_client, check_supabase_health
+    from app.services.model_store import model_store
     
-    # Check Supabase
+    checks = {}
+    is_ready = True
+    
+    # ── Check Supabase ──
     try:
-        sb = get_supabase_client()
-        if sb:
-            sb.table("documents").select("id", count="exact").limit(0).execute()
-            checks["supabase"] = "healthy"
-        else:
-            checks["supabase"] = "unavailable"
+        sb_health = check_supabase_health()
+        checks["database"] = sb_health.get("status", "unknown")
+        if sb_health.get("status") != "healthy":
+            is_ready = False
     except Exception as e:
-        checks["supabase"] = f"unhealthy: {str(e)}"
+        checks["database"] = f"unhealthy: {str(e)}"
+        is_ready = False
 
-    # Check GROBID (if configured)
-    from app.pipeline.services import get_grobid_client
+    # ── Check GROBID ──
     try:
-        grobid = get_grobid_client()
-        if grobid:
-            # Simple ping if available or just check URL
-            checks["grobid"] = "available"
-        else:
-            checks["grobid"] = "not_configured"
-    except:
-        checks["grobid"] = "unhealthy"
+        async with httpx.AsyncClient(timeout=2) as client:
+            response = await client.get("http://localhost:8070/api/isalive")
+            checks["grobid"] = "ready" if response.status_code == 200 else "unavailable"
+    except (httpx.RequestError, Exception):
+        checks["grobid"] = "unavailable"
 
-    # Check Ollama/Local LLM
+    # ── Check Ollama/Local LLM ──
     try:
         from app.services.llm_service import check_health as llm_check_health
         results = await llm_check_health()
         checks["llm_status"] = results
-    except:
+    except Exception:
         checks["llm_status"] = "unknown"
 
-    all_ready = all(v == "healthy" or v == "available" or isinstance(v, dict) for v in checks.values())
-    
-    return {
-        "ready": all_ready,
-        "checks": checks,
-        "timestamp": datetime.now(timezone.utc).isoformat()
-    }
+    # ── Check AI Models ──
+    try:
+        if model_store.get_model("scibert_model") is not None:
+            checks["ai_models"] = "loaded"
+        else:
+            checks["ai_models"] = "not_loaded"
+            is_ready = False
+    except Exception:
+        checks["ai_models"] = "error"
+        is_ready = False
+
+    return JSONResponse(
+        content={
+            "ready": is_ready, 
+            "checks": checks,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        },
+        status_code=200 if is_ready else 503
+    )
 
 @app.get("/")
 async def root():
@@ -256,50 +267,4 @@ async def health_check():
     status_code = 200 if health_status["status"] == "healthy" else 503
     return JSONResponse(content=health_status, status_code=status_code)
 
-@app.get("/ready")
-async def readiness_probe():
-    """
-    Readiness probe for deployment environments (K8s, Docker).
-    Checks if critical components are ready to serve traffic.
-    """
-    import httpx
-    from app.db.supabase_client import check_supabase_health
-    from app.services.model_store import model_store
-    
-    checks = {}
-    is_ready = True
-    
-    # Check Database
-    try:
-        sb_health = check_supabase_health()
-        checks["database"] = sb_health.get("status", "unknown")
-        if sb_health.get("status") != "healthy":
-            is_ready = False
-    except Exception as e:
-        checks["database"] = f"unhealthy: {str(e)}"
-        is_ready = False
-        
-    # Check GROBID (Optional but important)
-    try:
-        async with httpx.AsyncClient(timeout=2) as client:
-            response = await client.get("http://localhost:8070/api/isalive")
-            checks["grobid"] = "ready" if response.status_code == 200 else "unavailable"
-    except (httpx.RequestError, Exception):
-        checks["grobid"] = "unavailable"
-        
-    # Check AI Models
-    try:
-        if model_store.get_model("scibert_model") is not None:
-            checks["ai_models"] = "loaded"
-        else:
-            checks["ai_models"] = "not_loaded"
-            is_ready = False
-    except Exception:
-        checks["ai_models"] = "error"
-        is_ready = False
-
-    return JSONResponse(
-        content={"ready": is_ready, "checks": checks},
-        status_code=200 if is_ready else 503
-    )
 

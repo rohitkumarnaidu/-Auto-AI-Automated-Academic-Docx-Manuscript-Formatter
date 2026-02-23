@@ -1,5 +1,3 @@
-/* eslint-disable react/prop-types */
-
 export default function Footer({ variant = 'app' }) {
     if (variant === 'landing') {
         return (

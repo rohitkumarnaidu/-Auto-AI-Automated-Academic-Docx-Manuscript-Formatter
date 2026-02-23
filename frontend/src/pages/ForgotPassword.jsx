@@ -17,7 +17,7 @@ export default function ForgotPassword() {
         setError('');
         setLoading(true);
 
-        const { data, error: authError } = await forgotPassword(email);
+        const { error: authError } = await forgotPassword(email);
 
         if (authError) {
             setError(authError);

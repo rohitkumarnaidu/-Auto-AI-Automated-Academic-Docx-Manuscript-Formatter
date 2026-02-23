@@ -33,6 +33,7 @@ def _build_test_document(title="Regression Test Title") -> PipelineDocument:
             title="Formatting Science",
             authors=["Doe, J."],
             year=2024,
+            raw_text="Doe, J. (2024). Formatting Science.",
             formatted_text="Doe, J. (2024). Formatting Science.",
             index=1
         )

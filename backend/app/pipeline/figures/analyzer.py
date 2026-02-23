@@ -22,6 +22,35 @@ class FigureAnalyzer:
         self.min_height = min_height
         self.min_dpi = min_dpi
         
+    def downsample_if_needed(self, image_path: str, max_size_bytes: int = 2_000_000) -> Optional[str]:
+        """
+        Downsample image if it exceeds size threshold.
+        Returns path to downsampled image (same as input if no change needed).
+        """
+        if not os.path.exists(image_path):
+            return None
+            
+        file_size = os.path.getsize(image_path)
+        if file_size <= max_size_bytes:
+            return image_path
+            
+        try:
+            with Image.open(image_path) as img:
+                # Maintain aspect ratio while ensuring max dimension is ~1024
+                img.thumbnail((1024, 1024), Image.Resampling.LANCZOS)
+                
+                # Save back to same format or JPEG if memory fails
+                # For safety, we save to a temporary file in the same directory
+                base, ext = os.path.splitext(image_path)
+                downsampled_path = f"{base}_downsampled{ext}"
+                
+                img.save(downsampled_path, quality=85, optimize=True)
+                return downsampled_path
+        except Exception as e:
+            from logging import getLogger
+            getLogger(__name__).error(f"Downsampling failed for {image_path}: {e}")
+            return image_path
+
     def analyze_image(self, image_path: str) -> Dict[str, Any]:
         """
         Analyze an image file.

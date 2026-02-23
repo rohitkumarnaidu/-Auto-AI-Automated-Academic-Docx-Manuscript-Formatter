@@ -1,5 +1,3 @@
-/* eslint-disable react/prop-types */
-
 export default function ValidationCard({ type = "error", title, description, badge, onAction }) {
     // Styles based on type
     const styles = {

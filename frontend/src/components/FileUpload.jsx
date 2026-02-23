@@ -20,7 +20,6 @@ const isAllowedUploadFile = (selectedFile) => {
     );
 };
 
-// eslint-disable-next-line react/prop-types
 export default function FileUpload({ onFileSelect }) {
     const fileInputRef = useRef(null);
     const [dragActive, setDragActive] = useState(false);

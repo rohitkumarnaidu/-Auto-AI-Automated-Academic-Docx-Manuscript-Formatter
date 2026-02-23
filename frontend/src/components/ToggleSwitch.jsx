@@ -1,5 +1,3 @@
-/* eslint-disable react/prop-types */
-
 export default function ToggleSwitch({ id, label, sublabel, checked, onChange }) {
     return (
         <div className="flex items-center justify-between p-3 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800">

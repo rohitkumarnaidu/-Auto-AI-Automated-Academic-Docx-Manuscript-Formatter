@@ -1,5 +1,3 @@
-/* eslint-disable react/prop-types */
-
 const STEPS = [
     { title: "Uploading Manuscript", desc: "Source file received and secured." },
     { title: "Converting Format", desc: "Extracting semantic layers..." },

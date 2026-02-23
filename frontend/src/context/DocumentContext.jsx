@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 
 import { useAuth } from './AuthContext';
 import { getDocuments } from '../services/api';
@@ -15,21 +15,12 @@ export const DocumentProvider = ({ children }) => {
     const [processing, setProcessing] = useState(false);
     const [loadingHistory, setLoadingHistory] = useState(false);
 
-    // Fetch history from backend when user logs in
-    useEffect(() => {
-        if (user) {
-            refreshHistory();
-        } else {
-            setHistory([]);
-        }
-    }, [user]);
-
-    const refreshHistory = async () => {
+    const refreshHistory = useCallback(async () => {
         if (!user) return;
         try {
             setLoadingHistory(true);
             const data = await getDocuments({ limit: 20 });
-            // Map backend format to frontend expectation if needed, 
+            // Map backend format to frontend expectation if needed,
             // but the backend format seems compatible mainly: id, filename, status, created_at
             // Backend returns { documents: [...], total: ... }
             if (data && data.documents) {
@@ -46,7 +37,16 @@ export const DocumentProvider = ({ children }) => {
         } finally {
             setLoadingHistory(false);
         }
-    };
+    }, [user]);
+
+    // Fetch history from backend when user logs in
+    useEffect(() => {
+        if (user) {
+            refreshHistory();
+        } else {
+            setHistory([]);
+        }
+    }, [refreshHistory, user]);
 
     // HYDRATION FIX: Restore active job from session storage
     useEffect(() => {

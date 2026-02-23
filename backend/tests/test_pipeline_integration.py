@@ -126,7 +126,7 @@ class TestPipelineIntegration:
         """Verify CrossRef validation is triggered for documents with references."""
         from app.models.reference import Reference
         doc = PipelineDocument(document_id="test-refs")
-        doc.references = [Reference(citation_key="Ref1", text="Author, Title, 2023")]
+        doc.references = [Reference(reference_id="ref1", citation_key="Ref1", raw_text="Author, Title, 2023", index=0)]
         
         # We need to simulate the pipeline reaching the validation phase
         # or just test the block in isolation.

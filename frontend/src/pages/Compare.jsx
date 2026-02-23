@@ -15,7 +15,6 @@ export default function Compare() {
     // Generate aligned diffs for side-by-side view
     const [diffData, setDiffData] = useState({ left: [], right: [] });
     const [structuredData, setStructuredData] = useState(null);
-    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const loadComparison = async () => {
@@ -64,8 +63,6 @@ export default function Compare() {
                     setDiffData({ left, right });
                 } catch (error) {
                     console.error("Comparison load failed:", error);
-                } finally {
-                    setLoading(false);
                 }
             }
         };

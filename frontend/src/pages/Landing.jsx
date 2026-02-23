@@ -186,7 +186,7 @@ export default function Landing() {
                             </div>
                             <div className="flex flex-col gap-1">
                                 <h3 className="text-[#0d131b] dark:text-white text-lg font-bold">Elsevier Standard</h3>
-                                <p className="text-xs text-[#4c6c9a] dark:text-slate-400 leading-relaxed line-clamp-2">Guidelines compatible with Elsevier's wide range of journals.</p>
+                                <p className="text-xs text-[#4c6c9a] dark:text-slate-400 leading-relaxed line-clamp-2">Guidelines compatible with Elsevier&apos;s wide range of journals.</p>
                             </div>
                         </Link>
 

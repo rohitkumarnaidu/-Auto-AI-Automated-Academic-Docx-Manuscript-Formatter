@@ -141,7 +141,7 @@ export default function VerifyOTP() {
 
                     <div className="flex flex-col items-center gap-6">
                         <p className="text-sm text-slate-500 dark:text-slate-400">
-                            Didn't receive the code?
+                            Didn&apos;t receive the code?
                             <button
                                 onClick={handleResend}
                                 disabled={resendLoading}

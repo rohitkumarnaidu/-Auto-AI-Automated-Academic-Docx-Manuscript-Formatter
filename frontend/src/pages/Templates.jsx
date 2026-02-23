@@ -99,7 +99,7 @@ export default function Templates() {
                             </div>
                             <div className="flex flex-col gap-1">
                                 <h3 className="text-[#0d131b] dark:text-white text-xl font-bold">Elsevier Standard</h3>
-                                <p className="text-sm text-[#4c6c9a] dark:text-slate-400 leading-relaxed min-h-[40px] line-clamp-2">General formatting guidelines compatible with Elsevier's wide range of journals.</p>
+                                <p className="text-sm text-[#4c6c9a] dark:text-slate-400 leading-relaxed min-h-[40px] line-clamp-2">General formatting guidelines compatible with Elsevier&apos;s wide range of journals.</p>
                             </div>
                             <div className="flex flex-col gap-3 mt-2">
                                 <button className="w-full bg-primary text-white py-2.5 rounded-lg font-semibold text-sm hover:bg-primary/90 transition-colors">Select Template</button>

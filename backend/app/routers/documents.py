@@ -415,7 +415,7 @@ async def get_preview(
     try:
         doc = DocumentService.get_document(job_id)
         if not doc:
-            raise HTTPException(status_code=404, detail="Document not found")
+            raise HTTPException(status_code=404, detail="Document job not found")
 
         if doc.get("user_id") is not None:
             if not current_user or str(doc["user_id"]) != str(current_user.id):
