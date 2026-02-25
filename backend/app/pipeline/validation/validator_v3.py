@@ -42,6 +42,22 @@ class DocumentValidator(PipelineStage):
         self.order_validator = SectionOrderValidator(self.contract_loader)
         self.integrity_engine = CrossReferenceEngine()
         self.crossref_client = CrossRefClient()
+
+    @staticmethod
+    def _as_bool(value: Any, default: bool = False) -> bool:
+        if value is None:
+            return default
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return bool(value)
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"1", "true", "yes", "on"}:
+                return True
+            if normalized in {"0", "false", "no", "off"}:
+                return False
+        return default
         
     def process(self, document: Document) -> Document:
         """Standard pipeline stage entry point."""
@@ -90,11 +106,15 @@ class DocumentValidator(PipelineStage):
         errors.extend(table_errors)
         warnings.extend(table_warnings)
         
-        # 6. CrossRef Validation (DOI)
-        doi_errors, doi_warnings = self._check_reference_integrity(document)
-        # Treat as warnings for now to avoid blocking processing on external API failures
-        warnings.extend(doi_warnings)
-        warnings.extend(doi_errors) 
+        # 6. CrossRef Validation (DOI) - optional in fast mode
+        options = getattr(document, "formatting_options", {}) or {}
+        if not self._as_bool(options.get("fast_mode"), False):
+            doi_errors, doi_warnings = self._check_reference_integrity(document)
+            # Treat as warnings for now to avoid blocking processing on external API failures
+            warnings.extend(doi_warnings)
+            warnings.extend(doi_errors)
+        else:
+            logger.debug("Validation fast mode enabled: skipping DOI CrossRef checks.")
         
         # 7. Confidence-Based HITL Signs
         review_manager = ReviewManager()

@@ -224,24 +224,33 @@ class TestGROBIDIntegration:
     
     @pytest.mark.integration
     def test_extract_metadata_pdf(self, client, tmp_path):
-        """Test metadata extraction from PDF (requires sample file)."""
-        # This test requires a sample PDF file
+        """Test metadata extraction from a real PDF file."""
         # Skip if GROBID not available
         if not client.is_available():
             pytest.skip("GROBID service not running")
-        
-        # TODO: Add sample PDF file to tests/fixtures/
-        # sample_pdf = Path("tests/fixtures/sample_paper.pdf")
-        # if not sample_pdf.exists():
-        #     pytest.skip("Sample PDF not found")
-        # 
-        # result = client.extract_metadata(str(sample_pdf))
-        # 
-        # assert result["title"]
-        # assert len(result["authors"]) > 0
-        # assert result["confidence"] > 0.5
-        
-        pytest.skip("Sample PDF fixture not yet added")
+
+        # Prefer repository samples so this test executes without manual fixtures.
+        sample_candidates = sorted(Path("samples").glob("*.pdf"))
+        if sample_candidates:
+            sample_pdf = sample_candidates[0]
+        else:
+            # Fallback: generate a minimal PDF dynamically when sample files are absent.
+            sample_pdf = tmp_path / "generated_sample.pdf"
+            from pypdf import PdfWriter
+            writer = PdfWriter()
+            writer.add_blank_page(width=595, height=842)
+            writer.add_metadata({"/Title": "Generated GROBID Test Document"})
+            with open(sample_pdf, "wb") as f:
+                writer.write(f)
+
+        result = client.extract_metadata(str(sample_pdf))
+
+        assert isinstance(result, dict)
+        assert "title" in result
+        assert "authors" in result
+        assert "confidence" in result
+        assert result.get("source") == "grobid"
+        assert 0.0 <= result["confidence"] <= 1.0
     
     @pytest.mark.integration
     def test_extract_metadata_service_unavailable(self):

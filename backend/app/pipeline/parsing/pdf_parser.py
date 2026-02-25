@@ -7,7 +7,9 @@ Converts to internal Document model for processing through the pipeline.
 
 import logging
 import os
-from typing import List, Tuple
+import hashlib
+import re
+from typing import List, Tuple, Dict, Set, Any, Optional
 
 logger = logging.getLogger(__name__)
 from datetime import datetime, timezone
@@ -28,8 +30,10 @@ from app.models import (
     TextStyle,
     Figure,
     ImageFormat,
+    Table,
+    TableCell,
 )
-from app.utils.id_generator import generate_block_id, generate_figure_id
+from app.utils.id_generator import generate_block_id, generate_figure_id, generate_table_id
 
 
 class PdfParser(BaseParser):
@@ -43,6 +47,7 @@ class PdfParser(BaseParser):
             )
         self.block_counter = 0
         self.figure_counter = 0
+        self.table_counter = 0
     
     def supports_format(self, file_extension: str) -> bool:
         """Check if this parser supports PDF format."""
@@ -69,6 +74,7 @@ class PdfParser(BaseParser):
         # Reset counters
         self.block_counter = 0
         self.figure_counter = 0
+        self.table_counter = 0
         
         # Open PDF document
         try:
@@ -102,16 +108,20 @@ class PdfParser(BaseParser):
         document.metadata = self._extract_metadata(pdf_doc)
         
         # Extract content
-        blocks, figures = self._extract_content(pdf_doc)
+        blocks, figures, tables = self._extract_content(pdf_doc)
         
         document.blocks = blocks
         document.figures = figures
+        document.tables = tables
         
         # Add processing history
         document.add_processing_stage(
             stage_name="parsing",
             status="success",
-            message=f"Parsed PDF: {len(blocks)} blocks, {len(figures)} figures from {len(pdf_doc)} pages"
+            message=(
+                f"Parsed PDF: {len(blocks)} blocks, {len(figures)} figures, "
+                f"{len(tables)} tables from {len(pdf_doc)} pages"
+            )
         )
         
         pdf_doc.close()
@@ -192,10 +202,81 @@ class PdfParser(BaseParser):
         
         return is_top or is_bottom
 
-    def _extract_content(self, pdf_doc) -> Tuple[List[Block], List[Figure]]:
+    def _normalize_margin_text(self, text: str) -> str:
+        """Canonical form used for repeated header/footer suppression."""
+        text = (text or "").lower()
+        text = re.sub(r"\bpage\s+\d+\b", " ", text)
+        text = re.sub(r"\d+", " ", text)
+        text = re.sub(r"\b[ivxlcdm]+\b", " ", text)
+        text = re.sub(r"\s+", " ", text).strip()
+        return text
+
+    def _sanitize_cell_text(self, value: Any) -> str:
+        """Normalize table cell value to a clean single-line string."""
+        if value is None:
+            return ""
+        return str(value).replace("\n", " ").strip()
+
+    def _build_table_model(
+        self,
+        rows: List[List[str]],
+        page_number: int,
+        block_index: int,
+    ) -> Optional[Table]:
+        """Create a Table model from raw extracted rows."""
+        if not rows:
+            return None
+
+        num_cols = max((len(r) for r in rows), default=0)
+        if num_cols == 0:
+            return None
+
+        normalized_rows: List[List[str]] = []
+        for row in rows:
+            cleaned = [self._sanitize_cell_text(cell) for cell in row]
+            if len(cleaned) < num_cols:
+                cleaned.extend([""] * (num_cols - len(cleaned)))
+            normalized_rows.append(cleaned)
+
+        num_rows = len(normalized_rows)
+        has_header = any(bool(v) for v in normalized_rows[0]) if normalized_rows else False
+        cells: List[TableCell] = []
+        for r_idx, row_vals in enumerate(normalized_rows):
+            for c_idx, text in enumerate(row_vals):
+                cells.append(
+                    TableCell(
+                        row=r_idx,
+                        col=c_idx,
+                        text=text,
+                        is_header=(has_header and r_idx == 0),
+                        bold=(has_header and r_idx == 0),
+                    )
+                )
+
+        table = Table(
+            table_id=generate_table_id(self.table_counter),
+            index=self.table_counter,
+            block_index=max(0, int(block_index)),
+            page_number=page_number,
+            num_rows=num_rows,
+            num_cols=num_cols,
+            cells=cells,
+            data=normalized_rows,
+            rows=normalized_rows,
+            has_header=has_header,
+            has_header_row=has_header,
+            header_rows=1 if has_header else 0,
+        )
+        self.table_counter += 1
+        return table
+
+    def _extract_content(self, pdf_doc) -> Tuple[List[Block], List[Figure], List[Table]]:
         """Extract text blocks, tables, and images from PDF."""
         blocks = []
         figures = []
+        tables = []
+        seen_margin_texts: Set[str] = set()
+        seen_image_hashes: Set[str] = set()
         
         # 0. Content Analysis (Dynamic Font Sizing)
         # ------------------------------------------------
@@ -215,41 +296,41 @@ class PdfParser(BaseParser):
             # 1. Extract Tables first (PyMuPDF find_tables)
             # ------------------------------------------------
             table_rects = []
+            page_tables: List[Dict[str, Any]] = []
             try:
-                tables = page.find_tables()
-                for table in tables:
+                page_tables_raw = page.find_tables()
+                for table in page_tables_raw:
                     # Get table bounding box to exclude raw text later
                     table_rects.append(table.bbox)
-                    
-                    # Extract table content as list of lists
-                    header = table.header
-                    rows = table.extract()
-                    
-                    # Convert to Markdown-like table text
-                    table_lines = []
-                    if header and hasattr(header, 'names') and header.names:
-                        table_lines.append(" | ".join([str(h) if h else "" for h in header.names]))
-                        table_lines.append(" | ".join(["---"] * len(header.names)))
-                    
-                    for row in rows:
-                        # Clean cell content (remove newlines within cells)
-                        cleaned_row = [str(cell).replace('\n', ' ').strip() if cell else "" for cell in row]
-                        table_lines.append(" | ".join(cleaned_row))
-                        
-                    if table_lines:
-                        block_id = generate_block_id(self.block_counter)
-                        self.block_counter += 1
-                        
-                        block = Block(
-                            block_id=block_id,
-                            text="\n".join(table_lines),
-                            index=self.block_counter * 100,
-                            block_type=BlockType.UNKNOWN,
-                            style=TextStyle(),
-                            page_number=page_num + 1
+
+                    header_names: List[str] = []
+                    header = getattr(table, "header", None)
+                    if header and hasattr(header, "names") and header.names:
+                        header_names = [self._sanitize_cell_text(h) for h in header.names]
+
+                    extracted_rows = table.extract() or []
+                    normalized_rows = [
+                        [self._sanitize_cell_text(cell) for cell in row]
+                        for row in extracted_rows
+                    ]
+                    if header_names:
+                        if normalized_rows and normalized_rows[0] == header_names:
+                            normalized_rows = normalized_rows[1:]
+                        normalized_rows = [header_names] + normalized_rows
+
+                    table_model = self._build_table_model(
+                        normalized_rows,
+                        page_number=page_num + 1,
+                        block_index=self.block_counter * 100,
+                    )
+                    if table_model:
+                        bbox = table.bbox if table.bbox else (0.0, float("inf"), 0.0, float("inf"))
+                        page_tables.append(
+                            {
+                                "table": table_model,
+                                "y0": float(bbox[1]),
+                            }
                         )
-                        block.metadata["is_table"] = True
-                        blocks.append(block)
             except Exception as exc:
                 logger.warning("PDF table extraction failed on page %d: %s", page_num + 1, exc)
 
@@ -261,24 +342,18 @@ class PdfParser(BaseParser):
             except Exception as exc:
                 logger.warning("Failed to get text dict on page %d: %s", page_num + 1, exc)
                 text_dict = {"blocks": []}
-            
+
+            page_text_positions: List[Tuple[int, float]] = []
+            last_text_key = ""
+
             # Process each block in the page
-            for block in text_dict.get("blocks", []):
-                if block.get("type") == 0:  # Text block
+            for raw_block in text_dict.get("blocks", []):
+                if raw_block.get("type") == 0:  # Text block
                     # Check if block overlaps significantly with any table
-                    block_bbox = block.get("bbox")
+                    block_bbox = raw_block.get("bbox")
                     is_in_table = False
                     
                     if block_bbox:
-                        # Check for header/footer
-                        if self._is_header_footer(block_bbox, page.rect):
-                            # Mark it but don't skip yet? Or skip?
-                            # For now, mark it in metadata so LLM can decide, 
-                            # BUT user wants "clean" text. 
-                            # If I skip it, it's gone.
-                            # If I mark it, I need to add it to block logic.
-                            pass # Will add metadata later when creating block
-                        
                         # specific logic: check if center of block is inside a table rect
                         b_x0, b_y0, b_x1, b_y1 = block_bbox
                         b_center_x = (b_x0 + b_x1) / 2
@@ -301,7 +376,7 @@ class PdfParser(BaseParser):
                     is_italic = False
                     
                     # Extract text and analyze styles from spans
-                    for line in block.get("lines", []):
+                    for line in raw_block.get("lines", []):
                         line_text = ""
                         for span in line.get("spans", []):
                             span_text = span.get("text", "")
@@ -325,6 +400,34 @@ class PdfParser(BaseParser):
                     text = " ".join(block_text_parts).strip()
                     
                     if text:
+                        # Suppress repeated headers/footers without dropping first occurrence
+                        is_margin_region = bool(block_bbox and self._is_header_footer(block_bbox, page.rect))
+                        is_header = False
+                        is_footer = False
+                        if is_margin_region and block_bbox:
+                            page_mid_y = (page.rect.y0 + page.rect.y1) / 2
+                            block_mid_y = (block_bbox[1] + block_bbox[3]) / 2
+                            is_header = block_mid_y < page_mid_y
+                            is_footer = not is_header
+
+                            # Keep likely title material on page 1
+                            if page_num == 0 and is_header and len(text.split()) > 3:
+                                is_margin_region = False
+                                is_header = False
+                                is_footer = False
+
+                        if is_margin_region:
+                            margin_key = self._normalize_margin_text(text)
+                            if margin_key and margin_key in seen_margin_texts:
+                                continue
+                            if margin_key:
+                                seen_margin_texts.add(margin_key)
+
+                        text_key = " ".join(text.lower().split())
+                        if text_key and text_key == last_text_key and len(text_key) > 20:
+                            continue
+                        last_text_key = text_key
+
                         block_id = generate_block_id(self.block_counter)
                         self.block_counter += 1
                         
@@ -335,10 +438,11 @@ class PdfParser(BaseParser):
                         # Create text style
                         style = TextStyle(
                             bold=is_bold,
-                            italic=is_italic
+                            italic=is_italic,
+                            font_size=(avg_font_size if avg_font_size > 0 else None),
                         )
                         
-                        block = Block(
+                        text_block = Block(
                             block_id=block_id,
                             text=text,
                             index=self.block_counter * 100,
@@ -346,6 +450,20 @@ class PdfParser(BaseParser):
                             style=style,
                             page_number=page_num + 1
                         )
+
+                        if is_header:
+                            text_block.metadata["is_header"] = True
+                        if is_footer:
+                            text_block.metadata["is_footer"] = True
+
+                        if block_bbox:
+                            text_block.metadata["bbox"] = [
+                                float(block_bbox[0]),
+                                float(block_bbox[1]),
+                                float(block_bbox[2]),
+                                float(block_bbox[3]),
+                            ]
+                            page_text_positions.append((text_block.index, float(block_bbox[1])))
                         
                         # Detect potential headings using ADAPTIVE thresholds
                         # Logic: 
@@ -354,30 +472,51 @@ class PdfParser(BaseParser):
                         # - H3: Slightly larger (> 1.1x) OR (Bold AND Same Size)
                         
                         if avg_font_size >= h3_threshold or (is_bold and avg_font_size >= body_font_size):
-                            block.metadata["potential_heading"] = True
+                            text_block.metadata["potential_heading"] = True
                             
                             if avg_font_size >= h1_threshold:
-                                block.metadata["heading_level"] = 1
+                                text_block.metadata["heading_level"] = 1
                             elif avg_font_size >= h2_threshold:
-                                block.metadata["heading_level"] = 2
+                                text_block.metadata["heading_level"] = 2
                             else:
-                                block.metadata["heading_level"] = 3
+                                text_block.metadata["heading_level"] = 3
                         
-                        block.metadata["font_size"] = avg_font_size
-                        block.metadata["relative_size"] = (
+                        text_block.metadata["font_size"] = avg_font_size
+                        text_block.metadata["relative_size"] = (
                             avg_font_size / body_font_size if body_font_size > 0 else 1.0
                         )
-                        blocks.append(block)
+                        blocks.append(text_block)
+
+            # Assign robust table anchors using nearest preceding text block
+            for t_info in sorted(page_tables, key=lambda item: item["y0"]):
+                table_obj: Table = t_info["table"]
+                y0 = t_info["y0"]
+                if page_text_positions:
+                    before = [idx for idx, by in page_text_positions if by <= y0]
+                    if before:
+                        table_obj.block_index = before[-1] + 1
+                    else:
+                        table_obj.block_index = max(0, page_text_positions[0][0] - 1)
+                else:
+                    table_obj.block_index = max(0, self.block_counter * 100 + 1)
+                tables.append(table_obj)
             
             # 3. Extract Images
             # ------------------------------------------------
-            image_list = page.get_images()
+            image_list = page.get_images(full=True)
             for img_index, img in enumerate(image_list):
                 try:
                     xref = img[0]
                     base_image = pdf_doc.extract_image(xref)
-                    image_data = base_image["image"]
-                    image_ext = base_image["ext"]
+                    image_data = base_image.get("image")
+                    image_ext = base_image.get("ext", "")
+                    if not image_data:
+                        continue
+
+                    image_hash = hashlib.sha1(image_data).hexdigest()
+                    if image_hash in seen_image_hashes:
+                        continue
+                    seen_image_hashes.add(image_hash)
                     
                     # Map extension to ImageFormat
                     format_map = {
@@ -394,13 +533,82 @@ class PdfParser(BaseParser):
                     
                     figure = Figure(
                         figure_id=figure_id,
-                        index=self.figure_counter,
+                        index=self.figure_counter - 1,
                         image_data=image_data,
-                        image_format=image_format
+                        image_format=image_format,
                     )
                     figure.metadata["page_number"] = page_num + 1
+
+                    anchor_index = max(0, self.block_counter * 100)
+                    try:
+                        image_rects = page.get_image_rects(xref)
+                    except Exception:
+                        image_rects = []
+                    if image_rects:
+                        first_rect = image_rects[0]
+                        figure.width = float(first_rect.width) if hasattr(first_rect, "width") else None
+                        figure.height = float(first_rect.height) if hasattr(first_rect, "height") else None
+                        if page_text_positions:
+                            above = [idx for idx, y in page_text_positions if y <= float(first_rect.y0)]
+                            if above:
+                                anchor_index = above[-1]
+                            else:
+                                anchor_index = page_text_positions[0][0]
+                        figure.metadata["bbox"] = [
+                            float(first_rect.x0),
+                            float(first_rect.y0),
+                            float(first_rect.x1),
+                            float(first_rect.y1),
+                        ]
+
+                    figure.metadata["block_index"] = anchor_index
                     figures.append(figure)
                 except Exception as exc:
                     logger.warning("Failed to extract image on page %d (img %d): %s", page_num + 1, img_index, exc)
+
+            # Fallback path for image blocks not exposed by get_images()
+            if not image_list:
+                for raw_block in text_dict.get("blocks", []):
+                    if raw_block.get("type") != 1:
+                        continue
+                    try:
+                        image_data = raw_block.get("image")
+                        if not isinstance(image_data, (bytes, bytearray)):
+                            continue
+                        image_hash = hashlib.sha1(image_data).hexdigest()
+                        if image_hash in seen_image_hashes:
+                            continue
+                        seen_image_hashes.add(image_hash)
+
+                        image_ext = str(raw_block.get("ext", "png")).lower()
+                        format_map = {
+                            "png": ImageFormat.PNG,
+                            "jpg": ImageFormat.JPEG,
+                            "jpeg": ImageFormat.JPEG,
+                            "gif": ImageFormat.GIF,
+                            "bmp": ImageFormat.BMP,
+                        }
+                        figure = Figure(
+                            figure_id=generate_figure_id(self.figure_counter),
+                            index=self.figure_counter,
+                            image_data=bytes(image_data),
+                            image_format=format_map.get(image_ext, ImageFormat.UNKNOWN),
+                            width=float(raw_block.get("width", 0) or 0) or None,
+                            height=float(raw_block.get("height", 0) or 0) or None,
+                        )
+                        self.figure_counter += 1
+                        figure.metadata["page_number"] = page_num + 1
+                        figure.metadata["block_index"] = max(0, self.block_counter * 100)
+                        if raw_block.get("bbox"):
+                            bbox = raw_block["bbox"]
+                            figure.metadata["bbox"] = [
+                                float(bbox[0]),
+                                float(bbox[1]),
+                                float(bbox[2]),
+                                float(bbox[3]),
+                            ]
+                        figures.append(figure)
+                    except Exception as exc:
+                        logger.warning("Failed to parse image block on page %d: %s", page_num + 1, exc)
         
-        return blocks, figures
+        return blocks, figures, tables

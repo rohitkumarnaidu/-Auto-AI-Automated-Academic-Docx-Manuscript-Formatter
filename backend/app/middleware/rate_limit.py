@@ -27,13 +27,21 @@ from starlette.middleware.base import BaseHTTPMiddleware
 # Module-level Redis client (lazily initialised, patched in tests)
 # ---------------------------------------------------------------------------
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
+_redis_enabled_raw = os.getenv("REDIS_ENABLED")
+REDIS_ENABLED = (
+    _redis_enabled_raw.strip().lower() in {"1", "true", "yes", "on"}
+    if _redis_enabled_raw is not None
+    else bool(os.getenv("REDIS_URL"))
+)
 redis: Optional[aioredis.Redis] = None  # kept for test-patch compat
 logger = logging.getLogger(__name__)
 
 
-def _ensure_redis() -> aioredis.Redis:
+def _ensure_redis() -> Optional[aioredis.Redis]:
     """Return (and lazily create) the module-level redis client."""
     global redis
+    if not REDIS_ENABLED:
+        return None
     if redis is None:
         redis = aioredis.from_url(REDIS_URL, decode_responses=True)
     return redis
@@ -93,8 +101,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     async def _redis_count(self, key: str) -> Optional[int]:
         """Try to increment the Redis counter; return count or None on error."""
+        if not REDIS_ENABLED:
+            return None
         try:
             r = _ensure_redis()
+            if r is None:
+                return None
             count = await r.incr(key)
             if count == 1:
                 await r.expire(key, self.WINDOW_SECONDS + 1)

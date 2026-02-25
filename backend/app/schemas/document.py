@@ -27,9 +27,13 @@ class FormattingOptions(BaseModel):
 
     page_numbers: bool = Field(True, description="Add page numbers to the footer.")
     borders: bool = Field(False, description="Add decorative page borders.")
-    cover_page: bool = Field(True, description="Prepend a cover page.")
+    cover_page: bool = Field(False, description="Prepend a cover page.")
     toc: bool = Field(False, description="Insert a Table of Contents.")
     page_size: PageSize = Field("Letter", description="Output page size.")
+    fast_mode: bool = Field(
+        False,
+        description="Enable performance-first pipeline (disables selected slow AI checks).",
+    )
 
 
 class DocumentUploadResponse(BaseModel):

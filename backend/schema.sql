@@ -89,6 +89,7 @@ CREATE TABLE IF NOT EXISTS documents (
     raw_text            TEXT,
     output_path         TEXT,
     formatting_options  JSONB,
+    file_hash           TEXT,
 
     -- Job state
     progress            INTEGER DEFAULT 0,                 -- 0-100
@@ -103,6 +104,7 @@ CREATE TABLE IF NOT EXISTS documents (
 CREATE INDEX IF NOT EXISTS idx_documents_user_id   ON documents(user_id);
 CREATE INDEX IF NOT EXISTS idx_documents_status     ON documents(status);
 CREATE INDEX IF NOT EXISTS idx_documents_created_at ON documents(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_documents_file_hash  ON documents(file_hash);
 
 -- Auto-update updated_at
 DROP TRIGGER IF EXISTS trg_documents_updated_at ON documents;
@@ -195,6 +197,24 @@ CREATE TRIGGER trg_processing_status_updated_at
 -- TABLE: pipeline_jobs  [COMMENTED OUT — enable when Celery tracking is needed]
 -- Tracks Celery async task state for long-running pipeline jobs.
 -- =============================================================================
+
+
+-- =============================================================================
+-- TABLE: model_metrics
+-- Stores model latency/success/quality events for dashboard and health checks.
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS model_metrics (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    model_name    TEXT NOT NULL,
+    latency_ms    REAL NOT NULL,
+    success       BOOLEAN NOT NULL DEFAULT TRUE,
+    quality_score REAL,
+    timestamp     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_model_metrics_timestamp ON model_metrics(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_model_metrics_model     ON model_metrics(model_name);
 
 -- CREATE TABLE IF NOT EXISTS pipeline_jobs (
 --     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),

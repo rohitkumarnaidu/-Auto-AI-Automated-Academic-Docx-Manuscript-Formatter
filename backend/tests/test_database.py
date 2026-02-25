@@ -19,7 +19,7 @@ class TestDatabaseLayer:
                 
                 from app.db.supabase_client import get_supabase_client
                 
-                client = get_supabase_client()
+                client = get_supabase_client(refresh=True)
                 assert mock_create_client.called
     
     @pytest.mark.database
@@ -31,7 +31,7 @@ class TestDatabaseLayer:
             from app.db.supabase_client import get_supabase_client
             
             # Should handle exception and return None
-            client = get_supabase_client()
+            client = get_supabase_client(refresh=True)
             assert client is None
     
     @pytest.mark.database
@@ -44,7 +44,7 @@ class TestDatabaseLayer:
             from app.db.supabase_client import get_supabase_client
             
             # Should handle missing creds and return None
-            client = get_supabase_client()
+            client = get_supabase_client(refresh=True)
             assert client is None
 
 if __name__ == "__main__":

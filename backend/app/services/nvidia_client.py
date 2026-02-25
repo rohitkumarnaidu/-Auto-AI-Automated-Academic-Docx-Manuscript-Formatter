@@ -62,6 +62,7 @@ class NvidiaClient:
         model: str = "llama-70b",
         temperature: float = 0.7,
         max_tokens: int = 1024,
+        timeout: int = 30,
     ) -> str:
         """
         Send a chat completion request to NVIDIA NIM.
@@ -91,6 +92,7 @@ class NvidiaClient:
                     model=litellm_model,
                     temperature=temperature,
                     max_tokens=max_tokens,
+                    timeout=timeout,
                     api_key=self.api_key,
                 )
             except Exception as exc:
@@ -104,6 +106,7 @@ class NvidiaClient:
                     messages=messages,
                     temperature=temperature,
                     max_tokens=max_tokens,
+                    timeout=timeout,
                 )
                 choices = response.choices
                 if not choices:

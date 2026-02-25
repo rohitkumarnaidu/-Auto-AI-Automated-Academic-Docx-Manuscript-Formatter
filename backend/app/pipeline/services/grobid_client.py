@@ -65,18 +65,26 @@ class GROBIDClient:
             return {}
             
         try:
-            files = {'input': open(file_path, 'rb')}
-            response = requests.post(
-                f"{self.base_url}/api/processHeaderDocument",
-                files=files,
-                timeout=self.timeout
-            )
+            with open(file_path, "rb") as fh:
+                files = {"input": fh}
+                response = requests.post(
+                    f"{self.base_url}/api/processHeaderDocument",
+                    files=files,
+                    timeout=self.timeout
+                )
             
             if response.status_code != 200:
                 logger.error(f"GROBID failed with status {response.status_code}")
                 return {}
-                
-            return self._parse_tei_xml(response.text)
+
+            response_text = (response.text or "").lstrip()
+            if not response_text.startswith("<"):
+                logger.warning(
+                    "GROBID returned non-XML payload. Falling back to empty metadata."
+                )
+                return self._empty_metadata()
+
+            return self._parse_tei_xml(response_text)
             
         except Exception as e:
             logger.error(f"GROBID processing failed: {e}")
@@ -91,12 +99,13 @@ class GROBIDClient:
             return []
             
         try:
-            files = {'input': open(file_path, 'rb')}
-            response = requests.post(
-                f"{self.base_url}/api/processReferences",
-                files=files,
-                timeout=self.timeout
-            )
+            with open(file_path, "rb") as fh:
+                files = {"input": fh}
+                response = requests.post(
+                    f"{self.base_url}/api/processReferences",
+                    files=files,
+                    timeout=self.timeout
+                )
             
             if response.status_code != 200:
                 return []
@@ -137,6 +146,11 @@ class GROBIDClient:
             Structured metadata dictionary
         """
         try:
+            xml_str = (xml_str or "").lstrip("\ufeff \t\r\n")
+            if not xml_str.startswith("<"):
+                logger.warning("GROBID XML parse skipped: payload does not start with XML tag.")
+                return self._empty_metadata()
+
             root = ET.fromstring(xml_str)
             
             # Extract title
@@ -163,7 +177,8 @@ class GROBIDClient:
             }
             
         except ET.ParseError as e:
-            logger.error(f"Failed to parse GROBID XML: {str(e)}")
+            preview = (xml_str or "")[:120].replace("\n", " ").replace("\r", " ")
+            logger.warning("Failed to parse GROBID XML (%s). Payload preview: %s", str(e), preview)
             return self._empty_metadata()
     
     def _extract_title(self, root: ET.Element) -> str:

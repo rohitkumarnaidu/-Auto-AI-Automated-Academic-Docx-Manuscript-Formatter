@@ -161,6 +161,7 @@ class RagEngine:
                 "Core Pydantic V1",
                 "chroma_server_nofile",
                 "ConfigError",
+                "no such column: collections.topic",
             )
             is_known = any(s in error_msg for s in _known_compat_errors)
 

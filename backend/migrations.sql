@@ -35,11 +35,42 @@ ALTER TABLE public.ab_test_results ENABLE ROW LEVEL SECURITY;
 
 -- Create policies for service role bypassing (Supabase automatically bypasses RLS for service role,
 -- but we allow select for authenticated backend users if needed).
-CREATE POLICY "Allow read access to anyone" ON public.model_metrics FOR SELECT USING (true);
-CREATE POLICY "Allow read access to anyone" ON public.ab_test_results FOR SELECT USING (true);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public'
+          AND tablename = 'model_metrics'
+          AND policyname = 'Allow read access to anyone'
+    ) THEN
+        CREATE POLICY "Allow read access to anyone"
+        ON public.model_metrics
+        FOR SELECT
+        USING (true);
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public'
+          AND tablename = 'ab_test_results'
+          AND policyname = 'Allow read access to anyone'
+    ) THEN
+        CREATE POLICY "Allow read access to anyone"
+        ON public.ab_test_results
+        FOR SELECT
+        USING (true);
+    END IF;
+END
+$$;
 
 -- FIX 47: Indexes for Documents Table Queries
+ALTER TABLE public.documents ADD COLUMN IF NOT EXISTS file_hash TEXT;
 CREATE INDEX IF NOT EXISTS idx_documents_user_id ON public.documents (user_id);
 CREATE INDEX IF NOT EXISTS idx_documents_status ON public.documents (status);
 CREATE INDEX IF NOT EXISTS idx_documents_created_at ON public.documents (created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_documents_template_name ON public.documents (template_name);
+CREATE INDEX IF NOT EXISTS idx_documents_template ON public.documents (template);
+CREATE INDEX IF NOT EXISTS idx_documents_file_hash ON public.documents (file_hash);

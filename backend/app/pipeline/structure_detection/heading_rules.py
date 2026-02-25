@@ -93,8 +93,13 @@ def detect_title(block: Block, all_blocks: list) -> bool:
     if not text or len(text) < 5 or len(text) > 200:
         return False
         
-    # Find all non-empty blocks
-    non_empty = [b for b in all_blocks if b.text.strip()]
+    # Find all non-empty body blocks (ignore parser-marked headers/footers)
+    non_empty = [
+        b for b in all_blocks
+        if b.text.strip()
+        and not b.metadata.get("is_header")
+        and not b.metadata.get("is_footer")
+    ]
     if not non_empty:
         return False
         
@@ -338,6 +343,16 @@ def analyze_heading_candidate(
         reasons.append("Heading Style")
         confidence += style_score * 0.4
 
+    # Priority 4: Parser heading hint (PDF/Doc parser signal)
+    parser_heading_hint = False
+    parser_heading_level = None
+    if isinstance(getattr(block, "metadata", None), dict):
+        parser_heading_hint = bool(block.metadata.get("potential_heading"))
+        parser_heading_level = block.metadata.get("heading_level")
+    if parser_heading_hint:
+        reasons.append("Parser Heading Signal")
+        confidence += 0.45
+
     # FALLBACK LOGIC: Keyword-Independent Heading Heuristic
     # If we haven't crossed threshold but it's short, isolated, and Title Case
     if confidence < 0.4:
@@ -362,6 +377,8 @@ def analyze_heading_candidate(
         
     # Level Inference
     level = infer_heading_level(block, num_info)
+    if parser_heading_level in {1, 2, 3, 4} and not num_info:
+        level = int(parser_heading_level)
     if not num_info and not matches_section_keyword(text):
         # Default level 2 for fallback headings
         level = 2

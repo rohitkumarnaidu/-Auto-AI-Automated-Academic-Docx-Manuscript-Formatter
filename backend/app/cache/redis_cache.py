@@ -14,6 +14,12 @@ class RedisCache:
     """
     
     def __init__(self, host: str = "localhost", port: int = 6379, db: int = 0):
+        redis_enabled = os.getenv("REDIS_ENABLED", "true").strip().lower() in {"1", "true", "yes", "on"}
+        if not redis_enabled:
+            logger.info("Redis cache disabled via REDIS_ENABLED=false. Using in-memory/no-cache mode.")
+            self.client = None
+            return
+
         try:
             self.client = redis.Redis(
                 host=os.getenv("REDIS_HOST", host),
@@ -25,7 +31,7 @@ class RedisCache:
             self.client.ping()
             logger.info(f"Connected to Redis at {host}:{port}")
         except Exception as e:
-            logger.warning(f"Failed to connect to Redis: {e}. Caching will be disabled.")
+            logger.info("Redis cache unavailable (%s). Caching disabled; pipeline continues normally.", e)
             self.client = None
 
     def _generate_key(self, content: str, prefix: str = "grobid") -> str:

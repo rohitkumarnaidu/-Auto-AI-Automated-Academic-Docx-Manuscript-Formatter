@@ -7,7 +7,6 @@ from app.pipeline.safety.retry_guard import retry_guard
 from app.pipeline.safety.circuit_breaker import circuit_breaker
 from app.pipeline.safety.llm_validator import guard_llm_output
 from pydantic import BaseModel, Field
-from typing import List
 
 class SemanticBlockSchema(BaseModel):
     block_id: str
@@ -41,7 +40,7 @@ try:
     METRICS_AVAILABLE = True
 except ImportError:
     METRICS_AVAILABLE = False
-    print("⚠️ Model metrics unavailable")
+    print("[WARN] Model metrics unavailable")
 
 # Import unified LLM service (LiteLLM-backed)
 try:
@@ -57,7 +56,7 @@ except ImportError:
     LITELLM_AVAILABLE = False
     LLM_NVIDIA = "nvidia_nim/meta/llama-3.3-70b-instruct"
     LLM_DEEPSEEK = "ollama/deepseek-r1"
-    print("⚠️ llm_service not available — using legacy LangChain paths")
+    print("[WARN] llm_service not available - using legacy LangChain paths")
 
 # LangChain Ollama (kept as secondary fallback when litellm unavailable)
 try:
@@ -75,29 +74,71 @@ class ReasoningEngine:
     - Tier 2: Ollama (DeepSeek Coder/Mistral) - Fallback Local Intelligence
     - Tier 3: Heuristic Rules - Safety Net
     """
+
+    _ALLOWED_SEMANTIC_TYPES = {
+        "TITLE",
+        "AUTHOR",
+        "AFFILIATION",
+        "ABSTRACT_HEADING",
+        "ABSTRACT_BODY",
+        "HEADING_1",
+        "HEADING_2",
+        "BODY",
+        "FIGURE_CAPTION",
+        "TABLE_CAPTION",
+        "REFERENCES_HEADING",
+        "REFERENCE_ENTRY",
+    }
+    _SEMANTIC_ALIASES = {
+        "BODY_TEXT": "BODY",
+        "PARAGRAPH": "BODY",
+        "HEADING": "HEADING_1",
+        "SECTION_HEADING": "HEADING_1",
+        "REFERENCE": "REFERENCE_ENTRY",
+        "BIBLIOGRAPHY_ENTRY": "REFERENCE_ENTRY",
+        "BIBLIOGRAPHY_HEADING": "REFERENCES_HEADING",
+    }
     
     def __init__(self, timeout: int = 30):
         import os
+        env_timeout = os.environ.get("REASONING_TIMEOUT_SECONDS")
+        if env_timeout is not None:
+            try:
+                timeout = int(env_timeout)
+            except ValueError:
+                pass
+
         self.nvidia_api_key = os.environ.get("NVIDIA_API_KEY", "")  # Loaded from env in real usage
+        in_pytest = bool(os.environ.get("PYTEST_CURRENT_TEST"))
+        nvidia_override = os.environ.get("ENABLE_NVIDIA_REASONER")
+        enable_nvidia = True
+        if nvidia_override is not None:
+            enable_nvidia = nvidia_override.strip().lower() not in {"0", "false", "no", "off"}
+        elif in_pytest:
+            # Keep reasoning tests deterministic unless explicitly enabled.
+            enable_nvidia = False
         
         # Ollama Configuration
         self.ollama_base_url = "http://localhost:11434"
         self.fallback_model = "deepseek-r1:8b"
         
-        self.timeout = timeout  # Supports ReasoningEngine(timeout=N)
+        self.timeout = max(5, int(timeout))  # Supports ReasoningEngine(timeout=N)
         self.model = self.fallback_model
         
         # Initialize NVIDIA client (primary)
         self.nvidia_client = None
         self.nvidia_available = False
-        try:
-            from app.services.nvidia_client import get_nvidia_client
-            self.nvidia_client = get_nvidia_client()
-            self.nvidia_available = self.nvidia_client is not None
-            if self.nvidia_available:
-                print("✅ NVIDIA Llama 3.3 70B available (primary)")
-        except Exception as e:
-            print(f"⚠️ NVIDIA unavailable: {e}")
+        if enable_nvidia:
+            try:
+                from app.services.nvidia_client import get_nvidia_client
+                self.nvidia_client = get_nvidia_client()
+                self.nvidia_available = self.nvidia_client is not None
+                if self.nvidia_available:
+                    print("[OK] NVIDIA Llama 3.3 70B available (primary)")
+            except Exception as e:
+                print(f"[WARN] NVIDIA unavailable: {e}")
+        else:
+            print("[INFO] NVIDIA reasoning disabled for current environment.")
         
         # Initialize DeepSeek/Ollama (fallback)
         self.ollama_available = self._check_ollama_health()
@@ -110,17 +151,17 @@ class ReasoningEngine:
                     format="json",  # Ensure JSON output
                     timeout=self.timeout
                 )
-                print(f"✅ DeepSeek {self.fallback_model} available (fallback)")
+                print(f"[OK] DeepSeek {self.fallback_model} available (fallback)")
             except Exception as e:
-                print(f"⚠️ Failed to init ChatOllama: {e}")
+                print(f"[WARN] Failed to init ChatOllama: {e}")
                 self.llm = None
                 self.ollama_available = False
         else:
             self.llm = None
-            print(f"⚠️ Ollama server unavailable at {self.ollama_base_url}")
+            print(f"[WARN] Ollama server unavailable at {self.ollama_base_url}")
         
         # Always have rule-based fallback
-        print("✅ Rule-based heuristics available (final fallback)")
+        print("[OK] Rule-based heuristics available (final fallback)")
     
     def _check_ollama_health(self) -> bool:
         """Check if Ollama server is reachable and find best model."""
@@ -146,17 +187,17 @@ class ReasoningEngine:
                 # Find best alternative (prefer deepseek)
                 for m in model_names:
                     if "deepseek" in m.lower():
-                        print(f"ℹ️ Auto-selected DeepSeek model: {m}")
+                        print(f"[INFO] Auto-selected DeepSeek model: {m}")
                         self.fallback_model = m
                         return True
                 
                 # Fallback to any model if deepseek not found
                 if model_names:
-                    print(f"ℹ️ DeepSeek not found, using available model: {model_names[0]}")
+                    print(f"[INFO] DeepSeek not found, using available model: {model_names[0]}")
                     self.fallback_model = model_names[0]
                     return True
                 
-                # 200 response but no models — still treat as available
+                # 200 response but no models - still treat as available
                 return True
             return False
         except (requests.RequestException, Exception):
@@ -164,19 +205,151 @@ class ReasoningEngine:
     
     def _validate_json_schema(self, data: Dict[str, Any]) -> bool:
         """Validate JSON output schema."""
+        if not isinstance(data, dict):
+            return False
         if "error" in data:
             return False
-        if "blocks" not in data:
+        blocks = data.get("blocks")
+        if not isinstance(blocks, list):
             return False
-        for block in data.get("blocks", []):
-            required_fields = ["block_id", "semantic_type", "confidence"]
-            if not all(field in block for field in required_fields):
+        for block in blocks:
+            if not isinstance(block, dict):
+                return False
+
+            block_id = block.get("block_id")
+            semantic_type = block.get("semantic_type")
+            confidence = block.get("confidence")
+
+            if block_id is None:
+                return False
+            if not str(block_id).strip():
+                return False
+            if not isinstance(semantic_type, str) or not semantic_type.strip():
+                return False
+            try:
+                confidence_value = float(confidence)
+            except (TypeError, ValueError):
+                return False
+            if confidence_value < 0.0 or confidence_value > 1.0:
                 return False
         return True
+
+    def _normalize_semantic_type(self, value: Any) -> str:
+        """Normalize LLM semantic labels into the canonical instruction set."""
+        if value is None:
+            return "BODY"
+
+        semantic = str(value).strip().upper().replace("-", "_").replace(" ", "_")
+        semantic = self._SEMANTIC_ALIASES.get(semantic, semantic)
+
+        if semantic in self._ALLOWED_SEMANTIC_TYPES:
+            return semantic
+        if "ABSTRACT" in semantic and "HEADING" in semantic:
+            return "ABSTRACT_HEADING"
+        if "ABSTRACT" in semantic:
+            return "ABSTRACT_BODY"
+        if "REFERENCE" in semantic or "BIBLIO" in semantic:
+            return "REFERENCE_ENTRY"
+        if semantic.startswith("HEADING"):
+            return "HEADING_1"
+        return "BODY"
+
+    def _normalize_confidence(self, value: Any, default: float = 0.72) -> float:
+        """Coerce confidence values to a bounded [0.0, 1.0] float."""
+        try:
+            confidence = float(value)
+        except (TypeError, ValueError):
+            return default
+        if confidence < 0.0:
+            return 0.0
+        if confidence > 1.0:
+            return 1.0
+        return confidence
+
+    def _normalize_instruction_payload(
+        self,
+        data: Optional[Dict[str, Any]],
+        semantic_blocks: List[Dict[str, Any]],
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Normalize model output into canonical schema.
+        Accepts variants like `instructions`/`blocks`, id aliases, and score aliases.
+        """
+        if not isinstance(data, dict):
+            return None
+
+        raw_blocks = data.get("blocks")
+        if not isinstance(raw_blocks, list):
+            alt_blocks = data.get("instructions")
+            raw_blocks = alt_blocks if isinstance(alt_blocks, list) else None
+        if not isinstance(raw_blocks, list):
+            return None
+
+        normalized_blocks: List[Dict[str, Any]] = []
+        for idx, raw in enumerate(raw_blocks):
+            if not isinstance(raw, dict):
+                continue
+
+            source = semantic_blocks[idx] if idx < len(semantic_blocks) else {}
+            block_id = (
+                raw.get("block_id")
+                or raw.get("blockId")
+                or raw.get("id")
+                or source.get("block_id")
+                or source.get("id")
+                or f"b{idx}"
+            )
+            block_id = str(block_id).strip() or f"b{idx}"
+
+            semantic_type = self._normalize_semantic_type(
+                raw.get("semantic_type")
+                or raw.get("type")
+                or raw.get("label")
+                or raw.get("section_type")
+                or raw.get("classification")
+            )
+            confidence = self._normalize_confidence(
+                raw.get("confidence")
+                or raw.get("score")
+                or raw.get("probability")
+            )
+
+            normalized: Dict[str, Any] = {
+                "block_id": block_id,
+                "semantic_type": semantic_type,
+                "confidence": confidence,
+            }
+
+            canonical_section_name = raw.get("canonical_section_name") or raw.get("section_name")
+            if isinstance(canonical_section_name, str) and canonical_section_name.strip():
+                normalized["canonical_section_name"] = canonical_section_name.strip()
+
+            normalized_blocks.append(normalized)
+
+        if not normalized_blocks:
+            return None
+
+        avg_confidence = sum(block["confidence"] for block in normalized_blocks) / len(normalized_blocks)
+        normalized_payload: Dict[str, Any] = {
+            "blocks": normalized_blocks,
+            "instructions": normalized_blocks,
+            "confidence": round(avg_confidence, 3),
+            "fallback": bool(data.get("fallback", False)),
+        }
+
+        model_name = data.get("model")
+        if isinstance(model_name, str) and model_name.strip():
+            normalized_payload["model"] = model_name.strip()
+
+        latency = data.get("latency")
+        if isinstance(latency, (int, float)):
+            normalized_payload["latency"] = float(latency)
+
+        return normalized_payload
     
     def _rule_based_fallback(self, semantic_blocks: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Rule-based classification fallback when Ollama unavailable."""
-        print("⚠️  Using rule-based fallback classification")
+        print("[WARN] Using rule-based fallback classification")
         blocks = []
         for block in semantic_blocks:
             text = block.get("text", "").strip().lower()
@@ -200,11 +373,16 @@ class ReasoningEngine:
                 "confidence": 0.5  # Lower confidence for rule-based
             })
         
-        return {"blocks": blocks, "fallback": True}
+        return {
+            "blocks": blocks,
+            "instructions": blocks,
+            "confidence": 0.5,
+            "fallback": True,
+        }
     
     @retry_guard(max_retries=3)
     def _call_ollama(self, prompt: str) -> Optional[Dict[str, Any]]:
-        """Call Local Ollama API (direct HTTP — used when llm_service unavailable)."""
+        """Call Local Ollama API (direct HTTP - used when llm_service unavailable)."""
         try:
             payload = {
                 "model": self.fallback_model,
@@ -245,6 +423,7 @@ class ReasoningEngine:
             model=LLM_NVIDIA,
             temperature=0.3,
             max_tokens=2048,
+            timeout=self.timeout,
         )
         if not text:
             return None
@@ -279,6 +458,7 @@ class ReasoningEngine:
                 print("Attempting NVIDIA Llama 3.3 70B...")
                 start_time = time.time()
                 result = self._generate_with_nvidia(semantic_blocks, rules)
+                result = self._normalize_instruction_payload(result, semantic_blocks)
                 latency = time.time() - start_time
                 
                 if result and self._validate_json_schema(result):
@@ -309,11 +489,21 @@ class ReasoningEngine:
         # Fallback to DeepSeek/Ollama
         if getattr(self, 'ollama_available', False) and getattr(self, 'llm', None) is not None:
             try:
-                print("🔄 Attempting DeepSeek via Ollama...")
+                print("[INFO] Attempting DeepSeek via Ollama...")
                 start_time = time.time()
                 result = self._generate_with_deepseek(semantic_blocks, rules, max_retries)
+                result = self._normalize_instruction_payload(result, semantic_blocks)
                 latency = time.time() - start_time
-                
+
+                if result and result.get("fallback"):
+                    result["latency"] = latency
+                    result["model"] = "rule_based"
+                    if METRICS_AVAILABLE:
+                        get_model_metrics().record_call("deepseek", False, latency)
+                        get_model_metrics().record_fallback("deepseek", "rules", "DeepSeek returned fallback payload")
+                    print("[WARN] DeepSeek returned fallback payload; using normalized rule-based output.")
+                    return result
+
                 if result and self._validate_json_schema(result):
                     result["latency"] = latency
                     result["model"] = self.model
@@ -323,23 +513,23 @@ class ReasoningEngine:
                     if METRICS_AVAILABLE:
                         get_model_metrics().record_call("deepseek", True, latency)
                     
-                    print(f"✅ DeepSeek analysis successful ({latency:.2f}s)")
+                    print(f"[OK] DeepSeek analysis successful ({latency:.2f}s)")
                     return result
                 else:
                     # Record failure
                     if METRICS_AVAILABLE:
                         get_model_metrics().record_call("deepseek", False, latency)
                         get_model_metrics().record_fallback("deepseek", "rules", "Invalid schema")
-                    print("⚠️ DeepSeek returned invalid schema or no result, falling back...")
+                    print("[WARN] DeepSeek returned invalid schema or no result, falling back...")
             except Exception as e:
                 # Record failure
                 if METRICS_AVAILABLE:
                     get_model_metrics().record_call("deepseek", False, time.time() - start_time)
                     get_model_metrics().record_fallback("deepseek", "rules", str(e))
-                print(f"⚠️ DeepSeek failed: {e}. Falling back to rules...")
+                print(f"[WARN] DeepSeek failed: {e}. Falling back to rules...")
         
         # Final fallback to rule-based
-        print("📋 Using rule-based heuristics (final fallback)")
+        print("[INFO] Using rule-based heuristics (final fallback)")
         return self._rule_based_fallback(semantic_blocks)
     
     def _generate_with_nvidia(self, semantic_blocks: List[Dict[str, Any]], rules: str) -> Dict[str, Any]:
@@ -382,16 +572,16 @@ class ReasoningEngine:
             {"role": "user",   "content": user_prompt},
         ]
 
-        # Prefer llm_service (LiteLLM) → fall back to nvidia_client.chat()
+        # Prefer llm_service (LiteLLM) -> fall back to nvidia_client.chat()
         response = ""
         if _LLM_SERVICE_AVAILABLE and LITELLM_AVAILABLE:
             try:
                 response = _llm_generate(
                     messages=messages, model=LLM_NVIDIA,
-                    temperature=0.3, max_tokens=2048,
+                    temperature=0.3, max_tokens=1536, timeout=self.timeout,
                 )
             except Exception as exc:
-                print(f"⚠️ llm_service NVIDIA call failed: {exc}")
+                print(f"[WARN] llm_service NVIDIA call failed: {exc}")
 
         if not response and self.nvidia_client:
             response = self.nvidia_client.chat(messages, model="llama-70b", temperature=0.3, max_tokens=2048)
@@ -438,18 +628,18 @@ class ReasoningEngine:
         for attempt in range(max_retries + 1):
             start_time = time.time()
             try:
-                # Path 1: LangChain ChatOllama (preferred when self.llm is set — test mock compat)
+                # Path 1: LangChain ChatOllama (preferred when self.llm is set - test mock compat)
                 if self.llm is not None:
                     response = self.llm.invoke(prompt)
                     result = _parse_response(
                         response.content if hasattr(response, 'content') else str(response)
                     )
 
-                # Path 2: llm_service (LiteLLM) — used when no local llm
+                # Path 2: llm_service (LiteLLM) - used when no local llm
                 elif _LLM_SERVICE_AVAILABLE and LITELLM_AVAILABLE:
                     raw = _llm_generate(
                         messages=messages, model=LLM_DEEPSEEK,
-                        temperature=0.3, max_tokens=2048,
+                        temperature=0.3, max_tokens=1536, timeout=self.timeout,
                     )
                     result = _parse_response(raw)
 
@@ -458,20 +648,20 @@ class ReasoningEngine:
 
                 latency = time.time() - start_time
                 if result:
-                    print(f"✅ DeepSeek reasoning completed in {latency:.2f}s")
+                    print(f"[OK] DeepSeek reasoning completed in {latency:.2f}s")
                     return result
 
-                print(f"⚠️  DeepSeek returned unparseable response (attempt {attempt + 1}/{max_retries + 1})")
+                print(f"[WARN] DeepSeek returned unparseable response (attempt {attempt + 1}/{max_retries + 1})")
 
             except json.JSONDecodeError as e:
-                print(f"⚠️  DeepSeek JSON parse error (attempt {attempt + 1}/{max_retries + 1}): {e}")
+                print(f"[WARN] DeepSeek JSON parse error (attempt {attempt + 1}/{max_retries + 1}): {e}")
             except Exception as e:
-                print(f"⚠️  DeepSeek error (attempt {attempt + 1}/{max_retries + 1}): {e}")
+                print(f"[WARN] DeepSeek error (attempt {attempt + 1}/{max_retries + 1}): {e}")
 
             if attempt < max_retries:
                 time.sleep(1)
             else:
-                print("❌ All retries failed. Falling back to rule-based classification.")
+                print("[ERROR] All retries failed. Falling back to rule-based classification.")
                 return self._rule_based_fallback(semantic_blocks)
 
         return self._rule_based_fallback(semantic_blocks)

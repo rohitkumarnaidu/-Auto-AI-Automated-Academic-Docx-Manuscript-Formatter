@@ -600,32 +600,35 @@ class DocxParser(BaseParser):
         for run in paragraph.runs:
             # Check for inline shapes (images)
             if hasattr(run, '_element'):
-                for drawing in run._element.findall('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}drawing'):
-                    # Found an image
-                    try:
-                        # Get image part
-                        inline_shapes = run._element.findall(
-                            './/{http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing}inline'
-                        )
-                        
-                        for inline in inline_shapes:
-                            # Safely get part from run (support different python-docx versions)
-                            # This prevents 'AttributeError: 'Run' object has no attribute '_part''
-                            part = None
-                            try:
-                                part = getattr(run, 'part', getattr(run, '_part', None))
-                            except AttributeError:
-                                # Certain environments might still throw if even getattr is restricted (rare)
-                                pass
-                                
-                            if part:
-                                figure = self._extract_image_from_inline(inline, part)
-                                if figure:
-                                    figures.append(figure)
-                    except Exception as e:
-                        # If image extraction fails, log but continue
-                        # Don't let image errors stop paragraph processing
-                        print(f"Warning: Failed to extract inline image: {e}")
+                try:
+                    # Collect both inline and anchored drawings.
+                    # Many DOCX files place images as wp:anchor, not wp:inline.
+                    inline_shapes = run._element.findall(
+                        './/{http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing}inline'
+                    )
+                    anchor_shapes = run._element.findall(
+                        './/{http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing}anchor'
+                    )
+                    drawing_shapes = list(inline_shapes) + list(anchor_shapes)
+                    
+                    for inline in drawing_shapes:
+                        # Safely get part from run (support different python-docx versions)
+                        # This prevents 'AttributeError: 'Run' object has no attribute '_part''
+                        part = None
+                        try:
+                            part = getattr(run, 'part', getattr(run, '_part', None))
+                        except AttributeError:
+                            # Certain environments might still throw if even getattr is restricted (rare)
+                            pass
+                            
+                        if part:
+                            figure = self._extract_image_from_inline(inline, part)
+                            if figure:
+                                figures.append(figure)
+                except Exception as e:
+                    # If image extraction fails, log but continue
+                    # Don't let image errors stop paragraph processing
+                    print(f"Warning: Failed to extract inline image: {e}")
         
         return figures
     

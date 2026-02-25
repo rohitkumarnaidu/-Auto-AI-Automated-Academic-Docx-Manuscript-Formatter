@@ -109,7 +109,7 @@ class PipelineOrchestrator:
         document_id = str(document_id)
         sb = get_supabase_client()
         if not sb:
-            print(f"⚠️ Supabase client unavailable for status update: {phase} -> {status}")
+            print(f"WARNING: Supabase client unavailable for status update: {phase} -> {status}")
             return
 
         try:
@@ -164,7 +164,7 @@ class PipelineOrchestrator:
                 "progress": progress
             })
         except Exception as e:
-            print(f"❌ Supabase status update failed for job {document_id}: {e}")
+            print(f"ERROR: Supabase status update failed for job {document_id}: {e}")
 
     def _check_cancelled(self, job_id: str):
         """Check if the job has been cancelled by the user in Supabase."""
@@ -225,13 +225,180 @@ class PipelineOrchestrator:
     def _run_with_timeout(self, func, timeout_sec: int, *args, **kwargs):
         """Helper to run a synchronous pipeline stage with a strict timeout."""
         import concurrent.futures
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(func, *args, **kwargs)
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        future = executor.submit(func, *args, **kwargs)
+        try:
+            return future.result(timeout=timeout_sec)
+        except concurrent.futures.TimeoutError:
+            future.cancel()
+            logger.warning("Pipeline stage timed out after %ds", timeout_sec)
+            raise TimeoutError(f"Stage timed out after {timeout_sec}s")
+        finally:
+            executor.shutdown(wait=False, cancel_futures=True)
+
+    @staticmethod
+    def _coerce_bool(value: Any, default: bool = False) -> bool:
+        """Normalize flexible bool-like values from request options."""
+        if value is None:
+            return default
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return bool(value)
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"1", "true", "yes", "on"}:
+                return True
+            if normalized in {"0", "false", "no", "off"}:
+                return False
+        return default
+
+    def _resolve_runtime_flags(self, formatting_options: Optional[Dict[str, Any]]) -> Dict[str, bool]:
+        """
+        Resolve execution flags from formatting options.
+        fast_mode defaults to disabled to preserve full AI pipeline quality.
+        During pytest, fast_mode defaults to enabled to keep tests deterministic.
+        """
+        options = formatting_options or {}
+        in_pytest = bool(os.environ.get("PYTEST_CURRENT_TEST"))
+        default_fast_mode = True if in_pytest else False
+        fast_mode = self._coerce_bool(options.get("fast_mode"), default_fast_mode)
+        return {
+            "fast_mode": fast_mode,
+            "semantic_parser": self._coerce_bool(options.get("semantic_parser"), not fast_mode),
+            "crossref_enrichment": self._coerce_bool(options.get("crossref_enrichment"), not fast_mode),
+            "ai_reasoning": self._coerce_bool(options.get("ai_reasoning"), not fast_mode),
+        }
+
+    @staticmethod
+    def _should_skip_docling_for_digital_pdf(input_path: str) -> bool:
+        """
+        Skip Docling layout pass for digital-native PDFs to reduce latency.
+        This keeps Docling available for scanned/low-text PDFs.
+        """
+        force_docling = os.getenv("PIPELINE_DOCLING_FORCE", "false").strip().lower() in {"1", "true", "yes", "on"}
+        if force_docling:
+            return False
+
+        auto_skip = os.getenv("PIPELINE_DOCLING_SKIP_DIGITAL_PDF", "true").strip().lower() in {"1", "true", "yes", "on"}
+        if not auto_skip:
+            return False
+
+        try:
+            import fitz  # type: ignore
+
+            with fitz.open(input_path) as pdf_doc:
+                if len(pdf_doc) == 0:
+                    return False
+                sample_pages = min(2, len(pdf_doc))
+                sample_chars = 0
+                for page_idx in range(sample_pages):
+                    text = (pdf_doc[page_idx].get_text("text") or "").strip()
+                    sample_chars += len(text)
+                return sample_chars >= 250
+        except Exception:
+            return False
+
+    def _sync_block_confidence(self, doc_obj: PipelineDocument) -> None:
+        """
+        Promote classifier confidence into metadata['nlp_confidence'] so review
+        logic evaluates final semantic assignments, not stale pre-classifier values.
+        """
+        for block in getattr(doc_obj, "blocks", []):
+            raw_conf = block.metadata.get("classification_confidence")
+            if raw_conf is None:
+                raw_conf = getattr(block, "classification_confidence", None)
+            if raw_conf is None:
+                raw_conf = block.metadata.get("nlp_confidence")
+
             try:
-                return future.result(timeout=timeout_sec)
-            except concurrent.futures.TimeoutError:
-                logger.error("Pipeline stage timed out after %ds", timeout_sec)
-                raise TimeoutError(f"Stage timed out after {timeout_sec}s")
+                confidence = float(raw_conf)
+            except (TypeError, ValueError):
+                continue
+
+            confidence = max(0.0, min(1.0, confidence))
+            block.metadata["nlp_confidence"] = confidence
+            if getattr(block, "semantic_intent", None):
+                block.metadata["semantic_intent"] = block.semantic_intent
+
+    def _build_quality_summary(
+        self,
+        doc_obj: PipelineDocument,
+        validation_results: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """
+        Compute an easy-to-read quality score for terminal diagnostics.
+        This is an operational score, not a ground-truth accuracy metric.
+        """
+        confidences = []
+        heading_candidates = 0
+        for block in getattr(doc_obj, "blocks", []):
+            if isinstance(getattr(block, "metadata", None), dict):
+                if block.metadata.get("is_heading_candidate"):
+                    heading_candidates += 1
+                raw_conf = block.metadata.get("classification_confidence")
+                if raw_conf is None:
+                    raw_conf = block.metadata.get("nlp_confidence")
+            else:
+                raw_conf = None
+            if raw_conf is None:
+                raw_conf = getattr(block, "classification_confidence", None)
+            try:
+                conf_val = float(raw_conf)
+            except (TypeError, ValueError):
+                continue
+            confidences.append(max(0.0, min(1.0, conf_val)))
+
+        block_count = len(getattr(doc_obj, "blocks", []))
+        avg_conf = sum(confidences) / len(confidences) if confidences else 0.0
+        min_conf = min(confidences) if confidences else 0.0
+        low_conf_blocks = sum(1 for c in confidences if c < 0.60)
+        error_count = len(validation_results.get("errors", []) or [])
+        warning_count = len(validation_results.get("warnings", []) or [])
+
+        structure_score = 1.0 if heading_candidates > 0 else 0.45
+        asset_score = 1.0 if (doc_obj.figures or doc_obj.tables) else 0.65
+        penalty = min(0.65, (error_count * 0.06) + (warning_count * 0.01) + (low_conf_blocks * 0.015))
+        quality_ratio = max(
+            0.0,
+            min(
+                1.0,
+                (avg_conf * 0.60) + (structure_score * 0.25) + (asset_score * 0.15) - penalty,
+            ),
+        )
+        quality_score = round(quality_ratio * 100, 2)
+
+        return {
+            "quality_score": quality_score,
+            "avg_confidence": round(avg_conf, 4),
+            "min_confidence": round(min_conf, 4),
+            "block_count": block_count,
+            "heading_candidates": heading_candidates,
+            "figures": len(getattr(doc_obj, "figures", [])),
+            "tables": len(getattr(doc_obj, "tables", [])),
+            "errors": error_count,
+            "warnings": warning_count,
+            "low_conf_blocks": low_conf_blocks,
+            "review_status": getattr(getattr(doc_obj, "review", None), "status", "N/A"),
+        }
+
+    def _log_quality_summary(self, job_id: str, summary: Dict[str, Any]) -> None:
+        """Emit compact quality diagnostics in terminal and structured logs."""
+        print(
+            "PIPELINE SCORE | "
+            f"job={job_id} | "
+            f"quality={summary.get('quality_score', 0):.2f}% | "
+            f"avg_conf={summary.get('avg_confidence', 0):.2f} | "
+            f"min_conf={summary.get('min_confidence', 0):.2f} | "
+            f"headings={summary.get('heading_candidates', 0)} | "
+            f"blocks={summary.get('block_count', 0)} | "
+            f"figures={summary.get('figures', 0)} | "
+            f"tables={summary.get('tables', 0)} | "
+            f"errors={summary.get('errors', 0)} | "
+            f"warnings={summary.get('warnings', 0)} | "
+            f"review={summary.get('review_status', 'N/A')}"
+        )
+        logger.info("Pipeline quality summary for job %s: %s", job_id, summary)
 
     # --- A10: Decorated Pipeline Stages ---
 
@@ -261,7 +428,12 @@ class PipelineOrchestrator:
         """Semantic Analysis Layer 2"""
         from app.pipeline.intelligence.semantic_parser import get_semantic_parser
         semantic_parser = get_semantic_parser()
-        semantic_blocks = self._run_with_timeout(semantic_parser.analyze_blocks, 60, doc_obj.blocks)
+        semantic_timeout = int(os.getenv("PIPELINE_SEMANTIC_TIMEOUT_SECONDS", "25"))
+        semantic_blocks = self._run_with_timeout(
+            semantic_parser.analyze_blocks,
+            semantic_timeout,
+            doc_obj.blocks,
+        )
         for i, b in enumerate(doc_obj.blocks):
             if i < len(semantic_blocks):
                 b.metadata["semantic_intent"] = semantic_blocks[i]["predicted_section_type"]
@@ -337,6 +509,16 @@ class PipelineOrchestrator:
         
         if formatting_options is None:
             formatting_options = {}
+        runtime_flags = self._resolve_runtime_flags(formatting_options)
+        formatting_options = {**formatting_options, **runtime_flags}
+        logger.info(
+            "Pipeline runtime flags for job %s: fast_mode=%s semantic_parser=%s crossref=%s ai_reasoning=%s",
+            job_id,
+            runtime_flags["fast_mode"],
+            runtime_flags["semantic_parser"],
+            runtime_flags["crossref_enrichment"],
+            runtime_flags["ai_reasoning"],
+        )
 
         # 🛡️ SAFETY: Ensure job_id is string (not UUID object) for Supabase JSON serialization
         job_id = str(job_id)
@@ -418,7 +600,14 @@ class PipelineOrchestrator:
                     else:
                         self._update_status(job_id, "EXTRACTION", "PROCESSING", "Extracting metadata and layout (Parallel)...", progress=22)
                         
-                        with ThreadPoolExecutor(max_workers=2) as executor:
+                        # Do not use context-manager shutdown(wait=True) here.
+                        # If a task times out, waiting for thread completion can add minutes of latency.
+                        executor = ThreadPoolExecutor(max_workers=2)
+                        future_grobid = None
+                        future_docling = None
+                        grobid_metadata = {}
+                        layout_result = {}
+                        try:
                             # Define wrapper functions for safe execution
                             def run_grobid():
                                 if self.grobid_client.is_available():
@@ -430,51 +619,68 @@ class PipelineOrchestrator:
                                 return {}
 
                             def run_docling():
+                                if self._should_skip_docling_for_digital_pdf(input_path):
+                                    logger.info(
+                                        "Digital-native PDF detected for job %s; skipping Docling layout pass for speed.",
+                                        job_id,
+                                    )
+                                    return {}
                                 if self.docling_client.is_available():
                                     try:
                                         logger.info("Analyzing layout with Docling...")
                                         return self.docling_client.analyze_layout(input_path)
                                     except Exception as e:
                                         logger.warning("Docling analysis failed: %s", e)
-                                return {} 
+                                return {}
 
                             # Submit tasks
                             future_grobid = executor.submit(run_grobid)
                             future_docling = executor.submit(run_docling)
-                            
-                            # Get results (this blocks until both are done or timeout)
+                            grobid_timeout_sec = int(os.getenv("PIPELINE_GROBID_TIMEOUT_SECONDS", "25"))
+                            docling_timeout_sec = int(os.getenv("PIPELINE_DOCLING_TIMEOUT_SECONDS", "25"))
+
+                            # Get results (bounded by timeout)
                             import concurrent.futures
                             try:
-                                grobid_metadata = future_grobid.result(timeout=120)
+                                grobid_metadata = future_grobid.result(timeout=grobid_timeout_sec)
                             except concurrent.futures.TimeoutError:
-                                logger.warning("GROBID extraction timed out after 120s")
+                                logger.warning("GROBID extraction timed out after %ss", grobid_timeout_sec)
+                                if future_grobid:
+                                    future_grobid.cancel()
                                 grobid_metadata = {}
-                                
+
                             try:
-                                layout_result = future_docling.result(timeout=120)
+                                layout_result = future_docling.result(timeout=docling_timeout_sec)
                             except concurrent.futures.TimeoutError:
-                                logger.warning("Docling analysis timed out after 120s")
+                                logger.warning("Docling analysis timed out after %ss", docling_timeout_sec)
+                                if future_docling:
+                                    future_docling.cancel()
                                 layout_result = {}
+                        finally:
+                            for fut in (future_grobid, future_docling):
+                                if fut is not None and not fut.done():
+                                    fut.cancel()
+                            executor.shutdown(wait=False, cancel_futures=True)
 
-                            # Process Grobid Result
-                            if grobid_metadata and isinstance(grobid_metadata, dict):
-                                if not hasattr(doc_obj, 'metadata') or doc_obj.metadata is None:
-                                    from app.models import DocumentMetadata
-                                    doc_obj.metadata = DocumentMetadata()
-                                doc_obj.metadata.ai_hints['grobid_metadata'] = grobid_metadata
-                                logger.info("GROBID extracted: Title='%s', Authors=%d", grobid_metadata.get('title', 'N/A'), len(grobid_metadata.get('authors', [])))
-                            else:
-                                 logger.info("GROBID result unavailable (file_ext=%s)", file_ext)
+                        # Process Grobid Result
+                        if grobid_metadata and isinstance(grobid_metadata, dict):
+                            if not hasattr(doc_obj, 'metadata') or doc_obj.metadata is None:
+                                from app.models import DocumentMetadata
+                                doc_obj.metadata = DocumentMetadata()
+                            doc_obj.metadata.ai_hints['grobid_metadata'] = grobid_metadata
+                            logger.info("GROBID extracted: Title='%s', Authors=%d", grobid_metadata.get('title', 'N/A'), len(grobid_metadata.get('authors', [])))
+                        else:
+                             logger.info("GROBID result unavailable (file_ext=%s)", file_ext)
 
-                            # Process Docling Result
-                            if layout_result and isinstance(layout_result, dict):
-                                if not hasattr(doc_obj, 'metadata') or doc_obj.metadata is None:
-                                    from app.models import DocumentMetadata
-                                    doc_obj.metadata = DocumentMetadata()
-                                doc_obj.metadata.ai_hints['docling_layout'] = layout_result
-                                logger.info("Docling analyzed: %d elements found", len(layout_result.get('elements', [])))
-                            else:
-                                 logger.info("Docling result unavailable (file_ext=%s)", file_ext)
+                        # Process Docling Result
+                        if layout_result and isinstance(layout_result, dict):
+                            if not hasattr(doc_obj, 'metadata') or doc_obj.metadata is None:
+                                from app.models import DocumentMetadata
+                                doc_obj.metadata = DocumentMetadata()
+                            doc_obj.metadata.ai_hints['docling_layout'] = layout_result
+                            logger.info("Docling analyzed: %d elements found", len(layout_result.get('elements', [])))
+                        else:
+                             logger.info("Docling result unavailable (file_ext=%s)", file_ext)
 
                 # Phase 2.5: Equation Standardization
                 self._update_status(job_id, "EXTRACTION", "PROCESSING", "Standardizing equations...", progress=25)
@@ -489,15 +695,19 @@ class PipelineOrchestrator:
                 except Exception as sd_err:
                     logger.warning("StructureDetector failed for job %s: %s. Proceeding without structure metadata.", job_id, sd_err)
                 
-                # CRITICAL: SemanticParser NLP predictions MUST run AFTER structure detection
-                # and BEFORE classification to populate metadata["nlp_confidence"]
-                try:
-                    doc_obj = self._run_semantic_parsing(doc_obj)
-                except Exception as e:
-                    print(f"AI ERROR (Layer 2 - NLP Analysis): {e}. Falling back to Phase-1 Heuristics.")
+                # CRITICAL: SemanticParser NLP predictions are optional in fast mode
+                # and only used as advisory confidence.
+                if runtime_flags["semantic_parser"]:
+                    try:
+                        doc_obj = self._run_semantic_parsing(doc_obj)
+                    except Exception as e:
+                        print(f"AI ERROR (Layer 2 - NLP Analysis): {e}. Falling back to Phase-1 Heuristics.")
+                else:
+                    logger.info("Fast mode enabled: skipping semantic parser for job %s", job_id)
                 
                 self._update_status(job_id, "NLP_ANALYSIS", "PROCESSING", "Classifying content...", progress=40)
                 doc_obj = self._run_classification(doc_obj)
+                self._sync_block_confidence(doc_obj)
                 
                 self._check_stage_interface(self.analyzer, "process", "ContentAnalyzer")
                 doc_obj = execute_with_retry(self.analyzer.process, doc_obj)
@@ -522,80 +732,111 @@ class PipelineOrchestrator:
                 # Phase 4: AI Validation & Formatting
                 self._update_status(job_id, "VALIDATION", "PROCESSING", progress=60)
                 
-                # ------ CROSSREF VALIDATION (NEW) ------
-                with safe_execution("CrossRef Citation Validation"):
-                    try:
-                        from app.services.crossref_client import get_crossref_client
-                        crossref = get_crossref_client()
-                        if hasattr(doc_obj, "references") and doc_obj.references:
-                            print(f"🔬 Validating {len(doc_obj.references)} references against CrossRef...")
-                            with ThreadPoolExecutor(max_workers=4) as cr_exec:
-                                def validate_ref(ref):
-                                    raw = getattr(ref, "raw_text", getattr(ref, "text", None))
-                                    if raw:
-                                        res = crossref.validate_citation(raw)
-                                        if res:
-                                            # Support both dict and Pydantic models blindly
-                                            if not hasattr(ref, "metadata") or ref.metadata is None:
-                                                ref.metadata = {}
-                                            if isinstance(ref.metadata, dict):
-                                                ref.metadata["crossref_validation"] = res
-                                            elif hasattr(ref.metadata, "__setitem__"):
-                                                ref.metadata["crossref_validation"] = res
-                                            else:
-                                                setattr(ref.metadata, "crossref_validation", res)
-                                
-                                list(cr_exec.map(validate_ref, doc_obj.references))
-                    except Exception as e:
-                        print(f"⚠️ CrossRef validation skipped (Non-Fatal): {e}")
-                # ----------------------------------------
+                # ------ CROSSREF VALIDATION (OPTIONAL) ------
+                if runtime_flags["crossref_enrichment"]:
+                    with safe_execution("CrossRef Citation Validation"):
+                        try:
+                            from app.services.crossref_client import get_crossref_client
+                            crossref = get_crossref_client()
+                            if hasattr(doc_obj, "references") and doc_obj.references:
+                                print(f"INFO: Validating {len(doc_obj.references)} references against CrossRef...")
+                                with ThreadPoolExecutor(max_workers=4) as cr_exec:
+                                    def validate_ref(ref):
+                                        raw = getattr(ref, "raw_text", getattr(ref, "text", None))
+                                        if raw:
+                                            res = crossref.validate_citation(raw)
+                                            if res:
+                                                # Support both dict and Pydantic models blindly
+                                                if not hasattr(ref, "metadata") or ref.metadata is None:
+                                                    ref.metadata = {}
+                                                if isinstance(ref.metadata, dict):
+                                                    ref.metadata["crossref_validation"] = res
+                                                elif hasattr(ref.metadata, "__setitem__"):
+                                                    ref.metadata["crossref_validation"] = res
+                                                else:
+                                                    setattr(ref.metadata, "crossref_validation", res)
+                                    
+                                    list(cr_exec.map(validate_ref, doc_obj.references))
+                        except Exception as e:
+                            print(f"WARNING: CrossRef validation skipped (Non-Fatal): {e}")
+                else:
+                    logger.info("Fast mode enabled: skipping CrossRef enrichment for job %s", job_id)
+                # ---------------------------------------------
                 
                 self._update_status(job_id, "VALIDATION", "PROCESSING", "Applying styles and templates...", progress=70)
                 
-                # Layer 1 & 3: RAG + DeepSeek Reasoning
-                rag = get_rag_engine()
-                reasoner = get_reasoning_engine()
-                if rag is None or reasoner is None:
-                    raise RuntimeError("AI engines unavailable: get_rag_engine/get_reasoning_engine not initialized")
-                
-                # Retrieve rules for critical sections
-                rules_context = ""
-                for sec in ["abstract", "references", "introduction", "methodology"]:
-                    rule_matches = rag.query_rules(template_name, sec, top_k=2)
-                    for r in rule_matches:
-                        rules_context += f"\n- [{sec.upper()}]: {r['text']}"
-                
-                # This happens BEFORE Validation to guide deterministic decisions
+                # Layer 1 & 3: RAG + LLM reasoning (optional in fast mode)
                 semantic_advice = {}
-                with safe_execution("AI Reasoning Layer (Non-Critical)"):
-                    # Phase 2: RAG Retrieval for Guidelines
-                    rule_matches = []
-                    if hasattr(rag, "query_rules"):
-                        rule_matches = rag.query_rules(template_name, sec, top_k=2)
-                    
-                    # Context Compression + DeepSeek Reasoning (Layer 3)
-                    rules_context = ""
-                    for sec in ["Abstract", "Introduction", "References", "Figures"]:
-                        if hasattr(rag, "query_guidelines"):
-                            guidelines = rag.query_guidelines(template_name, sec, top_k=2)
-                            if guidelines:
-                                rules_context += f"\n- {sec}: {' '.join(guidelines)}"
-                    
-                    # DeepSeek Semantic Reasoning (Local Ollama)
-                    # Input: Semantic blocks + RAG Context
-                    context_blocks = [{"id": b.metadata.get("block_id", i), "text": b.text[:100], "type": b.metadata.get("semantic_intent")} 
-                                     for i, b in enumerate(doc_obj.blocks[:15])]
-                    
-                    if hasattr(reasoner, "generate_instruction_set"):
-                        semantic_advice = reasoner.generate_instruction_set(context_blocks, rules_context)
-                    
-                    # GUARDRAIL 1: Confidence Gating (0.85)
-                    # Mark blocks for review if AI is unsure
-                    for instruction in semantic_advice.get("instructions", []):
-                        if instruction.get("confidence", 0) < 0.85:
-                            instruction["review_required"] = True
-                    
-                    doc_obj.metadata.ai_hints["semantic_advice"] = semantic_advice
+                if runtime_flags["ai_reasoning"]:
+                    rag = get_rag_engine()
+                    reasoner = get_reasoning_engine()
+                    if rag is None or reasoner is None:
+                        logger.warning(
+                            "AI reasoning requested but engines unavailable for job %s. Continuing without semantic advice.",
+                            job_id,
+                        )
+                    else:
+                        with safe_execution("AI Reasoning Layer (Non-Critical)"):
+                            rules_context = ""
+                            for sec in ["abstract", "introduction", "references", "figures"]:
+                                guidelines = []
+                                if hasattr(rag, "query_guidelines"):
+                                    guidelines = rag.query_guidelines(template_name, sec, top_k=2) or []
+                                elif hasattr(rag, "query_rules"):
+                                    rule_matches = rag.query_rules(template_name, sec, top_k=2) or []
+                                    guidelines = [
+                                        r.get("text", "")
+                                        for r in rule_matches
+                                        if isinstance(r, dict) and r.get("text")
+                                    ]
+                                if guidelines:
+                                    rules_context += f"\n- {sec.title()}: {' '.join(guidelines)}"
+
+                            context_blocks = [
+                                {
+                                    "id": b.block_id,
+                                    "text": (b.text or "")[:120],
+                                    "type": b.metadata.get("semantic_intent") or b.semantic_intent,
+                                }
+                                for b in doc_obj.blocks[:12]
+                            ]
+
+                            if hasattr(reasoner, "generate_instruction_set"):
+                                reasoning_timeout_sec = int(os.getenv("PIPELINE_REASONING_TIMEOUT_SECONDS", "28"))
+                                try:
+                                    semantic_advice = (
+                                        self._run_with_timeout(
+                                            reasoner.generate_instruction_set,
+                                            reasoning_timeout_sec,
+                                            context_blocks,
+                                            rules_context,
+                                            1,
+                                        )
+                                        or {}
+                                    )
+                                except TimeoutError:
+                                    logger.warning(
+                                        "AI reasoning timed out after %ss for job %s. Continuing without semantic advice.",
+                                        reasoning_timeout_sec,
+                                        job_id,
+                                    )
+                                    semantic_advice = {}
+                                except Exception as reason_exc:
+                                    logger.warning(
+                                        "AI reasoning failed for job %s: %s. Continuing without semantic advice.",
+                                        job_id,
+                                        reason_exc,
+                                    )
+                                    semantic_advice = {}
+
+                            # Confidence gating for UI review hints
+                            for instruction in semantic_advice.get("instructions", []):
+                                if instruction.get("confidence", 0) < 0.70:
+                                    instruction["review_required"] = True
+                else:
+                    logger.info("Fast mode enabled: skipping AI reasoning layer for job %s", job_id)
+
+                doc_obj.metadata.ai_hints["semantic_advice"] = semantic_advice
 
                 doc_obj = self._run_validation_stage(doc_obj)
                 
@@ -610,6 +851,10 @@ class PipelineOrchestrator:
                     "stats": doc_obj.get_stats(),
                     "ai_semantic_audit": semantic_advice # Integrated for Compare UI
                 }
+                quality_summary = self._build_quality_summary(doc_obj, validation_results)
+                validation_results["quality_summary"] = quality_summary
+                validation_results["quality_score"] = quality_summary.get("quality_score")
+                self._log_quality_summary(job_id, quality_summary)
                 
                 doc_obj = self._run_formatting_stage(doc_obj)
                 

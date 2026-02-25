@@ -394,6 +394,12 @@ class StructureDetector(PipelineStage):
             List of detected headings with metadata
         """
         from app.models import BlockType
+
+        def _normalize(text: str) -> str:
+            import re
+            cleaned = (text or "").strip().lower()
+            cleaned = re.sub(r"\s+", " ", cleaned)
+            return cleaned
         
         candidates = []
         found_title = False
@@ -416,17 +422,41 @@ class StructureDetector(PipelineStage):
         # We use a simple containment or similarity check
         
         for block in blocks:
+            if block.metadata.get("is_header") or block.metadata.get("is_footer"):
+                continue
+
             # Skip empty
             if not block.text.strip():
                 continue
                 
             # Try to find corresponding layout element
             matched_element = None
-            block_text_sample = block.text[:50].strip()
+            block_text_norm = _normalize(block.text)
+            block_text_sample = block_text_norm[:80]
             
             for element in elements:
-                # Simple check: if block text is in element text
-                if block_text_sample in element.get("text", ""):
+                element_text_norm = _normalize(element.get("text", ""))
+                if not element_text_norm:
+                    continue
+
+                # Primary: exact/contains check on normalized text
+                if (
+                    block_text_sample
+                    and (
+                        block_text_sample in element_text_norm
+                        or element_text_norm[:80] in block_text_norm
+                    )
+                ):
+                    matched_element = element
+                    break
+
+                # Secondary: token overlap for OCR/noise variation
+                block_tokens = set(block_text_norm.split())
+                element_tokens = set(element_text_norm.split())
+                if not block_tokens or not element_tokens:
+                    continue
+                overlap = len(block_tokens & element_tokens) / max(1, len(block_tokens))
+                if overlap >= 0.7:
                     matched_element = element
                     break
             

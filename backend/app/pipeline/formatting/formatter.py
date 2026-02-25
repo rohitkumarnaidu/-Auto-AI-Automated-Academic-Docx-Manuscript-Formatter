@@ -58,6 +58,15 @@ class Formatter:
         """
         if not template_name:
             template_name = "none" # No default template - use neutral formatting
+        options = document.formatting_options or {}
+        template_key = template_name.lower()
+        has_non_text_content = bool(document.figures or document.tables or document.equations)
+        renderer_mode = str(options.get("template_engine", "auto")).strip().lower()
+        use_template_renderer = (
+            renderer_mode != "legacy"
+            and template_key != "none"
+            and not has_non_text_content
+        )
             
         # 1. Apply rules to model before rendering
         document = self.numbering_engine.apply_numbering(document, template_name)
@@ -65,17 +74,23 @@ class Formatter:
 
         # 2. Primary path: docxtpl/Jinja2 template rendering.
         # Keep legacy python-docx path as a fallback for robustness.
-        try:
-            return self.template_renderer.render(document, template_name)
-        except Exception as exc:
-            logger.warning(
-                "docxtpl render failed for template '%s'. Falling back to legacy formatter. Error: %s",
-                template_name, exc
+        if use_template_renderer:
+            try:
+                return self.template_renderer.render(document, template_name)
+            except Exception as exc:
+                logger.warning(
+                    "docxtpl render failed for template '%s'. Falling back to legacy formatter. Error: %s",
+                    template_name, exc
+                )
+        elif has_non_text_content and template_key != "none":
+            logger.info(
+                "Skipping docxtpl renderer for template '%s' because document contains figures/tables/equations.",
+                template_name,
             )
         
         # 2. Load Resources
         # Note: template.docx is still the base for styles
-        is_none = template_name.lower() == "none"
+        is_none = template_key == "none"
         template_path = os.path.join(self.templates_dir, template_name.lower(), "template.docx")
         contract_path = os.path.join(self.templates_dir, template_name.lower(), "contract.yaml")
         
@@ -96,6 +111,16 @@ class Formatter:
         
         # Add Blocks
         for block in document.blocks:
+            # Skip parser-extracted structural artifacts from main body flow.
+            # Footnotes are rendered in a dedicated section later.
+            if (
+                block.metadata.get("is_header")
+                or block.metadata.get("is_footer")
+                or block.metadata.get("is_footnote")
+                or block.metadata.get("is_endnote")
+            ):
+                continue
+
             # SKIP figure captions - check both Enum and String to be safe
             b_type = str(block.block_type).upper()
             if "FIGURE_CAPTION" in b_type or "TABLE_CAPTION" in b_type:
@@ -165,13 +190,12 @@ class Formatter:
         self._apply_initial_layout(word_doc, template_name)
         
         # --- NEW FORMATTING OPTIONS IMPLEMENTATION ---
-        options = document.formatting_options or {}
         
         # A. Page Size
         self._apply_page_size(word_doc, options.get("page_size", "Letter"))
         
         # B. Cover Page
-        if options.get("cover_page", True):
+        if options.get("cover_page", False):
             self._add_cover_page(word_doc, document)
             
         # C. Table of Contents

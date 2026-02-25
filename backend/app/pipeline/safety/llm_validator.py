@@ -1,11 +1,17 @@
-import inspect
+import asyncio
+import warnings
 from pydantic import BaseModel
 from typing import Callable, Any, Type, Optional
 
 # --- Optional Guardrails Import ---
 try:
-    import guardrails
-    from guardrails import Guard
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message="The 'is_flag' and 'flag_value' parameters are not supported by Typer.*",
+            category=DeprecationWarning,
+        )
+        from guardrails import Guard
     HAS_GUARDRAILS = True
     print("[SUCCESS] Guardrails AI loaded for robust LLM validation.")
 except ImportError:
@@ -43,6 +49,24 @@ def guard_llm_output(schema: Type[BaseModel], error_return_value: Optional[Any] 
     def decorator(func: Callable) -> Callable:
         # Create the Guard instance strictly bound to the expected Pydantic schema
         guard = Guard.for_pydantic(output_class=schema)
+
+        def _parse_with_guardrails(raw_result_str: str):
+            """
+            Parse guardrails output while ensuring an event loop exists.
+            Some environments (especially test runners/worker threads) do not
+            have a current loop and Guardrails otherwise emits warning noise.
+            """
+            try:
+                asyncio.get_running_loop()
+                return guard.parse(raw_result_str)
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                try:
+                    asyncio.set_event_loop(loop)
+                    return guard.parse(raw_result_str)
+                finally:
+                    asyncio.set_event_loop(None)
+                    loop.close()
         
         def wrapper(*args, **kwargs) -> Any:
             try:
@@ -64,7 +88,7 @@ def guard_llm_output(schema: Type[BaseModel], error_return_value: Optional[Any] 
                 
                 # Guardrails validation execution
                 # .parse() raises an error or returns a ValidationOutcome
-                validated_output = guard.parse(raw_result_str)
+                validated_output = _parse_with_guardrails(raw_result_str)
                 
                 if validated_output and validated_output.validated_output:
                     val = validated_output.validated_output

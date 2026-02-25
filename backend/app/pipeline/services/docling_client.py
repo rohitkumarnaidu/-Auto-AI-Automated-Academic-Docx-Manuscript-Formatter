@@ -15,21 +15,43 @@ Docling excels at:
 from __future__ import annotations
 
 import logging
+import warnings
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+from contextlib import contextmanager
 
 from app.pipeline.safety import safe_function
 
 logger = logging.getLogger(__name__)
 
+_DOCLING_WARNING_FILTERS = (
+    "This field is deprecated. Use `generate_page_images=True` and call `TableItem.get_image()` to extract table images from page images.*",
+    "^deprecated$",
+    "builtin type SwigPyPacked has no __module__ attribute",
+    "builtin type SwigPyObject has no __module__ attribute",
+    "builtin type swigvarlink has no __module__ attribute",
+)
+
+# Apply narrow global suppression for known third-party deprecation noise.
+for _pattern in _DOCLING_WARNING_FILTERS:
+    warnings.filterwarnings("ignore", message=_pattern, category=DeprecationWarning)
+
+
+@contextmanager
+def _suppress_docling_warnings():
+    """Suppress known third-party deprecation noise from Docling/PyMuPDF stack."""
+    with warnings.catch_warnings():
+        for pattern in _DOCLING_WARNING_FILTERS:
+            warnings.filterwarnings("ignore", message=pattern, category=DeprecationWarning)
+        yield
+
 try:
     import os
     # Windows Symlink Fix: Disable warning and force copy
     os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
-    
-    from docling.document_converter import DocumentConverter
-    from docling.datamodel.base_models import InputFormat
-    from docling.datamodel.pipeline_options import PdfPipelineOptions
+
+    with _suppress_docling_warnings():
+        from docling.document_converter import DocumentConverter
     
     DOCLING_AVAILABLE = True
 except ImportError:
@@ -126,7 +148,8 @@ class DoclingClient:
         if DOCLING_AVAILABLE:
             try:
                 # Initialize DocumentConverter with defaults
-                self.converter = DocumentConverter()
+                with _suppress_docling_warnings():
+                    self.converter = DocumentConverter()
                 logger.info("Docling client initialized successfully")
             except Exception as e:
                 logger.error(f"Failed to initialize Docling converter: {e}")
@@ -191,8 +214,9 @@ class DoclingClient:
                 #    pipeline_options.ocr_options.force_full_page_ocr = False
                 
                 # Use default options to prevent 'backend' attribute error in newer docling versions
-                doc_converter = DocumentConverter()
-                doc = doc_converter.convert(file_path).document
+                with _suppress_docling_warnings():
+                    doc_converter = DocumentConverter()
+                    doc = doc_converter.convert(file_path).document
             
             except Exception as e:
                 logger.error(f"Docling conversion failed: {e}")

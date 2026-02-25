@@ -22,8 +22,20 @@ router = APIRouter(prefix="/api/stream", tags=["Streaming"])
 
 # Phase 5: Redis Pub/Sub for SSE
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
-async_redis = aioredis.from_url(REDIS_URL)
-sync_redis_client = sync_redis.from_url(REDIS_URL)
+REDIS_ENABLED = os.getenv("REDIS_ENABLED", "true").strip().lower() in {"1", "true", "yes", "on"}
+async_redis = None
+sync_redis_client = None
+if REDIS_ENABLED:
+    try:
+        async_redis = aioredis.from_url(REDIS_URL)
+        sync_redis_client = sync_redis.from_url(REDIS_URL)
+        sync_redis_client.ping()
+    except Exception as exc:
+        logger.info("SSE Redis unavailable at startup (%s). SSE publish disabled.", exc)
+        async_redis = None
+        sync_redis_client = None
+else:
+    logger.info("SSE Redis disabled via REDIS_ENABLED=false.")
 _redis_publish_unavailable = False
 _redis_publish_retry_after = 0.0
 
@@ -31,6 +43,12 @@ async def event_generator(job_id: str, request: Request) -> AsyncGenerator[dict,
     """
     Generate SSE events for a specific job using Redis Pub/Sub.
     """
+    if async_redis is None:
+        while not await request.is_disconnected():
+            await asyncio.sleep(10)
+            yield {"event": "keepalive", "data": json.dumps({"job_id": job_id})}
+        return
+
     pubsub = async_redis.pubsub()
     await pubsub.subscribe(f"job:{job_id}")
     
@@ -80,6 +98,8 @@ def emit_event(job_id: str, event_type: str, data: dict):
     Sync-friendly for use in pipeline threads.
     """
     global _redis_publish_unavailable, _redis_publish_retry_after
+    if sync_redis_client is None:
+        return
     now = time.time()
     if _redis_publish_unavailable and now < _redis_publish_retry_after:
         return

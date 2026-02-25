@@ -95,7 +95,7 @@ class TemplateRenderer:
                 "keywords": keywords,
                 "sections": sections,
                 "references": references,
-                "cover_page": formatting_options.get("cover_page", True),
+                "cover_page": formatting_options.get("cover_page", False),
                 "toc": formatting_options.get("toc", False),
                 "page_numbers": formatting_options.get("page_numbers", True),
                 "page_number": formatting_options.get("page_number", "1"),

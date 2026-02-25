@@ -9,7 +9,7 @@ class ReviewManager:
     Evaluates AI confidence scores and flags sections for Human-In-The-Loop review.
     """
     
-    def __init__(self, review_threshold: float = 0.85, critical_threshold: float = 0.70):
+    def __init__(self, review_threshold: float = 0.70, critical_threshold: float = 0.45):
         # Validate thresholds
         if critical_threshold >= review_threshold:
             raise ValueError(
@@ -34,14 +34,34 @@ class ReviewManager:
         
         # 1. Check Block Confidences
         for b in doc_obj.blocks:
-            conf = b.metadata.get("nlp_confidence", 1.0)
+            raw_conf = (
+                b.metadata.get("classification_confidence")
+                if isinstance(getattr(b, "metadata", None), dict)
+                else None
+            )
+            if raw_conf is None:
+                raw_conf = getattr(b, "classification_confidence", None)
+            if raw_conf is None and isinstance(getattr(b, "metadata", None), dict):
+                raw_conf = b.metadata.get("nlp_confidence")
+
+            try:
+                conf = float(raw_conf)
+            except (TypeError, ValueError):
+                conf = 1.0
+            conf = max(0.0, min(1.0, conf))
+
             if conf < lowest_conf:
                 lowest_conf = conf
-                
+
+            semantic_label = (
+                getattr(b, "semantic_intent", None)
+                or b.metadata.get("semantic_intent", "unknown section")
+            )
+
             if conf < self.critical_threshold:
                 flag = (
                     f"CRITICAL: low confidence ({conf:.2f}) on "
-                    f"{b.metadata.get('semantic_intent', 'unknown section')} "
+                    f"{semantic_label} "
                     f"[block: {b.block_id[:8]}]"
                 )
                 critical_flags.append(flag)

@@ -1,4 +1,5 @@
 import logging
+import warnings
 from typing import Optional
 
 import jwt
@@ -7,24 +8,39 @@ from app.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
-# ── Supabase client (lazy, safe) ───────────────────────────────────────────────
-# If credentials are missing the server still starts; auth endpoints return 503.
+_SUPABASE_WARNING_FILTERS = (
+    ".*enablePackrat.*",
+    ".*escChar.*",
+    ".*unquoteResults.*",
+    "Using `@model_validator` with mode='after' on a classmethod is deprecated.*",
+    "The 'timeout' parameter is deprecated. Please configure it in the http client instead.*",
+    "The 'verify' parameter is deprecated. Please configure it in the http client instead.*",
+)
+
+# Supabase auth client. If credentials are missing, auth endpoints return 503.
 try:
-    from supabase import create_client, Client as SupabaseClient
+    with warnings.catch_warnings():
+        for pattern in _SUPABASE_WARNING_FILTERS:
+            warnings.filterwarnings("ignore", message=pattern, category=DeprecationWarning)
+        from supabase import create_client, Client as SupabaseClient
+
     if settings.SUPABASE_URL and settings.SUPABASE_ANON_KEY:
-        supabase: Optional[SupabaseClient] = create_client(
-            settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY
-        )
-        logger.info("✅ Supabase client initialised.")
+        with warnings.catch_warnings():
+            for pattern in _SUPABASE_WARNING_FILTERS:
+                warnings.filterwarnings("ignore", message=pattern, category=DeprecationWarning)
+            supabase: Optional[SupabaseClient] = create_client(
+                settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY
+            )
+        logger.info("[OK] Supabase auth client initialized.")
     else:
         supabase = None
         logger.warning(
-            "⚠️  SUPABASE_URL or SUPABASE_ANON_KEY not set. "
+            "[WARN] SUPABASE_URL or SUPABASE_ANON_KEY not set. "
             "Auth endpoints will return 503 until credentials are configured."
         )
 except Exception as _exc:
     supabase = None
-    logger.error("❌ Failed to initialise Supabase client: %s", _exc)
+    logger.error("[ERROR] Failed to initialize Supabase auth client: %s", _exc)
 
 
 def _require_supabase():
@@ -34,6 +50,8 @@ def _require_supabase():
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Authentication service is not configured. Please set SUPABASE_URL and SUPABASE_ANON_KEY.",
         )
+    return supabase
+
 
 class AuthService:
     @staticmethod
@@ -56,8 +74,8 @@ class AuthService:
                 issuer=expected_issuer,
                 options={
                     "verify_exp": True,
-                    "verify_iss": True if expected_issuer else False
-                }
+                    "verify_iss": True if expected_issuer else False,
+                },
             )
             return payload
         except jwt.ExpiredSignatureError:
@@ -78,7 +96,7 @@ class AuthService:
                 detail="Invalid token",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-    
+
     @staticmethod
     def get_user_id_from_payload(payload: dict) -> str:
         user_id = payload.get("sub")
@@ -92,18 +110,20 @@ class AuthService:
 
     @staticmethod
     async def signup(email: str, password: str, full_name: str, institution: str):
-        _require_supabase()
+        sb = _require_supabase()
         try:
-            response = supabase.auth.sign_up({
-                "email": email,
-                "password": password,
-                "options": {
-                    "data": {
-                        "full_name": full_name,
-                        "institution": institution,
-                    }
-                },
-            })
+            response = sb.auth.sign_up(
+                {
+                    "email": email,
+                    "password": password,
+                    "options": {
+                        "data": {
+                            "full_name": full_name,
+                            "institution": institution,
+                        }
+                    },
+                }
+            )
             return response
         except HTTPException:
             raise
@@ -116,12 +136,14 @@ class AuthService:
 
     @staticmethod
     async def login(email: str, password: str):
-        _require_supabase()
+        sb = _require_supabase()
         try:
-            response = supabase.auth.sign_in_with_password({
-                "email": email,
-                "password": password,
-            })
+            response = sb.auth.sign_in_with_password(
+                {
+                    "email": email,
+                    "password": password,
+                }
+            )
             return response
         except HTTPException:
             raise
@@ -134,10 +156,10 @@ class AuthService:
 
     @staticmethod
     async def forgot_password(email: str):
-        _require_supabase()
+        sb = _require_supabase()
         try:
             # Supabase dashboard email template should be configured to send a 6-digit OTP code.
-            response = supabase.auth.reset_password_for_email(email)
+            response = sb.auth.reset_password_for_email(email)
             return response
         except HTTPException:
             raise
@@ -150,16 +172,18 @@ class AuthService:
 
     @staticmethod
     async def reset_password(email: str, otp: str, new_password: str):
-        _require_supabase()
+        sb = _require_supabase()
         try:
             # Step 1: Re-verify OTP to get a temporary session
-            supabase.auth.verify_otp({
-                "email": email,
-                "token": otp,
-                "type": "recovery",
-            })
+            sb.auth.verify_otp(
+                {
+                    "email": email,
+                    "token": otp,
+                    "type": "recovery",
+                }
+            )
             # Step 2: Update the password
-            response = supabase.auth.update_user({"password": new_password})
+            response = sb.auth.update_user({"password": new_password})
             return response
         except HTTPException:
             raise
@@ -172,14 +196,16 @@ class AuthService:
 
     @staticmethod
     async def verify_otp(email: str, token: str):
-        _require_supabase()
+        sb = _require_supabase()
         try:
             # Validates the recovery OTP without creating a long-lived session for the client
-            response = supabase.auth.verify_otp({
-                "email": email,
-                "token": token,
-                "type": "recovery",
-            })
+            response = sb.auth.verify_otp(
+                {
+                    "email": email,
+                    "token": token,
+                    "type": "recovery",
+                }
+            )
             return response
         except HTTPException:
             raise

@@ -470,15 +470,33 @@ class ContentClassifier(PipelineStage):
         """
         Find the index of the first heading block with safety limits.
         
-        If no headings exist, we limit the front-matter zone to 20 blocks
+        If no headings exist, we limit the front-matter zone to a small prefix
         or until we hit a clear body paragraph (>300 chars).
         """
+        fallback_heading_keywords = {
+            "abstract",
+            "introduction",
+            "background",
+            "related work",
+            "literature review",
+            "methods",
+            "methodology",
+            "materials and methods",
+            "results",
+            "discussion",
+            "conclusion",
+            "conclusions",
+            "references",
+            "bibliography",
+        }
+
         for i, block in enumerate(blocks):
             # Guard: Limit front matter search to reasonable document start
             # or until we hit something that is definitely body text.
-            if i >= 20:
+            if i >= 30:
                 break
-            if len(block.text.strip()) > 300:
+            text = (block.text or "").strip()
+            if len(text) > 300:
                 break
                 
             if block.metadata.get("is_heading_candidate"):
@@ -486,10 +504,19 @@ class ContentClassifier(PipelineStage):
                 if block.block_type == BlockType.TITLE:
                     continue
                 return i
+
+            # Fallback heading detection: protects early major headings even when
+            # structure detector is uncertain.
+            cleaned = re.sub(r'^\d+(?:\.\d+)*\.?\s*', '', text).strip().lower().rstrip(":")
+            if 1 <= len(cleaned.split()) <= 12 and len(cleaned) <= 90:
+                if re.match(r'^\d+(?:\.\d+)*\.?\s+[A-Z]', text):
+                    return i
+                if cleaned in fallback_heading_keywords:
+                    return i
         
         # If no heading found within safety limits, return the end of 
         # the potential metadata zone (not the end of the document).
-        return min(20, len(blocks))
+        return min(12, len(blocks))
         
     def _find_references_start_index(self, blocks: List[Block]) -> Optional[int]:
         """Find the index of the References heading."""

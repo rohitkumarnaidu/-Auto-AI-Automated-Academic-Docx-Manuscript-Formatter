@@ -179,9 +179,10 @@ async def upload_document(
     template: str = Form(settings.DEFAULT_TEMPLATE),
     add_page_numbers: bool = Form(True),
     add_borders: bool = Form(False),
-    add_cover_page: bool = Form(True),
+    add_cover_page: bool = Form(False),
     generate_toc: bool = Form(False),
     page_size: str = Form("Letter"),
+    fast_mode: bool = Form(False),
     current_user: Optional[User] = Depends(get_optional_user)
 ):
     """
@@ -270,6 +271,7 @@ async def upload_document(
             "cover_page": add_cover_page,
             "toc": generate_toc,
             "page_size": page_size,
+            "fast_mode": fast_mode,
         }
 
         import hashlib
@@ -544,6 +546,9 @@ async def download_document(
             logger.error("Output file missing on disk for job %s: %s", job_id, output_path)
             raise HTTPException(status_code=404, detail="Output file not found on server. File may have been deleted.")
 
+        base_filename = os.path.splitext(doc.get("filename") or "document")[0]
+        filename = f"{base_filename}_formatted.docx"
+
         # --- A14: Verify SHA256 integrity on download ---
         if format.lower() == "docx":
             try:
@@ -561,7 +566,6 @@ async def download_document(
 
         path_to_serve = output_path
         media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        filename = f"{os.path.splitext(doc.get('filename', 'document'))[0]}_formatted.docx"
 
         if format.lower() == "pdf":
             pdf_path = output_path.replace(".docx", ".pdf")
@@ -583,7 +587,7 @@ async def download_document(
 
             path_to_serve = pdf_path
             media_type = "application/pdf"
-            filename = f"{os.path.splitext(doc.get('filename', 'document'))[0]}_formatted.pdf"
+            filename = f"{base_filename}_formatted.pdf"
 
         elif format.lower() != "docx":
             raise HTTPException(status_code=400, detail=f"Unsupported format: {format}. Use 'docx' or 'pdf'.")
