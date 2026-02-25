@@ -56,6 +56,8 @@ build_log.txt
 
 # Temporary & Output files
 output/
+outputs/
+backend/outputs/
 test_output/
 tmp/
 temp/
@@ -95,6 +97,9 @@ __pycache__/
 
 # Semantic store runtime artifacts
 backend/db/semantic_store/*/
+backend/db/semantic_store/kb.json
+backend/db/test_chroma/
+backend/backend/db/test_chroma/
 
 # AI Audit Artifacts
 FILE_BY_FILE_AUDIT.csv

@@ -5,6 +5,9 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification, logg
 from app.models import PipelineDocument as Document, Block, BlockType
 from app.pipeline.safety import safe_function
 
+# Backward-compat alias for tests and older code paths that patch AutoModel.
+AutoModel = AutoModelForSequenceClassification
+
 # FEAT 44: Language detection (optional dependency)
 try:
     from langdetect import detect as detect_language
@@ -48,7 +51,7 @@ class SemanticParser:
         logger.info("SemanticParser: Loading SciBERT model (%s)...", self.model_name)
         try:
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-            self.model = AutoModelForSequenceClassification.from_pretrained(
+            self.model = AutoModel.from_pretrained(
                 self.model_name,
                 ignore_mismatched_sizes=True
             )

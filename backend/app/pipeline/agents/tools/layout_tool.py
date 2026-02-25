@@ -3,8 +3,10 @@ Layout analysis tool using Docling.
 """
 from typing import Optional, Type
 from pydantic import BaseModel, Field
-from langchain.tools import BaseTool
+from langchain.tools import BaseTool as _LangChainBaseTool
 from app.pipeline.services.docling_client import DoclingClient
+
+BaseTool = _LangChainBaseTool if isinstance(_LangChainBaseTool, type) else object
 
 
 class LayoutToolInput(BaseModel):
@@ -30,7 +32,7 @@ class LayoutAnalysisTool(BaseTool):
     
     def __init__(self):
         super().__init__()
-        self.docling_client = DoclingClient()
+        object.__setattr__(self, "docling_client", DoclingClient())
     
     def _run(self, file_path: str) -> str:
         """

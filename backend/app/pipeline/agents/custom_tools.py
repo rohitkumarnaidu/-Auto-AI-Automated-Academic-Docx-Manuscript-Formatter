@@ -44,10 +44,12 @@ class ToolRegistry:
         
         InputModel = create_model(f"{name}Input", **fields)
         
+        base_tool_class = BaseTool if isinstance(BaseTool, type) else object
+
         # Create tool class
-        class CustomTool(BaseTool):
-            name: str = name
-            description: str = description
+        class CustomTool(base_tool_class):
+            name: str = ""
+            description: str = ""
             args_schema: Type[BaseModel] = InputModel
             
             def _run(self, **kwargs) -> str:
@@ -60,6 +62,9 @@ class ToolRegistry:
             async def _arun(self, **kwargs) -> str:
                 """Async execution not supported."""
                 raise NotImplementedError("Async execution not supported")
+
+        CustomTool.name = name
+        CustomTool.description = description
         
         # Register tool
         self.tools[name] = CustomTool

@@ -6,7 +6,7 @@ References are parsed and normalized by the references/ pipeline stage.
 
 from typing import Optional, Dict, Any, List
 from enum import Enum
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class ReferenceType(str, Enum):
@@ -204,8 +204,7 @@ class Reference(BaseModel):
         description="Additional metadata"
     )
     
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
     
     def get_primary_author(self) -> Optional[str]:
         """Get the primary (first) author."""

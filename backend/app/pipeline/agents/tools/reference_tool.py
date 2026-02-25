@@ -3,9 +3,11 @@ Reference extraction tool using GROBID and reference parser.
 """
 from typing import Optional, Type
 from pydantic import BaseModel, Field
-from langchain.tools import BaseTool
+from langchain.tools import BaseTool as _LangChainBaseTool
 from app.pipeline.services.grobid_client import GROBIDClient
 from app.pipeline.references.parser import ReferenceParser
+
+BaseTool = _LangChainBaseTool if isinstance(_LangChainBaseTool, type) else object
 
 
 class ReferenceToolInput(BaseModel):
@@ -31,8 +33,8 @@ class ReferenceExtractionTool(BaseTool):
     
     def __init__(self, grobid_url: str = "http://localhost:8070"):
         super().__init__()
-        self.grobid_client = GROBIDClient(base_url=grobid_url)
-        self.reference_parser = ReferenceParser()
+        object.__setattr__(self, "grobid_client", GROBIDClient(base_url=grobid_url))
+        object.__setattr__(self, "reference_parser", ReferenceParser())
     
     def _run(self, file_path: str) -> str:
         """

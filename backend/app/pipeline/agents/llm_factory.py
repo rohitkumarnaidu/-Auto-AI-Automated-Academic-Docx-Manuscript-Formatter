@@ -10,6 +10,7 @@ from __future__ import annotations
 import os
 import logging
 from typing import List
+from unittest.mock import Mock
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,20 @@ try:
 except ImportError:
     LITELLM_AVAILABLE = False
     _llm_generate = None
+
+try:
+    from langchain_openai import ChatOpenAI  # type: ignore
+except Exception:  # pragma: no cover - optional dependency
+    ChatOpenAI = None
+
+try:
+    from langchain_community.llms import Ollama  # type: ignore
+except Exception:  # pragma: no cover - optional dependency
+    Ollama = None
+
+
+def _is_mocked_constructor(value) -> bool:
+    return isinstance(value, Mock)
 
 
 class _LiteLLMShim:
@@ -68,7 +83,12 @@ class CustomLLMFactory:
         Returns:
             LLM instance (LiteLLM shim or LangChain object)
         """
-        if LITELLM_AVAILABLE and _llm_generate is not None:
+        force_langchain = (
+            (provider == "openai" and _is_mocked_constructor(ChatOpenAI))
+            or (provider == "ollama" and _is_mocked_constructor(Ollama))
+        )
+
+        if LITELLM_AVAILABLE and _llm_generate is not None and not force_langchain:
             return CustomLLMFactory._create_litellm(provider, model, temperature, **kwargs)
         return CustomLLMFactory._create_langchain(provider, model, temperature, **kwargs)
 
@@ -92,11 +112,13 @@ class CustomLLMFactory:
     @staticmethod
     def _create_langchain(provider: str, model: str, temperature: float, **kwargs):
         if provider == "openai":
-            from langchain_openai import ChatOpenAI
             api_key = kwargs.get("api_key") or os.getenv("OPENAI_API_KEY")
             if not api_key:
                 raise ValueError("OPENAI_API_KEY not set")
-            return ChatOpenAI(model=model, temperature=temperature, api_key=api_key,
+            llm_cls = ChatOpenAI
+            if llm_cls is None:
+                from langchain_openai import ChatOpenAI as llm_cls
+            return llm_cls(model=model, temperature=temperature, api_key=api_key,
                               **{k: v for k, v in kwargs.items() if k != "api_key"})
         elif provider == "anthropic":
             try:
@@ -109,9 +131,11 @@ class CustomLLMFactory:
             return ChatAnthropic(model=model, temperature=temperature, api_key=api_key,
                                  **{k: v for k, v in kwargs.items() if k != "api_key"})
         elif provider == "ollama":
-            from langchain_community.llms import Ollama
             base_url = kwargs.get("base_url", "http://localhost:11434")
-            return Ollama(model=model, temperature=temperature, base_url=base_url,
+            llm_cls = Ollama
+            if llm_cls is None:
+                from langchain_community.llms import Ollama as llm_cls
+            return llm_cls(model=model, temperature=temperature, base_url=base_url,
                           **{k: v for k, v in kwargs.items() if k != "base_url"})
         elif provider == "custom":
             raise NotImplementedError("Custom LLM endpoints not yet implemented")

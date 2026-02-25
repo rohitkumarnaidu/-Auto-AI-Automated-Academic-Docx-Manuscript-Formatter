@@ -153,10 +153,12 @@ def is_likely_heading_by_style(block: Block, avg_font_size: Optional[float] = No
     
     # SOFT PENALTY: Long text is less likely to be a heading
     # But don't reject outright - reduce confidence instead
-    if len(text) > 200:
-        score -= 0.4  # Strong penalty for very long text
+    if len(text) > 260:
+        score -= 0.4  # Strong penalty for extremely long text
+    elif len(text) > 200:
+        score -= 0.3  # Strong penalty for very long text
     elif len(text) > 120:
-        score -= 0.2  # Moderate penalty for long text
+        score -= 0.1  # Keep long headings possible while still penalizing
     
     # Font size outliers are strong signals
     if block.style.font_size and avg_font_size:

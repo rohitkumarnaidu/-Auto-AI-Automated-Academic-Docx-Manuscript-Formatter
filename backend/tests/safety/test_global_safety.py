@@ -102,7 +102,8 @@ class TestGlobalSafety:
         with patch('app.pipeline.services.docling_client.DOCLING_AVAILABLE', False):
             client = DoclingClient()
             result = client.analyze_layout("test.pdf")
-        assert result == {}
+        assert isinstance(result, dict)
+        assert result.get("elements", []) == []
 
     def test_deep_learning_safety(self):
         """Verify TransformerPatternDetector doesn't crash."""

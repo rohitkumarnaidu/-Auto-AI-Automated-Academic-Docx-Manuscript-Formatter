@@ -29,6 +29,8 @@ class DocumentService:
     Service layer for all document-related DB operations.
     Uses supabase-py for all reads and writes.
     """
+    _supports_file_hash: Optional[bool] = None
+    _file_hash_warning_logged: bool = False
 
     # ── Documents ──────────────────────────────────────────────────────────────
 
@@ -154,12 +156,45 @@ class DocumentService:
                 payload["original_file_path"] = original_file_path
             if formatting_options:
                 payload["formatting_options"] = formatting_options
-            if file_hash:
+            include_file_hash = (
+                bool(file_hash)
+                and DocumentService._supports_file_hash is not False
+            )
+            if include_file_hash:
                 payload["file_hash"] = file_hash
 
             result = sb.table("documents").insert(payload).execute()
+            if include_file_hash:
+                DocumentService._supports_file_hash = True
             return result.data[0] if result.data else None
         except Exception as exc:
+            # Backward-compat: some deployments don't yet have `documents.file_hash`.
+            # Retry once without the optional field instead of failing upload.
+            err = str(exc)
+            missing_file_hash = (
+                "file_hash" in err
+                and ("schema cache" in err or "column" in err or "PGRST204" in err)
+            )
+            if missing_file_hash and "file_hash" in payload:
+                try:
+                    retry_payload = dict(payload)
+                    retry_payload.pop("file_hash", None)
+                    DocumentService._supports_file_hash = False
+                    if not DocumentService._file_hash_warning_logged:
+                        logger.warning(
+                            "documents.file_hash not found in Supabase schema; "
+                            "upload will continue without file hashing until migration is applied."
+                        )
+                        DocumentService._file_hash_warning_logged = True
+                    retry_result = sb.table("documents").insert(retry_payload).execute()
+                    return retry_result.data[0] if retry_result.data else None
+                except Exception as retry_exc:
+                    logger.error(
+                        "create_document(%s) retry without file_hash failed: %s",
+                        doc_id,
+                        retry_exc,
+                    )
+                    return None
             logger.error("create_document(%s) failed: %s", doc_id, exc)
             return None
 

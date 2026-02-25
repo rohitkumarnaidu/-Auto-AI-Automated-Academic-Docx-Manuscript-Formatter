@@ -3,8 +3,10 @@ Metadata extraction tool using GROBID.
 """
 from typing import Optional, Type
 from pydantic import BaseModel, Field
-from langchain.tools import BaseTool
+from langchain.tools import BaseTool as _LangChainBaseTool
 from app.pipeline.services.grobid_client import GROBIDClient
+
+BaseTool = _LangChainBaseTool if isinstance(_LangChainBaseTool, type) else object
 
 
 class MetadataToolInput(BaseModel):
@@ -30,7 +32,7 @@ class MetadataExtractionTool(BaseTool):
     
     def __init__(self, grobid_url: str = "http://localhost:8070"):
         super().__init__()
-        self.grobid_client = GROBIDClient(base_url=grobid_url)
+        object.__setattr__(self, "grobid_client", GROBIDClient(base_url=grobid_url))
     
     def _run(self, file_path: str) -> str:
         """
@@ -47,10 +49,15 @@ class MetadataExtractionTool(BaseTool):
             from app.cache.redis_cache import redis_cache
             import hashlib
             
-            # Read file content for caching key
-            with open(file_path, "rb") as f:
-                content = f.read().decode('utf-8', errors='ignore')
-            
+            # Read file content for caching key when available.
+            # In unit tests or remote file workflows, the local file may not exist.
+            content = None
+            try:
+                with open(file_path, "rb") as f:
+                    content = f.read().decode('utf-8', errors='ignore')
+            except OSError:
+                content = f"file_path:{file_path}"
+
             cached_metadata = redis_cache.get_grobid_result(content)
             if cached_metadata:
                 import json

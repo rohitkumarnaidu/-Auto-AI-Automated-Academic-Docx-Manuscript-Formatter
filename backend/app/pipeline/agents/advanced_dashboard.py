@@ -165,7 +165,7 @@ class AdvancedAnalyticsDashboard:
 <body>
     <div class="container">
         <div class="header">
-            <h1>🤖 Advanced Agent Analytics</h1>
+            <h1>Advanced Agent Analytics</h1>
             <p>ML-Powered Insights & Multi-Agent Coordination</p>
             <p style="font-size: 0.9em; color: #999; margin-top: 10px;">
                 Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
@@ -190,7 +190,7 @@ class AdvancedAnalyticsDashboard:
         if not self.ml_detector:
             return """
             <div class="card">
-                <h2>🧠 ML Pattern Detection</h2>
+                <h2>ML Pattern Detection</h2>
                 <p style="color: #999;">Not initialized</p>
             </div>
             """
@@ -219,7 +219,7 @@ class AdvancedAnalyticsDashboard:
         
         return f"""
         <div class="card">
-            <h2>🧠 ML Pattern Detection</h2>
+            <h2>ML Pattern Detection</h2>
             <div class="metric">
                 <span class="metric-label">Patterns Detected:</span>
                 <span class="metric-value">{summary['pattern_count']}</span>
@@ -241,7 +241,7 @@ class AdvancedAnalyticsDashboard:
         if not self.multi_doc_learner:
             return """
             <div class="card">
-                <h2>📚 Multi-Document Learning</h2>
+                <h2>Multi-Document Learning</h2>
                 <p style="color: #999;">Not initialized</p>
             </div>
             """
@@ -259,7 +259,7 @@ class AdvancedAnalyticsDashboard:
         
         return f"""
         <div class="card">
-            <h2>📚 Multi-Document Learning</h2>
+            <h2>Multi-Document Learning</h2>
             <div class="metric">
                 <span class="metric-label">Total Authors:</span>
                 <span class="metric-value">{summary['total_authors']}</span>
@@ -282,7 +282,7 @@ class AdvancedAnalyticsDashboard:
         if not self.adaptive_strategy:
             return """
             <div class="card">
-                <h2>⚙️ Adaptive Strategies</h2>
+                <h2>Adaptive Strategies</h2>
                 <p style="color: #999;">Not initialized</p>
             </div>
             """
@@ -291,7 +291,7 @@ class AdvancedAnalyticsDashboard:
         
         return f"""
         <div class="card">
-            <h2>⚙️ Adaptive Strategies</h2>
+            <h2>Adaptive Strategies</h2>
             <div class="metric">
                 <span class="metric-label">Max Retries:</span>
                 <span class="metric-value">{config['max_retries']}</span>
@@ -318,7 +318,7 @@ class AdvancedAnalyticsDashboard:
         if not self.distributed_coord:
             return """
             <div class="card">
-                <h2>🌐 Distributed Processing</h2>
+                <h2>Distributed Processing</h2>
                 <p style="color: #999;">Not initialized</p>
             </div>
             """
@@ -336,7 +336,7 @@ class AdvancedAnalyticsDashboard:
         
         return f"""
         <div class="card">
-            <h2>🌐 Distributed Processing</h2>
+            <h2>Distributed Processing</h2>
             <div class="metric">
                 <span class="metric-label">Total Tasks:</span>
                 <span class="metric-value">{stats['total_tasks']}</span>
@@ -357,7 +357,7 @@ class AdvancedAnalyticsDashboard:
             )
             insights.append(f"""
             <div class="insight-box">
-                <h3>💡 Best Performing Pattern</h3>
+                <h3>Best Performing Pattern</h3>
                 <p>Pattern #{best_pattern['cluster_id']} has a {best_pattern['success_rate']:.1%} success rate 
                 with {best_pattern['sample_count']} samples. Average processing time: {best_pattern['avg_duration']:.1f}s</p>
             </div>
@@ -369,7 +369,7 @@ class AdvancedAnalyticsDashboard:
                 top_author, data = summary['top_authors'][0]
                 insights.append(f"""
                 <div class="insight-box">
-                    <h3>📊 Most Prolific Author</h3>
+                    <h3>Most Prolific Author</h3>
                     <p>{top_author} has {data['document_count']} documents with an average of 
                     {data['avg_references']:.0f} references per paper.</p>
                 </div>

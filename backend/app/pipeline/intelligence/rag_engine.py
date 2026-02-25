@@ -9,16 +9,30 @@ Embedding model priority:
 import os
 import json
 import logging
+import hashlib
 import numpy as np
 from typing import List, Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Optional ChromaDB — imported at module level so tests can patch it via:
+#   with patch('app.pipeline.intelligence.rag_engine.chromadb') as mock: ...
+# ---------------------------------------------------------------------------
+try:
+    import chromadb  # noqa: F401  (used below and patchable by tests)
+    _CHROMADB_AVAILABLE = True
+except Exception:
+    chromadb = None  # type: ignore[assignment]
+    _CHROMADB_AVAILABLE = False
 
 # --------------------------------------------------------------------------- #
 #  Constants
 # --------------------------------------------------------------------------- #
 PRIMARY_MODEL = "BAAI/bge-m3"
 FALLBACK_MODEL = "BAAI/bge-small-en-v1.5"
+DETERMINISTIC_FALLBACK_MODEL = "deterministic-hash-v1"
+DETERMINISTIC_DIMENSION = 256
 
 # Embedding dimensions per model (used for ChromaDB collection naming)
 MODEL_DIMENSIONS = {
@@ -29,6 +43,44 @@ MODEL_DIMENSIONS = {
 # Collection names — separate collections to avoid dimension mismatches
 COLLECTION_PRIMARY = "guidelines_bge_m3"       # 1024-d
 COLLECTION_FALLBACK = "publisher_guidelines"    # 384-d (legacy)
+
+
+class _DeterministicEmbeddingModel:
+    """
+    Dependency-light fallback embedding model.
+    Uses token hashing into a fixed vector so semantic retrieval keeps working
+    even when sentence-transformers cannot be imported.
+    """
+
+    def __init__(self, dimension: int = DETERMINISTIC_DIMENSION):
+        self.dimension = max(int(dimension), 32)
+
+    def get_sentence_embedding_dimension(self) -> int:
+        return self.dimension
+
+    def _token_index(self, token: str) -> int:
+        digest = hashlib.blake2b(token.encode("utf-8"), digest_size=8).digest()
+        return int.from_bytes(digest, byteorder="big") % self.dimension
+
+    def _encode_one(self, text: Any) -> List[float]:
+        vec = np.zeros(self.dimension, dtype=float)
+        normalized = str(text or "").lower()
+        tokens = [t for t in normalized.split() if t]
+        if not tokens:
+            return vec.tolist()
+
+        for token in tokens:
+            vec[self._token_index(token)] += 1.0
+
+        norm = np.linalg.norm(vec)
+        if norm > 0:
+            vec = vec / norm
+        return vec.tolist()
+
+    def encode(self, texts: Any):
+        if isinstance(texts, (list, tuple)):
+            return [self._encode_one(t) for t in texts]
+        return self._encode_one(texts)
 
 
 class RagEngine:
@@ -42,7 +94,7 @@ class RagEngine:
       3. Fall back to BAAI/bge-small-en-v1.5  (lighter, 384d)
     """
 
-    def __init__(self, persist_directory: Optional[str] = None):
+    def __init__(self, persist_directory: Optional[str] = None, auto_seed: Optional[bool] = None):
         # Suppress ChromaDB Pydantic compatibility warnings
         import warnings
         warnings.filterwarnings("ignore", message=".*Core Pydantic V1 functionality.*")
@@ -55,6 +107,10 @@ class RagEngine:
             self.persist_directory = os.path.join(base_dir, "db", "semantic_store")
         else:
             self.persist_directory = os.path.abspath(persist_directory)
+        # Default behavior:
+        # - Production/default store: auto-seed enabled
+        # - Custom/test temp store: auto-seed disabled unless explicitly requested
+        self.auto_seed = (persist_directory is None) if auto_seed is None else bool(auto_seed)
 
         os.makedirs(self.persist_directory, exist_ok=True)
 
@@ -85,7 +141,8 @@ class RagEngine:
             if not hasattr(np, 'int_'):
                 np.int_ = np.int64
 
-            import chromadb
+            if chromadb is None:
+                raise ImportError("chromadb not installed or unavailable")
             self.client = chromadb.PersistentClient(path=self.persist_directory)
             self.collection = self.client.get_or_create_collection(self._collection_name)
             self.chroma_enabled = True
@@ -120,7 +177,8 @@ class RagEngine:
             )
 
         # ---- Auto-Seed Default Guidelines ---- #
-        self._seed_if_empty()
+        if self.auto_seed:
+            self._seed_if_empty()
 
     def _seed_if_empty(self):
         """Auto-seed default guidelines if the knowledge base is completely empty."""
@@ -154,25 +212,103 @@ class RagEngine:
     # ------------------------------------------------------------------ #
     #  Model loading
     # ------------------------------------------------------------------ #
+    @staticmethod
+    def _coerce_embedding_vector(raw_embedding: Any) -> List[float]:
+        """
+        Convert an embedding object to a JSON-safe numeric list.
+        Returns [] when conversion is not possible.
+        """
+        if raw_embedding is None:
+            return []
+
+        if hasattr(raw_embedding, "tolist"):
+            raw_embedding = raw_embedding.tolist()
+
+        if (
+            isinstance(raw_embedding, (list, tuple))
+            and raw_embedding
+            and isinstance(raw_embedding[0], (list, tuple, np.ndarray))
+        ):
+            raw_embedding = raw_embedding[0]
+
+        if not isinstance(raw_embedding, (list, tuple, np.ndarray)):
+            return []
+
+        try:
+            return [float(v) for v in raw_embedding]
+        except Exception:
+            return []
+
+    def _is_reusable_embedding_model(self, candidate: Any) -> tuple[bool, Optional[int]]:
+        """
+        Validate a model loaded from ModelStore before reusing it.
+        """
+        try:
+            if candidate is None or not hasattr(candidate, "encode"):
+                return False, None
+            if not hasattr(candidate, "get_sentence_embedding_dimension"):
+                return False, None
+
+            dim = int(candidate.get_sentence_embedding_dimension())
+            if dim <= 0:
+                return False, None
+
+            probe = self._coerce_embedding_vector(candidate.encode("healthcheck"))
+            if not probe:
+                return False, None
+            return True, dim
+        except Exception:
+            return False, None
+
+    def _activate_deterministic_embedding(self, model_store: Any, reason: str):
+        """
+        Ensure embedding functionality remains available even when transformer
+        models cannot be loaded in the current environment.
+        """
+        self.embedding_model = _DeterministicEmbeddingModel(DETERMINISTIC_DIMENSION)
+        self.active_model_name = DETERMINISTIC_FALLBACK_MODEL
+        try:
+            model_store.set_model("embedding_model", self.embedding_model)
+        except Exception:
+            pass
+        logger.warning(
+            "RagEngine: %s Using deterministic fallback model '%s' (dim=%d).",
+            reason,
+            DETERMINISTIC_FALLBACK_MODEL,
+            DETERMINISTIC_DIMENSION,
+        )
+
     def _load_embedding_model(self):
         """Load the embedding model with graceful fallback."""
-        from sentence_transformers import SentenceTransformer
-
         # 1. Check ModelStore for a pre-loaded model
         from app.services.model_store import model_store
-        if model_store.is_loaded("embedding_model"):
-            self.embedding_model = model_store.get_model("embedding_model")
-            # Determine which model it is by checking dimension
-            test_dim = self.embedding_model.get_sentence_embedding_dimension()
-            if test_dim == MODEL_DIMENSIONS[PRIMARY_MODEL]:
-                self.active_model_name = PRIMARY_MODEL
-            else:
-                self.active_model_name = FALLBACK_MODEL
-            print(
-                f"RagEngine: Reusing global SentenceTransformer from ModelStore "
-                f"(dim={test_dim}, model={self.active_model_name})."
+
+        try:
+            from sentence_transformers import SentenceTransformer
+        except Exception as exc:
+            self._activate_deterministic_embedding(
+                model_store,
+                f"SentenceTransformer import failed ({exc}).",
             )
             return
+
+        if model_store.is_loaded("embedding_model"):
+            candidate = model_store.get_model("embedding_model")
+            is_usable, test_dim = self._is_reusable_embedding_model(candidate)
+            if is_usable:
+                self.embedding_model = candidate
+                if test_dim == MODEL_DIMENSIONS[PRIMARY_MODEL]:
+                    self.active_model_name = PRIMARY_MODEL
+                else:
+                    self.active_model_name = FALLBACK_MODEL
+                print(
+                    f"RagEngine: Reusing global SentenceTransformer from ModelStore "
+                    f"(dim={test_dim}, model={self.active_model_name})."
+                )
+                return
+            logger.warning(
+                "RagEngine: Ignoring invalid embedding model from ModelStore and reloading."
+            )
 
         # 2. Try loading BGE-M3 (primary)
         try:
@@ -206,10 +342,13 @@ class RagEngine:
         except Exception as exc:
             logger.error(
                 "RagEngine: Failed to load fallback model '%s': %s. "
-                "Embedding will be unavailable.",
+                "Using deterministic fallback.",
                 FALLBACK_MODEL, exc,
             )
-            self.active_model_name = "none"
+            self._activate_deterministic_embedding(
+                model_store,
+                f"Primary and fallback transformer models unavailable ({exc}).",
+            )
 
     # ------------------------------------------------------------------ #
     #  Public API
@@ -229,7 +368,7 @@ class RagEngine:
 
         # Always update native store for consistent fallback
         if self.embedding_model is not None:
-            embedding = self.embedding_model.encode(text).tolist()
+            embedding = self._coerce_embedding_vector(self.embedding_model.encode(text))
         else:
             embedding = []
         self.knowledge_base.append(
@@ -258,16 +397,23 @@ class RagEngine:
             return []
 
         try:
-            query_emb = self.embedding_model.encode(intent)
+            query_emb_vec = self._coerce_embedding_vector(self.embedding_model.encode(intent))
+            if not query_emb_vec:
+                return []
+            query_emb = np.array(query_emb_vec, dtype=float)
             scores = []
             for item in self.knowledge_base:
                 if item["metadata"]["publisher"] == publisher.upper():
-                    item_emb = np.array(item["embedding"])
-                    if len(item_emb) == 0:
+                    item_emb_vec = self._coerce_embedding_vector(item.get("embedding", []))
+                    if not item_emb_vec:
                         continue
-                    sim = np.dot(query_emb, item_emb) / (
-                        np.linalg.norm(query_emb) * np.linalg.norm(item_emb)
-                    )
+                    item_emb = np.array(item_emb_vec, dtype=float)
+                    if item_emb.shape != query_emb.shape:
+                        continue
+                    denom = np.linalg.norm(query_emb) * np.linalg.norm(item_emb)
+                    if denom == 0:
+                        continue
+                    sim = np.dot(query_emb, item_emb) / denom
                     scores.append((sim, item["text"]))
 
             scores.sort(key=lambda x: x[0], reverse=True)

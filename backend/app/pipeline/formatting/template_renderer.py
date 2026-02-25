@@ -9,6 +9,7 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from zipfile import ZipFile
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,7 @@ class TemplateRenderer:
 
     def __init__(self, templates_dir: str = "app/templates"):
         self.templates_dir = Path(templates_dir)
+        self._template_marker_cache: Dict[Path, bool] = {}
 
     def render(self, document: Document, template_name: str = "ieee") -> "DocxTemplate":
         """Render a template using document context."""
@@ -106,8 +108,34 @@ class TemplateRenderer:
         style = (template_name or "ieee").lower()
         candidate = self.templates_dir / style / "template.docx"
         if candidate.is_file():
-            return candidate
+            if self._has_template_markers(candidate):
+                return candidate
+            logger.warning(
+                "Template '%s' has no Jinja markers. Using generated fallback template.",
+                candidate,
+            )
         return self._build_fallback_template()
+
+    def _has_template_markers(self, template_path: Path) -> bool:
+        cached = self._template_marker_cache.get(template_path)
+        if cached is not None:
+            return cached
+
+        has_markers = False
+        try:
+            with ZipFile(template_path) as zf:
+                xml = zf.read("word/document.xml").decode("utf-8", errors="ignore")
+            has_markers = ("{{" in xml) or ("{%" in xml)
+        except Exception as exc:
+            logger.warning(
+                "Unable to inspect template '%s' for Jinja markers: %s",
+                template_path,
+                exc,
+            )
+            has_markers = False
+
+        self._template_marker_cache[template_path] = has_markers
+        return has_markers
 
     def _build_fallback_template(self) -> Path:
         """Create a temporary fallback DOCX template if none exists."""
@@ -116,10 +144,17 @@ class TemplateRenderer:
                 temp_path = Path(tmp.name)
             doc = WordDocument()
             doc.add_paragraph("{{ title }}", style="Title")
+            doc.add_paragraph("{% for author in authors %}{{ author }}{% if not loop.last %}, {% endif %}{% endfor %}")
+            doc.add_paragraph("{% for affiliation in affiliations %}{{ affiliation }}{% if not loop.last %}; {% endif %}{% endfor %}")
+            doc.add_paragraph("{% if abstract %}Abstract{% endif %}")
+            doc.add_paragraph("{{ abstract }}")
+            doc.add_paragraph("Keywords: {% for keyword in keywords %}{{ keyword }}{% if not loop.last %}, {% endif %}{% endfor %}")
             doc.add_paragraph("{% for section in sections %}")
             doc.add_paragraph("{{ section.heading }}")
             doc.add_paragraph("{% for paragraph in section.paragraphs %}{{ paragraph }}{% endfor %}")
             doc.add_paragraph("{% endfor %}")
+            doc.add_paragraph("{% if references %}References{% endif %}")
+            doc.add_paragraph("{% for reference in references %}{{ reference }}{% endfor %}")
             doc.save(str(temp_path))
             logger.warning("Using fallback DOCX template at '%s'", temp_path)
             return temp_path

@@ -32,6 +32,12 @@ from app.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
+try:
+    from supabase import create_client, Client
+except Exception:  # pragma: no cover - optional dependency in some test envs
+    create_client = None
+    Client = object
+
 # ── Singleton client ────────────────────────────────────────────────────────────
 
 _supabase_client = None
@@ -55,7 +61,9 @@ def _init_client():
         return None
 
     try:
-        from supabase import create_client, Client
+        if create_client is None:
+            logger.error("❌ Supabase client library is not available.")
+            return None
         _supabase_client = create_client(url, key)
         logger.info("✅ Supabase DB client (service role) initialised successfully.")
         return _supabase_client
@@ -73,6 +81,8 @@ def get_supabase_client():
     Return the singleton Supabase client.
     Returns None if not configured — callers must check.
     """
+    global _supabase_client
+    _supabase_client = _init_client()
     return _supabase_client
 
 
@@ -90,7 +100,8 @@ def get_supabase_db():
     """
     from fastapi import HTTPException, status
 
-    if _supabase_client is None:
+    client = get_supabase_client()
+    if client is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=(
@@ -98,7 +109,7 @@ def get_supabase_db():
                 "Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY."
             ),
         )
-    return _supabase_client
+    return client
 
 
 # ── Health check helper ─────────────────────────────────────────────────────────

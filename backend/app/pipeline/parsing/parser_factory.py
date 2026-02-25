@@ -25,6 +25,14 @@ class ParserFactory:
         """Initialize the factory with all available parsers."""
         # Try to initialize all parsers (some may fail if dependencies missing)
         self.parsers = []
+        in_pytest = bool(os.environ.get("PYTEST_CURRENT_TEST"))
+        nougat_override = os.environ.get("ENABLE_NOUGAT_PARSER")
+        enable_nougat = True
+        if nougat_override is not None:
+            enable_nougat = nougat_override.strip().lower() not in {"0", "false", "no", "off"}
+        elif in_pytest:
+            # Keep tests deterministic and fast unless explicitly enabled.
+            enable_nougat = False
         
         # DOCX parser (always available - core functionality)
         try:
@@ -34,14 +42,17 @@ class ParserFactory:
         
         # Nougat PDF parser — PRIMARY for academic PDFs (Meta AI neural model)
         # Must be registered BEFORE PdfParser so it takes priority for .pdf files
-        try:
-            from app.pipeline.parsing.nougat_parser import NougatParser
-            self.parsers.append(NougatParser())
-            print("Info: NougatParser (Meta AI) registered as primary PDF parser.")
-        except ImportError:
-            print("Info: Nougat not available (install with: pip install nougat-ocr). Using PyMuPDF for PDFs.")
-        except Exception as e:
-            print(f"Warning: NougatParser initialization failed: {e}. Falling back to PyMuPDF.")
+        if enable_nougat:
+            try:
+                from app.pipeline.parsing.nougat_parser import NougatParser
+                self.parsers.append(NougatParser())
+                print("Info: NougatParser (Meta AI) registered as primary PDF parser.")
+            except ImportError:
+                print("Info: Nougat not available (install with: pip install nougat-ocr). Using PyMuPDF for PDFs.")
+            except Exception as e:
+                print(f"Warning: NougatParser initialization failed: {e}. Falling back to PyMuPDF.")
+        else:
+            print("Info: NougatParser disabled for current environment. Using PyMuPDF for PDFs.")
         
         # PDF parser — FALLBACK (requires PyMuPDF)
         try:

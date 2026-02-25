@@ -13,8 +13,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from app.pipeline.intelligence.reasoning_engine import ReasoningEngine
 
-def test_model_comparison():
-    """Compare deepseek-r1:8b vs deepseek-r1:0b"""
+def run_model_comparison():
+    """Run deepseek-r1:8b vs deepseek-r1:0b comparison and return raw results."""
     
     print("="*60)
     print("DEEPSEEK MODEL COMPARISON TEST")
@@ -132,6 +132,13 @@ def test_model_comparison():
     
     return results
 
+
+def test_model_comparison():
+    """Compare deepseek-r1:8b vs deepseek-r1:0b."""
+    results = run_model_comparison()
+    assert isinstance(results, dict)
+    assert len(results) == 2
+
 if __name__ == "__main__":
     print("\n🔬 Starting DeepSeek Model Comparison...\n")
     
@@ -151,7 +158,7 @@ if __name__ == "__main__":
         sys.exit(1)
     
     # Run comparison
-    results = test_model_comparison()
+    results = run_model_comparison()
     
     print("\n✅ Test complete!")
     print("\nNext steps:")

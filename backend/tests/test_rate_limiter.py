@@ -4,19 +4,9 @@ per-IP limits, and eviction of stale entries.
 """
 from __future__ import annotations
 
-import sys
 import time
 import pytest
 from unittest.mock import MagicMock, AsyncMock
-
-# Mock out heavy imports that trigger Python 3.14 type evaluation bugs in LangChain
-sys.modules["app.routers"] = MagicMock()
-sys.modules["app.routers.feedback"] = MagicMock()
-sys.modules["app.pipeline.agents"] = MagicMock()
-sys.modules["app.pipeline.agents.document_agent"] = MagicMock()
-sys.modules["langchain"] = MagicMock()
-sys.modules["langchain_core"] = MagicMock()
-sys.modules["langchain_community"] = MagicMock()
 
 try:
     from app.middleware.rate_limit import RateLimitMiddleware

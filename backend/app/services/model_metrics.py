@@ -50,6 +50,8 @@ class ModelMetrics:
         
         self.fallback_chain = []  # Track fallback sequences
         self.quality_scores = []  # Track quality when available
+        self._persistence_enabled = True
+        self._missing_table_logged = False
     
     def record_call(
         self,
@@ -95,11 +97,12 @@ class ModelMetrics:
     def _persist_metric(self, model: str, latency: float, success: bool, quality_score: Optional[float]):
         """Persist to Supabase in a background thread to prevent pipeline crashes."""
         import threading
+        if not self._persistence_enabled:
+            return
         
         def _task():
             try:
                 from app.db.supabase_client import get_supabase_client
-                import logging
                 sb = get_supabase_client()
                 if not sb:
                     return
@@ -112,6 +115,19 @@ class ModelMetrics:
                 }).execute()
             except Exception as exc:
                 import logging
+                err = str(exc)
+                missing_table = (
+                    "model_metrics" in err
+                    and ("schema cache" in err or "PGRST205" in err or "Could not find the table" in err)
+                )
+                if missing_table:
+                    self._persistence_enabled = False
+                    if not self._missing_table_logged:
+                        logging.getLogger(__name__).warning(
+                            "Supabase table 'model_metrics' not found; metric persistence disabled."
+                        )
+                        self._missing_table_logged = True
+                    return
                 logging.getLogger(__name__).warning("Failed to persist model metric to Supabase: %s", exc)
                 
         threading.Thread(target=_task, daemon=True).start()

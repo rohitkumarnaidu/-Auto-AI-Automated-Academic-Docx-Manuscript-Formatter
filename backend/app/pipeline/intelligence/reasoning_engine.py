@@ -16,6 +16,23 @@ class SemanticBlockSchema(BaseModel):
 
 class InstructionSetSchema(BaseModel):
     blocks: List[SemanticBlockSchema]
+    fallback: bool = Field(default=False)
+    model: Optional[str] = None
+    latency: Optional[float] = None
+
+
+def _instruction_set_circuit_fallback(
+    engine: "ReasoningEngine",
+    semantic_blocks: List[Dict[str, Any]],
+    rules: str,
+    max_retries: int = 2,
+) -> Dict[str, Any]:
+    """
+    Circuit-breaker fallback for generate_instruction_set.
+    Uses deterministic rule-based classification so callers still receive
+    block-level output when the breaker is open.
+    """
+    return engine._rule_based_fallback(semantic_blocks)
 
 
 # Import metrics tracking
@@ -242,8 +259,12 @@ class ReasoningEngine:
                     pass
         return None
 
-    @circuit_breaker(failure_threshold=3, recovery_timeout=60)
     @guard_llm_output(schema=InstructionSetSchema, error_return_value={"blocks": [], "fallback": True})
+    @circuit_breaker(
+        failure_threshold=3,
+        recovery_timeout=60,
+        fallback_function=_instruction_set_circuit_fallback,
+    )
     def generate_instruction_set(self, semantic_blocks: List[Dict[str, Any]], rules: str, max_retries: int = 2) -> Dict[str, Any]:
         """
         - Automatic fallback on failure
@@ -253,8 +274,9 @@ class ReasoningEngine:
         """
         # Try NVIDIA first (if available)
         if getattr(self, 'nvidia_available', False) and getattr(self, 'nvidia_client', None):
+            start_time = 0.0  # initialised before try so except can reference it safely
             try:
-                print("🚀 Attempting NVIDIA Llama 3.3 70B...")
+                print("Attempting NVIDIA Llama 3.3 70B...")
                 start_time = time.time()
                 result = self._generate_with_nvidia(semantic_blocks, rules)
                 latency = time.time() - start_time
@@ -268,20 +290,21 @@ class ReasoningEngine:
                     if METRICS_AVAILABLE:
                         get_model_metrics().record_call("nvidia", True, latency)
                     
-                    print(f"✅ NVIDIA analysis successful ({latency:.2f}s)")
+                    print(f"NVIDIA analysis successful ({latency:.2f}s)")
                     return result
                 else:
                     # Record failure
                     if METRICS_AVAILABLE:
                         get_model_metrics().record_call("nvidia", False, latency)
                         get_model_metrics().record_fallback("nvidia", "deepseek", "Invalid schema")
-                    print("⚠️ NVIDIA returned invalid schema or no result, falling back...")
+                    print("NVIDIA returned invalid schema or no result, falling back...")
             except Exception as e:
                 # Record failure
                 if METRICS_AVAILABLE:
                     get_model_metrics().record_call("nvidia", False, time.time() - start_time)
                     get_model_metrics().record_fallback("nvidia", "deepseek", str(e))
-                print(f"⚠️ NVIDIA failed: {e}. Falling back to DeepSeek...")
+                print(f"NVIDIA failed: {e}. Falling back to DeepSeek...")
+
         
         # Fallback to DeepSeek/Ollama
         if getattr(self, 'ollama_available', False) and getattr(self, 'llm', None) is not None:
@@ -350,7 +373,7 @@ class ReasoningEngine:
             "\"semantic_type\": ..., \"confidence\": ...}]}"
         )
         user_prompt = (
-            f"Classify all blocks:\.\n\n"
+            f"Classify all blocks:\n\n"
             f"{chr(10).join(blocks_summary)}\n\n"
             "Return JSON only."
         )

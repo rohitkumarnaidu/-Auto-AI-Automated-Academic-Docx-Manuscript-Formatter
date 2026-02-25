@@ -7,7 +7,7 @@ with their captions through caption matching.
 
 from typing import Optional, Dict, Any, List
 from enum import Enum
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class FigureType(str, Enum):
@@ -152,8 +152,7 @@ class Figure(BaseModel):
         description="Additional metadata"
     )
     
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
     
     def has_caption(self) -> bool:
         """Check if figure has an associated caption."""

@@ -13,32 +13,25 @@ class TestSafetyChaos(unittest.TestCase):
         """Verify circuit breaker opens after threshold failures."""
         print("\n🧪 STATUS: Testing Circuit Breaker Activation...")
         
-        # Mock requests.post to fail
-        with patch('requests.post', side_effect=Exception("Connection Refused")):
-            # 1. Fail 3 times
-            for i in range(3):
-                res = self.engine.generate_instruction_set([], "")
-                # Due to @validate_output callback, it ensures we get a safe fallback dict, not None
-                self.assertTrue(res.get("fallback"), f"Attempt {i}: Should indicate fallback")
-                
-            # 2. Fourth call should trip circuit breaker safely 
-            # The circuit breaker catches its own exception and returns fallback if configured
-            # Our modification uses a fallback_function? No, in the code we didn't pass one, 
-            # BUT the decorator logic explicitly catches generic exceptions.
-            # Wait, let's check code: if fallback_function is None, it raises exception.
-            # However, we wrapped it in a try/except inside the wrapper?
-            # Let's verify actual behavior.
-            
-            try:
-                self.engine.generate_instruction_set([], "")
-            except Exception as e:
-                # If it raises CircuitBreakerOpenException, that's also valid,
-                # BUT our goal is 0-crash.
-                # In reasoning_engine.py we have:
-                # @circuit_breaker...
-                # @validate_output...
-                # validate_output catches exceptions! 
-                pass
+        # When nvidia_client and ChatOllama are used, we need to mock their invoke/chat methods
+        # to trigger a failure that will be caught by the circuit breaker.
+        # Alternatively, mocking requests.post might not cover everything if it uses other libs.
+        # Actually, let's mock generate_with_deepseek & generate_with_nvidia to fail
+        with patch.object(self.engine, '_generate_with_nvidia', side_effect=Exception("NVIDIA API Error")):
+            with patch.object(self.engine, '_generate_with_deepseek', side_effect=Exception("DeepSeek API Error")):
+                with patch.object(self.engine, '_rule_based_fallback', side_effect=Exception("Rules Error")):
+                    # 1. Fail 3 times
+                    for i in range(3):
+                        res = self.engine.generate_instruction_set([], "")
+                        # The circuit breaker + guard will return the fallback dict
+                        self.assertTrue(res.get("fallback"), f"Attempt {i}: Should indicate fallback")
+                    
+                # 2. Fourth call should trip circuit breaker safely 
+                try:
+                    res = self.engine.generate_instruction_set([], "")
+                    self.assertTrue(res.get("fallback"), "Circuit breaker tripped should also return fallback")
+                except Exception as e:
+                    self.fail(f"Circuit breaker did not fail safely: {e}")
 
     def test_validator_suppresses_bad_json(self):
         """Verify validator guard catches malformed JSON from 'hallucinating' AI."""

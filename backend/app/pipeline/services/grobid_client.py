@@ -107,6 +107,24 @@ class GROBIDClient:
         except Exception as e:
             logger.error(f"GROBID reference extraction failed: {e}")
             return []
+
+    def extract_metadata(self, file_path: str) -> Dict[str, Any]:
+        """
+        Backward-compatible metadata extraction API.
+
+        Combines header extraction with reference extraction and returns a
+        single metadata dictionary expected by existing tools/tests.
+        """
+        if not self.is_available():
+            raise GROBIDException("GROBID service not available")
+
+        metadata = self.process_header_document(file_path)
+        if not metadata:
+            return {}
+
+        references = self.process_references(file_path)
+        metadata["references"] = references if references else []
+        return metadata
     
     def _parse_tei_xml(self, xml_str: str) -> Dict[str, Any]:
         """

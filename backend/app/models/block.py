@@ -7,7 +7,7 @@ Each block represents a contiguous piece of text with associated metadata.
 
 from typing import Optional, Dict, Any, List
 from enum import Enum
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class BlockType(str, Enum):
@@ -80,8 +80,7 @@ class TextStyle(BaseModel):
     font_size: Optional[float] = None  # in points
     color: Optional[str] = None  # hex color code
     
-    class Config:
-        frozen = True  # Immutable
+    model_config = ConfigDict(frozen=True)  # Immutable
 
 
 class Block(BaseModel):
@@ -179,8 +178,7 @@ class Block(BaseModel):
         description="Additional metadata added by pipeline stages"
     )
     
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
         
     def is_heading(self) -> bool:
         """Check if this block is a heading."""

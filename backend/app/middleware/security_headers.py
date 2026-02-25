@@ -32,14 +32,33 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline'; "
-            "style-src 'self' 'unsafe-inline'; "
-            "img-src 'self' data: blob:; "
-            "font-src 'self' data:; "
-            "connect-src 'self' https://*.supabase.co wss://*.supabase.co"
+        path = request.url.path or ""
+        is_docs_route = (
+            path.startswith("/docs")
+            or path.startswith("/redoc")
+            or path == "/openapi.json"
         )
+
+        if is_docs_route:
+            # FastAPI Swagger/ReDoc pages pull JS/CSS from CDN by default.
+            # Keep CSP enabled but allow required origins for docs rendering.
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; "
+                "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; "
+                "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; "
+                "img-src 'self' data: blob: https:; "
+                "font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com; "
+                "connect-src 'self' https://*.supabase.co wss://*.supabase.co"
+            )
+        else:
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; "
+                "script-src 'self' 'unsafe-inline'; "
+                "style-src 'self' 'unsafe-inline'; "
+                "img-src 'self' data: blob:; "
+                "font-src 'self' data:; "
+                "connect-src 'self' https://*.supabase.co wss://*.supabase.co"
+            )
         return response
 
 

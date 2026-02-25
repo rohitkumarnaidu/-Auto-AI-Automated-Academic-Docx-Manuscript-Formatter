@@ -241,7 +241,7 @@ class TransformerPatternDetector:
             similarity = self.compute_similarity(embedding, center)
             max_similarity = max(max_similarity, similarity)
         
-        is_anomaly = max_similarity < threshold
+        is_anomaly = bool(max_similarity < threshold)
         return is_anomaly, float(max_similarity)
 
     @safe_function(fallback_value=None, error_message="TransformerPatternDetector.save_model")

@@ -3,9 +3,11 @@ Validation tool using AI-based analysis.
 """
 from typing import Optional, Type
 from pydantic import BaseModel, Field
-from langchain.tools import BaseTool
+from langchain.tools import BaseTool as _LangChainBaseTool
 from app.pipeline.validation import DocumentValidator
 from app.models import PipelineDocument
+
+BaseTool = _LangChainBaseTool if isinstance(_LangChainBaseTool, type) else object
 
 
 class ValidationToolInput(BaseModel):
@@ -30,8 +32,8 @@ class ValidationTool(BaseTool):
     
     def __init__(self):
         super().__init__()
-        self.validator = DocumentValidator()
-        self._document_cache = {}  # Simple cache for demo purposes
+        object.__setattr__(self, "validator", DocumentValidator())
+        object.__setattr__(self, "_document_cache", {})  # Simple cache for demo purposes
     
     def set_document(self, doc_id: str, document: PipelineDocument):
         """Cache a document for validation."""
@@ -55,22 +57,25 @@ class ValidationTool(BaseTool):
                 return f"ERROR: Document with ID '{document_id}' not found in cache."
             
             # Validate document
-            validated_doc = self.validator.validate(document)
+            validation_result = self.validator.validate(document)
+            is_valid = getattr(validation_result, "is_valid", getattr(document, "is_valid", False))
+            errors = list(getattr(validation_result, "errors", getattr(document, "validation_errors", [])))
+            warnings = list(getattr(validation_result, "warnings", getattr(document, "validation_warnings", [])))
             
             # Format response
             result = {
                 "status": "success",
                 "validation": {
-                    "is_valid": validated_doc.is_valid,
-                    "error_count": len(validated_doc.validation_errors),
-                    "warning_count": len(validated_doc.validation_warnings),
-                    "errors": validated_doc.validation_errors[:5],  # First 5 errors
-                    "warnings": validated_doc.validation_warnings[:5],  # First 5 warnings
+                    "is_valid": is_valid,
+                    "error_count": len(errors),
+                    "warning_count": len(warnings),
+                    "errors": errors[:5],  # First 5 errors
+                    "warnings": warnings[:5],  # First 5 warnings
                     "metadata_quality": {
-                        "has_title": bool(validated_doc.metadata.title),
-                        "has_authors": len(validated_doc.metadata.authors) > 0,
-                        "has_abstract": bool(validated_doc.metadata.abstract),
-                        "reference_count": len(validated_doc.references)
+                        "has_title": bool(document.metadata.title),
+                        "has_authors": len(document.metadata.authors) > 0,
+                        "has_abstract": bool(document.metadata.abstract),
+                        "reference_count": len(document.references)
                     }
                 }
             }

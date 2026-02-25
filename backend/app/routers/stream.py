@@ -8,6 +8,7 @@ import redis as sync_redis
 import redis.asyncio as aioredis
 import asyncio
 import json
+import time
 import logging
 from typing import AsyncGenerator
 from fastapi import APIRouter, Request, Depends
@@ -23,6 +24,8 @@ router = APIRouter(prefix="/api/stream", tags=["Streaming"])
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 async_redis = aioredis.from_url(REDIS_URL)
 sync_redis_client = sync_redis.from_url(REDIS_URL)
+_redis_publish_unavailable = False
+_redis_publish_retry_after = 0.0
 
 async def event_generator(job_id: str, request: Request) -> AsyncGenerator[dict, None]:
     """
@@ -76,10 +79,22 @@ def emit_event(job_id: str, event_type: str, data: dict):
     Emit an event to the job's stream via Redis Pub/Sub.
     Sync-friendly for use in pipeline threads.
     """
+    global _redis_publish_unavailable, _redis_publish_retry_after
+    now = time.time()
+    if _redis_publish_unavailable and now < _redis_publish_retry_after:
+        return
+
     try:
         sync_redis_client.publish(
             f"job:{job_id}", 
             json.dumps({"event": event_type, "data": data})
         )
+        if _redis_publish_unavailable:
+            logger.info("Redis event publishing restored.")
+            _redis_publish_unavailable = False
+            _redis_publish_retry_after = 0.0
     except Exception as e:
-        logger.error(f"Failed to publish Redis event: {e}")
+        if not _redis_publish_unavailable:
+            logger.warning("Redis unavailable for SSE publishing: %s. Falling back to no-op.", e)
+        _redis_publish_unavailable = True
+        _redis_publish_retry_after = now + 30.0

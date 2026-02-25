@@ -178,7 +178,7 @@ class MLPatternDetector:
             prediction = self.anomaly_detector.predict(features_scaled)[0]
             score = self.anomaly_detector.score_samples(features_scaled)[0]
             
-            is_anomaly = prediction == -1
+            is_anomaly = bool(prediction == -1)
             return is_anomaly, float(score)
             
         except Exception as e:

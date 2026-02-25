@@ -237,7 +237,7 @@ async def upload_document(
                     break
             if not matched:
                 raise HTTPException(
-                    status_code=415,
+                    status_code=400,
                     detail=f"Unsupported file format or spoofed extension '{file_ext}'."
                 )
         else:

@@ -136,7 +136,18 @@ class DoclingClient:
         """Check if Docling is available and initialized."""
         return DOCLING_AVAILABLE and self.converter is not None
     
-    @safe_function(fallback_value={}, error_message="DoclingClient.analyze_layout")
+    @safe_function(
+        fallback_value={
+            "elements": [],
+            "headers": [],
+            "footers": [],
+            "tables": [],
+            "figures": [],
+            "confidence": 0.0,
+            "pages": 0,
+        },
+        error_message="DoclingClient.analyze_layout",
+    )
     def analyze_layout(self, file_path: str) -> Dict[str, Any]:
         """
         Analyze the layout of a PDF file using Docling.
@@ -149,7 +160,7 @@ class DoclingClient:
         """
         if not DOCLING_AVAILABLE:
             logger.warning("Docling is not installed or failed to load.")
-            return {}
+            return self._empty_layout()
             
         try:
             logger.info(f"Starting Docling layout analysis for: {file_path}")
@@ -185,7 +196,7 @@ class DoclingClient:
             
             except Exception as e:
                 logger.error(f"Docling conversion failed: {e}")
-                raise e
+                return self._empty_layout()
 
             # Extract layout data from the Docling document object
             elements = []
@@ -254,9 +265,7 @@ class DoclingClient:
             
         except Exception as e:
             logger.error(f"Docling analysis failed: {e}")
-            # Raise to trigger safe_function wrapper instead? 
-            # safe_function will catch it and return fallback_value ({}).
-            raise e
+            return self._empty_layout()
     
     def _extract_elements(self, document) -> List[LayoutElement]:
         """Extract layout elements from Docling document."""
@@ -418,6 +427,7 @@ class DoclingClient:
             "tables": [],
             "figures": [],
             "confidence": 0.0,
+            "pages": 0,
         }
     
     def find_title_with_logo_tolerance(

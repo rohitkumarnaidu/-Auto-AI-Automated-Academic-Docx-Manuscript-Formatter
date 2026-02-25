@@ -1,6 +1,7 @@
 import time
 import logging
 import asyncio
+import inspect
 from functools import wraps
 from typing import Callable, Any
 
@@ -13,7 +14,8 @@ def retry_with_backoff(max_retries: int = 2, backoff_factor: float = 1.0, base_d
     if base_delay is not None:
         backoff_factor = base_delay
     def decorator(func: Callable) -> Callable:
-        if asyncio.iscoroutinefunction(func):
+        if inspect.iscoroutinefunction(func):
+
             @wraps(func)
             async def async_wrapper(*args, **kwargs) -> Any:
                 retries = 0

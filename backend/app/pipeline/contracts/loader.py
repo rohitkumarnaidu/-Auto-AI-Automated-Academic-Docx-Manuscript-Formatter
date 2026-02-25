@@ -30,11 +30,31 @@ class ContractLoader:
 
         try:
             with open(contract_path, 'r') as f:
-                contract = yaml.safe_load(f)
+                contract = yaml.safe_load(f) or {}
+                contract = self._normalize_contract(contract, contract_path)
                 self._cache[name] = contract
                 return contract
         except Exception as e:
             raise RuntimeError(f"Failed to load contract {name}: {e}")
+
+    def _normalize_contract(self, contract: Dict[str, Any], contract_path: str) -> Dict[str, Any]:
+        """
+        Normalize contract shape for backward compatibility with legacy callers.
+        """
+        if not isinstance(contract, dict):
+            return {}
+
+        # Legacy callers expect top-level "spacing".
+        layout = contract.get("layout")
+        if isinstance(layout, dict) and "spacing" not in contract and "spacing" in layout:
+            contract["spacing"] = layout["spacing"]
+
+        # Legacy callers/tests may expect a top-level publisher/template identifier.
+        if "publisher" not in contract:
+            inferred_name = os.path.basename(os.path.dirname(contract_path))
+            contract["publisher"] = inferred_name
+
+        return contract
 
     def get_canonical_name(self, publisher: str, section_name: str) -> str:
         """
