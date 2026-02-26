@@ -24,28 +24,28 @@ export default function Footer({ variant = 'app' }) {
                         <div>
                             <h5 className="text-slate-900 dark:text-white font-bold text-sm mb-6 uppercase tracking-wider">Resources</h5>
                             <ul className="flex flex-col gap-4">
-                                <li><Link to="/templates" className="text-sm text-slate-500 hover:text-primary transition-colors">Style Guides</Link></li>
+                                <li><Link to="/templates" className="text-sm text-slate-500 dark:text-slate-400 hover:text-primary transition-colors">Style Guides</Link></li>
                                 <li><span className="text-sm text-slate-400 cursor-default" title="Coming Soon">Documentation</span></li>
                                 <li><span className="text-sm text-slate-400 cursor-default" title="Coming Soon">Video Tutorials</span></li>
-                                <li><Link to="/templates" className="text-sm text-slate-500 hover:text-primary transition-colors">LaTeX Templates</Link></li>
+                                <li><Link to="/templates" className="text-sm text-slate-500 dark:text-slate-400 hover:text-primary transition-colors">LaTeX Templates</Link></li>
                             </ul>
                         </div>
                         <div>
                             <h5 className="text-slate-900 dark:text-white font-bold text-sm mb-6 uppercase tracking-wider">Compliance</h5>
                             <ul className="flex flex-col gap-4">
-                                <li><Link to="/privacy" className="text-sm text-slate-500 hover:text-primary transition-colors">Privacy Policy</Link></li>
+                                <li><Link to="/privacy" className="text-sm text-slate-500 dark:text-slate-400 hover:text-primary transition-colors">Privacy Policy</Link></li>
                                 <li><span className="text-sm text-slate-400 cursor-default" title="Coming Soon">Academic Integrity</span></li>
-                                <li><Link to="/terms" className="text-sm text-slate-500 hover:text-primary transition-colors">Terms of Service</Link></li>
+                                <li><Link to="/terms" className="text-sm text-slate-500 dark:text-slate-400 hover:text-primary transition-colors">Terms of Service</Link></li>
                                 <li><span className="text-sm text-slate-400 cursor-default" title="Coming Soon">Data Security</span></li>
                             </ul>
                         </div>
                         <div>
                             <h5 className="text-slate-900 dark:text-white font-bold text-sm mb-6 uppercase tracking-wider">Support</h5>
                             <ul className="flex flex-col gap-4">
-                                <li><a href="mailto:support@scholarform.ai" className="text-sm text-slate-500 hover:text-primary transition-colors">Help Center</a></li>
+                                <li><a href="mailto:support@scholarform.ai" className="text-sm text-slate-500 dark:text-slate-400 hover:text-primary transition-colors">Help Center</a></li>
                                 <li><span className="text-sm text-slate-400 cursor-default" title="Coming Soon">Institutional Access</span></li>
-                                <li><a href="mailto:support@scholarform.ai" className="text-sm text-slate-500 hover:text-primary transition-colors">Contact Expert</a></li>
-                                <li><Link to="/admin-dashboard" className="text-sm text-slate-500 hover:text-primary transition-colors">System Status</Link></li>
+                                <li><a href="mailto:support@scholarform.ai" className="text-sm text-slate-500 dark:text-slate-400 hover:text-primary transition-colors">Contact Expert</a></li>
+                                <li><Link to="/admin-dashboard" className="text-sm text-slate-500 dark:text-slate-400 hover:text-primary transition-colors">System Status</Link></li>
                             </ul>
                         </div>
                     </div>
@@ -75,9 +75,9 @@ export default function Footer({ variant = 'app' }) {
                     <span className="text-sm font-medium text-center md:text-left">(c) {new Date().getFullYear()} ScholarForm AI. Built for Academics.</span>
                 </div>
                 <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
-                    <Link to="/terms" className="text-sm text-slate-500 hover:text-primary transition-colors">Terms of Service</Link>
-                    <Link to="/privacy" className="text-sm text-slate-500 hover:text-primary transition-colors">Privacy Policy</Link>
-                    <a href="mailto:support@scholarform.ai" className="text-sm text-slate-500 hover:text-primary transition-colors">Support</a>
+                    <Link to="/terms" className="text-sm text-slate-500 dark:text-slate-400 hover:text-primary transition-colors">Terms of Service</Link>
+                    <Link to="/privacy" className="text-sm text-slate-500 dark:text-slate-400 hover:text-primary transition-colors">Privacy Policy</Link>
+                    <a href="mailto:support@scholarform.ai" className="text-sm text-slate-500 dark:text-slate-400 hover:text-primary transition-colors">Support</a>
                 </div>
             </div>
         </footer>

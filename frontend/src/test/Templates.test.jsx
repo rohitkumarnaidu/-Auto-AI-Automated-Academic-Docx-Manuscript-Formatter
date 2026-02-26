@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -29,6 +29,17 @@ vi.mock('../components/Footer', () => ({
 
 import Templates from '../pages/Templates';
 
+const ROUTER_FUTURE_FLAGS = {
+    v7_startTransition: true,
+    v7_relativeSplatPath: true,
+};
+
+const renderTemplates = () => render(
+    <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
+        <Templates />
+    </MemoryRouter>
+);
+
 describe('Templates page', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -36,11 +47,8 @@ describe('Templates page', () => {
     });
 
     it('updates search input on change', async () => {
-        render(
-            <MemoryRouter>
-                <Templates />
-            </MemoryRouter>
-        );
+        renderTemplates();
+        await waitFor(() => expect(getBuiltinTemplatesMock).toHaveBeenCalledTimes(1));
 
         const searchInput = screen.getByPlaceholderText(/search for journal/i);
         fireEvent.change(searchInput, { target: { value: 'Nature' } });
@@ -49,11 +57,8 @@ describe('Templates page', () => {
     });
 
     it('toggles filter chip active state', async () => {
-        render(
-            <MemoryRouter>
-                <Templates />
-            </MemoryRouter>
-        );
+        renderTemplates();
+        await waitFor(() => expect(getBuiltinTemplatesMock).toHaveBeenCalledTimes(1));
 
         const engineeringChip = screen.getByRole('button', { name: /engineering/i });
         fireEvent.click(engineeringChip);
@@ -62,11 +67,7 @@ describe('Templates page', () => {
     });
 
     it('calls navigate when selecting a template', async () => {
-        render(
-            <MemoryRouter>
-                <Templates />
-            </MemoryRouter>
-        );
+        renderTemplates();
 
         const selectButtons = await screen.findAllByRole('button', { name: /select template/i });
         fireEvent.click(selectButtons[0]);

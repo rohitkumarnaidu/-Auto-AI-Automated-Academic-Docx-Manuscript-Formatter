@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -17,8 +17,13 @@ vi.mock('../components/Navbar', () => ({
 
 import Signup from '../pages/Signup';
 
+const ROUTER_FUTURE_FLAGS = {
+    v7_startTransition: true,
+    v7_relativeSplatPath: true,
+};
+
 const renderSignup = () => render(
-    <MemoryRouter>
+    <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
         <Signup />
     </MemoryRouter>
 );
@@ -77,12 +82,14 @@ describe('Signup page', () => {
         fillRequiredFields();
         fireEvent.click(screen.getByRole('button', { name: /create account/i }));
 
-        expect(signUpMock).toHaveBeenCalledWith({
-            full_name: 'Jane Doe',
-            email: 'jane@example.edu',
-            institution: '',
-            password: 'Password1',
-            terms_accepted: true,
+        await waitFor(() => {
+            expect(signUpMock).toHaveBeenCalledWith({
+                full_name: 'Jane Doe',
+                email: 'jane@example.edu',
+                institution: '',
+                password: 'Password1',
+                terms_accepted: true,
+            });
         });
     });
 });

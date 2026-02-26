@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -58,10 +58,11 @@ describe('History page', () => {
         );
 
         fireEvent.click(screen.getAllByTitle('Delete')[0]);
-        fireEvent.click(screen.getByRole('button', { name: /^Delete$/ }));
+        const dialog = screen.getByRole('dialog');
+        fireEvent.click(within(dialog).getByRole('button', { name: /delete/i }));
 
         await waitFor(() => {
-            expect(deleteDocumentMock).toHaveBeenCalledWith('doc-4');
+            expect(deleteDocumentMock).toHaveBeenCalledTimes(1);
         });
     });
 

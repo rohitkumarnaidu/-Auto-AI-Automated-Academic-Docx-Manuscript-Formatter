@@ -19,6 +19,7 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
     const { theme, toggleTheme } = useTheme();
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [scrolled, setScrolled] = useState(false);
     const profileRef = useRef(null);
     const navigate = useNavigate();
     const location = useLocation();
@@ -65,6 +66,13 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
         }
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    // Scroll blur effect for app navbar
+    useEffect(() => {
+        const onScroll = () => setScrolled(window.scrollY > 20);
+        window.addEventListener('scroll', onScroll, { passive: true });
+        return () => window.removeEventListener('scroll', onScroll);
     }, []);
 
     useEffect(() => {
@@ -176,7 +184,10 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
     };
 
     return (
-        <header className="border-b border-solid border-slate-200 dark:border-slate-800 bg-white dark:bg-background-dark sticky top-0 z-50">
+        <header className={`border-b border-solid border-slate-200 dark:border-slate-800 sticky top-0 z-50 transition-all duration-200 ${scrolled
+                ? 'bg-white/80 dark:bg-background-dark/80 backdrop-blur-lg shadow-sm'
+                : 'bg-white dark:bg-background-dark'
+            }`}>
             <div className="max-w-[1600px] mx-auto flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 gap-3">
                 <div className="flex items-center gap-4 text-primary min-w-0">
                     <Link to={isLoggedIn ? "/dashboard" : "/"} className="flex items-center gap-2 hover:opacity-80 transition-opacity min-w-0">

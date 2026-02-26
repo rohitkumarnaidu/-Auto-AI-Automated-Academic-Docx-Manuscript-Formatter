@@ -38,7 +38,6 @@ export default function Signup() {
         });
 
         if (signupError) {
-            console.error(signupError);
             setError(typeof signupError === 'string' ? signupError : signupError.message || String(signupError));
             setLocalLoading(false);
         } else {
@@ -59,7 +58,6 @@ export default function Signup() {
         setError('');
         const { error: googleError } = await signInWithGoogle();
         if (googleError) {
-            console.error(googleError);
             setError(googleError.message || googleError);
         }
     };

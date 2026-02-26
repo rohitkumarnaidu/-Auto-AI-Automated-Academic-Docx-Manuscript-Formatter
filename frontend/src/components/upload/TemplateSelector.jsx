@@ -24,8 +24,8 @@ export default function TemplateSelector({
                         >
                             <option value="none">None (General Formatting)</option>
                             <option value="ieee">IEEE Standard</option>
-                            <option value="springer">Springer Nature(Standard)</option>
-                            <option value="apa">APA Style(7th Edition)</option>
+                            <option value="springer">Springer Nature (Standard)</option>
+                            <option value="apa">APA Style (7th Edition)</option>
                             <option value="browse_more" className="text-primary font-bold">Browse More Templates...</option>
                         </select>
                         <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
@@ -44,6 +44,9 @@ export default function TemplateSelector({
                     {category === 'none' && (
                         <>
                             <div
+                                role="button"
+                                tabIndex={0}
+                                onKeyDown={(e) => e.key === 'Enter' && !isProcessing && onTemplateSelect('none')}
                                 onClick={() => !isProcessing && onTemplateSelect('none')}
                                 className={`shrink-0 w-[240px] sm:w-[280px] snap-start cursor-pointer group relative rounded-xl border-2 transition-all duration-300 overflow-hidden ${template === 'none' ? 'border-primary bg-primary/5 ring-4 ring-primary/10' : 'border-dashed border-slate-300 dark:border-slate-700 bg-transparent hover:border-primary/50'}`}
                             >

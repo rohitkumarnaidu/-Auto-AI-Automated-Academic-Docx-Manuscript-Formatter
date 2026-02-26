@@ -212,7 +212,12 @@ export default function Edit() {
 
                         {/* Manuscript Paper Area */}
                         <article className="manuscript-paper bg-white dark:bg-slate-900 min-h-[700px] lg:min-h-[1100px] p-5 sm:p-8 lg:p-16 rounded-sm border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
-                            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white mb-6 sm:mb-8 focus:outline-none" contentEditable spellCheck={false}>
+                            <h1
+                                className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white mb-6 sm:mb-8 focus:outline-none"
+                                contentEditable
+                                suppressContentEditableWarning
+                                spellCheck={false}
+                            >
                                 {title.replace(/_/g, ' ')}
                             </h1>
                             <textarea

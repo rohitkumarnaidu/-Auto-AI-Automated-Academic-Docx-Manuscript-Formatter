@@ -1,24 +1,35 @@
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { Link } from 'react-router-dom';
+import useScrollReveal from '../hooks/useScrollReveal';
 
 export default function Landing() {
+    const featuresRef = useScrollReveal();
+    const templatesRef = useScrollReveal();
+    const pricingRef = useScrollReveal();
+    const ctaRef = useScrollReveal();
+    const aboutRef = useScrollReveal();
     return (
         <>
             <Navbar variant="landing" />
 
             {/* Hero Section */}
             <section className="relative overflow-hidden py-16 lg:py-24">
+                {/* Gradient depth blobs */}
+                <div className="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
+                    <div className="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full bg-primary/5 dark:bg-primary/10 blur-3xl" />
+                    <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] rounded-full bg-violet-500/5 dark:bg-violet-500/10 blur-3xl" />
+                </div>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-                        <div className="flex flex-col gap-8">
+                        <div className="flex flex-col gap-8 fade-in-up">
                             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider w-fit">
                                 <span className="material-symbols-outlined text-sm">verified</span>
                                 AI-Powered Academic Standard
                             </div>
                             <div className="flex flex-col gap-4">
                                 <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-slate-900 dark:text-white leading-[1.1] tracking-tight">
-                                    Write and Rewrite, Validate, structure, and format academic papers <span className="text-primary">automatically.</span>
+                                    Write, validate, structure, and format academic papers <span className="text-primary">automatically.</span>
                                 </h1>
                                 <p className="text-lg text-slate-600 dark:text-slate-400 max-w-xl leading-relaxed">
                                     Save hours on manual bibliography and style adjustments. Our engine handles APA, IEEE, Springer, and more so you can focus on your research.
@@ -35,7 +46,7 @@ export default function Landing() {
                                 </div>
                             </div>
                         </div>
-                        <div className="relative">
+                        <div className="relative fade-in-up" style={{ animationDelay: '200ms' }}>
                             <div className="aspect-[4/3] rounded-2xl overflow-hidden bg-white dark:bg-slate-800 shadow-2xl border border-slate-200 dark:border-slate-700" style={{ backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuBgXXWbmsfQm4btwQHfY2tmhYAJTi94XALRDgR4WuRZufgH--9Q1SLvuCe8ruWlFHwQ1mzsT3fTVSDzz8E2DApgPH8HO0MTTjq18apNHSxsXBGSkaSyQyQ9p-7LChh4VRr9yCoo8eA1sq12Tbq8yNHLoVX043i8vZ773Nn6PO8564Ett01CUsFr4PK5s-5zq0cxT6sTSVal-7BfF5uQ_C77GasmEU_6tDVeTRIpuWJ-34fQJWkhzjnVLKAWyU3PN0BVjXqoC0NIhWFd')" }}>
                                 {/* Abstract overlay for dashboard preview */}
                                 <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 to-transparent flex items-center justify-center p-8">
@@ -80,7 +91,7 @@ export default function Landing() {
 
             {/* Feature Grid Section */}
             <section className="py-20 bg-white dark:bg-background-dark/50" id="features">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div ref={featuresRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 scroll-reveal">
                     <div className="text-center max-w-3xl mx-auto mb-16">
                         <h2 className="text-primary font-bold text-sm tracking-widest uppercase mb-3">Powerful Capabilities</h2>
                         <h3 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-6 leading-tight">Designed to meet the rigorous standards of global academic publishing.</h3>
@@ -141,7 +152,7 @@ export default function Landing() {
 
             {/* Templates Preview Section */}
             <section className="py-20 bg-background-light dark:bg-slate-900/30" id="templates">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div ref={templatesRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 scroll-reveal">
                     <div className="text-center max-w-3xl mx-auto mb-16">
                         <h2 className="text-primary font-bold text-sm tracking-widest uppercase mb-3">Journal Library</h2>
                         <h3 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-6 leading-tight">One-click formatting for 1,000+ journals.</h3>
@@ -217,7 +228,7 @@ export default function Landing() {
 
             {/* Pricing Section */}
             <section className="py-20 bg-white dark:bg-background-dark/50" id="pricing">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div ref={pricingRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 scroll-reveal">
                     <div className="text-center max-w-3xl mx-auto mb-16">
                         <h2 className="text-primary font-bold text-sm tracking-widest uppercase mb-3">Pricing</h2>
                         <h3 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-6 leading-tight">Simple, transparent pricing for every researcher.</h3>
@@ -258,7 +269,7 @@ export default function Landing() {
                         </div>
 
                         {/* Pro Tier */}
-                        <div className="flex flex-col p-8 bg-white dark:bg-slate-900 rounded-2xl border-2 border-primary shadow-xl relative">
+                        <div className="flex flex-col p-8 bg-white dark:bg-slate-900 rounded-2xl border-2 border-primary shadow-xl shadow-primary/10 relative scale-[1.03]">
                             <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-white text-xs font-bold px-4 py-1 rounded-full uppercase tracking-wider">
                                 Most Popular
                             </div>
@@ -338,7 +349,7 @@ export default function Landing() {
 
             {/* CTA Section */}
             <section className="py-16">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div ref={ctaRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 scroll-reveal">
                     <div className="relative bg-slate-900 dark:bg-primary/20 rounded-3xl p-8 md:p-16 overflow-hidden">
                         <div className="absolute inset-0 bg-primary opacity-5 mix-blend-overlay"></div>
                         <div className="relative z-10 flex flex-col items-center text-center gap-8">
@@ -363,7 +374,7 @@ export default function Landing() {
 
             {/* About Section */}
             <section id="about" className="py-20 bg-background-light dark:bg-slate-900/30">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div ref={aboutRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 scroll-reveal">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
                         <div className="flex flex-col gap-6">
                             <h2 className="text-primary font-bold text-sm tracking-widest uppercase">About ScholarForm AI</h2>

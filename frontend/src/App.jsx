@@ -23,6 +23,8 @@ import AdminDashboard from './pages/AdminDashboard';
 import BatchUpload from './pages/BatchUpload';
 import NotificationsPage from './pages/NotificationsPage';
 import SettingsPage from './pages/SettingsPage';
+import Terms from './pages/Terms';
+import Privacy from './pages/Privacy';
 
 import { DocumentProvider } from './context/DocumentContext';
 import { AuthProvider } from './context/AuthContext';
@@ -80,6 +82,8 @@ function App() {
                                     )}
                                 />
                                 <Route path="/templates" element={withBoundary(<Templates />)} />
+                                <Route path="/terms" element={withBoundary(<Terms />)} />
+                                <Route path="/privacy" element={withBoundary(<Privacy />)} />
 
                                 {/* ── Login required: account-specific (needs persistent data) ── */}
                                 <Route

@@ -84,8 +84,8 @@ function ValidationResults() {
 
     if (!job) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center">
-                <p className="text-slate-500 mb-4">No validation results found.</p>
+            <div className="min-h-screen flex flex-col items-center justify-center bg-background-light dark:bg-background-dark">
+                <p className="text-slate-500 dark:text-slate-400 mb-4">No validation results found.</p>
                 <button onClick={() => navigate('/upload')} className="text-primary font-bold hover:underline">Return to Upload</button>
             </div>
         );
@@ -93,16 +93,16 @@ function ValidationResults() {
 
     if (isLoadingResult && !resolvedResult) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center">
-                <p className="text-slate-500 mb-4">Loading validation results...</p>
+            <div className="min-h-screen flex flex-col items-center justify-center bg-background-light dark:bg-background-dark">
+                <p className="text-slate-500 dark:text-slate-400 mb-4">Loading validation results...</p>
             </div>
         );
     }
 
     if (!resolvedResult) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center">
-                <p className="text-slate-500 mb-2">No validation results found.</p>
+            <div className="min-h-screen flex flex-col items-center justify-center bg-background-light dark:bg-background-dark">
+                <p className="text-slate-500 dark:text-slate-400 mb-2">No validation results found.</p>
                 {resultLoadError ? <p className="text-red-500 text-sm mb-4">{resultLoadError}</p> : null}
                 <button onClick={() => navigate('/upload')} className="text-primary font-bold hover:underline">Return to Upload</button>
             </div>

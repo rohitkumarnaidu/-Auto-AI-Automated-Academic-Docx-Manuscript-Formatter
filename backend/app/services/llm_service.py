@@ -3,6 +3,7 @@ llm_service.py — Unified LLM access layer powered by LiteLLM.
 """
 from __future__ import annotations
 import os
+import sys
 import logging
 from typing import List, Dict, Any, Optional
 
@@ -10,20 +11,21 @@ logger = logging.getLogger(__name__)
 
 # ── LiteLLM import (optional) ────────────────────────────────────────────── #
 try:
+    # LiteLLM currently emits Python 3.14 deprecation warnings via transitive
+    # dependencies. Use direct provider clients on 3.14+ until upstream catches up.
+    if sys.version_info >= (3, 14):
+        raise ImportError("LiteLLM disabled on Python >= 3.14.")
     import litellm
     from litellm import completion
     litellm.drop_params = True          # Ignore unsupported params per-provider
     litellm.suppress_debug_info = True  # Quiet startup logs
     LITELLM_AVAILABLE = True
-    logger.info("llm_service: LiteLLM available — unified LLM layer active.")
+    logger.info("llm_service: LiteLLM available - unified LLM layer active.")
 except ImportError:
     LITELLM_AVAILABLE = False
     logger.warning(
-        "litellm not installed — llm_service will use direct provider clients. "
-        "Install with: pip install litellm"
+        "LiteLLM unavailable - llm_service will use direct provider clients."
     )
-
-# ── Model constants ──────────────────────────────────────────────────────── #
 LLM_NVIDIA   = "nvidia_nim/meta/llama-3.3-70b-instruct"
 LLM_DEEPSEEK = "ollama/deepseek-r1"
 LLM_GPT4     = "gpt-4"
@@ -270,3 +272,4 @@ async def check_health() -> Dict[str, str]:
         results["deepseek"] = "unavailable"
         
     return results
+

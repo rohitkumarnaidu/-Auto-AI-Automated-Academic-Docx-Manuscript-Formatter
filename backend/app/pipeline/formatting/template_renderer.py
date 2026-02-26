@@ -86,6 +86,13 @@ class TemplateRenderer:
 
             formatting_options = document.formatting_options or {}
 
+            # Templates currently gate title/authors behind `{% if cover_page %}`.
+            # Default to rendering front matter so metadata is not dropped when
+            # formatting_options does not explicitly provide a flag.
+            cover_page = formatting_options.get("cover_page")
+            if cover_page is None:
+                cover_page = True
+
             return {
                 "title": title,
                 "authors": authors,
@@ -95,7 +102,7 @@ class TemplateRenderer:
                 "keywords": keywords,
                 "sections": sections,
                 "references": references,
-                "cover_page": formatting_options.get("cover_page", False),
+                "cover_page": bool(cover_page),
                 "toc": formatting_options.get("toc", False),
                 "page_numbers": formatting_options.get("page_numbers", True),
                 "page_number": formatting_options.get("page_number", "1"),

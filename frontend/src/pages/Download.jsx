@@ -31,15 +31,15 @@ export default function Download() {
 
     if (isJobLoading && !job) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center">
-                <p className="text-slate-500 mb-4">Loading document details...</p>
+            <div className="min-h-screen flex flex-col items-center justify-center bg-background-light dark:bg-background-dark">
+                <p className="text-slate-500 dark:text-slate-400 mb-4">Loading document details...</p>
             </div>
         );
     }
 
     if (jobLoadError && !job) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center px-4 text-center">
+            <div className="min-h-screen flex flex-col items-center justify-center px-4 text-center bg-background-light dark:bg-background-dark">
                 <p className="text-red-600 dark:text-red-400 mb-3">{jobLoadError}</p>
                 <button onClick={() => navigate('/history')} className="text-primary font-bold hover:underline">
                     Return to History
@@ -50,8 +50,8 @@ export default function Download() {
 
     if (!job) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center">
-                <p className="text-slate-500 mb-4">No completed job found.</p>
+            <div className="min-h-screen flex flex-col items-center justify-center bg-background-light dark:bg-background-dark">
+                <p className="text-slate-500 dark:text-slate-400 mb-4">No completed job found.</p>
                 <button onClick={() => navigate('/upload')} className="text-primary font-bold hover:underline">Return to Upload</button>
             </div>
         );
@@ -67,7 +67,7 @@ export default function Download() {
                 <div className="flex flex-col items-center gap-4">
                     <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
                     <h2 className="text-xl font-bold text-slate-900 dark:text-white">Processing Document...</h2>
-                    <p className="text-slate-500">Please wait while we format your manuscript.</p>
+                    <p className="text-slate-500 dark:text-slate-400">Please wait while we format your manuscript.</p>
                     <button onClick={() => navigate('/upload')} className="text-primary font-bold hover:underline mt-4">View Progress</button>
                 </div>
             </div>
@@ -83,7 +83,7 @@ export default function Download() {
                         <span className="material-symbols-outlined text-3xl">error</span>
                     </div>
                     <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Formatting Failed</h2>
-                    <p className="text-slate-500 mb-6">{job.error || "An unexpected error occurred during processing."}</p>
+                    <p className="text-slate-500 dark:text-slate-400 mb-6">{job.error || "An unexpected error occurred during processing."}</p>
                     <button onClick={handleUploadAnother} className="bg-primary text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 transition-colors">Try Again</button>
                 </div>
             </div>
@@ -95,7 +95,7 @@ export default function Download() {
             <div className="min-h-screen flex flex-col items-center justify-center bg-background-light dark:bg-background-dark">
                 <div className="p-8 max-w-md text-center">
                     <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Document Not Ready</h2>
-                    <p className="text-slate-500 mb-6">
+                    <p className="text-slate-500 dark:text-slate-400 mb-6">
                         This manuscript is still being prepared. Return to Upload to continue.
                     </p>
                     <button onClick={() => navigate('/upload')} className="bg-primary text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 transition-colors">
@@ -152,7 +152,7 @@ export default function Download() {
     };
 
     return (
-        <>
+        <div className="min-h-screen flex flex-col bg-background-light dark:bg-background-dark">
             <Navbar variant="app" />
 
             <main className="px-4 sm:px-6 lg:px-10 flex flex-1 justify-center py-8 sm:py-12 min-h-[calc(100vh-200px)] animate-in zoom-in-95 duration-500 relative">
@@ -316,7 +316,7 @@ export default function Download() {
             </main>
 
             <Footer variant="app" />
-        </>
+        </div>
     );
 }
 

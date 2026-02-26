@@ -183,7 +183,7 @@ export default function Compare() {
     if (isJobLoading && !job) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-background-light dark:bg-background-dark">
-                <p className="text-slate-500 mb-4">Loading document details...</p>
+                <p className="text-slate-500 dark:text-slate-400 mb-4">Loading document details...</p>
             </div>
         );
     }
@@ -202,7 +202,7 @@ export default function Compare() {
     if (!job) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-background-light dark:bg-background-dark">
-                <p className="text-slate-500 mb-4">No active document to compare.</p>
+                <p className="text-slate-500 dark:text-slate-400 mb-4">No active document to compare.</p>
                 <button onClick={() => navigate('/upload')} className="text-primary font-bold hover:underline">Return to Upload</button>
             </div>
         );
@@ -304,7 +304,7 @@ export default function Compare() {
                             <iframe
                                 title="Authoritative backend diff"
                                 srcDoc={htmlDiffDocument}
-                                className="w-full min-h-[620px] h-full border-0 bg-white"
+                                className="w-full min-h-[620px] h-full border-0 bg-white dark:bg-slate-900"
                             />
                         </div>
                     ) : (

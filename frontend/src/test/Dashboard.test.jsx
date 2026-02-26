@@ -73,8 +73,8 @@ describe('Dashboard page', () => {
             </MemoryRouter>
         );
 
-        const rowDownloadLink = screen.getByRole('link', { name: 'Download' });
-        expect(rowDownloadLink).toHaveAttribute('href', '/jobs/job-a/download');
+        const downloadLinks = screen.getAllByRole('link', { name: 'Download' });
+        expect(downloadLinks.some((link) => link.getAttribute('href') === '/jobs/job-a/download')).toBe(true);
 
         fireEvent.click(screen.getByRole('button', { name: /download results/i }));
         expect(navigateMock).toHaveBeenCalledWith('/jobs/job-b/download');
