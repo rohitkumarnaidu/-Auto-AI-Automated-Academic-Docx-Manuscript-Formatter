@@ -1,16 +1,88 @@
-import { useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import ValidationCard from '../components/ValidationCard';
-import { useNavigate } from 'react-router-dom';
 import { useDocument } from '../context/DocumentContext';
+import { getPreview } from '../services/api';
 
 function ValidationResults() {
     const navigate = useNavigate();
-    const { job } = useDocument();
+    const { job, setJob } = useDocument();
     const [activeTab, setActiveTab] = useState('all');
+    const [resolvedResult, setResolvedResult] = useState(job?.result || null);
+    const [isLoadingResult, setIsLoadingResult] = useState(false);
+    const [resultLoadError, setResultLoadError] = useState('');
+    const [ignoredIssues, setIgnoredIssues] = useState(new Set());
 
-    if (!job || !job.result) {
+    const handleIgnore = useCallback((issue) => {
+        const key = `${issue.type}:${issue.title}:${issue.description}`;
+        setIgnoredIssues(prev => {
+            const next = new Set(prev);
+            next.add(key);
+            return next;
+        });
+    }, []);
+
+    useEffect(() => {
+        if (!job) {
+            setResolvedResult(null);
+            setResultLoadError('');
+            setIsLoadingResult(false);
+            return;
+        }
+
+        if (job.result) {
+            setResolvedResult(job.result);
+            setResultLoadError('');
+            setIsLoadingResult(false);
+            return;
+        }
+
+        if (!job.id) {
+            setResolvedResult(null);
+            return;
+        }
+
+        let isCancelled = false;
+        setIsLoadingResult(true);
+        setResultLoadError('');
+
+        getPreview(job.id, { debounceMs: 0 })
+            .then((data) => {
+                if (isCancelled) {
+                    return;
+                }
+
+                const validation = data?.validation_results || null;
+                setResolvedResult(validation);
+
+                if (validation) {
+                    setJob((previousJob) => ({
+                        ...(previousJob || {}),
+                        result: validation,
+                    }));
+                }
+            })
+            .catch((error) => {
+                if (isCancelled) {
+                    return;
+                }
+                console.error('Failed to load validation results:', error);
+                setResultLoadError(error?.message || 'Unable to load validation results.');
+            })
+            .finally(() => {
+                if (!isCancelled) {
+                    setIsLoadingResult(false);
+                }
+            });
+
+        return () => {
+            isCancelled = true;
+        };
+    }, [job, job?.id, job?.result, setJob]);
+
+    if (!job) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center">
                 <p className="text-slate-500 mb-4">No validation results found.</p>
@@ -19,47 +91,70 @@ function ValidationResults() {
         );
     }
 
-    const { errors = [], warnings = [], advisories = [] } = job.result || {};
+    if (isLoadingResult && !resolvedResult) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center">
+                <p className="text-slate-500 mb-4">Loading validation results...</p>
+            </div>
+        );
+    }
 
+    if (!resolvedResult) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center">
+                <p className="text-slate-500 mb-2">No validation results found.</p>
+                {resultLoadError ? <p className="text-red-500 text-sm mb-4">{resultLoadError}</p> : null}
+                <button onClick={() => navigate('/upload')} className="text-primary font-bold hover:underline">Return to Upload</button>
+            </div>
+        );
+    }
+
+    const { errors = [], warnings = [], advisories = [] } = resolvedResult || {};
     const totalIssues = errors.length + warnings.length + advisories.length;
 
     const parseIssue = (issue, type) => {
-        if (typeof issue === 'object') return { ...issue, type };
+        if (typeof issue === 'object') {
+            return { ...issue, type };
+        }
 
-        let title = "Formatting Issue";
-        let description = issue;
-
+        let title = 'Formatting Issue';
+        const description = issue;
         const lower = issue.toLowerCase();
+
         if (lower.includes('missing required section') || lower.includes('order')) {
-            title = "Structure Violation";
+            title = 'Structure Violation';
         } else if (lower.includes('figure') || lower.includes('caption')) {
-            title = "Figure/Table Issue";
+            title = 'Figure/Table Issue';
         } else if (lower.includes('reference') || lower.includes('citation')) {
-            title = "Citation Issue";
+            title = 'Citation Issue';
         } else if (lower.includes('font') || lower.includes('spacing') || lower.includes('margin')) {
-            title = "Style & Layout";
+            title = 'Style & Layout';
         }
 
         return {
             type,
             title,
             description,
-            severity: type === 'error' ? 'Critical' : type === 'warning' ? 'Minor' : 'Info'
+            severity: type === 'error' ? 'Critical' : type === 'warning' ? 'Minor' : 'Info',
         };
     };
 
     const filteredIssues = () => {
         let issues = [];
+
         if (activeTab === 'all' || activeTab === 'errors') {
-            issues = [...issues, ...errors.map(e => parseIssue(e, 'error'))];
+            issues = [...issues, ...errors.map((e) => parseIssue(e, 'error'))];
         }
         if (activeTab === 'all' || activeTab === 'warnings') {
-            issues = [...issues, ...warnings.map(w => parseIssue(w, 'warning'))];
+            issues = [...issues, ...warnings.map((w) => parseIssue(w, 'warning'))];
         }
         if (activeTab === 'all' || activeTab === 'advisories') {
-            issues = [...issues, ...advisories.map(a => parseIssue(a, 'advisory'))];
+            issues = [...issues, ...advisories.map((a) => parseIssue(a, 'advisory'))];
         }
-        return issues;
+        return issues.filter(issue => {
+            const key = `${issue.type}:${issue.title}:${issue.description}`;
+            return !ignoredIssues.has(key);
+        });
     };
 
     return (
@@ -67,18 +162,18 @@ function ValidationResults() {
             <Navbar variant="app" />
 
             <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                {/* Breadcrumbs */}
                 <nav className="flex flex-wrap items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400">
-                    <a href="#" className="hover:text-primary transition-colors">My Files</a>
+                    <Link to="/history" className="hover:text-primary transition-colors">My Files</Link>
                     <span className="material-symbols-outlined text-xs">chevron_right</span>
                     <span className="text-slate-900 dark:text-slate-100">Validation Results</span>
                 </nav>
 
-                {/* Page Heading */}
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                     <div className="space-y-2">
                         <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white">Validation Results Analysis</h1>
-                        <p className="text-slate-500 dark:text-slate-400 text-base sm:text-lg break-words">Diagnostic report for <span className="font-mono text-slate-700 dark:text-slate-200 break-all">{job.originalFileName}</span></p>
+                        <p className="text-slate-500 dark:text-slate-400 text-base sm:text-lg break-words">
+                            Diagnostic report for <span className="font-mono text-slate-700 dark:text-slate-200 break-all">{job.originalFileName}</span>
+                        </p>
                     </div>
                     <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
                         <button onClick={() => navigate('/upload')} className="flex w-full sm:w-auto items-center justify-center rounded-lg h-11 px-6 bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm font-bold hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors">
@@ -92,7 +187,6 @@ function ValidationResults() {
                     </div>
                 </div>
 
-                {/* Metadata Summary Card */}
                 <div className="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 flex flex-col lg:flex-row gap-6 items-start lg:items-center">
                     <div className="flex-1 space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -119,7 +213,6 @@ function ValidationResults() {
                     </div>
                 </div>
 
-                {/* Quick Stats */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded-xl p-6 flex flex-col">
                         <div className="flex items-center justify-between mb-2">
@@ -147,15 +240,13 @@ function ValidationResults() {
                     </div>
                 </div>
 
-                {/* Feedback Section */}
                 <div className="space-y-6">
                     <div className="flex items-center border-b border-slate-200 dark:border-slate-800 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
                         <button
                             onClick={() => setActiveTab('all')}
                             className={`px-6 py-3 font-bold text-sm transition-colors border-b-2 whitespace-nowrap ${activeTab === 'all'
                                 ? 'border-primary text-primary'
-                                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
-                                }`}
+                                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}
                         >
                             All Issues ({totalIssues})
                         </button>
@@ -163,8 +254,7 @@ function ValidationResults() {
                             onClick={() => setActiveTab('errors')}
                             className={`px-6 py-3 font-bold text-sm transition-colors border-b-2 whitespace-nowrap ${activeTab === 'errors'
                                 ? 'border-red-600 text-red-600 dark:text-red-400'
-                                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
-                                }`}
+                                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}
                         >
                             Errors ({errors.length})
                         </button>
@@ -172,8 +262,7 @@ function ValidationResults() {
                             onClick={() => setActiveTab('warnings')}
                             className={`px-6 py-3 font-bold text-sm transition-colors border-b-2 whitespace-nowrap ${activeTab === 'warnings'
                                 ? 'border-amber-600 text-amber-600 dark:text-amber-400'
-                                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
-                                }`}
+                                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}
                         >
                             Warnings ({warnings.length})
                         </button>
@@ -181,8 +270,7 @@ function ValidationResults() {
                             onClick={() => setActiveTab('advisories')}
                             className={`px-6 py-3 font-bold text-sm transition-colors border-b-2 whitespace-nowrap ${activeTab === 'advisories'
                                 ? 'border-primary text-primary'
-                                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
-                                }`}
+                                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}
                         >
                             Advisories ({advisories.length})
                         </button>
@@ -193,29 +281,27 @@ function ValidationResults() {
                             <ValidationCard
                                 key={idx}
                                 type={issue.type || (activeTab === 'errors' ? 'error' : activeTab === 'warnings' ? 'warning' : 'info')}
-                                title={issue.title || issue.issue || "Formatting Issue"}
+                                title={issue.title || issue.issue || 'Formatting Issue'}
                                 description={issue.description || issue.message || issue}
                                 badge={issue.severity || (activeTab === 'errors' ? 'Critical' : 'Notice')}
+                                onIgnore={handleIgnore}
                             />
                         )) : (
                             <div className="flex flex-col items-center justify-center py-16 px-4">
                                 <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400">
                                     <span className="material-symbols-outlined text-5xl">check_circle</span>
                                 </div>
-                                <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">No validation issues found 🎉</h3>
+                                <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">No validation issues found</h3>
                                 <p className="text-slate-500 dark:text-slate-400 text-center max-w-md">
                                     {activeTab === 'all'
                                         ? 'Your manuscript meets all formatting requirements and is ready for submission.'
-                                        : `No ${activeTab} detected in your manuscript.`
-                                    }
+                                        : `No ${activeTab} detected in your manuscript.`}
                                 </p>
                             </div>
                         )}
                     </div>
-
                 </div>
 
-                {/* Action Footer */}
                 <div className="flex flex-col sm:flex-row gap-4 pt-8">
                     <button onClick={() => navigate('/compare')} className="flex-1 flex items-center justify-center gap-2 py-4 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-xl font-bold text-slate-700 dark:text-slate-200 hover:border-primary transition-all shadow-sm">
                         <span className="material-symbols-outlined">compare_arrows</span>
@@ -227,7 +313,6 @@ function ValidationResults() {
                     </button>
                 </div>
 
-
                 <Footer variant="app" />
             </main>
         </>
@@ -235,4 +320,3 @@ function ValidationResults() {
 }
 
 export default ValidationResults;
-

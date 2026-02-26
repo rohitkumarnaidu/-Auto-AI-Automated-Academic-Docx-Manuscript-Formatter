@@ -7,15 +7,46 @@ import { useDocument } from '../context/DocumentContext';
 import { useAuth } from '../context/AuthContext';
 import { downloadExport } from '../services/api';
 import { isCompleted, isFailed, isProcessing } from '../constants/status';
+import useJobFromUrl from '../hooks/useJobFromUrl';
 
 export default function Download() {
     const navigate = useNavigate();
-    const { job } = useDocument();
+    const { setJob } = useDocument();
+    const { job, isLoading: isJobLoading, error: jobLoadError } = useJobFromUrl();
     const { isLoggedIn } = useAuth();
     const [isDownloading, setIsDownloading] = useState(false);
     const [downloadError, setDownloadError] = useState(null);
     const [showLoginModal, setShowLoginModal] = useState(false);
     const [showExportDialog, setShowExportDialog] = useState(false);
+
+    const getJobRoute = (suffix, fallback) => (
+        job?.id ? `/jobs/${encodeURIComponent(job.id)}/${suffix}` : fallback
+    );
+
+    const handleUploadAnother = () => {
+        setJob(null);
+        sessionStorage.removeItem('scholarform_currentJob');
+        navigate('/upload');
+    };
+
+    if (isJobLoading && !job) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center">
+                <p className="text-slate-500 mb-4">Loading document details...</p>
+            </div>
+        );
+    }
+
+    if (jobLoadError && !job) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center px-4 text-center">
+                <p className="text-red-600 dark:text-red-400 mb-3">{jobLoadError}</p>
+                <button onClick={() => navigate('/history')} className="text-primary font-bold hover:underline">
+                    Return to History
+                </button>
+            </div>
+        );
+    }
 
     if (!job) {
         return (
@@ -53,7 +84,7 @@ export default function Download() {
                     </div>
                     <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Formatting Failed</h2>
                     <p className="text-slate-500 mb-6">{job.error || "An unexpected error occurred during processing."}</p>
-                    <button onClick={() => navigate('/upload')} className="bg-primary text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 transition-colors">Try Again</button>
+                    <button onClick={handleUploadAnother} className="bg-primary text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 transition-colors">Try Again</button>
                 </div>
             </div>
         );
@@ -88,7 +119,6 @@ export default function Download() {
             const extensionMap = {
                 docx: 'docx',
                 pdf: 'pdf',
-                json: 'json',
             };
             const ext = extensionMap[normalizedFormat] || 'docx';
             const baseName = job.originalFileName
@@ -188,7 +218,7 @@ export default function Download() {
                                         )}
                                     </button>
                                     <p className="text-xs text-slate-500 text-center">
-                                        Available formats: DOCX, PDF, JSON
+                                        Available formats: DOCX, PDF
                                     </p>
                                 </div>
                             </div>
@@ -203,7 +233,7 @@ export default function Download() {
                                 <p className="text-[#4c6c9a] dark:text-slate-400 text-sm font-semibold uppercase tracking-tight">Output Format</p>
                                 <div className="flex items-center gap-2">
                                     <span className="material-symbols-outlined text-blue-500">article</span>
-                                    <p className="text-[#0d131b] dark:text-slate-200 text-sm font-medium">DOCX, PDF, JSON</p>
+                                    <p className="text-[#0d131b] dark:text-slate-200 text-sm font-medium">DOCX, PDF</p>
                                 </div>
                             </div>
                             <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-[220px_1fr] gap-2 md:gap-6 border-b border-slate-200 dark:border-slate-800 py-4 items-center">
@@ -223,7 +253,7 @@ export default function Download() {
                     {/* Secondary Action Button Group */}
                     <div className="mt-10 mb-16 sm:mb-20 flex justify-center">
                         <div className="flex flex-col sm:flex-row gap-4 px-4 py-3 w-full max-w-[800px] justify-center flex-wrap">
-                            <button onClick={() => navigate('/upload')} className="flex w-full sm:w-auto min-w-[160px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-12 px-6 bg-slate-200 dark:bg-slate-800 text-[#0d131b] dark:text-slate-50 text-sm font-bold leading-normal tracking-[0.015em] grow transition-colors hover:bg-slate-300 dark:hover:bg-slate-700">
+                            <button onClick={handleUploadAnother} className="flex w-full sm:w-auto min-w-[160px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-12 px-6 bg-slate-200 dark:bg-slate-800 text-[#0d131b] dark:text-slate-50 text-sm font-bold leading-normal tracking-[0.015em] grow transition-colors hover:bg-slate-300 dark:hover:bg-slate-700">
                                 <span className="material-symbols-outlined text-xl">upload_file</span>
                                 <span className="truncate">Upload Another</span>
                             </button>
@@ -231,7 +261,10 @@ export default function Download() {
                                 <span className="material-symbols-outlined text-xl">history</span>
                                 <span className="truncate">Browse Documents</span>
                             </button>
-                            <button onClick={() => navigate('/results')} className="flex w-full sm:w-auto min-w-[160px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-12 px-6 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 text-[#0d131b] dark:text-slate-50 text-sm font-bold leading-normal tracking-[0.015em] grow transition-colors hover:bg-slate-50 dark:hover:bg-slate-800">
+                            <button
+                                onClick={() => navigate(getJobRoute('results', '/results'))}
+                                className="flex w-full sm:w-auto min-w-[160px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-12 px-6 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 text-[#0d131b] dark:text-slate-50 text-sm font-bold leading-normal tracking-[0.015em] grow transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
+                            >
                                 <span className="material-symbols-outlined text-xl">fact_check</span>
                                 <span className="truncate">Validation Report</span>
                             </button>

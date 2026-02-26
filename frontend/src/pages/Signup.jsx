@@ -1,11 +1,12 @@
 
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
 
 export default function Signup() {
     const { signUp, signInWithGoogle } = useAuth();
+    const navigate = useNavigate();
     const [fullName, setFullName] = useState('');
     const [email, setEmail] = useState('');
     const [institution, setInstitution] = useState('');
@@ -15,6 +16,7 @@ export default function Signup() {
     const [localLoading, setLocalLoading] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
     const [termsAccepted, setTermsAccepted] = useState(false);
+    const isPasswordValid = password.length >= 8 && /\d/.test(password);
 
     const handleSignup = async (e) => {
         e.preventDefault();
@@ -37,7 +39,7 @@ export default function Signup() {
 
         if (signupError) {
             console.error(signupError);
-            setError(signupError.message || String(signupError));
+            setError(typeof signupError === 'string' ? signupError : signupError.message || String(signupError));
             setLocalLoading(false);
         } else {
             setLocalLoading(false);
@@ -47,7 +49,7 @@ export default function Signup() {
                 setSuccessMessage("Account created! Redirecting...");
                 // Short delay to let user see the success message, then navigate
                 setTimeout(() => {
-                    window.location.href = '/dashboard'; // Hard reload to ensure fresh state or use navigate if available
+                    navigate('/dashboard');
                 }, 1000);
             }
         }
@@ -166,7 +168,9 @@ export default function Signup() {
                         </div>
                         {/* Requirements hint */}
                         <div className="flex items-center gap-2 px-1">
-                            <span className="material-symbols-outlined text-green-500 text-[14px]">check_circle</span>
+                            <span className={`material-symbols-outlined text-[14px] ${isPasswordValid ? 'text-green-500' : 'text-slate-400'}`}>
+                                {isPasswordValid ? 'check_circle' : 'radio_button_unchecked'}
+                            </span>
                             <span className="text-xs text-slate-500 dark:text-slate-400">At least 8 characters with a number</span>
                         </div>
                         {/* Terms */}
@@ -180,7 +184,7 @@ export default function Signup() {
                                 onChange={(e) => setTermsAccepted(e.target.checked)}
                             />
                             <label className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed" htmlFor="terms">
-                                I agree to the <a className="text-primary hover:underline" href="#">Terms of Service</a> and <a className="text-primary hover:underline" href="#">Privacy Policy</a>.
+                                I agree to the <Link className="text-primary hover:underline" to="/terms">Terms of Service</Link> and <Link className="text-primary hover:underline" to="/privacy">Privacy Policy</Link>.
                             </label>
                         </div>
                         {/* Submit Button */}

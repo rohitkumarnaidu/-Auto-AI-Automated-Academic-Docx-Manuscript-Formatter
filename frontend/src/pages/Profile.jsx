@@ -11,8 +11,20 @@ export default function Profile() {
     const [statusUpdates, setStatusUpdates] = useState(true);
     const [newsletter, setNewsletter] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editName, setEditName] = useState('');
+    const [editInstitution, setEditInstitution] = useState('');
+    const [editSaving, setEditSaving] = useState(false);
+    const [editSuccess, setEditSuccess] = useState('');
+    const [editError, setEditError] = useState('');
+    const [showPasswordForm, setShowPasswordForm] = useState(false);
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [passwordSaving, setPasswordSaving] = useState(false);
+    const [passwordMessage, setPasswordMessage] = useState('');
+    const [verifyStatus, setVerifyStatus] = useState('');
     const fileInputRef = useRef(null);
-    const { user, signOut, refreshSession } = useAuth();
+    const { user, signOut, refreshSession, forgotPassword } = useAuth();
     const navigate = useNavigate();
 
     const handleAvatarClick = () => {
@@ -67,6 +79,84 @@ export default function Profile() {
         'https://lh3.googleusercontent.com/aida-public/AB6AXuCBAnQke1dGWniClQX7rHZBtni1hbRlIpllATyD41NPPw3Br765F9F0vIWQH7I2SezfqlRBNZW0hgkDJ4Kl-Ekd0MVD60AqnPJe_Q0QkDvG2fqpVzmz_HTsQKFKkBIvfvFH26zii0uK7s11gs1bnXmlnWvG6LS6GTXhY6thfBqwRUWqvuAIMWQfqwnAs0DFEX2j3QBP0F7mG913xvhu2iMMo_MIgxF_nqEmviIbI0G3jFBvWtp3KPkAPAxfc4YVXlrDPh_tJJ5ZgnHP';
     const role = user?.user_metadata?.institution || 'Academic Researcher';
 
+    const handleEditProfile = () => {
+        setEditName(fullName);
+        setEditInstitution(user?.user_metadata?.institution || '');
+        setEditSuccess('');
+        setEditError('');
+        setIsEditing(true);
+    };
+
+    const handleSaveProfile = async () => {
+        setEditSaving(true);
+        setEditError('');
+        setEditSuccess('');
+        try {
+            const { error } = await supabase.auth.updateUser({
+                data: {
+                    full_name: editName,
+                    institution: editInstitution,
+                }
+            });
+            if (error) throw error;
+            await refreshSession();
+            setEditSuccess('Profile updated successfully!');
+            setTimeout(() => {
+                setIsEditing(false);
+                setEditSuccess('');
+            }, 1500);
+        } catch (err) {
+            setEditError(err.message || 'Failed to update profile');
+        } finally {
+            setEditSaving(false);
+        }
+    };
+
+    const handleVerifyInstitution = async () => {
+        setVerifyStatus('sending');
+        try {
+            // Send a verification email for the institution
+            const { error } = await supabase.auth.updateUser({
+                data: { institution_verified: false, institution_verify_requested: true }
+            });
+            if (error) throw error;
+            setVerifyStatus('sent');
+            setTimeout(() => setVerifyStatus(''), 3000);
+        } catch (err) {
+            console.error('Verify institution error:', err);
+            setVerifyStatus('error');
+            setTimeout(() => setVerifyStatus(''), 3000);
+        }
+    };
+
+    const handleChangePassword = async () => {
+        if (newPassword.length < 8) {
+            setPasswordMessage('Password must be at least 8 characters');
+            return;
+        }
+        if (newPassword !== confirmPassword) {
+            setPasswordMessage('Passwords do not match');
+            return;
+        }
+        setPasswordSaving(true);
+        setPasswordMessage('');
+        try {
+            const { error } = await supabase.auth.updateUser({ password: newPassword });
+            if (error) throw error;
+            setPasswordMessage('Password updated successfully!');
+            setNewPassword('');
+            setConfirmPassword('');
+            setTimeout(() => {
+                setShowPasswordForm(false);
+                setPasswordMessage('');
+            }, 2000);
+        } catch (err) {
+            setPasswordMessage(err.message || 'Failed to update password');
+        } finally {
+            setPasswordSaving(false);
+        }
+    };
+
     return (
         <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
             <Navbar activeTab="" />
@@ -106,34 +196,90 @@ export default function Profile() {
                                 />
                             </div>
                             <div className="flex-1 flex flex-col gap-4 text-center md:text-left">
-                                <div className="flex flex-col gap-1">
-                                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
-                                        <h3 className="text-slate-900 dark:text-white text-2xl font-bold">{fullName}</h3>
-                                        <div className="flex h-7 items-center justify-center gap-x-1.5 rounded-full bg-primary/10 px-3 border border-primary/20">
-                                            <span className="material-symbols-outlined text-primary text-[16px] font-bold">star</span>
-                                            <p className="text-primary text-xs font-bold uppercase tracking-wider">Free Plan</p>
+                                {isEditing ? (
+                                    <div className="flex flex-col gap-3">
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Full Name</label>
+                                            <input
+                                                type="text"
+                                                value={editName}
+                                                onChange={(e) => setEditName(e.target.value)}
+                                                className="w-full mt-1 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:border-primary focus:ring-1 focus:ring-primary"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Institution</label>
+                                            <input
+                                                type="text"
+                                                value={editInstitution}
+                                                onChange={(e) => setEditInstitution(e.target.value)}
+                                                className="w-full mt-1 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:border-primary focus:ring-1 focus:ring-primary"
+                                            />
+                                        </div>
+                                        {editError && <p className="text-sm text-red-500">{editError}</p>}
+                                        {editSuccess && <p className="text-sm text-green-500">{editSuccess}</p>}
+                                        <div className="flex gap-3">
+                                            <button
+                                                onClick={handleSaveProfile}
+                                                disabled={editSaving}
+                                                className="px-5 py-2.5 bg-primary text-white rounded-lg text-sm font-bold hover:bg-blue-600 transition-colors disabled:opacity-50"
+                                            >
+                                                {editSaving ? 'Saving...' : 'Save Changes'}
+                                            </button>
+                                            <button
+                                                onClick={() => setIsEditing(false)}
+                                                className="px-5 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-100 rounded-lg text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                                            >
+                                                Cancel
+                                            </button>
                                         </div>
                                     </div>
-                                    <p className="text-slate-600 dark:text-slate-400 font-medium text-lg">{role}</p>
-                                    <p className="text-slate-500 dark:text-slate-500 text-sm break-all">{email}</p>
-                                </div>
-                                <div className="flex flex-wrap gap-3 justify-center md:justify-start mt-2">
-                                    <button className="px-5 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-100 rounded-lg text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">Edit Profile</button>
-                                    <button className="px-5 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-100 rounded-lg text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">Verify Institution</button>
-                                </div>
+                                ) : (
+                                    <>
+                                        <div className="flex flex-col gap-1">
+                                            <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
+                                                <h3 className="text-slate-900 dark:text-white text-2xl font-bold">{fullName}</h3>
+                                                <div className="flex h-7 items-center justify-center gap-x-1.5 rounded-full bg-primary/10 px-3 border border-primary/20">
+                                                    <span className="material-symbols-outlined text-primary text-[16px] font-bold">star</span>
+                                                    <p className="text-primary text-xs font-bold uppercase tracking-wider">Free Plan</p>
+                                                </div>
+                                            </div>
+                                            <p className="text-slate-600 dark:text-slate-400 font-medium text-lg">{role}</p>
+                                            <p className="text-slate-500 dark:text-slate-500 text-sm break-all">{email}</p>
+                                        </div>
+                                        <div className="flex flex-wrap gap-3 justify-center md:justify-start mt-2">
+                                            <button
+                                                onClick={handleEditProfile}
+                                                className="px-5 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-100 rounded-lg text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                                            >
+                                                Edit Profile
+                                            </button>
+                                            <button
+                                                onClick={handleVerifyInstitution}
+                                                disabled={verifyStatus === 'sending'}
+                                                className="px-5 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-100 rounded-lg text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+                                            >
+                                                {verifyStatus === 'sending' ? 'Sending...' : verifyStatus === 'sent' ? '✓ Verification Requested' : verifyStatus === 'error' ? 'Failed — Retry' : 'Verify Institution'}
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </div>
                     </div>
                     <div className="bg-slate-50 dark:bg-slate-800/30 border-t border-slate-200 dark:border-slate-800 px-4 sm:px-8 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
                         <p className="text-sm text-slate-500 dark:text-slate-400">Member since <span className="font-bold text-slate-900 dark:text-slate-200">{new Date(user?.created_at || Date.now()).toLocaleDateString()}</span></p>
-                        <a className="text-primary text-sm font-bold hover:underline" href="#">Upgrade Plan</a>
+                        <button onClick={() => navigate('/settings')} className="text-primary text-sm font-bold hover:underline">Upgrade Plan</button>
                     </div>
                 </section>
 
                 <section className="flex flex-col gap-4">
                     <h2 className="text-slate-900 dark:text-white text-xl font-bold px-1 tracking-tight">Account Actions</h2>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <button className="flex items-center justify-between p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:border-primary/50 hover:shadow-md transition-all group text-left">
+                        <button
+                            onClick={() => setShowPasswordForm(!showPasswordForm)}
+                            className="flex items-center justify-between p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:border-primary/50 hover:shadow-md transition-all group text-left"
+                        >
                             <div className="flex items-center gap-4">
                                 <div className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl text-slate-600 dark:text-slate-300 group-hover:bg-primary group-hover:text-white transition-colors">
                                     <span className="material-symbols-outlined">lock</span>
@@ -142,7 +288,10 @@ export default function Profile() {
                             </div>
                             <span className="material-symbols-outlined text-slate-400 group-hover:text-primary transition-colors">chevron_right</span>
                         </button>
-                        <button className="flex items-center justify-between p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:border-primary/50 hover:shadow-md transition-all group text-left">
+                        <button
+                            onClick={() => navigate('/settings')}
+                            className="flex items-center justify-between p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:border-primary/50 hover:shadow-md transition-all group text-left"
+                        >
                             <div className="flex items-center gap-4">
                                 <div className="p-2.5 bg-primary/10 rounded-xl text-primary group-hover:bg-primary group-hover:text-white transition-colors">
                                     <span className="material-symbols-outlined">payments</span>
@@ -166,6 +315,49 @@ export default function Profile() {
                             </div>
                         </button>
                     </div>
+
+                    {/* Inline Change Password Form */}
+                    {showPasswordForm && (
+                        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+                            <h3 className="text-slate-900 dark:text-white font-bold text-lg mb-4">Change Password</h3>
+                            <div className="flex flex-col gap-3 max-w-md">
+                                <input
+                                    type="password"
+                                    placeholder="New Password (min 8 chars)"
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
+                                    className="w-full px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:border-primary focus:ring-1 focus:ring-primary"
+                                />
+                                <input
+                                    type="password"
+                                    placeholder="Confirm New Password"
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    className="w-full px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:border-primary focus:ring-1 focus:ring-primary"
+                                />
+                                {passwordMessage && (
+                                    <p className={`text-sm ${passwordMessage.includes('success') ? 'text-green-500' : 'text-red-500'}`}>
+                                        {passwordMessage}
+                                    </p>
+                                )}
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={handleChangePassword}
+                                        disabled={passwordSaving}
+                                        className="px-5 py-2.5 bg-primary text-white rounded-lg text-sm font-bold hover:bg-blue-600 transition-colors disabled:opacity-50"
+                                    >
+                                        {passwordSaving ? 'Updating...' : 'Update Password'}
+                                    </button>
+                                    <button
+                                        onClick={() => { setShowPasswordForm(false); setPasswordMessage(''); setNewPassword(''); setConfirmPassword(''); }}
+                                        className="px-5 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-100 rounded-lg text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </section>
 
                 <section className="flex flex-col gap-4">

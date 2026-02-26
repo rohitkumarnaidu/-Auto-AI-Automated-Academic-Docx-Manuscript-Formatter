@@ -1,4 +1,6 @@
 
+from datetime import datetime, timezone
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -15,6 +17,11 @@ from contextlib import asynccontextmanager
 import os
 import asyncio
 import logging
+# Optional structured logging for production environments.
+if os.getenv("ENABLE_STRUCTURED_LOGGING", "false").strip().lower() in {"1", "true", "yes", "on"}:
+    from app.config.logging_config import setup_logging
+    setup_logging()
+
 # DISABLED: Auto-delete feature temporarily removed per user request
 # from app.utils.cleanup import cleanup_old_uploads
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
@@ -124,6 +131,9 @@ if settings.FORCE_HTTPS:
 # Include Routers
 app.include_router(auth.router)
 app.include_router(documents.router)
+
+from app.routers import templates
+app.include_router(templates.templates_router, prefix="/api/templates", tags=["Templates"])
 
 # Metrics and Monitoring
 from app.routers import metrics

@@ -1,2 +1,2 @@
 
-from . import auth, documents
+from . import auth, documents, templates

@@ -1,4 +1,4 @@
-export default function ValidationCard({ type = "error", title, description, badge, onAction }) {
+export default function ValidationCard({ type = "error", title, description, badge, onAction, onIgnore }) {
     // Styles based on type
     const styles = {
         error: {
@@ -46,7 +46,12 @@ export default function ValidationCard({ type = "error", title, description, bad
                             <span className="material-symbols-outlined text-xs">map</span>
                             Locate in doc
                         </button>
-                        <button className="text-slate-500 text-xs font-bold hover:underline">Ignore</button>
+                        <button
+                            className="text-slate-500 text-xs font-bold hover:underline hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+                            onClick={() => onIgnore?.({ type, title, description, badge })}
+                        >
+                            Ignore
+                        </button>
                     </div>
                 </div>
             </div>

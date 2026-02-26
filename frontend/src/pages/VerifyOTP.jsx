@@ -63,6 +63,7 @@ export default function VerifyOTP() {
             return;
         }
 
+        setLoading(true);
         const { error: authError } = await verifyOtp(email, otpString);
         if (authError) {
             setError(authError);

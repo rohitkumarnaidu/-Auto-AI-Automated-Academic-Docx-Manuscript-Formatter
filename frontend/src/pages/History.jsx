@@ -1,18 +1,25 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDocument } from '../context/DocumentContext';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { isCompleted, isFailed } from '../constants/status';
-import { useDocuments } from '../services/api';
+import DeleteConfirmDialog from '../components/DeleteConfirmDialog';
+import { deleteDocument, useDocuments } from '../services/api';
 
 const toTimestamp = (value) => new Date(value || 0).getTime();
+const resolveFilename = (item) => (
+    item?.filename
+    || item?.original_file_name
+    || item?.originalFileName
+    || 'Untitled'
+);
 
 const buildVersionedHistory = (records) => {
     const groups = new Map();
 
     records.forEach((record) => {
-        const key = String(record.originalFileName || record.filename || 'untitled').toLowerCase();
+        const key = String(resolveFilename(record)).toLowerCase();
         if (!groups.has(key)) {
             groups.set(key, []);
         }
@@ -62,7 +69,7 @@ const buildVersionedHistory = (records) => {
 
         return {
             ...record,
-            key: record.id || `${record.originalFileName || 'record'}-${record.timestamp || index}`,
+            key: record.id || `${resolveFilename(record)}-${record.timestamp || index}`,
             versionNumber: meta.versionNumber,
             totalVersions: meta.totalVersions,
             diffIndicators,
@@ -73,7 +80,10 @@ const buildVersionedHistory = (records) => {
 export default function History() {
     const navigate = useNavigate();
     const { setJob } = useDocument();
-    const { data: documentsPayload, isLoading } = useDocuments({ limit: 50 });
+    const { data: documentsPayload, isLoading, refetch: refreshDocuments } = useDocuments({ limit: 50 });
+    const [documentToDelete, setDocumentToDelete] = useState(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [deleteError, setDeleteError] = useState('');
 
     const history = useMemo(() => {
         const records = documentsPayload?.documents || [];
@@ -81,10 +91,46 @@ export default function History() {
     }, [documentsPayload]);
 
     const versionedHistory = useMemo(() => buildVersionedHistory(history), [history]);
+    const getJobRoute = (item, suffix, fallback) => (
+        item?.id ? `/jobs/${encodeURIComponent(item.id)}/${suffix}` : fallback
+    );
 
     const handleRestore = (item) => {
         setJob(item);
-        navigate('/results');
+        navigate(getJobRoute(item, 'results', '/results'));
+    };
+
+    const handleDownload = (item) => {
+        setJob(item);
+        navigate(getJobRoute(item, 'download', '/download'));
+    };
+
+    const requestDelete = (item) => {
+        setDeleteError('');
+        setDocumentToDelete(item);
+    };
+
+    const handleDeleteConfirm = async () => {
+        if (!documentToDelete?.id || isDeleting) {
+            return;
+        }
+
+        setIsDeleting(true);
+        setDeleteError('');
+
+        try {
+            await deleteDocument(documentToDelete.id);
+            setDocumentToDelete(null);
+            await refreshDocuments();
+        } catch (error) {
+            setDeleteError(
+                typeof error?.message === 'string'
+                    ? error.message
+                    : 'Failed to delete document.'
+            );
+        } finally {
+            setIsDeleting(false);
+        }
     };
 
     const stats = {
@@ -114,6 +160,12 @@ export default function History() {
                             </Link>
                         </div>
                     </div>
+
+                    {deleteError && (
+                        <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">
+                            {deleteError}
+                        </div>
+                    )}
 
                     {/* Stats Summary */}
                     <div className="flex flex-col gap-6">
@@ -157,11 +209,16 @@ export default function History() {
                                     </thead>
                                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
                                         {isLoading ? (
-                                            <tr>
-                                                <td colSpan="6" className="px-6 py-12 text-center text-slate-500">
-                                                    Loading processing history...
-                                                </td>
-                                            </tr>
+                                            Array.from({ length: 5 }).map((_, i) => (
+                                                <tr key={`skeleton-${i}`} className="animate-pulse">
+                                                    <td className="px-6 py-5"><div className="h-4 w-28 rounded bg-slate-200 dark:bg-slate-700"></div></td>
+                                                    <td className="px-6 py-5"><div className="flex items-center gap-2"><div className="w-5 h-5 rounded bg-slate-200 dark:bg-slate-700"></div><div className="h-4 w-36 rounded bg-slate-200 dark:bg-slate-700"></div></div></td>
+                                                    <td className="px-6 py-5"><div className="h-4 w-16 rounded bg-slate-200 dark:bg-slate-700"></div></td>
+                                                    <td className="px-6 py-5"><div className="h-5 w-14 rounded bg-slate-200 dark:bg-slate-700"></div></td>
+                                                    <td className="px-6 py-5"><div className="h-6 w-20 rounded-full bg-slate-200 dark:bg-slate-700"></div></td>
+                                                    <td className="px-6 py-5"><div className="flex justify-end gap-2"><div className="h-7 w-24 rounded-lg bg-slate-200 dark:bg-slate-700"></div><div className="h-7 w-7 rounded bg-slate-200 dark:bg-slate-700"></div></div></td>
+                                                </tr>
+                                            ))
                                         ) : versionedHistory.length === 0 ? (
                                             <tr>
                                                 <td colSpan="6" className="px-6 py-12 text-center text-slate-500">
@@ -179,7 +236,7 @@ export default function History() {
                                                     <td className="px-6 py-5">
                                                         <div className="flex items-center gap-2">
                                                             <span className="material-symbols-outlined text-slate-400 group-hover:text-primary transition-colors">description</span>
-                                                            <span className="text-slate-900 dark:text-white font-bold text-sm truncate max-w-[200px]">{item.originalFileName}</span>
+                                                            <span className="text-slate-900 dark:text-white font-bold text-sm truncate max-w-[200px]">{resolveFilename(item)}</span>
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-5">
@@ -223,14 +280,18 @@ export default function History() {
                                                                 Open Corrected
                                                             </button>
                                                             <button
-                                                                onClick={() => {
-                                                                    setJob(item);
-                                                                    navigate('/download');
-                                                                }}
+                                                                onClick={() => handleDownload(item)}
                                                                 className="p-1.5 text-slate-400 hover:text-primary transition-colors"
                                                                 title="Download"
                                                             >
                                                                 <span className="material-symbols-outlined">download</span>
+                                                            </button>
+                                                            <button
+                                                                onClick={() => requestDelete(item)}
+                                                                className="p-1.5 text-slate-400 hover:text-red-600 transition-colors"
+                                                                title="Delete"
+                                                            >
+                                                                <span className="material-symbols-outlined">delete</span>
                                                             </button>
                                                         </div>
                                                     </td>
@@ -244,6 +305,19 @@ export default function History() {
                     </div>
                 </div>
             </main>
+
+            <DeleteConfirmDialog
+                isOpen={Boolean(documentToDelete)}
+                isDeleting={isDeleting}
+                documentName={resolveFilename(documentToDelete)}
+                onCancel={() => {
+                    if (!isDeleting) {
+                        setDocumentToDelete(null);
+                        setDeleteError('');
+                    }
+                }}
+                onConfirm={handleDeleteConfirm}
+            />
 
             <Footer variant="app" />
         </div>

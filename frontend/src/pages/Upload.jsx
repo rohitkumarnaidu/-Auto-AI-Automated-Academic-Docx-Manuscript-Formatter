@@ -8,6 +8,7 @@ import CategoryTabs from '../components/upload/CategoryTabs';
 import TemplateSelector from '../components/upload/TemplateSelector';
 import FormattingOptions from '../components/upload/FormattingOptions';
 import ProcessingStepper from '../components/upload/ProcessingStepper';
+import FastModeToggle from '../components/FastModeToggle';
 import { isCompleted, isFailed, isProcessing as isStatusProcessing } from '../constants/status';
 import {
     CHUNK_UPLOAD_THRESHOLD_BYTES,
@@ -45,6 +46,7 @@ export default function Upload() {
     const [file, setFile] = useState(null);
     const [isDragging, setIsDragging] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [activeJobId, setActiveJobId] = useState(null);
     const [progress, setProgress] = useState(0);
     const [currentStep, setCurrentStep] = useState(0);
     const [statusMessage, setStatusMessage] = useState('Initializing...');
@@ -60,6 +62,7 @@ export default function Upload() {
     const [addCoverPage, setAddCoverPage] = useState(true);
     const [generateTOC, setGenerateTOC] = useState(false);
     const [pageSize, setPageSize] = useState('Letter');
+    const [fastMode, setFastMode] = useState(false);
     const navigate = useNavigate();
 
     const sendCompletionNotification = useCallback(() => {
@@ -96,8 +99,8 @@ export default function Upload() {
         { id: 7, title: 'Exporting Result', desc: 'Generating publication-ready file...' },
     ];
 
-    const { data: statusData, error: statusError } = useDocumentStatus(job?.id, {
-        enabled: Boolean(job?.id) && isProcessing,
+    const { data: statusData, error: statusError } = useDocumentStatus(activeJobId, {
+        enabled: Boolean(activeJobId) && isProcessing,
         refetchInterval: isProcessing ? 2000 : false,
         staleTime: 0,
     });
@@ -114,6 +117,7 @@ export default function Upload() {
 
         if (currentlyProcessing) {
             setIsProcessing(true);
+            setActiveJobId(job.id || null);
             if (typeof job.progress === 'number') {
                 setProgress(job.progress);
             }
@@ -130,6 +134,7 @@ export default function Upload() {
 
         if (isCompleted(normalizedStatus)) {
             setIsProcessing(false);
+            setActiveJobId(null);
             setProgress(100);
             setCurrentStep(7);
             setStatusMessage('Processing complete!');
@@ -138,6 +143,7 @@ export default function Upload() {
 
         if (isFailed(normalizedStatus)) {
             setIsProcessing(false);
+            setActiveJobId(null);
             if (job.error) {
                 setStatusMessage(`Failed: ${job.error}`);
             }
@@ -179,6 +185,7 @@ export default function Upload() {
             }
             terminalStatusHandledRef.current = true;
             setIsProcessing(false);
+            setActiveJobId(null);
             setProgress(100);
             setCurrentStep(7);
             setStatusMessage(statusData.status === 'COMPLETED_WITH_WARNINGS'
@@ -211,6 +218,7 @@ export default function Upload() {
             }
             terminalStatusHandledRef.current = true;
             setIsProcessing(false);
+            setActiveJobId(null);
             console.error('Job failed:', statusData.message);
             setStatusMessage(`Failed: ${statusData.message}`);
             setJob((previousJob) => ({
@@ -286,12 +294,14 @@ export default function Upload() {
         if (abortController) abortController.abort();
         setAbortController(null);
         setIsProcessing(false);
+        setActiveJobId(null);
+        setJob(null);
         setCurrentStep(0);
         setProgress(0);
         setStatusMessage('Processing cancelled.');
         terminalStatusHandledRef.current = false;
         completionNotificationSentRef.current = false;
-    }, [abortController]);
+    }, [abortController, setJob]);
 
     const formatFileSize = (bytes) => {
         if (bytes === 0) return '0 Bytes';
@@ -313,8 +323,10 @@ export default function Upload() {
         }
 
         const controller = new AbortController();
+        setJob(null);
         setAbortController(controller);
         setIsProcessing(true);
+        setActiveJobId(null);
         setProgress(0);
         setCurrentStep(1);
         setStatusMessage('Initiating upload...');
@@ -327,6 +339,7 @@ export default function Upload() {
             add_cover_page: addCoverPage,
             generate_toc: generateTOC,
             page_size: pageSize,
+            fast_mode: fastMode,
         };
 
         try {
@@ -394,6 +407,7 @@ export default function Upload() {
             setStatusMessage('Upload complete. Processing started...');
             setProgress(0);
             setJob(newJob);
+            setActiveJobId(newJob.id);
             sessionStorage.setItem('scholarform_currentJob', JSON.stringify(newJob));
         } catch (error) {
             if (controller.signal.aborted) {
@@ -414,6 +428,7 @@ export default function Upload() {
         isLoggedIn,
         isProcessing,
         pageSize,
+        setActiveJobId,
         setJob,
         template,
     ]);
@@ -541,6 +556,15 @@ export default function Upload() {
                             file={file}
                             onProcess={handleProcess}
                         />
+
+                        {/* Fast Mode Toggle */}
+                        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+                            <FastModeToggle
+                                fastMode={fastMode}
+                                setFastMode={setFastMode}
+                                disabled={isProcessing || progress === 100}
+                            />
+                        </div>
 
                         {isProcessing && (
                             <button

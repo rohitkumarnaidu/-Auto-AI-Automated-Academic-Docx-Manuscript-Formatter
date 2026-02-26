@@ -100,7 +100,7 @@ describe('API Service', () => {
         expect(formData.get('template')).toBe('bIEEE/b');
     });
 
-    it('normalizes export formats correctly', async () => {
+    it('normalizes unsupported export formats to docx', async () => {
         // Internal helper test via downloadFile or similar
         fetch.mockResolvedValue({
             ok: true,
@@ -110,9 +110,9 @@ describe('API Service', () => {
         // Mock URL.createObjectURL
         globalThis.URL.createObjectURL = vi.fn(() => 'blob:url');
 
-        await api.downloadFile('job-1', 'LATEX'); // should become 'latex'
+        await api.downloadFile('job-1', 'LATEX'); // unsupported, should fall back to docx
         expect(fetch).toHaveBeenCalledWith(
-            expect.stringContaining('format=latex'),
+            expect.stringContaining('format=docx'),
             expect.anything()
         );
     });

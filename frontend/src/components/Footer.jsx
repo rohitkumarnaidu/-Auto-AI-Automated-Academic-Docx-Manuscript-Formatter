@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+
 export default function Footer({ variant = 'app' }) {
     if (variant === 'landing') {
         return (
@@ -15,35 +17,35 @@ export default function Footer({ variant = 'app' }) {
                                 Providing specialized technical writing and formatting.
                             </p>
                             <div className="flex gap-4">
-                                <a href="#" className="text-slate-400 hover:text-primary"><span className="material-symbols-outlined">share</span></a>
-                                <a href="#" className="text-slate-400 hover:text-primary"><span className="material-symbols-outlined">mail</span></a>
+                                <a href="https://twitter.com/intent/tweet?text=Check%20out%20ScholarForm%20AI" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-primary transition-colors"><span className="material-symbols-outlined">share</span></a>
+                                <a href="mailto:contact@scholarform.ai" className="text-slate-400 hover:text-primary transition-colors"><span className="material-symbols-outlined">mail</span></a>
                             </div>
                         </div>
                         <div>
                             <h5 className="text-slate-900 dark:text-white font-bold text-sm mb-6 uppercase tracking-wider">Resources</h5>
                             <ul className="flex flex-col gap-4">
-                                <li><a href="#" className="text-sm text-slate-500 hover:text-primary transition-colors">Style Guides</a></li>
-                                <li><a href="#" className="text-sm text-slate-500 hover:text-primary transition-colors">Documentation</a></li>
-                                <li><a href="#" className="text-sm text-slate-500 hover:text-primary transition-colors">Video Tutorials</a></li>
-                                <li><a href="#" className="text-sm text-slate-500 hover:text-primary transition-colors">LaTeX Templates</a></li>
+                                <li><Link to="/templates" className="text-sm text-slate-500 hover:text-primary transition-colors">Style Guides</Link></li>
+                                <li><span className="text-sm text-slate-400 cursor-default" title="Coming Soon">Documentation</span></li>
+                                <li><span className="text-sm text-slate-400 cursor-default" title="Coming Soon">Video Tutorials</span></li>
+                                <li><Link to="/templates" className="text-sm text-slate-500 hover:text-primary transition-colors">LaTeX Templates</Link></li>
                             </ul>
                         </div>
                         <div>
                             <h5 className="text-slate-900 dark:text-white font-bold text-sm mb-6 uppercase tracking-wider">Compliance</h5>
                             <ul className="flex flex-col gap-4">
-                                <li><a href="#" className="text-sm text-slate-500 hover:text-primary transition-colors">Privacy Policy</a></li>
-                                <li><a href="#" className="text-sm text-slate-500 hover:text-primary transition-colors">Academic Integrity</a></li>
-                                <li><a href="#" className="text-sm text-slate-500 hover:text-primary transition-colors">Terms of Service</a></li>
-                                <li><a href="#" className="text-sm text-slate-500 hover:text-primary transition-colors">Data Security</a></li>
+                                <li><Link to="/privacy" className="text-sm text-slate-500 hover:text-primary transition-colors">Privacy Policy</Link></li>
+                                <li><span className="text-sm text-slate-400 cursor-default" title="Coming Soon">Academic Integrity</span></li>
+                                <li><Link to="/terms" className="text-sm text-slate-500 hover:text-primary transition-colors">Terms of Service</Link></li>
+                                <li><span className="text-sm text-slate-400 cursor-default" title="Coming Soon">Data Security</span></li>
                             </ul>
                         </div>
                         <div>
                             <h5 className="text-slate-900 dark:text-white font-bold text-sm mb-6 uppercase tracking-wider">Support</h5>
                             <ul className="flex flex-col gap-4">
-                                <li><a href="#" className="text-sm text-slate-500 hover:text-primary transition-colors">Help Center</a></li>
-                                <li><a href="#" className="text-sm text-slate-500 hover:text-primary transition-colors">Institutional Access</a></li>
-                                <li><a href="#" className="text-sm text-slate-500 hover:text-primary transition-colors">Contact Expert</a></li>
-                                <li><a href="#" className="text-sm text-slate-500 hover:text-primary transition-colors">System Status</a></li>
+                                <li><a href="mailto:support@scholarform.ai" className="text-sm text-slate-500 hover:text-primary transition-colors">Help Center</a></li>
+                                <li><span className="text-sm text-slate-400 cursor-default" title="Coming Soon">Institutional Access</span></li>
+                                <li><a href="mailto:support@scholarform.ai" className="text-sm text-slate-500 hover:text-primary transition-colors">Contact Expert</a></li>
+                                <li><Link to="/admin-dashboard" className="text-sm text-slate-500 hover:text-primary transition-colors">System Status</Link></li>
                             </ul>
                         </div>
                     </div>
@@ -73,9 +75,9 @@ export default function Footer({ variant = 'app' }) {
                     <span className="text-sm font-medium text-center md:text-left">(c) {new Date().getFullYear()} ScholarForm AI. Built for Academics.</span>
                 </div>
                 <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
-                    <a href="#" className="text-sm text-slate-500 hover:text-primary">Terms of Service</a>
-                    <a href="#" className="text-sm text-slate-500 hover:text-primary">Privacy Policy</a>
-                    <a href="#" className="text-sm text-slate-500 hover:text-primary">Support</a>
+                    <Link to="/terms" className="text-sm text-slate-500 hover:text-primary transition-colors">Terms of Service</Link>
+                    <Link to="/privacy" className="text-sm text-slate-500 hover:text-primary transition-colors">Privacy Policy</Link>
+                    <a href="mailto:support@scholarform.ai" className="text-sm text-slate-500 hover:text-primary transition-colors">Support</a>
                 </div>
             </div>
         </footer>

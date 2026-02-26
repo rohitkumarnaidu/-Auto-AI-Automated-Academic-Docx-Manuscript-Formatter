@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import Stepper from '../components/Stepper';
@@ -30,6 +30,8 @@ export default function Processing() {
     const [progress, setProgress] = useState(0);
     const [phase, setPhase] = useState('Initializing...');
     const [activeStep, setActiveStep] = useState(0);
+    const [isCancelling, setIsCancelling] = useState(false);
+
     const notifyCompletion = useCallback(() => {
         if (typeof window === 'undefined' || !('Notification' in window)) {
             return;
@@ -41,7 +43,7 @@ export default function Processing() {
     }, []);
 
     const { data: statusData, error: statusError } = useDocumentStatus(job?.id, {
-        enabled: Boolean(job?.id),
+        enabled: Boolean(job?.id) && !isCancelling,
         refetchInterval: 1500,
         staleTime: 0,
     });
@@ -78,12 +80,12 @@ export default function Processing() {
             setJob((previousJob) => ({
                 ...(previousJob || {}),
                 status: statusData.status,
-                result: statusData,
                 progress: 100,
                 phase: nextPhase,
+                outputPath: statusData.output_path,
             }));
             notifyCompletion();
-            navigate('/results');
+            navigate('/download');
             return;
         }
 
@@ -104,6 +106,13 @@ export default function Processing() {
         }
         console.error('Polling error:', statusError);
     }, [job, statusError]);
+
+    const handleCancelProcessing = () => {
+        setIsCancelling(true);
+        // Clear the current job from context — stops polling and returns user to upload
+        setJob(null);
+        navigate('/upload');
+    };
 
     return (
         <div className="min-h-screen flex flex-col bg-background-light dark:bg-background-dark">
@@ -144,7 +153,26 @@ export default function Processing() {
                     </div>
                 </div>
 
-                <p className="mt-8 text-slate-400 text-sm flex items-center gap-2">
+                {/* Action Buttons */}
+                <div className="mt-6 flex flex-col sm:flex-row items-center gap-3">
+                    <button
+                        onClick={handleCancelProcessing}
+                        disabled={isCancelling}
+                        className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-800 border border-red-200 dark:border-red-800/50 text-red-600 rounded-xl font-bold text-sm hover:bg-red-50 dark:hover:bg-red-900/20 transition-all disabled:opacity-50"
+                    >
+                        <span className="material-symbols-outlined text-lg">cancel</span>
+                        {isCancelling ? 'Cancelling...' : 'Cancel Processing'}
+                    </button>
+                    <Link
+                        to="/upload"
+                        className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
+                    >
+                        <span className="material-symbols-outlined text-lg">upload_file</span>
+                        Upload Another Document
+                    </Link>
+                </div>
+
+                <p className="mt-6 text-slate-400 text-sm flex items-center gap-2">
                     <span className="material-symbols-outlined text-[18px]">verified_user</span>
                     Your data is encrypted and stored securely.
                 </p>

@@ -23,19 +23,20 @@ export default defineConfig({
                         return 'vendor-supabase';
                     }
 
-                    if (id.includes('react-router')) {
+                    // Keep the React ecosystem in one chunk to avoid circular cross-chunk imports.
+                    if (
+                        id.includes('react-router')
+                        || id.includes(`${'/'}react${'/'}`)
+                        || id.includes('react-dom')
+                        || id.includes('scheduler')
+                        || id.includes('@tanstack/react-query')
+                    ) {
                         return 'vendor-router';
-                    }
-
-                    if (id.includes('react-dom') || id.includes(`${'/'}react${'/'}`)) {
-                        return 'vendor-react';
                     }
 
                     if (id.includes(`${'/'}diff${'/'}`)) {
                         return 'vendor-diff';
                     }
-
-                    return 'vendor-misc';
                 },
             },
         },

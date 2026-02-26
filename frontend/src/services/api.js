@@ -2,7 +2,7 @@
 import { supabase } from '../lib/supabaseClient';
 import { useQuery } from '@tanstack/react-query';
 
-const SUPPORTED_EXPORT_FORMATS = ['docx', 'pdf', 'json', 'markdown', 'html', 'latex', 'jats'];
+const SUPPORTED_EXPORT_FORMATS = ['docx', 'pdf'];
 const RETRYABLE_STATUS_CODES = [408, 429, 500, 502, 503, 504];
 const DEFAULT_MAX_RETRIES = 2;
 const BASE_RETRY_DELAY_MS = 500;
@@ -418,6 +418,7 @@ export const uploadDocumentWithProgress = async (
     formData.append('add_cover_page', options.add_cover_page ?? true);
     formData.append('generate_toc', options.generate_toc ?? false);
     formData.append('page_size', sanitizeText(options.page_size || 'Letter'));
+    formData.append('fast_mode', options.fast_mode ?? false);
 
     const headers = await getAuthorizedHeaders();
 
@@ -654,60 +655,12 @@ export const downloadFile = async (jobId, format = 'docx') => {
     }
 };
 
-const buildJsonFallbackPayload = async (jobId) => {
-    const [statusResult, previewResult] = await Promise.allSettled([
-        getJobStatus(jobId),
-        getPreview(jobId),
-    ]);
-
-    const statusData = statusResult.status === 'fulfilled' ? statusResult.value : null;
-    const previewData = previewResult.status === 'fulfilled' ? previewResult.value : null;
-
-    if (!statusData && !previewData) {
-        return null;
-    }
-
-    return {
-        job_id: jobId,
-        exported_at: new Date().toISOString(),
-        status: statusData
-            ? {
-                status: statusData.status,
-                phase: statusData.phase,
-                progress_percentage: statusData.progress_percentage,
-                message: statusData.message,
-            }
-            : null,
-        metadata: previewData?.metadata || {},
-        structured_data: previewData?.structured_data || null,
-        validation_results: previewData?.validation_results || null,
-    };
-};
-
 /**
  * Downloads a selected export format.
- * JSON first attempts backend export and falls back to preview payload.
  */
 export const downloadExport = async (jobId, format = 'docx') => {
     const normalizedFormat = normalizeExportFormat(format);
-
-    if (normalizedFormat !== 'json') {
-        return downloadFile(jobId, normalizedFormat);
-    }
-
-    try {
-        return await downloadFile(jobId, 'json');
-    } catch (error) {
-        const fallbackPayload = await buildJsonFallbackPayload(jobId);
-        if (!fallbackPayload) {
-            throw error;
-        }
-
-        const blob = new Blob([JSON.stringify(fallbackPayload, null, 2)], {
-            type: 'application/json',
-        });
-        return window.URL.createObjectURL(blob);
-    }
+    return downloadFile(jobId, normalizedFormat);
 };
 
 /**
@@ -727,6 +680,69 @@ export const saveCustomTemplate = async (template) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ template: sanitizedTemplate }),
     });
+};
+
+/**
+ * Deletes a document job by ID.
+ */
+export const deleteDocument = async (jobId) => {
+    return handleRequest(`/api/documents/${encodeURIComponent(jobId)}`, {
+        method: 'DELETE',
+    });
+};
+
+/**
+ * Fetches a lightweight job summary for URL-based page hydration.
+ */
+export const getJobSummary = async (jobId) => {
+    return handleRequest(`/api/documents/${encodeURIComponent(jobId)}/summary`);
+};
+
+/**
+ * Fetches all available built-in templates (public).
+ */
+export const getBuiltinTemplates = async () => {
+    return handleRequest('/api/templates/');
+};
+
+/**
+ * Submits user feedback / correction for a processed document.
+ */
+export const submitFeedback = async (data) => {
+    const sanitizedData = sanitizePayload(data);
+    return handleRequest('/api/feedback/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sanitizedData),
+    });
+};
+
+/**
+ * Fetches the feedback summary for a specific document.
+ */
+export const getFeedbackSummary = async (jobId) => {
+    return handleRequest(`/api/feedback/summary?document_id=${encodeURIComponent(jobId)}`);
+};
+
+/**
+ * Fetches database health metrics (admin).
+ */
+export const getMetricsDb = async () => {
+    return handleRequest('/api/metrics/db');
+};
+
+/**
+ * Fetches overall system health status (admin).
+ */
+export const getMetricsHealth = async () => {
+    return handleRequest('/api/metrics/health');
+};
+
+/**
+ * Fetches AI model metrics dashboard data (admin).
+ */
+export const getMetricsDashboard = async () => {
+    return handleRequest('/api/metrics/dashboard');
 };
 
 /* =====================

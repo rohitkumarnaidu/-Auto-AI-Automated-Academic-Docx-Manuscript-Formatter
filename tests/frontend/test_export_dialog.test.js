@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import ExportDialog from '../../frontend/src/components/ExportDialog';
 
 describe('ExportDialog', () => {
-    it('renders export format selector with DOCX/PDF/JSON options', () => {
+    it('renders export format selector with DOCX/PDF options', () => {
         render(
             React.createElement(ExportDialog, {
                 isOpen: true,
@@ -17,7 +17,6 @@ describe('ExportDialog', () => {
         expect(formatSelect).toBeTruthy();
         expect(screen.getByRole('option', { name: 'DOCX (.docx)' })).toBeTruthy();
         expect(screen.getByRole('option', { name: 'PDF (.pdf)' })).toBeTruthy();
-        expect(screen.getByRole('option', { name: 'JSON (.json)' })).toBeTruthy();
     });
 
     it('calls onDownload with the selected format when download button is clicked', () => {
@@ -32,10 +31,10 @@ describe('ExportDialog', () => {
         );
 
         fireEvent.change(screen.getByTestId('export-format-select'), {
-            target: { value: 'json' },
+            target: { value: 'pdf' },
         });
         fireEvent.click(screen.getByTestId('export-download-button'));
 
-        expect(onDownload).toHaveBeenCalledWith('json');
+        expect(onDownload).toHaveBeenCalledWith('pdf');
     });
 });

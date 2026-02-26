@@ -222,7 +222,14 @@ class PipelineOrchestrator:
         except Exception as e:
             logger.error("Failed to persist partial result for %s: %s", job_id, e)
 
-    def _run_with_timeout(self, func, timeout_sec: int, *args, **kwargs):
+    def _run_with_timeout(
+        self,
+        func,
+        timeout_sec: int,
+        *args,
+        cancel_event: Optional[threading.Event] = None,
+        **kwargs,
+    ):
         """Helper to run a synchronous pipeline stage with a strict timeout."""
         import concurrent.futures
         executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
@@ -230,6 +237,8 @@ class PipelineOrchestrator:
         try:
             return future.result(timeout=timeout_sec)
         except concurrent.futures.TimeoutError:
+            if cancel_event is not None:
+                cancel_event.set()
             future.cancel()
             logger.warning("Pipeline stage timed out after %ds", timeout_sec)
             raise TimeoutError(f"Stage timed out after {timeout_sec}s")
@@ -803,6 +812,7 @@ class PipelineOrchestrator:
 
                             if hasattr(reasoner, "generate_instruction_set"):
                                 reasoning_timeout_sec = int(os.getenv("PIPELINE_REASONING_TIMEOUT_SECONDS", "28"))
+                                reasoning_cancel_event = threading.Event()
                                 try:
                                     semantic_advice = (
                                         self._run_with_timeout(
@@ -811,6 +821,8 @@ class PipelineOrchestrator:
                                             context_blocks,
                                             rules_context,
                                             1,
+                                            cancel_event=reasoning_cancel_event,
+                                            cancellation_event=reasoning_cancel_event,
                                         )
                                         or {}
                                     )

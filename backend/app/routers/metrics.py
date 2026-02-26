@@ -5,7 +5,7 @@ Provides operational visibility into database connections, rate limiting, and sy
 
 from fastapi import APIRouter, HTTPException, Depends
 from typing import Dict, Any
-from app.utils.dependencies import get_current_user
+from app.utils.dependencies import get_current_user, get_optional_user
 
 from app.services.model_metrics import get_model_metrics
 from app.services.ab_testing import get_ab_testing
@@ -51,10 +51,10 @@ async def get_database_metrics():
         )
 
 @router.post("/log-error")
-async def log_frontend_error(error_data: dict, current_user=Depends(get_current_user)):
+async def log_frontend_error(error_data: dict, current_user=Depends(get_optional_user)):
     """
     Endpoint for logging frontend errors to the backend.
-    Requires authentication.
+    Accepts both authenticated and guest clients.
     
     Payload:
         - message: Error message

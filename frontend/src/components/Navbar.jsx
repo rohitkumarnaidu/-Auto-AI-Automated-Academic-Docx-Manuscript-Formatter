@@ -2,9 +2,20 @@ import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import NotificationBell from './NotificationBell';
+import { useDocument } from '../context/DocumentContext';
+import { isProcessing as checkProcessing } from '../constants/status';
 
 export default function Navbar({ variant = 'app', activeTab = '' }) {
     const { isLoggedIn, signOut, loading, user } = useAuth();
+    const { job } = useDocument();
+    const isJobActive = Boolean(job?.id && job?.status && checkProcessing(job.status));
+    const isAdminUser = Boolean(
+        user?.is_admin
+        || user?.app_metadata?.role === 'admin'
+        || user?.user_metadata?.role === 'admin'
+        || user?.role === 'admin'
+    );
     const { theme, toggleTheme } = useTheme();
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -15,10 +26,15 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
     const loggedInLinks = [
         { key: 'dashboard', to: '/dashboard', label: 'Dashboard' },
         { key: 'upload', to: '/upload', label: 'Upload' },
+        { key: 'batch-upload', to: '/batch-upload', label: 'Batch Upload' },
         { key: 'templates', to: '/templates', label: 'Templates' },
         { key: 'template-editor', to: '/template-editor', label: 'Template Editor' },
+        { key: 'feedback', to: '/feedback', label: 'Feedback' },
         { key: 'results', to: '/results', label: 'Validate Results' },
         { key: 'history', to: '/history', label: 'My Manuscripts' },
+        { key: 'notifications', to: '/notifications', label: 'Notifications' },
+        { key: 'settings', to: '/settings', label: 'Settings' },
+        ...(isAdminUser ? [{ key: 'admin-dashboard', to: '/admin-dashboard', label: 'Admin Dashboard' }] : []),
     ];
     const guestLinks = [
         { key: 'dashboard', to: '/', label: 'Home' },
@@ -174,8 +190,14 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
                 <div className="hidden xl:flex flex-1 justify-end gap-8 min-w-0">
                     <nav className="flex items-center gap-7">
                         {activeLinks.map((link) => (
-                            <Link key={link.key} to={link.to} className={getTabClasses(link.key)}>
+                            <Link key={link.key} to={link.to} className={`${getTabClasses(link.key)} relative`}>
                                 {link.label}
+                                {link.key === 'upload' && isJobActive && (
+                                    <span className="absolute -top-1 -right-3 flex h-2.5 w-2.5">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary"></span>
+                                    </span>
+                                )}
                             </Link>
                         ))}
                     </nav>
@@ -184,10 +206,12 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
                         <div className="flex items-center gap-4">
                             <ThemeToggle />
                             <div className="flex gap-2">
-                                <button className="flex items-center justify-center rounded-lg h-10 w-10 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200">
-                                    <span className="material-symbols-outlined">notifications</span>
-                                </button>
-                                <button className="flex items-center justify-center rounded-lg h-10 w-10 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200">
+                                <NotificationBell />
+                                <button
+                                    onClick={() => navigate('/settings')}
+                                    className="flex items-center justify-center rounded-lg h-10 w-10 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                                    title="Settings"
+                                >
                                     <span className="material-symbols-outlined">settings</span>
                                 </button>
                             </div>
@@ -195,6 +219,11 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
                                 <div
                                     className="flex items-center gap-2 cursor-pointer group"
                                     onClick={() => setIsProfileOpen(!isProfileOpen)}
+                                    role="button"
+                                    tabIndex={0}
+                                    aria-expanded={isProfileOpen}
+                                    aria-label="Profile menu"
+                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsProfileOpen(!isProfileOpen); } }}
                                 >
                                     <div className="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 border border-slate-200 dark:border-slate-700" style={{ backgroundImage: `url("${user?.user_metadata?.avatar_url || user?.user_metadata?.picture || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCBAnQke1dGWniClQX7rHZBtni1hbRlIpllATyD41NPPw3Br765F9F0vIWQH7I2SezfqlRBNZW0hgkDJ4Kl-Ekd0MVD60AqnPJe_Q0QkDvG2fqpVzmz_HTsQKFKkBIvfvFH26zii0uK7s11gs1bnXmlnWvG6LS6GTXhY6thfBqwRUWqvuAIMWQfqwnAs0DFEX2j3QBP0F7mG913xvhu2iMMo_MIgxF_nqEmviIbI0G3jFBvWtp3KPkAPAxfc4YVXlrDPh_tJJ5ZgnHP'}")` }}></div>
                                     <span className={`material-symbols-outlined text-slate-400 group-hover:text-primary transition-all duration-200 ${isProfileOpen ? 'rotate-180' : ''}`}>expand_more</span>
@@ -211,6 +240,13 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
                                             onClick={() => setIsProfileOpen(false)}
                                         >
                                             My Manuscripts
+                                        </Link>
+                                        <Link
+                                            to="/settings"
+                                            className="block px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                                            onClick={() => setIsProfileOpen(false)}
+                                        >
+                                            Settings
                                         </Link>
                                         <div className="border-t border-slate-100 dark:border-slate-800 my-1"></div>
                                         <button
@@ -244,6 +280,7 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
 
                 <div className="xl:hidden flex items-center gap-2">
                     <ThemeToggle />
+                    {isLoggedIn && <NotificationBell />}
                     <button
                         type="button"
                         onClick={() => setIsMobileMenuOpen((current) => !current)}
@@ -264,11 +301,10 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
                             <Link
                                 key={link.key}
                                 to={link.to}
-                                className={`px-3 py-2 rounded-lg text-sm ${
-                                    activeTab === link.key
-                                        ? 'bg-primary/10 text-primary font-bold'
-                                        : 'text-slate-700 dark:text-slate-300 font-medium hover:bg-slate-100 dark:hover:bg-slate-800'
-                                }`}
+                                className={`px-3 py-2 rounded-lg text-sm ${activeTab === link.key
+                                    ? 'bg-primary/10 text-primary font-bold'
+                                    : 'text-slate-700 dark:text-slate-300 font-medium hover:bg-slate-100 dark:hover:bg-slate-800'
+                                    }`}
                             >
                                 {link.label}
                             </Link>
@@ -279,6 +315,9 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
                         <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-2">
                             <Link to="/profile" className="px-3 py-2 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
                                 My Account
+                            </Link>
+                            <Link to="/settings" className="px-3 py-2 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
+                                Settings
                             </Link>
                             <button
                                 onClick={async () => {

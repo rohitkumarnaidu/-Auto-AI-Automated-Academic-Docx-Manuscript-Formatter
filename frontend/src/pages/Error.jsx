@@ -88,7 +88,10 @@ export default function Error({ error }) {
                                 <span className="truncate">Open Upload</span>
                             </Link>
                         ) : (
-                            <button className="flex-1 flex min-w-[160px] cursor-pointer items-center justify-center rounded-lg h-12 px-6 bg-white dark:bg-slate-800 border border-[#cfd9e7] dark:border-slate-700 text-[#0d131b] dark:text-white text-sm font-bold leading-normal tracking-wide transition-all hover:bg-slate-50 dark:hover:bg-slate-700 active:scale-95 duration-150">
+                            <button
+                                onClick={() => window.open('mailto:support@scholarform.ai', '_self')}
+                                className="flex-1 flex min-w-[160px] cursor-pointer items-center justify-center rounded-lg h-12 px-6 bg-white dark:bg-slate-800 border border-[#cfd9e7] dark:border-slate-700 text-[#0d131b] dark:text-white text-sm font-bold leading-normal tracking-wide transition-all hover:bg-slate-50 dark:hover:bg-slate-700 active:scale-95 duration-150"
+                            >
                                 <span className="material-symbols-outlined mr-2">support_agent</span>
                                 <span className="truncate">Contact Support</span>
                             </button>
@@ -98,12 +101,12 @@ export default function Error({ error }) {
 
                 <div className="mt-8 flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm">
                     <span className="flex h-2 w-2 rounded-full bg-green-500" />
-                    <p>All other systems are operational. <a href="#" className="text-primary hover:underline underline-offset-4 ml-1">View status page</a></p>
+                    <p>All other systems are operational. <Link to="/admin-dashboard" className="text-primary hover:underline underline-offset-4 ml-1">View status page</Link></p>
                 </div>
             </main>
 
             <footer className="w-full py-8 px-4 sm:px-10 text-center border-t border-[#e7ecf3] dark:border-slate-800 text-slate-400 text-xs">
-                <p>(c) 2024 ManuscriptFormatter. Professional Academic Tools for Researchers.</p>
+                <p>(c) {new Date().getFullYear()} ManuscriptFormatter. Professional Academic Tools for Researchers.</p>
             </footer>
         </div>
     );

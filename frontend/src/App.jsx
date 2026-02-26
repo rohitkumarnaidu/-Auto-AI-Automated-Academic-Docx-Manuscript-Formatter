@@ -17,6 +17,12 @@ import VerifyOTP from './pages/VerifyOTP';
 import ResetPassword from './pages/ResetPassword';
 import Preview from './pages/Preview';
 import TemplateEditor from './pages/TemplateEditor';
+import AuthCallback from './pages/AuthCallback';
+import FeedbackPage from './pages/FeedbackPage';
+import AdminDashboard from './pages/AdminDashboard';
+import BatchUpload from './pages/BatchUpload';
+import NotificationsPage from './pages/NotificationsPage';
+import SettingsPage from './pages/SettingsPage';
 
 import { DocumentProvider } from './context/DocumentContext';
 import { AuthProvider } from './context/AuthContext';
@@ -57,6 +63,11 @@ function App() {
                                 <Route path="/compare" element={withBoundary(<Compare />)} />
                                 <Route path="/preview" element={withBoundary(<Preview />)} />
                                 <Route path="/edit" element={withBoundary(<Edit />)} />
+                                <Route path="/jobs/:jobId/download" element={withBoundary(<Download />)} />
+                                <Route path="/jobs/:jobId/compare" element={withBoundary(<Compare />)} />
+                                <Route path="/jobs/:jobId/edit" element={withBoundary(<Edit />)} />
+                                <Route path="/jobs/:jobId/results" element={withBoundary(<ValidationResults />)} />
+                                <Route path="/jobs/:jobId/preview" element={withBoundary(<Preview />)} />
                                 <Route
                                     path="/error"
                                     element={withBoundary(
@@ -103,10 +114,51 @@ function App() {
                                         </ProtectedRoute>,
                                     )}
                                 />
+                                <Route
+                                    path="/feedback"
+                                    element={withBoundary(
+                                        <ProtectedRoute>
+                                            <FeedbackPage />
+                                        </ProtectedRoute>,
+                                    )}
+                                />
+                                <Route
+                                    path="/admin-dashboard"
+                                    element={withBoundary(
+                                        <ProtectedRoute>
+                                            <AdminDashboard />
+                                        </ProtectedRoute>,
+                                    )}
+                                />
+                                <Route
+                                    path="/batch-upload"
+                                    element={withBoundary(
+                                        <ProtectedRoute>
+                                            <BatchUpload />
+                                        </ProtectedRoute>,
+                                    )}
+                                />
+                                <Route
+                                    path="/notifications"
+                                    element={withBoundary(
+                                        <ProtectedRoute>
+                                            <NotificationsPage />
+                                        </ProtectedRoute>,
+                                    )}
+                                />
+                                <Route
+                                    path="/settings"
+                                    element={withBoundary(
+                                        <ProtectedRoute>
+                                            <SettingsPage />
+                                        </ProtectedRoute>,
+                                    )}
+                                />
 
                                 {/* ── Auth pages (always accessible) ── */}
                                 <Route path="/login" element={withBoundary(<Login />)} />
                                 <Route path="/signup" element={withBoundary(<Signup />)} />
+                                <Route path="/auth/callback" element={withBoundary(<AuthCallback />)} />
                                 <Route path="/forgot-password" element={withBoundary(<ForgotPassword />)} />
                                 <Route path="/verify-otp" element={withBoundary(<VerifyOTP />)} />
                                 <Route path="/reset-password" element={withBoundary(<ResetPassword />)} />

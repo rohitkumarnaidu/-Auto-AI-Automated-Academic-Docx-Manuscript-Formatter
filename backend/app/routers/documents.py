@@ -24,6 +24,8 @@ router = APIRouter(prefix="/api/documents", tags=["Documents"])
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+_READY_FOR_EXPORT_STATUSES = {"COMPLETED", "COMPLETED_WITH_WARNINGS"}
+_SUPPORTED_EXPORT_FORMATS = {"docx", "pdf"}
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -44,10 +46,18 @@ def _require_db():
 
 @router.post("/upload/chunked")
 async def upload_document_chunked(
+    background_tasks: BackgroundTasks,
     file_id: str = Form(...),
     chunk_index: int = Form(...),
     total_chunks: int = Form(...),
     file: UploadFile = File(...),
+    template: str = Form(settings.DEFAULT_TEMPLATE),
+    add_page_numbers: bool = Form(True),
+    add_borders: bool = Form(False),
+    add_cover_page: bool = Form(False),
+    generate_toc: bool = Form(False),
+    page_size: str = Form("Letter"),
+    fast_mode: bool = Form(False),
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -66,6 +76,7 @@ async def upload_document_chunked(
     
     # Save the chunk with 5MB limit
     chunk_path = upload_dir / f"{file_id}.part{chunk_index}"
+    allowed_extensions = {'.docx', '.pdf', '.tex', '.txt', '.html', '.htm', '.md', '.markdown', '.doc'}
     try:
         content = await file.read()
         if len(content) > 5 * 1024 * 1024:
@@ -78,7 +89,6 @@ async def upload_document_chunked(
         received_chunks = len(list(upload_dir.glob(f"{file_id}.part*")))
         if received_chunks == total_chunks:
             # Validate total assembled size before merging
-            import os
             total_size = sum(p.stat().st_size for p in upload_dir.glob(f"{file_id}.part*"))
             if total_size > settings.MAX_FILE_SIZE:
                 for p in upload_dir.glob(f"{file_id}.part*"):
@@ -98,10 +108,65 @@ async def upload_document_chunked(
                             hasher.update(chunk_data)
                             outfile.write(chunk_data)
                         os.remove(part_path)  # Cleanup piece
-                        
+
+            original_filename = os.path.basename(file.filename or f"{file_id}.docx")
+            file_ext = os.path.splitext(original_filename)[1].lower() or ".docx"
+            if file_ext not in allowed_extensions:
+                final_path.unlink(missing_ok=True)
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid file type '{file_ext}'. Allowed types: {', '.join(allowed_extensions)}",
+                )
+
+            job_id = uuid.uuid4()
+            os.makedirs(UPLOAD_DIR, exist_ok=True)
+            file_path = os.path.abspath(os.path.join(UPLOAD_DIR, f"{job_id}{file_ext}"))
+            upload_dir_abs = os.path.abspath(UPLOAD_DIR)
+            if not file_path.startswith(upload_dir_abs):
+                final_path.unlink(missing_ok=True)
+                raise HTTPException(status_code=400, detail="Invalid file path detected")
+
+            os.replace(final_path, file_path)
+
+            formatting_options = {
+                "page_numbers": add_page_numbers,
+                "borders": add_borders,
+                "cover_page": add_cover_page,
+                "toc": generate_toc,
+                "page_size": page_size,
+                "fast_mode": fast_mode,
+            }
+
+            created = DocumentService.create_document(
+                doc_id=str(job_id),
+                user_id=str(current_user.id),
+                filename=original_filename,
+                template=template,
+                original_file_path=file_path,
+                formatting_options=formatting_options,
+                file_hash=hasher.hexdigest(),
+            )
+            if created is None:
+                try:
+                    os.remove(file_path)
+                except OSError:
+                    pass
+                raise HTTPException(status_code=503, detail="Database temporarily unavailable. Please retry later.")
+
+            from app.utils.background_tasks import run_pipeline_with_timeout
+            orchestrator = PipelineOrchestrator()
+            background_tasks.add_task(
+                run_pipeline_with_timeout,
+                orchestrator=orchestrator,
+                input_path=file_path,
+                job_id=job_id,
+                template_name=template,
+                formatting_options=formatting_options,
+            )
+
             return {
                 "status": "complete",
-                "message": "All chunks received and reassembled successfully.",
+                "job_id": str(job_id),
                 "file_id": file_id,
                 "file_hash": hasher.hexdigest(),
             }
@@ -111,6 +176,8 @@ async def upload_document_chunked(
             "chunk_index": chunk_index,
             "total_chunks": total_chunks
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error handling chunked upload: {e}")
         raise HTTPException(status_code=500, detail="Failed to upload chunk.")
@@ -254,6 +321,7 @@ async def upload_document(
         # ── File storage ───────────────────────────────────────────────────────
 
         job_id = uuid.uuid4()
+        os.makedirs(UPLOAD_DIR, exist_ok=True)
         file_path = os.path.abspath(os.path.join(UPLOAD_DIR, f"{job_id}{file_ext}"))
         upload_dir_abs = os.path.abspath(UPLOAD_DIR)
 
@@ -366,6 +434,31 @@ async def get_status(
         }
 
 
+@router.get("/{job_id}/summary")
+async def get_document_summary(
+    job_id: str,
+    current_user: Optional[User] = Depends(get_optional_user),
+):
+    """Lightweight job summary for URL-based page hydration."""
+    doc = DocumentService.get_document(job_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    if doc.get("user_id") is not None:
+        if not current_user or str(doc["user_id"]) != str(current_user.id):
+            raise HTTPException(status_code=403, detail="Not authorized to access this document")
+
+    status = doc.get("status")
+    return {
+        "id": job_id,
+        "status": status,
+        "filename": doc.get("filename"),
+        "template": doc.get("template"),
+        "created_at": doc.get("created_at"),
+        "output_path": doc.get("output_path") if status in _READY_FOR_EXPORT_STATUSES else None,
+    }
+
+
 @router.post("/{job_id}/edit")
 async def edit_document(
     job_id: str,
@@ -463,11 +556,14 @@ async def get_comparison_data(
             if not current_user or str(doc["user_id"]) != str(current_user.id):
                 raise HTTPException(status_code=403, detail="Not authorized to access comparison data")
 
-        if doc.get("status") != "COMPLETED":
+        if doc.get("status") not in _READY_FOR_EXPORT_STATUSES:
             logger.warning("Compare endpoint called too early for job %s. Status: %s", job_id, doc.get("status"))
             raise HTTPException(
                 status_code=400,
-                detail=f"Comparison data not available. Job status: {doc.get('status')}. Wait for COMPLETED status.",
+                detail=(
+                    f"Comparison data not available. Job status: {doc.get('status')}. "
+                    "Wait for COMPLETED or COMPLETED_WITH_WARNINGS status."
+                ),
             )
 
         result = DocumentService.get_document_result(job_id)
@@ -523,15 +619,22 @@ async def download_document(
         if not doc:
             raise HTTPException(status_code=404, detail="Document job not found")
 
+        requested_format = (format or "").strip().lower()
+        if requested_format not in _SUPPORTED_EXPORT_FORMATS:
+            raise HTTPException(status_code=400, detail="Unsupported format. Supported: docx, pdf")
+
         if doc.get("user_id") is not None:
             if not current_user or str(doc["user_id"]) != str(current_user.id):
                 raise HTTPException(status_code=403, detail="Not authorized to download this document")
 
-        if doc.get("status") != "COMPLETED":
+        if doc.get("status") not in _READY_FOR_EXPORT_STATUSES:
             logger.warning("Download endpoint called too early for job %s. Status: %s", job_id, doc.get("status"))
             raise HTTPException(
                 status_code=400,
-                detail=f"Document not ready. Job status: {doc.get('status')}. Wait for COMPLETED status.",
+                detail=(
+                    f"Document not ready. Job status: {doc.get('status')}. "
+                    "Wait for COMPLETED or COMPLETED_WITH_WARNINGS status."
+                ),
             )
 
         output_path = doc.get("output_path")
@@ -550,7 +653,7 @@ async def download_document(
         filename = f"{base_filename}_formatted.docx"
 
         # --- A14: Verify SHA256 integrity on download ---
-        if format.lower() == "docx":
+        if requested_format == "docx":
             try:
                 import hashlib
                 with open(output_path, "rb") as f:
@@ -567,7 +670,7 @@ async def download_document(
         path_to_serve = output_path
         media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
-        if format.lower() == "pdf":
+        if requested_format == "pdf":
             pdf_path = output_path.replace(".docx", ".pdf")
             if not os.path.exists(pdf_path):
                 try:
@@ -588,9 +691,6 @@ async def download_document(
             path_to_serve = pdf_path
             media_type = "application/pdf"
             filename = f"{base_filename}_formatted.pdf"
-
-        elif format.lower() != "docx":
-            raise HTTPException(status_code=400, detail=f"Unsupported format: {format}. Use 'docx' or 'pdf'.")
 
         return FileResponse(path=path_to_serve, media_type=media_type, filename=filename)
 

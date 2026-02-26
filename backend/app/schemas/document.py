@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # ── Type aliases ──────────────────────────────────────────────────────────────
 
-ExportFormat = Literal["docx", "json", "markdown", "pdf", "jats", "xml"]
+ExportFormat = Literal["docx", "pdf"]
 DocumentStatus = Literal["PENDING", "PROCESSING", "COMPLETED", "COMPLETED_WITH_WARNINGS", "FAILED", "CANCELLED"]
 PageSize = Literal["Letter", "A4", "Legal"]
 TemplateChoice = Literal["IEEE", "Springer", "APA", "Nature", "Vancouver", "none"]
@@ -82,7 +82,7 @@ class DocumentBase(BaseModel):
     template: str = Field(..., description="Journal template applied (e.g. 'IEEE').")
     status: str = Field(..., description="Processing status.")
     export_formats: List[ExportFormat] = Field(
-        default_factory=lambda: ["docx", "json", "markdown"],
+        default_factory=lambda: ["docx", "pdf"],
         description="Requested output formats for the document pipeline.",
     )
 

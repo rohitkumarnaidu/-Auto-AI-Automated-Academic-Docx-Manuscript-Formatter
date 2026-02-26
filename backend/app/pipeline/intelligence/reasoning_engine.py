@@ -202,6 +202,10 @@ class ReasoningEngine:
             return False
         except (requests.RequestException, Exception):
             return False
+
+    @staticmethod
+    def _is_cancelled(cancellation_event: Any) -> bool:
+        return bool(cancellation_event is not None and hasattr(cancellation_event, "is_set") and cancellation_event.is_set())
     
     def _validate_json_schema(self, data: Dict[str, Any]) -> bool:
         """Validate JSON output schema."""
@@ -444,20 +448,33 @@ class ReasoningEngine:
         recovery_timeout=60,
         fallback_function=_instruction_set_circuit_fallback,
     )
-    def generate_instruction_set(self, semantic_blocks: List[Dict[str, Any]], rules: str, max_retries: int = 2) -> Dict[str, Any]:
+    def generate_instruction_set(
+        self,
+        semantic_blocks: List[Dict[str, Any]],
+        rules: str,
+        max_retries: int = 2,
+        cancellation_event: Any = None,
+    ) -> Dict[str, Any]:
         """
         - Automatic fallback on failure
         - Retry logic for transient failures
         - JSON schema validation
         - Timeout protection
         """
+        if self._is_cancelled(cancellation_event):
+            print("[INFO] Reasoning cancelled before start; using rule-based fallback.")
+            return self._rule_based_fallback(semantic_blocks)
+
         # Try NVIDIA first (if available)
         if getattr(self, 'nvidia_available', False) and getattr(self, 'nvidia_client', None):
             start_time = 0.0  # initialised before try so except can reference it safely
             try:
+                if self._is_cancelled(cancellation_event):
+                    print("[INFO] Reasoning cancelled before NVIDIA call; using rule-based fallback.")
+                    return self._rule_based_fallback(semantic_blocks)
                 print("Attempting NVIDIA Llama 3.3 70B...")
                 start_time = time.time()
-                result = self._generate_with_nvidia(semantic_blocks, rules)
+                result = self._generate_with_nvidia(semantic_blocks, rules, cancellation_event=cancellation_event)
                 result = self._normalize_instruction_payload(result, semantic_blocks)
                 latency = time.time() - start_time
                 
@@ -485,13 +502,21 @@ class ReasoningEngine:
                     get_model_metrics().record_fallback("nvidia", "deepseek", str(e))
                 print(f"NVIDIA failed: {e}. Falling back to DeepSeek...")
 
+        if self._is_cancelled(cancellation_event):
+            print("[INFO] Reasoning cancelled before DeepSeek fallback; using rule-based fallback.")
+            return self._rule_based_fallback(semantic_blocks)
         
         # Fallback to DeepSeek/Ollama
         if getattr(self, 'ollama_available', False) and getattr(self, 'llm', None) is not None:
             try:
                 print("[INFO] Attempting DeepSeek via Ollama...")
                 start_time = time.time()
-                result = self._generate_with_deepseek(semantic_blocks, rules, max_retries)
+                result = self._generate_with_deepseek(
+                    semantic_blocks,
+                    rules,
+                    max_retries,
+                    cancellation_event=cancellation_event,
+                )
                 result = self._normalize_instruction_payload(result, semantic_blocks)
                 latency = time.time() - start_time
 
@@ -532,8 +557,16 @@ class ReasoningEngine:
         print("[INFO] Using rule-based heuristics (final fallback)")
         return self._rule_based_fallback(semantic_blocks)
     
-    def _generate_with_nvidia(self, semantic_blocks: List[Dict[str, Any]], rules: str) -> Dict[str, Any]:
+    def _generate_with_nvidia(
+        self,
+        semantic_blocks: List[Dict[str, Any]],
+        rules: str,
+        cancellation_event: Any = None,
+    ) -> Dict[str, Any]:
         """Generate instruction set using NVIDIA Llama 3.3 70B (via llm_service when available)."""
+        if self._is_cancelled(cancellation_event):
+            return self._rule_based_fallback(semantic_blocks)
+
         blocks_summary = []
         for i, b in enumerate(semantic_blocks[:15]):
             text = b.get('text', '')[:150]
@@ -600,7 +633,13 @@ class ReasoningEngine:
                     pass
         return None
     
-    def _generate_with_deepseek(self, semantic_blocks: List[Dict[str, Any]], rules: str, max_retries: int) -> Dict[str, Any]:
+    def _generate_with_deepseek(
+        self,
+        semantic_blocks: List[Dict[str, Any]],
+        rules: str,
+        max_retries: int,
+        cancellation_event: Any = None,
+    ) -> Dict[str, Any]:
         """Generate instruction set using DeepSeek via llm_service (LiteLLM) or direct Ollama."""
         blocks_json = json.dumps(semantic_blocks[:20])
         prompt = (
@@ -626,6 +665,9 @@ class ReasoningEngine:
             return None
 
         for attempt in range(max_retries + 1):
+            if self._is_cancelled(cancellation_event):
+                print("[INFO] Reasoning cancelled during DeepSeek loop; using rule-based fallback.")
+                return self._rule_based_fallback(semantic_blocks)
             start_time = time.time()
             try:
                 # Path 1: LangChain ChatOllama (preferred when self.llm is set - test mock compat)
@@ -659,6 +701,8 @@ class ReasoningEngine:
                 print(f"[WARN] DeepSeek error (attempt {attempt + 1}/{max_retries + 1}): {e}")
 
             if attempt < max_retries:
+                if self._is_cancelled(cancellation_event):
+                    return self._rule_based_fallback(semantic_blocks)
                 time.sleep(1)
             else:
                 print("[ERROR] All retries failed. Falling back to rule-based classification.")

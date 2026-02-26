@@ -1,77 +1,203 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import * as Diff from 'diff';
-import { useDocument } from '../context/DocumentContext';
 import Navbar from '../components/Navbar';
 import { getComparison } from '../services/api';
+import useJobFromUrl from '../hooks/useJobFromUrl';
+
+const toLineText = (value) => {
+    if (typeof value === 'string') {
+        return value;
+    }
+    if (value && typeof value === 'object' && typeof value.text === 'string') {
+        return value.text;
+    }
+    if (value == null) {
+        return '';
+    }
+    return String(value);
+};
+
+const getFormattedTextFromStructuredData = (structuredData) => {
+    if (!structuredData || typeof structuredData !== 'object') {
+        return '';
+    }
+
+    if (Array.isArray(structuredData.blocks)) {
+        return structuredData.blocks
+            .map((block) => toLineText(block))
+            .filter((line) => line.trim() !== '')
+            .join('\n\n');
+    }
+
+    if (structuredData.sections && typeof structuredData.sections === 'object') {
+        return Object.values(structuredData.sections)
+            .map((section) => {
+                if (Array.isArray(section)) {
+                    return section
+                        .map((line) => toLineText(line))
+                        .filter((line) => line.trim() !== '')
+                        .join('\n');
+                }
+                return toLineText(section).trim();
+            })
+            .filter((sectionText) => sectionText.trim() !== '')
+            .join('\n\n');
+    }
+
+    return '';
+};
+
+const buildHtmlDiffDocument = (htmlDiff, highlightsEnabled) => {
+    if (typeof htmlDiff !== 'string' || htmlDiff.trim() === '') {
+        return '';
+    }
+
+    if (highlightsEnabled) {
+        return htmlDiff;
+    }
+
+    const overrideStyles = `
+<style>
+.diff_add, .diff_sub, .diff_chg {
+    background: transparent !important;
+}
+</style>`;
+
+    return htmlDiff.includes('</head>')
+        ? htmlDiff.replace('</head>', `${overrideStyles}</head>`)
+        : `${overrideStyles}${htmlDiff}`;
+};
 
 export default function Compare() {
     const navigate = useNavigate();
-    const { job } = useDocument();
+    const { job, isLoading: isJobLoading, error: jobLoadError } = useJobFromUrl();
     const [viewMode, setViewMode] = useState('text');
     const [scrollSync, setScrollSync] = useState(true);
     const [highlights, setHighlights] = useState(true);
-
-    // Generate aligned diffs for side-by-side view
+    const [isPaused, setIsPaused] = useState(false);
     const [diffData, setDiffData] = useState({ left: [], right: [] });
     const [structuredData, setStructuredData] = useState(null);
+    const [htmlDiff, setHtmlDiff] = useState('');
+    const [comparisonError, setComparisonError] = useState('');
+    const [isComparisonLoading, setIsComparisonLoading] = useState(false);
+
+    const effectiveHighlights = highlights && !isPaused;
 
     useEffect(() => {
-        const loadComparison = async () => {
-            if (job?.id) {
-                try {
-                    const data = await getComparison(job.id);
+        if (!job?.id) {
+            setDiffData({ left: [], right: [] });
+            setStructuredData(null);
+            setHtmlDiff('');
+            setComparisonError('');
+            setIsComparisonLoading(false);
+            return;
+        }
 
-                    if (data.formatted?.structured_data) {
-                        setStructuredData(data.formatted.structured_data);
-                    }
+        let isCancelled = false;
+        setIsComparisonLoading(true);
+        setComparisonError('');
 
-                    const originalText = data.original?.raw_text || "";
+        getComparison(job.id)
+            .then((data) => {
+                if (isCancelled) {
+                    return;
+                }
 
-                    // Reconstruct formatted text
-                    let formattedText = "";
-                    if (data.formatted?.structured_data?.sections) {
-                        Object.values(data.formatted.structured_data.sections).forEach((texts) => {
-                            formattedText += texts.join('\n') + "\n\n";
+                const nextStructuredData = data?.formatted?.structured_data || null;
+                setStructuredData(nextStructuredData);
+
+                const backendHtmlDiff = typeof data?.html_diff === 'string'
+                    ? data.html_diff
+                    : '';
+                setHtmlDiff(backendHtmlDiff);
+
+                if (backendHtmlDiff) {
+                    setDiffData({ left: [], right: [] });
+                    return;
+                }
+
+                const originalText = data?.original?.raw_text || '';
+                const formattedText = getFormattedTextFromStructuredData(nextStructuredData);
+                const changes = Diff.diffLines(originalText, formattedText);
+                const left = [];
+                const right = [];
+
+                changes.forEach((part) => {
+                    const lines = part.value.replace(/\n$/, '').split('\n');
+                    if (part.added) {
+                        lines.forEach((line) => {
+                            right.push({ text: line, type: 'added' });
+                            left.push({ text: '', type: 'empty' });
+                        });
+                    } else if (part.removed) {
+                        lines.forEach((line) => {
+                            left.push({ text: line, type: 'removed' });
+                            right.push({ text: '', type: 'empty' });
+                        });
+                    } else {
+                        lines.forEach((line) => {
+                            left.push({ text: line, type: 'unchanged' });
+                            right.push({ text: line, type: 'unchanged' });
                         });
                     }
+                });
 
-                    const changes = Diff.diffLines(originalText, formattedText);
-                    const left = [];
-                    const right = [];
-
-                    changes.forEach(part => {
-                        const lines = part.value.replace(/\n$/, '').split('\n');
-                        if (part.added) {
-                            lines.forEach(line => {
-                                right.push({ text: line, type: 'added' });
-                                left.push({ text: '', type: 'empty' });
-                            });
-                        } else if (part.removed) {
-                            lines.forEach(line => {
-                                left.push({ text: line, type: 'removed' });
-                                right.push({ text: '', type: 'empty' });
-                            });
-                        } else {
-                            lines.forEach(line => {
-                                left.push({ text: line, type: 'unchanged' });
-                                right.push({ text: line, type: 'unchanged' });
-                            });
-                        }
-                    });
-
-                    setDiffData({ left, right });
-                } catch (error) {
-                    console.error("Comparison load failed:", error);
+                setDiffData({ left, right });
+            })
+            .catch((error) => {
+                if (isCancelled) {
+                    return;
                 }
-            }
+                console.error('Comparison load failed:', error);
+                setComparisonError(
+                    typeof error?.message === 'string'
+                        ? error.message
+                        : 'Unable to load comparison data.'
+                );
+                setDiffData({ left: [], right: [] });
+                setStructuredData(null);
+                setHtmlDiff('');
+            })
+            .finally(() => {
+                if (!isCancelled) {
+                    setIsComparisonLoading(false);
+                }
+            });
+
+        return () => {
+            isCancelled = true;
         };
-        loadComparison();
-    }, [job]);
+    }, [job?.id]);
 
     const diffs = useMemo(() => diffData, [diffData]);
+    const htmlDiffDocument = useMemo(
+        () => buildHtmlDiffDocument(htmlDiff, effectiveHighlights),
+        [effectiveHighlights, htmlDiff]
+    );
 
-    const [isPaused, setIsPaused] = useState(false);
+    const getJobRoute = (suffix, fallback) => (
+        job?.id ? `/jobs/${encodeURIComponent(job.id)}/${suffix}` : fallback
+    );
+
+    if (isJobLoading && !job) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center bg-background-light dark:bg-background-dark">
+                <p className="text-slate-500 mb-4">Loading document details...</p>
+            </div>
+        );
+    }
+
+    if (jobLoadError && !job) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center bg-background-light dark:bg-background-dark px-4 text-center">
+                <p className="text-red-600 dark:text-red-400 mb-3">{jobLoadError}</p>
+                <button onClick={() => navigate('/history')} className="text-primary font-bold hover:underline">
+                    Return to History
+                </button>
+            </div>
+        );
+    }
 
     if (!job) {
         return (
@@ -103,7 +229,7 @@ export default function Compare() {
                             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${isPaused ? 'bg-amber-50 border-amber-200 text-amber-600' : 'bg-primary/5 border-primary/20 text-primary hover:bg-primary/10'}`}
                         >
                             <span className="material-symbols-outlined text-[18px]">{isPaused ? 'play_arrow' : 'pause'}</span>
-                            {isPaused ? 'RESUME FORMATTING' : 'PAUSE FORMATTING'}
+                            {isPaused ? 'Resume Highlights' : 'Pause Highlights'}
                         </button>
                         <span className="text-xs font-medium text-slate-500 px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded uppercase">{job.template} Template Applied</span>
                     </div>
@@ -114,25 +240,24 @@ export default function Compare() {
                     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
                         <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full">
                             <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-lg sm:mr-2 overflow-x-auto">
-                            <button
-                                onClick={() => setViewMode('text')}
-                                className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-bold transition-all ${viewMode === 'text' ? 'bg-white dark:bg-slate-700 shadow-sm text-primary' : 'text-slate-500 dark:text-slate-400 hover:text-primary'}`}
-                            >
-                                <span className="material-symbols-outlined text-[20px]">description</span>
-                                Text View
-                            </button>
-                            {/* Only show Structured view if data exists */}
-                            {structuredData && (
                                 <button
-                                    onClick={() => setViewMode('structured')}
-                                    className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'structured' ? 'bg-white dark:bg-slate-700 shadow-sm text-primary' : 'text-slate-500 dark:text-slate-400 hover:text-primary'}`}
+                                    onClick={() => setViewMode('text')}
+                                    className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-bold transition-all ${viewMode === 'text' ? 'bg-white dark:bg-slate-700 shadow-sm text-primary' : 'text-slate-500 dark:text-slate-400 hover:text-primary'}`}
                                 >
-                                    <span className="material-symbols-outlined text-[20px]">account_tree</span>
-                                    Structured
+                                    <span className="material-symbols-outlined text-[20px]">description</span>
+                                    Text View
                                 </button>
-                            )}
-
-                        </div>
+                                {/* Only show Structured view if data exists */}
+                                {structuredData && (
+                                    <button
+                                        onClick={() => setViewMode('structured')}
+                                        className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'structured' ? 'bg-white dark:bg-slate-700 shadow-sm text-primary' : 'text-slate-500 dark:text-slate-400 hover:text-primary'}`}
+                                    >
+                                        <span className="material-symbols-outlined text-[20px]">account_tree</span>
+                                        Structured
+                                    </button>
+                                )}
+                            </div>
                             <div className="flex h-10 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 p-1">
                                 <label onClick={() => setScrollSync(!scrollSync)} className={`cursor-pointer flex h-full items-center justify-center rounded-md px-3 text-xs transition-all ${scrollSync ? 'bg-white dark:bg-slate-700 shadow-sm text-primary font-bold' : 'text-slate-500 dark:text-slate-400 font-medium hover:text-primary'}`}>
                                     <span className="material-symbols-outlined text-[18px] mr-1">sync_alt</span>
@@ -146,13 +271,11 @@ export default function Compare() {
                         </div>
 
                         <div className="flex items-center gap-2 self-end sm:self-auto">
-                            <button onClick={() => navigate('/download')} className="p-2 text-slate-500 hover:text-primary transition-colors" title="Download">
+                            <button onClick={() => navigate(getJobRoute('download', '/download'))} className="p-2 text-slate-500 hover:text-primary transition-colors" title="Download">
                                 <span className="material-symbols-outlined">file_download</span>
                             </button>
                             <button
-                                onClick={() => {
-                                    navigate('/edit');
-                                }}
+                                onClick={() => navigate(getJobRoute('edit', '/edit'))}
                                 className="flex items-center justify-center rounded-lg h-10 bg-primary text-white gap-2 px-4 sm:px-6 text-sm font-bold shadow-md hover:bg-blue-600 transition-all"
                             >
                                 <span className="material-symbols-outlined">edit_note</span>
@@ -162,73 +285,95 @@ export default function Compare() {
                     </div>
                 </div>
 
+                {comparisonError && (
+                    <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">
+                        {comparisonError}
+                    </div>
+                )}
+
+                {isComparisonLoading && (
+                    <div className="mb-4 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+                        Loading comparison data...
+                    </div>
+                )}
+
                 {/* Side-by-Side Split View OR Structured Data View */}
                 {viewMode === 'text' ? (
-                    <div className="flex-1 flex flex-col lg:flex-row gap-4 min-h-[600px]">
-                        {/* Left Panel: Original */}
-                        <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
-                            <div className="px-6 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 flex justify-between items-center">
-                                <h3 className="font-bold text-sm text-slate-700 dark:text-slate-200 uppercase tracking-wider flex items-center gap-2">
-                                    <span className="material-symbols-outlined text-[18px] text-slate-400">history</span>
-                                    Original
-                                </h3>
-                                <span className="text-[10px] text-slate-400">Source: {job.originalFileName}</span>
-                            </div>
-                            <div className={`flex-1 p-8 overflow-y-auto custom-scrollbar leading-relaxed text-slate-800 dark:text-slate-300 font-serif text-[15px] ${scrollSync ? 'scroll-sync-left' : ''}`}>
-                                <div className="max-w-2xl mx-auto space-y-1">
-                                    {diffs.left.map((line, i) => (
-                                        <div key={i} className={`min-h-[24px] ${highlights && line.type === 'removed'
-                                            ? 'bg-red-100 dark:bg-red-900/30 border-l-2 border-red-500 pl-2'
-                                            : line.type === 'empty' ? 'bg-slate-50/50 dark:bg-slate-800/30' : ''
-                                            }`}>
-                                            <p>{line.text}</p>
-                                        </div>
-                                    ))}
+                    htmlDiffDocument ? (
+                        <div className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
+                            <iframe
+                                title="Authoritative backend diff"
+                                srcDoc={htmlDiffDocument}
+                                className="w-full min-h-[620px] h-full border-0 bg-white"
+                            />
+                        </div>
+                    ) : (
+                        <div className="flex-1 flex flex-col lg:flex-row gap-4 min-h-[600px]">
+                            {/* Left Panel: Original */}
+                            <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
+                                <div className="px-6 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 flex justify-between items-center">
+                                    <h3 className="font-bold text-sm text-slate-700 dark:text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                                        <span className="material-symbols-outlined text-[18px] text-slate-400">history</span>
+                                        Original
+                                    </h3>
+                                    <span className="text-[10px] text-slate-400">Source: {job.originalFileName}</span>
                                 </div>
-                            </div>
-                        </div>
-
-                        <div className="hidden lg:flex flex-col items-center justify-center px-0 text-slate-300 dark:text-slate-700">
-                            <span className="material-symbols-outlined">link</span>
-                        </div>
-
-                        {/* Right Panel: Processed */}
-                        <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 border-2 border-primary rounded-xl overflow-hidden shadow-lg relative transition-all duration-300">
-                            {isPaused && (
-                                <div className="absolute inset-0 bg-white/20 dark:bg-slate-900/20 backdrop-blur-[1px] z-10 flex items-center justify-center pointer-events-none">
-                                    <div className="bg-white/90 dark:bg-slate-800/90 p-4 rounded-full shadow-2xl border border-amber-200 animate-in fade-in zoom-in duration-300">
-                                        <span className="material-symbols-outlined text-amber-500 text-6xl">format_paint</span>
+                                <div className={`flex-1 p-8 overflow-y-auto custom-scrollbar leading-relaxed text-slate-800 dark:text-slate-300 font-serif text-[15px] ${scrollSync ? 'scroll-sync-left' : ''}`}>
+                                    <div className="max-w-2xl mx-auto space-y-1">
+                                        {diffs.left.map((line, i) => (
+                                            <div key={i} className={`min-h-[24px] ${effectiveHighlights && line.type === 'removed'
+                                                ? 'bg-red-100 dark:bg-red-900/30 border-l-2 border-red-500 pl-2'
+                                                : line.type === 'empty' ? 'bg-slate-50/50 dark:bg-slate-800/30' : ''
+                                                }`}>
+                                                <p>{line.text}</p>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
-                            )}
-                            <div className="px-6 py-3 border-b border-slate-200 dark:border-slate-800 bg-primary/5 flex justify-between items-center">
-                                <h3 className="font-bold text-sm text-primary uppercase tracking-wider flex items-center gap-2">
-                                    <span className="material-symbols-outlined text-[18px]">verified</span>
-                                    Processed ({job.template})
-                                </h3>
-                                <div className="flex gap-2">
-                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded transition-colors ${isPaused ? 'bg-amber-100 text-amber-600' : 'bg-green-100 text-green-600 dark:text-green-400'}`}>
-                                        {isPaused ? 'PAUSED' : 'VALIDATED'}
-                                    </span>
-                                </div>
                             </div>
-                            <div className={`flex-1 p-8 overflow-y-auto custom-scrollbar bg-white dark:bg-slate-900 ${scrollSync ? 'scroll-sync-right' : ''}`}>
-                                <div className="max-w-2xl mx-auto space-y-1">
-                                    {diffs.right.map((line, i) => (
-                                        <div key={i} className={`min-h-[24px] relative ${highlights && line.type === 'added'
-                                            ? 'bg-green-100 dark:bg-green-900/30 border-l-2 border-green-500 pl-2'
-                                            : line.type === 'empty' ? 'bg-slate-50/50 dark:bg-slate-800/30' : ''
-                                            }`}>
-                                            <p>{line.text}</p>
-                                            {(isPaused || highlights) && line.text.trim() !== "" && line.type !== 'empty' && (
-                                                <span className="inline-block ml-1 text-primary/30 font-serif translate-y-[2px]" title="Formatting Symbol">¶</span>
-                                            )}
+
+                            <div className="hidden lg:flex flex-col items-center justify-center px-0 text-slate-300 dark:text-slate-700">
+                                <span className="material-symbols-outlined">link</span>
+                            </div>
+
+                            {/* Right Panel: Processed */}
+                            <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 border-2 border-primary rounded-xl overflow-hidden shadow-lg relative transition-all duration-300">
+                                {isPaused && (
+                                    <div className="absolute inset-0 bg-white/20 dark:bg-slate-900/20 backdrop-blur-[1px] z-10 flex items-center justify-center pointer-events-none">
+                                        <div className="bg-white/90 dark:bg-slate-800/90 p-4 rounded-full shadow-2xl border border-amber-200 animate-in fade-in zoom-in duration-300">
+                                            <span className="material-symbols-outlined text-amber-500 text-6xl">auto_fix_off</span>
                                         </div>
-                                    ))}
+                                    </div>
+                                )}
+                                <div className="px-6 py-3 border-b border-slate-200 dark:border-slate-800 bg-primary/5 flex justify-between items-center">
+                                    <h3 className="font-bold text-sm text-primary uppercase tracking-wider flex items-center gap-2">
+                                        <span className="material-symbols-outlined text-[18px]">verified</span>
+                                        Processed ({job.template})
+                                    </h3>
+                                    <div className="flex gap-2">
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded transition-colors ${isPaused ? 'bg-amber-100 text-amber-600' : 'bg-green-100 text-green-600 dark:text-green-400'}`}>
+                                            {isPaused ? 'HIGHLIGHTS PAUSED' : 'VALIDATED'}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className={`flex-1 p-8 overflow-y-auto custom-scrollbar bg-white dark:bg-slate-900 ${scrollSync ? 'scroll-sync-right' : ''}`}>
+                                    <div className="max-w-2xl mx-auto space-y-1">
+                                        {diffs.right.map((line, i) => (
+                                            <div key={i} className={`min-h-[24px] relative ${effectiveHighlights && line.type === 'added'
+                                                ? 'bg-green-100 dark:bg-green-900/30 border-l-2 border-green-500 pl-2'
+                                                : line.type === 'empty' ? 'bg-slate-50/50 dark:bg-slate-800/30' : ''
+                                                }`}>
+                                                <p>{line.text}</p>
+                                                {effectiveHighlights && line.text.trim() !== '' && line.type !== 'empty' && (
+                                                    <span className="inline-block ml-1 text-primary/30 font-serif translate-y-[2px]" title="Formatting Symbol">|</span>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    )
                 ) : (
                     <div className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm p-6 overflow-auto">
                         <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-lg border border-slate-100 dark:border-slate-800">
@@ -257,7 +402,7 @@ export default function Compare() {
                     <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-slate-500">
                         <span className="flex items-center gap-1">
                             <span className="material-symbols-outlined text-[16px]">info</span>
-                            Real-time synchronization active
+                            {htmlDiffDocument ? 'Backend HTML diff active' : 'Client-side diff active'}
                         </span>
                         <span className="sm:border-l border-slate-300 dark:border-slate-600 sm:pl-4 break-all">Job ID: {job.id}</span>
                     </div>
@@ -266,4 +411,3 @@ export default function Compare() {
         </div>
     );
 }
-

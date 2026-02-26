@@ -3,7 +3,31 @@ import { useNavigate } from 'react-router-dom';
 import { useDocument } from '../context/DocumentContext';
 import Navbar from '../components/Navbar';
 import { isCompleted } from '../constants/status';
-import { submitEdit } from '../services/api';
+import { submitEdit, getPreview } from '../services/api';
+
+const getContentFromSections = (sections) => {
+    if (!sections || typeof sections !== 'object') {
+        return '';
+    }
+
+    return Object.values(sections)
+        .map((sectionContent) => {
+            if (Array.isArray(sectionContent)) {
+                return sectionContent
+                    .map((line) => (typeof line === 'string' ? line : String(line ?? '')))
+                    .filter((line) => line.trim() !== '')
+                    .join('\n');
+            }
+
+            if (typeof sectionContent === 'string') {
+                return sectionContent.trim();
+            }
+
+            return sectionContent == null ? '' : String(sectionContent).trim();
+        })
+        .filter(Boolean)
+        .join('\n\n');
+};
 
 export default function Edit() {
     const navigate = useNavigate();
@@ -15,11 +39,44 @@ export default function Edit() {
     const [validationMessage, setValidationMessage] = useState(null);
 
     useEffect(() => {
-        if (job) {
+        let isMounted = true;
+
+        const loadEditorContent = async () => {
+            if (!job) return;
+
             setTitle(job.originalFileName?.split('.')[0] || 'Untitled Manuscript');
-            // If the job has processed text, use it, otherwise use a default
-            setContent(job.processedText || "Recent Advancements in Generative Adversarial Networks for Image Synthesis\n\nAbstract—This paper presents a comprehensive review of Generative Adversarial Network (GAN) architectures. We focus on the evolution from the Deep Convolutional GAN (DCGAN) to more advanced models like StyleGAN3. Our analysis shows that training stability and convergence speed remain primary challenges.");
-        }
+
+            const processedText = typeof job.processedText === 'string' ? job.processedText.trim() : '';
+            if (processedText) {
+                if (isMounted) setContent(job.processedText);
+                return;
+            }
+
+            const reconstructedFromJob = getContentFromSections(job.result?.structured_data?.sections);
+            if (reconstructedFromJob) {
+                if (isMounted) setContent(reconstructedFromJob);
+                return;
+            }
+
+            if (!job.id) {
+                if (isMounted) setContent('');
+                return;
+            }
+
+            try {
+                const previewData = await getPreview(job.id, { debounceMs: 0 });
+                const reconstructedFromPreview = getContentFromSections(previewData?.structured_data?.sections);
+                if (isMounted) setContent(reconstructedFromPreview || '');
+            } catch (error) {
+                console.error('Failed to load preview content:', error);
+                if (isMounted) setContent('');
+            }
+        };
+
+        loadEditorContent();
+        return () => {
+            isMounted = false;
+        };
     }, [job]);
 
     const handleSave = useCallback(async () => {
