@@ -9,34 +9,56 @@ import useScrollReveal from '../hooks/useScrollReveal';
 function useCountUp(target, duration = 1500) {
     const [count, setCount] = useState(0);
     const ref = useRef(null);
+
     useEffect(() => {
         const el = ref.current;
         if (!el) return;
+
+        let rafId = null;
+        let cancelled = false;
+        let started = false;
+
         if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
             setCount(target);
             return;
         }
+
         const observer = new IntersectionObserver(([entry]) => {
-            if (entry.isIntersecting) {
+            if (entry.isIntersecting && !started) {
+                started = true;
                 let start = 0;
-                const step = target / (duration / 16);
+                const step = target / Math.max(duration / 16, 1);
+
                 const tick = () => {
+                    if (cancelled) return;
                     start = Math.min(start + step, target);
                     setCount(Math.floor(start));
-                    if (start < target) requestAnimationFrame(tick);
+                    if (start < target) rafId = requestAnimationFrame(tick);
                 };
-                requestAnimationFrame(tick);
+
+                rafId = requestAnimationFrame(tick);
                 observer.disconnect();
             }
         }, { threshold: 0.5 });
+
         observer.observe(el);
-        return () => observer.disconnect();
+        return () => {
+            cancelled = true;
+            observer.disconnect();
+            if (rafId !== null) {
+                cancelAnimationFrame(rafId);
+            }
+        };
     }, [target, duration]);
+
     return { count, ref };
 }
 
 export default function Landing() {
     usePageTitle('Automated Academic Manuscript Formatter');
+    const heroRef = useRef(null);
+    const [animateHero, setAnimateHero] = useState(true);
+    const [isScrolling, setIsScrolling] = useState(false);
     const featuresRef = useScrollReveal();
     const templatesRef = useScrollReveal();
     const pricingRef = useScrollReveal();
@@ -45,16 +67,60 @@ export default function Landing() {
     const researchers = useCountUp(25000, 1800);
     const templates = useCountUp(1000, 1500);
     const universities = useCountUp(50, 1200);
+
+    useEffect(() => {
+        const section = heroRef.current;
+        if (!section) return;
+
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            setAnimateHero(false);
+            return;
+        }
+
+        const observer = new IntersectionObserver(
+            ([entry]) => setAnimateHero(entry.isIntersecting),
+            { threshold: 0.15 }
+        );
+        observer.observe(section);
+        return () => observer.disconnect();
+    }, []);
+
+    useEffect(() => {
+        let timeoutId = null;
+        const onScroll = () => {
+            setIsScrolling(true);
+            if (timeoutId !== null) {
+                clearTimeout(timeoutId);
+            }
+            timeoutId = setTimeout(() => setIsScrolling(false), 120);
+        };
+
+        window.addEventListener('scroll', onScroll, { passive: true });
+        return () => {
+            window.removeEventListener('scroll', onScroll);
+            if (timeoutId !== null) {
+                clearTimeout(timeoutId);
+            }
+        };
+    }, []);
+
+    const shouldAnimateHero = animateHero && !isScrolling;
+
+    const heroAnimation = (base, delay) => {
+        if (!shouldAnimateHero) return undefined;
+        return delay ? { animation: base, animationDelay: delay } : { animation: base };
+    };
+
     return (
         <>
             <Navbar variant="landing" />
 
             {/* Hero Section */}
-            <section className="relative overflow-hidden py-16 lg:py-24">
+            <section ref={heroRef} className="relative overflow-hidden py-16 lg:py-24">
                 {/* Gradient depth blobs */}
                 <div className="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
-                    <div className="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full bg-primary/5 dark:bg-primary/10 blur-3xl" />
-                    <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] rounded-full bg-violet-500/5 dark:bg-violet-500/10 blur-3xl" />
+                    <div className="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full bg-primary/5 dark:bg-primary/10 blur-2xl" />
+                    <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] rounded-full bg-violet-500/5 dark:bg-violet-500/10 blur-2xl" />
                 </div>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
@@ -83,9 +149,9 @@ export default function Landing() {
                             </div>
                         </div>
                         <div className="relative fade-in-up" style={{ animationDelay: '200ms' }}>
-                            <div className="aspect-[4/3] rounded-2xl overflow-hidden bg-white dark:bg-slate-800 shadow-2xl border border-slate-200 dark:border-slate-700 relative" style={{ animation: 'hero-pulse-glow 3s ease-in-out infinite' }}>
+                            <div className="aspect-[4/3] rounded-2xl overflow-hidden bg-white dark:bg-slate-800 shadow-2xl border border-slate-200 dark:border-slate-700 relative" style={heroAnimation('hero-pulse-glow 3s ease-in-out infinite')}>
                                 {/* Animated scanning line */}
-                                <div className="absolute left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-primary to-transparent z-10 pointer-events-none" style={{ animation: 'hero-scan-line 6s ease-in-out infinite' }} />
+                                <div className="absolute left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-primary to-transparent z-10 pointer-events-none" style={heroAnimation('hero-scan-line 6s ease-in-out infinite')} />
 
                                 <div className="absolute inset-0 flex flex-col">
                                     {/* Title bar */}
@@ -106,18 +172,18 @@ export default function Landing() {
                                     <div className="flex-1 flex">
                                         <div className="flex-1 p-5 flex flex-col gap-3">
                                             {/* Heading */}
-                                            <div className="h-5 bg-slate-800 dark:bg-white rounded-sm" style={{ animation: 'hero-line-type 6s ease-out infinite', maxWidth: '65%' }} />
+                                            <div className="h-5 bg-slate-800 dark:bg-white rounded-sm" style={{ ...heroAnimation('hero-line-type 6s ease-out infinite'), maxWidth: '65%' }} />
                                             {/* Body lines typing in with stagger */}
-                                            <div className="h-3 bg-slate-200 dark:bg-slate-600 rounded-sm" style={{ animation: 'hero-line-type 6s ease-out infinite', animationDelay: '0.3s', maxWidth: '95%' }} />
-                                            <div className="h-3 bg-slate-200 dark:bg-slate-600 rounded-sm" style={{ animation: 'hero-line-type 6s ease-out infinite', animationDelay: '0.5s', maxWidth: '88%' }} />
-                                            <div className="h-3 bg-slate-200 dark:bg-slate-600 rounded-sm" style={{ animation: 'hero-line-type 6s ease-out infinite', animationDelay: '0.7s', maxWidth: '92%' }} />
-                                            <div className="h-3 bg-slate-200 dark:bg-slate-600 rounded-sm" style={{ animation: 'hero-line-type 6s ease-out infinite', animationDelay: '0.9s', maxWidth: '60%' }} />
+                                            <div className="h-3 bg-slate-200 dark:bg-slate-600 rounded-sm" style={{ ...heroAnimation('hero-line-type 6s ease-out infinite', '0.3s'), maxWidth: '95%' }} />
+                                            <div className="h-3 bg-slate-200 dark:bg-slate-600 rounded-sm" style={{ ...heroAnimation('hero-line-type 6s ease-out infinite', '0.5s'), maxWidth: '88%' }} />
+                                            <div className="h-3 bg-slate-200 dark:bg-slate-600 rounded-sm" style={{ ...heroAnimation('hero-line-type 6s ease-out infinite', '0.7s'), maxWidth: '92%' }} />
+                                            <div className="h-3 bg-slate-200 dark:bg-slate-600 rounded-sm" style={{ ...heroAnimation('hero-line-type 6s ease-out infinite', '0.9s'), maxWidth: '60%' }} />
                                             {/* Spacer */}
                                             <div className="h-2" />
                                             {/* Sub heading */}
-                                            <div className="h-4 bg-slate-700 dark:bg-slate-200 rounded-sm" style={{ animation: 'hero-line-type 6s ease-out infinite', animationDelay: '1.2s', maxWidth: '45%' }} />
-                                            <div className="h-3 bg-slate-200 dark:bg-slate-600 rounded-sm" style={{ animation: 'hero-line-type 6s ease-out infinite', animationDelay: '1.4s', maxWidth: '90%' }} />
-                                            <div className="h-3 bg-slate-200 dark:bg-slate-600 rounded-sm" style={{ animation: 'hero-line-type 6s ease-out infinite', animationDelay: '1.6s', maxWidth: '85%' }} />
+                                            <div className="h-4 bg-slate-700 dark:bg-slate-200 rounded-sm" style={{ ...heroAnimation('hero-line-type 6s ease-out infinite', '1.2s'), maxWidth: '45%' }} />
+                                            <div className="h-3 bg-slate-200 dark:bg-slate-600 rounded-sm" style={{ ...heroAnimation('hero-line-type 6s ease-out infinite', '1.4s'), maxWidth: '90%' }} />
+                                            <div className="h-3 bg-slate-200 dark:bg-slate-600 rounded-sm" style={{ ...heroAnimation('hero-line-type 6s ease-out infinite', '1.6s'), maxWidth: '85%' }} />
                                         </div>
 
                                         {/* Right sidebar — validation panel */}
@@ -125,17 +191,17 @@ export default function Landing() {
                                             <div className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Formatting</div>
                                             {/* Progress bar */}
                                             <div className="h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
-                                                <div className="h-full rounded-full bg-primary" style={{ animation: 'hero-progress-fill 6s ease-out infinite' }} />
+                                                <div className="h-full rounded-full bg-primary" style={heroAnimation('hero-progress-fill 6s ease-out infinite')} />
                                             </div>
                                             {/* Checklist items */}
                                             {['Citations', 'Headings', 'Margins', 'Figures'].map((label, i) => (
                                                 <div key={label} className="flex items-center gap-1.5">
-                                                    <span className="material-symbols-outlined text-green-500 text-xs" style={{ animation: `hero-check-pop 6s ease-out infinite`, animationDelay: `${2 + i * 0.5}s`, opacity: 0 }}>check_circle</span>
+                                                    <span className="material-symbols-outlined text-green-500 text-xs" style={shouldAnimateHero ? { animation: 'hero-check-pop 6s ease-out infinite', animationDelay: `${2 + i * 0.5}s`, opacity: 0 } : { opacity: 1 }}>check_circle</span>
                                                     <span className="text-[9px] text-slate-500 dark:text-slate-400">{label}</span>
                                                 </div>
                                             ))}
                                             {/* Template badge */}
-                                            <div className="mt-auto px-2 py-1 rounded bg-primary/10 border border-primary/20 text-[9px] text-primary font-bold text-center" style={{ animation: 'hero-check-pop 6s ease-out infinite', animationDelay: '4s', opacity: 0 }}>
+                                            <div className="mt-auto px-2 py-1 rounded bg-primary/10 border border-primary/20 text-[9px] text-primary font-bold text-center" style={shouldAnimateHero ? { animation: 'hero-check-pop 6s ease-out infinite', animationDelay: '4s', opacity: 0 } : { opacity: 1 }}>
                                                 IEEE Formatted ✓
                                             </div>
                                         </div>
@@ -161,7 +227,7 @@ export default function Landing() {
             </section>
 
             {/* Feature Grid Section */}
-            <section className="py-20 bg-white dark:bg-background-dark/50 section-texture" id="features">
+            <section className="py-20 bg-white dark:bg-background-dark/50 section-texture cv-auto" id="features">
                 <div ref={featuresRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 scroll-reveal">
                     <div className="text-center max-w-3xl mx-auto mb-16">
                         <h2 className="text-primary font-bold text-sm tracking-widest uppercase mb-3">Powerful Capabilities</h2>
@@ -228,7 +294,7 @@ export default function Landing() {
             </section>
 
             {/* Templates Preview Section */}
-            <section className="py-20 bg-background-light dark:bg-slate-900/30" id="templates">
+            <section className="py-20 bg-background-light dark:bg-slate-900/30 cv-auto" id="templates">
                 <div ref={templatesRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 scroll-reveal">
                     <div className="text-center max-w-3xl mx-auto mb-16">
                         <h2 className="text-primary font-bold text-sm tracking-widest uppercase mb-3">Journal Library</h2>
@@ -308,7 +374,7 @@ export default function Landing() {
             </section>
 
             {/* Pricing Section */}
-            <section className="py-20 bg-white dark:bg-background-dark/50 section-texture" id="pricing">
+            <section className="py-20 bg-white dark:bg-background-dark/50 section-texture cv-auto" id="pricing">
                 <div ref={pricingRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 scroll-reveal">
                     <div className="text-center max-w-3xl mx-auto mb-16">
                         <h2 className="text-primary font-bold text-sm tracking-widest uppercase mb-3">Pricing</h2>
@@ -429,7 +495,7 @@ export default function Landing() {
             </section>
 
             {/* CTA Section */}
-            <section className="py-16">
+            <section className="py-16 cv-auto">
                 <div ref={ctaRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 scroll-reveal">
                     <div className="relative bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950 rounded-3xl p-8 md:p-16 overflow-hidden">
                         <div className="absolute -top-20 -right-20 w-80 h-80 bg-primary/20 rounded-full blur-3xl" />
@@ -456,7 +522,7 @@ export default function Landing() {
             </section>
 
             {/* About Section */}
-            <section id="about" className="py-20 bg-background-light dark:bg-slate-900/30">
+            <section id="about" className="py-20 bg-background-light dark:bg-slate-900/30 cv-auto">
                 <div ref={aboutRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 scroll-reveal">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
                         <div className="flex flex-col gap-6">

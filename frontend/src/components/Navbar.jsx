@@ -79,12 +79,34 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
         };
     }, []);
 
-    // Scroll blur effect for app navbar
+    // Scroll blur effect for app navbar only
     useEffect(() => {
-        const onScroll = () => setScrolled(window.scrollY > 20);
+        if (variant !== 'app') return undefined;
+
+        let rafId = null;
+        let ticking = false;
+
+        const onScroll = () => {
+            if (ticking) return;
+            ticking = true;
+            rafId = window.requestAnimationFrame(() => {
+                const next = window.scrollY > 20;
+                setScrolled((prev) => (prev === next ? prev : next));
+                ticking = false;
+                rafId = null;
+            });
+        };
+
+        onScroll();
         window.addEventListener('scroll', onScroll, { passive: true });
-        return () => window.removeEventListener('scroll', onScroll);
-    }, []);
+
+        return () => {
+            window.removeEventListener('scroll', onScroll);
+            if (rafId !== null) {
+                window.cancelAnimationFrame(rafId);
+            }
+        };
+    }, [variant]);
 
     useEffect(() => {
         setIsMobileMenuOpen(false);
@@ -96,7 +118,7 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
 
     if (variant === 'landing') {
         return (
-            <header className="sticky top-0 z-50 w-full border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-background-dark/80 backdrop-blur-md">
+            <header className="sticky top-0 z-50 w-full border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-background-dark/80">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex h-16 items-center justify-between">
                         <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
@@ -150,7 +172,7 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
 
     if (variant === 'auth') {
         return (
-            <header className="sticky top-0 z-50 w-full border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-background-dark/80 backdrop-blur-md">
+            <header className="sticky top-0 z-50 w-full border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-background-dark/80">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex h-16 items-center justify-between">
                         <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">

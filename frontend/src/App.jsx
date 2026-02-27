@@ -7,6 +7,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './context/ToastContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
+import ScrollManager from './components/ScrollManager';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 /* ── Route-based code splitting: each page loads on demand ── */
@@ -68,6 +69,7 @@ function App() {
                     <ToastProvider>
                         <DocumentProvider>
                             <Router>
+                                <ScrollManager />
                                 <Suspense fallback={<PageLoader />}>
                                     <Routes>
                                         <Route path="/" element={withBoundary(<Landing />)} />

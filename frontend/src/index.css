@@ -29,7 +29,7 @@ html {
 
     @keyframes sf-fade-in {
         from {
-            opacity: 0;
+            opacity: 0.3;
         }
 
         to {
@@ -39,7 +39,7 @@ html {
 
     @keyframes sf-zoom-in {
         from {
-            opacity: 0;
+            opacity: 0.3;
             transform: scale(0.98);
         }
 
@@ -51,7 +51,7 @@ html {
 
     @keyframes sf-slide-in-top {
         from {
-            opacity: 0;
+            opacity: 0.3;
             transform: translateY(-8px);
         }
 
@@ -63,7 +63,7 @@ html {
 
     @keyframes sf-slide-in-bottom {
         from {
-            opacity: 0.4;
+            opacity: 0.3;
             transform: translateY(10px);
         }
 
@@ -75,7 +75,7 @@ html {
 
     @keyframes sf-fade-in-up {
         from {
-            opacity: 0.5;
+            opacity: 0.3;
             transform: translateY(10px);
         }
 
@@ -87,7 +87,7 @@ html {
 
     @keyframes sf-stagger-fade {
         from {
-            opacity: 0;
+            opacity: 0.3;
             transform: translateY(12px);
         }
 
@@ -100,7 +100,7 @@ html {
     .animate-in {
         animation-name: sf-fade-in;
         animation-duration: 200ms;
-        animation-fill-mode: forwards;
+        animation-fill-mode: both;
         animation-timing-function: ease-out;
     }
 
@@ -123,11 +123,11 @@ html {
     }
 
     .fade-in-up {
-        animation: sf-fade-in-up 400ms ease-out forwards;
+        animation: sf-fade-in-up 400ms ease-out both;
     }
 
     .stagger-fade {
-        animation: sf-stagger-fade 300ms ease-out forwards;
+        animation: sf-stagger-fade 300ms ease-out both;
     }
 
     /* Scroll-reveal: hidden until IntersectionObserver adds .revealed */
@@ -239,17 +239,19 @@ html {
         animation-duration: 400ms;
     }
 
-    /* Staggered children: subtle slide-up only, NO opacity:0 flash */
+    /* Staggered children: subtle slide-up, starting partially visible */
     .stagger-children>* {
-        animation: sf-stagger-slide 300ms ease-out forwards;
+        animation: sf-stagger-slide 300ms ease-out both;
     }
 
     @keyframes sf-stagger-slide {
         from {
-            transform: translateY(6px);
+            opacity: 0.4;
+            transform: translateY(8px);
         }
 
         to {
+            opacity: 1;
             transform: translateY(0);
         }
     }
@@ -291,11 +293,11 @@ html {
     }
 
     .stagger-children>*:nth-child(10) {
-        animation-delay: 720ms;
+        animation-delay: 450ms;
     }
 
     .stagger-children>*:nth-child(n+11) {
-        animation-delay: 800ms;
+        animation-delay: 500ms;
     }
 
     @keyframes sf-slide-in-left {
@@ -333,7 +335,17 @@ html {
 
 /* P2.5 — Subtle noise texture for landing sections */
 .section-texture {
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.03'/%3E%3C/svg%3E");
+    background-image: radial-gradient(rgba(15, 23, 42, 0.035) 0.5px, transparent 0.5px);
+    background-size: 4px 4px;
+}
+
+.dark .section-texture {
+    background-image: radial-gradient(rgba(148, 163, 184, 0.08) 0.5px, transparent 0.5px);
+}
+
+.cv-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: 1px 900px;
 }
 
 /* P2.7 — CSS-only button ripple effect */

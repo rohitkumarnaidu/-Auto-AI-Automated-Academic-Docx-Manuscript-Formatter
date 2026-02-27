@@ -18,6 +18,15 @@ export default function useScrollReveal(options = {}) {
             return;
         }
 
+        // If route restores a scrolled position and element is already above/inside viewport,
+        // reveal immediately so sections don't appear inconsistent.
+        const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+        const rect = el.getBoundingClientRect();
+        if (rect.top <= viewportHeight * 0.85) {
+            el.classList.add('revealed');
+            return;
+        }
+
         const observer = new IntersectionObserver(
             ([entry]) => {
                 if (entry.isIntersecting) {
@@ -30,7 +39,7 @@ export default function useScrollReveal(options = {}) {
 
         observer.observe(el);
         return () => observer.disconnect();
-    }, []);
+    }, [options.root, options.rootMargin, options.threshold]);
 
     return ref;
 }
