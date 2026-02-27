@@ -18,8 +18,16 @@ vi.mock('../components/Navbar', () => ({
 
 import VerifyOTP from '../pages/VerifyOTP';
 
+const ROUTER_FUTURE_FLAGS = {
+    v7_startTransition: true,
+    v7_relativeSplatPath: true,
+};
+
 const renderVerifyOtp = () => render(
-    <MemoryRouter initialEntries={[{ pathname: '/verify-otp', state: { email: 'otp@example.com' } }]}>
+    <MemoryRouter
+        initialEntries={[{ pathname: '/verify-otp', state: { email: 'otp@example.com' } }]}
+        future={ROUTER_FUTURE_FLAGS}
+    >
         <Routes>
             <Route path="/verify-otp" element={<VerifyOTP />} />
             <Route path="/reset-password" element={<div>Reset Password</div>} />

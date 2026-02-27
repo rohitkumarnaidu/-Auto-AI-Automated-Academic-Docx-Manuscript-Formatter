@@ -1,3 +1,4 @@
+import usePageTitle from '../hooks/usePageTitle';
 import { useEffect, useState } from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
@@ -62,6 +63,7 @@ const normalizeTemplateCollection = (payload) => {
 };
 
 export default function TemplateEditor() {
+    usePageTitle('Template Editor');
     const [settings, setSettings] = useState(DEFAULT_SETTINGS);
     const [savedTemplates, setSavedTemplates] = useState([]);
     const [saveMessage, setSaveMessage] = useState('');

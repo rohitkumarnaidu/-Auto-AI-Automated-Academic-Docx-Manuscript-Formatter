@@ -28,6 +28,11 @@ vi.mock('../components/Footer', () => ({
 
 import History from '../pages/History';
 
+const ROUTER_FUTURE_FLAGS = {
+    v7_startTransition: true,
+    v7_relativeSplatPath: true,
+};
+
 describe('History page', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -52,7 +57,7 @@ describe('History page', () => {
 
     it('shows delete controls and calls delete API after confirmation', async () => {
         render(
-            <MemoryRouter>
+            <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
                 <History />
             </MemoryRouter>
         );
@@ -68,7 +73,7 @@ describe('History page', () => {
 
     it('uses filename fallback chain for manuscript display', () => {
         render(
-            <MemoryRouter>
+            <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
                 <History />
             </MemoryRouter>
         );

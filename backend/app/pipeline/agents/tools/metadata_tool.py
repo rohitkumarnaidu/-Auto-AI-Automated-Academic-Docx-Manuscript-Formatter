@@ -1,10 +1,18 @@
 """
 Metadata extraction tool using GROBID.
 """
+import sys
 from typing import Optional, Type
 from pydantic import BaseModel, Field
-from langchain.tools import BaseTool as _LangChainBaseTool
 from app.pipeline.services.grobid_client import GROBIDClient
+
+if sys.version_info < (3, 14):
+    try:
+        from langchain.tools import BaseTool as _LangChainBaseTool
+    except Exception:
+        _LangChainBaseTool = object
+else:
+    _LangChainBaseTool = object
 
 BaseTool = _LangChainBaseTool if isinstance(_LangChainBaseTool, type) else object
 

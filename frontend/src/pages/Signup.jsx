@@ -1,3 +1,4 @@
+import usePageTitle from '../hooks/usePageTitle';
 
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -5,6 +6,7 @@ import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
 
 export default function Signup() {
+    usePageTitle('Create Account');
     const { signUp, signInWithGoogle } = useAuth();
     const navigate = useNavigate();
     const [fullName, setFullName] = useState('');

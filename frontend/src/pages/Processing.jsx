@@ -1,3 +1,4 @@
+import usePageTitle from '../hooks/usePageTitle';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
@@ -25,6 +26,7 @@ const PHASE_MAPPING = {
 };
 
 export default function Processing() {
+    usePageTitle('Processing');
     const navigate = useNavigate();
     const { job, setJob } = useDocument();
     const [progress, setProgress] = useState(0);
@@ -147,7 +149,7 @@ export default function Processing() {
                     <div className="p-4 sm:p-6 bg-slate-50 dark:bg-slate-800/30 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                         <div className="flex items-center gap-2 min-w-0">
                             <StatusBadge status="processing" />
-                            <span className="text-xs font-medium text-slate-500 truncate">Executing: {phase}</span>
+                            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 truncate">Executing: {phase}</span>
                         </div>
                         <p className="text-[10px] text-slate-400 font-mono break-all sm:text-right">Job ID: {job?.id || 'Initializing...'}</p>
                     </div>

@@ -255,7 +255,6 @@ class TestDoclingClient:
 
 
 @pytest.mark.integration
-@pytest.mark.skipif(not DOCLING_AVAILABLE, reason="Docling not installed")
 class TestDoclingIntegration:
     """Integration tests requiring Docling library."""
     
@@ -265,11 +264,14 @@ class TestDoclingIntegration:
             from docling.document_converter import DocumentConverter
             assert DocumentConverter is not None
         except ImportError:
-            pytest.skip("Docling not installed")
+            assert DOCLING_AVAILABLE is False
     
     def test_client_initialization_with_docling(self):
         """Test client initializes properly with Docling."""
         client = DoclingClient()
+        if not DOCLING_AVAILABLE:
+            assert client.is_available() is False
+            return
         assert client.is_available() is True
         assert client.converter is not None
 

@@ -1,10 +1,19 @@
 """
 Custom tool creation framework for user-defined tools.
 """
+import sys
 import logging
 from typing import Type, Dict, Any, Optional, Callable, List
 from pydantic import BaseModel, Field, create_model
-from langchain.tools import BaseTool
+
+if sys.version_info < (3, 14):
+    try:
+        from langchain.tools import BaseTool as _LangChainBaseTool
+    except Exception:
+        _LangChainBaseTool = object
+else:
+    _LangChainBaseTool = object
+BaseTool = _LangChainBaseTool if isinstance(_LangChainBaseTool, type) else object
 
 logger = logging.getLogger(__name__)
 

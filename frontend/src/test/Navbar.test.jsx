@@ -31,6 +31,11 @@ vi.mock('../context/DocumentContext', () => ({
 
 import Navbar from '../components/Navbar';
 
+const ROUTER_FUTURE_FLAGS = {
+    v7_startTransition: true,
+    v7_relativeSplatPath: true,
+};
+
 describe('Navbar app variant', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -52,7 +57,7 @@ describe('Navbar app variant', () => {
 
     it('notification bell is clickable and opens notification menu', () => {
         render(
-            <MemoryRouter>
+            <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
                 <Navbar variant="app" />
             </MemoryRouter>
         );
@@ -63,7 +68,7 @@ describe('Navbar app variant', () => {
 
     it('settings button routes to settings page', () => {
         render(
-            <MemoryRouter>
+            <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
                 <Navbar variant="app" />
             </MemoryRouter>
         );
@@ -74,7 +79,7 @@ describe('Navbar app variant', () => {
 
     it('shows processing badge on upload link while job is processing', () => {
         const { container } = render(
-            <MemoryRouter>
+            <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
                 <Navbar variant="app" />
             </MemoryRouter>
         );

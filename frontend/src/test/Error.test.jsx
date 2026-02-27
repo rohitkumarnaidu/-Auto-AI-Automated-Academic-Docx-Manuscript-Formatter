@@ -8,6 +8,11 @@ vi.mock('../components/Navbar', () => ({
 
 import ErrorPage from '../pages/Error';
 
+const ROUTER_FUTURE_FLAGS = {
+    v7_startTransition: true,
+    v7_relativeSplatPath: true,
+};
+
 describe('Error page', () => {
     afterEach(() => {
         vi.restoreAllMocks();
@@ -15,7 +20,7 @@ describe('Error page', () => {
 
     it('renders current year dynamically in footer', () => {
         render(
-            <MemoryRouter>
+            <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
                 <ErrorPage />
             </MemoryRouter>
         );
@@ -28,7 +33,7 @@ describe('Error page', () => {
         const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
 
         render(
-            <MemoryRouter>
+            <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
                 <ErrorPage error={{ title: 'Processing Error', message: 'Custom failure' }} />
             </MemoryRouter>
         );

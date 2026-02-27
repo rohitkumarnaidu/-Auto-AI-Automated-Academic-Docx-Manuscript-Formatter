@@ -1,22 +1,27 @@
 import asyncio
+import sys
 import warnings
 from pydantic import BaseModel
 from typing import Callable, Any, Type, Optional
 
 # --- Optional Guardrails Import ---
-try:
-    with warnings.catch_warnings():
-        warnings.filterwarnings(
-            "ignore",
-            message="The 'is_flag' and 'flag_value' parameters are not supported by Typer.*",
-            category=DeprecationWarning,
-        )
-        from guardrails import Guard
-    HAS_GUARDRAILS = True
-    print("[SUCCESS] Guardrails AI loaded for robust LLM validation.")
-except ImportError:
+if sys.version_info >= (3, 14):
     HAS_GUARDRAILS = False
-    print("[INFO] Guardrails AI unavailable. Falling back to native Pydantic validation (validator_guard.py).")
+    print("[INFO] Guardrails AI disabled on Python >= 3.14. Falling back to native Pydantic validation.")
+else:
+    try:
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message="The 'is_flag' and 'flag_value' parameters are not supported by Typer.*",
+                category=DeprecationWarning,
+            )
+            from guardrails import Guard
+        HAS_GUARDRAILS = True
+        print("[SUCCESS] Guardrails AI loaded for robust LLM validation.")
+    except ImportError:
+        HAS_GUARDRAILS = False
+        print("[INFO] Guardrails AI unavailable. Falling back to native Pydantic validation (validator_guard.py).")
 
 # Gracefully import the old wrapper as a fallback
 try:

@@ -50,6 +50,7 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
             onClick={toggleTheme}
             className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
         >
             <span className="material-symbols-outlined">
                 {theme === 'dark' ? 'light_mode' : 'dark_mode'}
@@ -57,15 +58,25 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
         </button>
     );
 
-    // Click-away listener for profile dropdown
+    // Click-away listener + Escape key handler for dropdowns
     useEffect(() => {
         function handleClickOutside(event) {
             if (profileRef.current && !profileRef.current.contains(event.target)) {
                 setIsProfileOpen(false);
             }
         }
+        function handleEscape(event) {
+            if (event.key === 'Escape') {
+                setIsProfileOpen(false);
+                setIsMobileMenuOpen(false);
+            }
+        }
         document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+        document.addEventListener('keydown', handleEscape);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleEscape);
+        };
     }, []);
 
     // Scroll blur effect for app navbar
@@ -185,8 +196,8 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
 
     return (
         <header className={`border-b border-solid border-slate-200 dark:border-slate-800 sticky top-0 z-50 transition-all duration-200 ${scrolled
-                ? 'bg-white/80 dark:bg-background-dark/80 backdrop-blur-lg shadow-sm'
-                : 'bg-white dark:bg-background-dark'
+            ? 'bg-white/80 dark:bg-background-dark/80 backdrop-blur-lg shadow-sm'
+            : 'bg-white dark:bg-background-dark'
             }`}>
             <div className="max-w-[1600px] mx-auto flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 gap-3">
                 <div className="flex items-center gap-4 text-primary min-w-0">
@@ -222,6 +233,7 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
                                     onClick={() => navigate('/settings')}
                                     className="flex items-center justify-center rounded-lg h-10 w-10 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                                     title="Settings"
+                                    aria-label="Settings"
                                 >
                                     <span className="material-symbols-outlined">settings</span>
                                 </button>
@@ -233,6 +245,7 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
                                     role="button"
                                     tabIndex={0}
                                     aria-expanded={isProfileOpen}
+                                    aria-haspopup="menu"
                                     aria-label="Profile menu"
                                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsProfileOpen(!isProfileOpen); } }}
                                 >
@@ -241,11 +254,12 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
                                 </div>
 
                                 {isProfileOpen && (
-                                    <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden py-1 z-50">
-                                        <Link to="/profile" className="block px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors" onClick={() => setIsProfileOpen(false)}>
+                                    <div role="menu" aria-label="Profile options" className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden py-1 z-50">
+                                        <Link role="menuitem" to="/profile" className="block px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors" onClick={() => setIsProfileOpen(false)}>
                                             My Account
                                         </Link>
                                         <Link
+                                            role="menuitem"
                                             to="/history"
                                             className="block px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                                             onClick={() => setIsProfileOpen(false)}
@@ -253,6 +267,7 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
                                             My Manuscripts
                                         </Link>
                                         <Link
+                                            role="menuitem"
                                             to="/settings"
                                             className="block px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                                             onClick={() => setIsProfileOpen(false)}
@@ -261,6 +276,7 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
                                         </Link>
                                         <div className="border-t border-slate-100 dark:border-slate-800 my-1"></div>
                                         <button
+                                            role="menuitem"
                                             onClick={async () => {
                                                 await signOut();
                                                 setIsProfileOpen(false);
@@ -297,6 +313,7 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
                         onClick={() => setIsMobileMenuOpen((current) => !current)}
                         className="p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                         aria-label="Toggle app menu"
+                        aria-expanded={isMobileMenuOpen}
                     >
                         <span className="material-symbols-outlined">
                             {isMobileMenuOpen ? 'close' : 'menu'}

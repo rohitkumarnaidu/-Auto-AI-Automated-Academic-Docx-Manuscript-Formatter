@@ -1,3 +1,4 @@
+import usePageTitle from '../hooks/usePageTitle';
 import { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
@@ -6,6 +7,7 @@ import HealthStatusIndicator from '../components/HealthStatusIndicator';
 import { getMetricsDb, getMetricsHealth, getMetricsDashboard } from '../services/api';
 
 export default function AdminDashboard() {
+    usePageTitle('Admin Dashboard');
     const [dbMetrics, setDbMetrics] = useState(null);
     const [healthData, setHealthData] = useState(null);
     const [dashboardData, setDashboardData] = useState(null);
@@ -65,7 +67,7 @@ export default function AdminDashboard() {
                     <button
                         onClick={refreshMetrics}
                         disabled={loading}
-                        className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+                        className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 shadow-md shadow-primary/20"
                     >
                         <span className={`material-symbols-outlined text-sm ${loading ? 'animate-spin' : ''}`}>refresh</span>
                         Refresh
@@ -109,7 +111,7 @@ export default function AdminDashboard() {
                         <span className="material-symbols-outlined text-primary">analytics</span>
                         Key Metrics
                     </h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 stagger-children">
                         <MetricsCard
                             title="Total Documents"
                             value={dbMetrics?.document_count ?? '—'}

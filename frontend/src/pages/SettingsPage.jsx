@@ -1,3 +1,4 @@
+import usePageTitle from '../hooks/usePageTitle';
 import { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
@@ -23,6 +24,7 @@ const loadSettings = () => {
 };
 
 export default function SettingsPage() {
+    usePageTitle('Settings');
     const [settings, setSettings] = useState(loadSettings);
     const [saved, setSaved] = useState(false);
 

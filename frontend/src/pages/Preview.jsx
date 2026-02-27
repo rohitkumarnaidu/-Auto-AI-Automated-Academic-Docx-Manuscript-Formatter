@@ -1,9 +1,11 @@
+import usePageTitle from '../hooks/usePageTitle';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import PreviewView from '../components/Preview';
 import { useDocument } from '../context/DocumentContext';
 
 export default function Preview() {
+    usePageTitle('Preview');
     const navigate = useNavigate();
     const { job } = useDocument();
 

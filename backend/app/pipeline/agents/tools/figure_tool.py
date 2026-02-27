@@ -1,10 +1,18 @@
 """
 Figure analysis tool for detecting and analyzing figures in documents.
 """
+import sys
 from typing import Optional, Type
 from pydantic import BaseModel, Field
-from langchain.tools import BaseTool as _LangChainBaseTool
 from app.pipeline.services.docling_client import DoclingClient
+
+if sys.version_info < (3, 14):
+    try:
+        from langchain.tools import BaseTool as _LangChainBaseTool
+    except Exception:
+        _LangChainBaseTool = object
+else:
+    _LangChainBaseTool = object
 
 BaseTool = _LangChainBaseTool if isinstance(_LangChainBaseTool, type) else object
 

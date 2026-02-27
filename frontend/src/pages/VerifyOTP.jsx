@@ -1,9 +1,11 @@
+import usePageTitle from '../hooks/usePageTitle';
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
 
 export default function VerifyOTP() {
+    usePageTitle('Verify OTP');
     const navigate = useNavigate();
     const location = useLocation();
     const { verifyOtp, forgotPassword } = useAuth();

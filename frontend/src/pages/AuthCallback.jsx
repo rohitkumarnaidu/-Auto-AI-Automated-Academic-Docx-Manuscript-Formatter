@@ -1,9 +1,11 @@
+import usePageTitle from '../hooks/usePageTitle';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 
 export default function AuthCallback() {
+    usePageTitle('Authenticating');
     const navigate = useNavigate();
     const { refreshSession } = useAuth();
     const [error, setError] = useState('');

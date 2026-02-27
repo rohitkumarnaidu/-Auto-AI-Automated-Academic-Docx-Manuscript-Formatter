@@ -1,3 +1,4 @@
+import usePageTitle from '../hooks/usePageTitle';
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import * as Diff from 'diff';
@@ -70,6 +71,7 @@ const buildHtmlDiffDocument = (htmlDiff, highlightsEnabled) => {
 };
 
 export default function Compare() {
+    usePageTitle('Compare Documents');
     const navigate = useNavigate();
     const { job, isLoading: isJobLoading, error: jobLoadError } = useJobFromUrl();
     const [viewMode, setViewMode] = useState('text');
@@ -209,7 +211,7 @@ export default function Compare() {
     }
 
     return (
-        <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-50 min-h-screen flex flex-col">
+        <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-50 min-h-screen flex flex-col animate-in zoom-in-95 duration-300">
             <Navbar variant="app" />
 
             <main className="flex-1 flex flex-col max-w-[1600px] mx-auto w-full px-4 sm:px-6 lg:px-10 py-6 animate-in fade-in duration-500">

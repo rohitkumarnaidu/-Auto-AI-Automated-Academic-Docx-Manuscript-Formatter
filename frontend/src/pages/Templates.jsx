@@ -1,3 +1,4 @@
+import usePageTitle from '../hooks/usePageTitle';
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
@@ -17,6 +18,7 @@ const CATEGORIES = ['All Publishers', 'Engineering', 'Life Sciences', 'Social Sc
 const ITEMS_PER_PAGE = 6;
 
 export default function Templates() {
+    usePageTitle('Journal Templates');
     const navigate = useNavigate();
     const [templates, setTemplates] = useState(FALLBACK_TEMPLATES);
     const [searchQuery, setSearchQuery] = useState('');
@@ -170,7 +172,7 @@ export default function Templates() {
                             {paginatedTemplates.map((template) => (
                                 <div
                                     key={template.id}
-                                    className={`flex flex-col gap-4 p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:shadow-xl transition-all group ${template.available ? 'hover:border-primary/30' : 'opacity-80 grayscale'
+                                    className={`flex flex-col gap-4 p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group ${template.available ? 'hover:border-primary/30' : 'opacity-80 grayscale'
                                         }`}
                                 >
                                     <div className="flex justify-between items-start">

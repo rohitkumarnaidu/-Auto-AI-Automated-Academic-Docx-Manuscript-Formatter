@@ -1,9 +1,11 @@
+import usePageTitle from '../hooks/usePageTitle';
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
 
 export default function ForgotPassword() {
+    usePageTitle('Forgot Password');
     const { forgotPassword } = useAuth();
     const navigate = useNavigate();
     const [email, setEmail] = useState('');

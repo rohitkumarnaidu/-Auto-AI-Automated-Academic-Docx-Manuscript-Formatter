@@ -33,6 +33,11 @@ vi.mock('../components/ExportDialog', () => ({
 
 import Download from '../pages/Download';
 
+const ROUTER_FUTURE_FLAGS = {
+    v7_startTransition: true,
+    v7_relativeSplatPath: true,
+};
+
 describe('Download page actions', () => {
     const setJob = vi.fn();
     const completedJob = {
@@ -55,7 +60,7 @@ describe('Download page actions', () => {
         sessionStorage.setItem('scholarform_currentJob', JSON.stringify(completedJob));
 
         render(
-            <MemoryRouter initialEntries={['/download']}>
+            <MemoryRouter initialEntries={['/download']} future={ROUTER_FUTURE_FLAGS}>
                 <Routes>
                     <Route path="/download" element={<Download />} />
                     <Route path="/upload" element={<div>Upload Page</div>} />

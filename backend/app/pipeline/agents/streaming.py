@@ -1,11 +1,25 @@
 """
 Streaming callback handler for real-time agent updates.
 """
+import sys
 import logging
 from typing import Any, Dict, List, Optional
-from langchain_core.callbacks.base import BaseCallbackHandler
-from langchain_core.agents import AgentAction, AgentFinish
-from langchain_core.outputs import LLMResult
+
+if sys.version_info < (3, 14):
+    try:
+        from langchain_core.callbacks.base import BaseCallbackHandler
+        from langchain_core.agents import AgentAction, AgentFinish
+        from langchain_core.outputs import LLMResult
+    except Exception:
+        BaseCallbackHandler = object  # type: ignore[assignment]
+        AgentAction = Any  # type: ignore[assignment]
+        AgentFinish = Any  # type: ignore[assignment]
+        LLMResult = Any  # type: ignore[assignment]
+else:
+    BaseCallbackHandler = object  # type: ignore[assignment]
+    AgentAction = Any  # type: ignore[assignment]
+    AgentFinish = Any  # type: ignore[assignment]
+    LLMResult = Any  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 

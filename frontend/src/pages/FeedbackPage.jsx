@@ -1,3 +1,4 @@
+import usePageTitle from '../hooks/usePageTitle';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
@@ -6,6 +7,7 @@ import FeedbackForm from '../components/FeedbackForm';
 import { getFeedbackSummary } from '../services/api';
 
 export default function FeedbackPage() {
+    usePageTitle('Feedback');
     const { isLoggedIn } = useAuth();
     const [summaryData, setSummaryData] = useState(null);
     const [summaryLoading, setSummaryLoading] = useState(false);
@@ -82,7 +84,7 @@ export default function FeedbackPage() {
                             <button
                                 onClick={loadSummary}
                                 disabled={!documentId.trim() || summaryLoading}
-                                className="px-6 py-3 bg-primary hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+                                className="px-6 py-3 bg-primary hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 shadow-md shadow-primary/20"
                             >
                                 {summaryLoading ? 'Loading...' : 'Load'}
                             </button>

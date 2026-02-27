@@ -42,6 +42,11 @@ vi.mock('../lib/supabaseClient', () => ({
 
 import AuthCallback from '../pages/AuthCallback';
 
+const ROUTER_FUTURE_FLAGS = {
+    v7_startTransition: true,
+    v7_relativeSplatPath: true,
+};
+
 describe('AuthCallback page', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -64,7 +69,7 @@ describe('AuthCallback page', () => {
         window.history.replaceState({}, '', '/auth/callback?code=oauth-code-123');
 
         render(
-            <MemoryRouter>
+            <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
                 <AuthCallback />
             </MemoryRouter>
         );
@@ -80,7 +85,7 @@ describe('AuthCallback page', () => {
         window.history.replaceState({}, '', '/auth/callback?error=Access+Denied');
 
         render(
-            <MemoryRouter>
+            <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
                 <AuthCallback />
             </MemoryRouter>
         );

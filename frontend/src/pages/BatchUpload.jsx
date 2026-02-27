@@ -1,3 +1,4 @@
+import usePageTitle from '../hooks/usePageTitle';
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -7,6 +8,7 @@ import BatchUploadPanel from '../components/BatchUploadPanel';
 import { uploadDocumentWithProgress } from '../services/api';
 
 export default function BatchUpload() {
+    usePageTitle('Batch Upload');
     const { isLoggedIn } = useAuth();
     const navigate = useNavigate();
     const [files, setFiles] = useState([]);

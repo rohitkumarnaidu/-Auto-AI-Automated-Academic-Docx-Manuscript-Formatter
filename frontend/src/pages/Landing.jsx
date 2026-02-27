@@ -1,14 +1,50 @@
+import usePageTitle from '../hooks/usePageTitle';
+import { useState, useRef, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { Link } from 'react-router-dom';
 import useScrollReveal from '../hooks/useScrollReveal';
 
+// Lightweight count-up hook — requestAnimationFrame, disconnects on reveal
+function useCountUp(target, duration = 1500) {
+    const [count, setCount] = useState(0);
+    const ref = useRef(null);
+    useEffect(() => {
+        const el = ref.current;
+        if (!el) return;
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            setCount(target);
+            return;
+        }
+        const observer = new IntersectionObserver(([entry]) => {
+            if (entry.isIntersecting) {
+                let start = 0;
+                const step = target / (duration / 16);
+                const tick = () => {
+                    start = Math.min(start + step, target);
+                    setCount(Math.floor(start));
+                    if (start < target) requestAnimationFrame(tick);
+                };
+                requestAnimationFrame(tick);
+                observer.disconnect();
+            }
+        }, { threshold: 0.5 });
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, [target, duration]);
+    return { count, ref };
+}
+
 export default function Landing() {
+    usePageTitle('Automated Academic Manuscript Formatter');
     const featuresRef = useScrollReveal();
     const templatesRef = useScrollReveal();
     const pricingRef = useScrollReveal();
     const ctaRef = useScrollReveal();
     const aboutRef = useScrollReveal();
+    const researchers = useCountUp(25000, 1800);
+    const templates = useCountUp(1000, 1500);
+    const universities = useCountUp(50, 1200);
     return (
         <>
             <Navbar variant="landing" />
@@ -47,25 +83,60 @@ export default function Landing() {
                             </div>
                         </div>
                         <div className="relative fade-in-up" style={{ animationDelay: '200ms' }}>
-                            <div className="aspect-[4/3] rounded-2xl overflow-hidden bg-white dark:bg-slate-800 shadow-2xl border border-slate-200 dark:border-slate-700" style={{ backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuBgXXWbmsfQm4btwQHfY2tmhYAJTi94XALRDgR4WuRZufgH--9Q1SLvuCe8ruWlFHwQ1mzsT3fTVSDzz8E2DApgPH8HO0MTTjq18apNHSxsXBGSkaSyQyQ9p-7LChh4VRr9yCoo8eA1sq12Tbq8yNHLoVX043i8vZ773Nn6PO8564Ett01CUsFr4PK5s-5zq0cxT6sTSVal-7BfF5uQ_C77GasmEU_6tDVeTRIpuWJ-34fQJWkhzjnVLKAWyU3PN0BVjXqoC0NIhWFd')" }}>
-                                {/* Abstract overlay for dashboard preview */}
-                                <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 to-transparent flex items-center justify-center p-8">
-                                    <div className="w-full h-full bg-white dark:bg-slate-900 rounded-lg shadow-inner p-4 flex flex-col gap-4">
-                                        <div className="h-8 w-1/3 bg-slate-100 dark:bg-slate-800 rounded"></div>
-                                        <div className="flex gap-4 grow">
-                                            <div className="w-2/3 flex flex-col gap-2">
-                                                <div className="h-4 w-full bg-slate-50 dark:bg-slate-800 rounded"></div>
-                                                <div className="h-4 w-full bg-slate-50 dark:bg-slate-800 rounded"></div>
-                                                <div className="h-4 w-3/4 bg-slate-50 dark:bg-slate-800 rounded"></div>
-                                                <div className="mt-4 h-40 w-full bg-slate-50 dark:bg-slate-800 rounded flex items-center justify-center">
-                                                    <span className="material-symbols-outlined text-slate-300 dark:text-slate-600 text-4xl">bar_chart</span>
-                                                </div>
+                            <div className="aspect-[4/3] rounded-2xl overflow-hidden bg-white dark:bg-slate-800 shadow-2xl border border-slate-200 dark:border-slate-700 relative" style={{ animation: 'hero-pulse-glow 3s ease-in-out infinite' }}>
+                                {/* Animated scanning line */}
+                                <div className="absolute left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-primary to-transparent z-10 pointer-events-none" style={{ animation: 'hero-scan-line 6s ease-in-out infinite' }} />
+
+                                <div className="absolute inset-0 flex flex-col">
+                                    {/* Title bar */}
+                                    <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+                                        <div className="flex gap-1.5">
+                                            <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
+                                            <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+                                            <div className="w-2.5 h-2.5 rounded-full bg-green-400" />
+                                        </div>
+                                        <div className="flex-1 flex justify-center">
+                                            <div className="px-3 py-0.5 bg-white dark:bg-slate-800 rounded text-[10px] font-medium text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                                                research_paper.docx
                                             </div>
-                                            <div className="w-1/3 flex flex-col gap-4 border-l border-slate-100 dark:border-slate-800 pl-4">
-                                                <div className="h-10 w-full bg-primary/10 rounded border border-primary/20"></div>
-                                                <div className="h-6 w-full bg-slate-50 dark:bg-slate-800 rounded"></div>
-                                                <div className="h-6 w-full bg-slate-50 dark:bg-slate-800 rounded"></div>
-                                                <div className="h-6 w-full bg-slate-50 dark:bg-slate-800 rounded"></div>
+                                        </div>
+                                    </div>
+
+                                    {/* Document body with animated typing */}
+                                    <div className="flex-1 flex">
+                                        <div className="flex-1 p-5 flex flex-col gap-3">
+                                            {/* Heading */}
+                                            <div className="h-5 bg-slate-800 dark:bg-white rounded-sm" style={{ animation: 'hero-line-type 6s ease-out infinite', maxWidth: '65%' }} />
+                                            {/* Body lines typing in with stagger */}
+                                            <div className="h-3 bg-slate-200 dark:bg-slate-600 rounded-sm" style={{ animation: 'hero-line-type 6s ease-out infinite', animationDelay: '0.3s', maxWidth: '95%' }} />
+                                            <div className="h-3 bg-slate-200 dark:bg-slate-600 rounded-sm" style={{ animation: 'hero-line-type 6s ease-out infinite', animationDelay: '0.5s', maxWidth: '88%' }} />
+                                            <div className="h-3 bg-slate-200 dark:bg-slate-600 rounded-sm" style={{ animation: 'hero-line-type 6s ease-out infinite', animationDelay: '0.7s', maxWidth: '92%' }} />
+                                            <div className="h-3 bg-slate-200 dark:bg-slate-600 rounded-sm" style={{ animation: 'hero-line-type 6s ease-out infinite', animationDelay: '0.9s', maxWidth: '60%' }} />
+                                            {/* Spacer */}
+                                            <div className="h-2" />
+                                            {/* Sub heading */}
+                                            <div className="h-4 bg-slate-700 dark:bg-slate-200 rounded-sm" style={{ animation: 'hero-line-type 6s ease-out infinite', animationDelay: '1.2s', maxWidth: '45%' }} />
+                                            <div className="h-3 bg-slate-200 dark:bg-slate-600 rounded-sm" style={{ animation: 'hero-line-type 6s ease-out infinite', animationDelay: '1.4s', maxWidth: '90%' }} />
+                                            <div className="h-3 bg-slate-200 dark:bg-slate-600 rounded-sm" style={{ animation: 'hero-line-type 6s ease-out infinite', animationDelay: '1.6s', maxWidth: '85%' }} />
+                                        </div>
+
+                                        {/* Right sidebar — validation panel */}
+                                        <div className="w-[35%] border-l border-slate-100 dark:border-slate-700 p-3 flex flex-col gap-2.5 bg-slate-50/50 dark:bg-slate-900/30">
+                                            <div className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Formatting</div>
+                                            {/* Progress bar */}
+                                            <div className="h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                                                <div className="h-full rounded-full bg-primary" style={{ animation: 'hero-progress-fill 6s ease-out infinite' }} />
+                                            </div>
+                                            {/* Checklist items */}
+                                            {['Citations', 'Headings', 'Margins', 'Figures'].map((label, i) => (
+                                                <div key={label} className="flex items-center gap-1.5">
+                                                    <span className="material-symbols-outlined text-green-500 text-xs" style={{ animation: `hero-check-pop 6s ease-out infinite`, animationDelay: `${2 + i * 0.5}s`, opacity: 0 }}>check_circle</span>
+                                                    <span className="text-[9px] text-slate-500 dark:text-slate-400">{label}</span>
+                                                </div>
+                                            ))}
+                                            {/* Template badge */}
+                                            <div className="mt-auto px-2 py-1 rounded bg-primary/10 border border-primary/20 text-[9px] text-primary font-bold text-center" style={{ animation: 'hero-check-pop 6s ease-out infinite', animationDelay: '4s', opacity: 0 }}>
+                                                IEEE Formatted ✓
                                             </div>
                                         </div>
                                     </div>
@@ -90,7 +161,7 @@ export default function Landing() {
             </section>
 
             {/* Feature Grid Section */}
-            <section className="py-20 bg-white dark:bg-background-dark/50" id="features">
+            <section className="py-20 bg-white dark:bg-background-dark/50 section-texture" id="features">
                 <div ref={featuresRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 scroll-reveal">
                     <div className="text-center max-w-3xl mx-auto mb-16">
                         <h2 className="text-primary font-bold text-sm tracking-widest uppercase mb-3">Powerful Capabilities</h2>
@@ -98,49 +169,55 @@ export default function Landing() {
                         <p className="text-slate-600 dark:text-slate-400">Our platform combines machine learning with human-grade formatting rules to ensure your research is presented perfectly every time.</p>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {/* Feature 1 */}
-                        <div className="group p-8 bg-background-light dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-primary/50 transition-all hover:shadow-lg hover:-translate-y-1">
-                            <div className="size-12 rounded-xl bg-primary text-white flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                        {/* Feature 1 — Blue */}
+                        <div className="group p-8 bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-blue-400/50 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/10 hover:-translate-y-1.5 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 relative overflow-hidden">
+                            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-cyan-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <div className="size-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center mb-6 group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-blue-500/30 transition-all">
                                 <span className="material-symbols-outlined">file_open</span>
                             </div>
                             <h4 className="text-xl font-bold text-slate-900 dark:text-white mb-3">Multi-format support</h4>
                             <p className="text-slate-600 dark:text-slate-400 leading-relaxed">Export seamlessly to high-fidelity PDF, clean LaTeX source code, and fully editable Word formats for further collaboration.</p>
                         </div>
-                        {/* Feature 2 */}
-                        <div className="group p-8 bg-background-light dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-primary/50 transition-all hover:shadow-lg hover:-translate-y-1">
-                            <div className="size-12 rounded-xl bg-primary text-white flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                        {/* Feature 2 — Violet */}
+                        <div className="group p-8 bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-violet-400/50 transition-all duration-300 hover:shadow-xl hover:shadow-violet-500/10 hover:-translate-y-1.5 hover:bg-violet-50/50 dark:hover:bg-violet-950/20 relative overflow-hidden">
+                            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-violet-500 to-purple-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <div className="size-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 text-white flex items-center justify-center mb-6 group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-violet-500/30 transition-all">
                                 <span className="material-symbols-outlined">scan</span>
                             </div>
                             <h4 className="text-xl font-bold text-slate-900 dark:text-white mb-3">OCR support</h4>
                             <p className="text-slate-600 dark:text-slate-400 leading-relaxed">Advanced optical character recognition to convert scanned citations, handwritten notes, and image tables into perfectly editable text.</p>
                         </div>
-                        {/* Feature 3 */}
-                        <div className="group p-8 bg-background-light dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-primary/50 transition-all hover:shadow-lg hover:-translate-y-1">
-                            <div className="size-12 rounded-xl bg-primary text-white flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                        {/* Feature 3 — Emerald */}
+                        <div className="group p-8 bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-emerald-400/50 transition-all duration-300 hover:shadow-xl hover:shadow-emerald-500/10 hover:-translate-y-1.5 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20 relative overflow-hidden">
+                            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <div className="size-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center mb-6 group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-emerald-500/30 transition-all">
                                 <span className="material-symbols-outlined">verified_user</span>
                             </div>
                             <h4 className="text-xl font-bold text-slate-900 dark:text-white mb-3">Academic validation</h4>
                             <p className="text-slate-600 dark:text-slate-400 leading-relaxed">Automated checks against specific journal-specific requirements including word counts, figure positioning, and reference density.</p>
                         </div>
-                        {/* Feature 4 */}
-                        <div className="group p-8 bg-background-light dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-primary/50 transition-all hover:shadow-lg hover:-translate-y-1">
-                            <div className="size-12 rounded-xl bg-primary text-white flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                        {/* Feature 4 — Amber */}
+                        <div className="group p-8 bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-amber-400/50 transition-all duration-300 hover:shadow-xl hover:shadow-amber-500/10 hover:-translate-y-1.5 hover:bg-amber-50/50 dark:hover:bg-amber-950/20 relative overflow-hidden">
+                            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 to-orange-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <div className="size-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 text-white flex items-center justify-center mb-6 group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-amber-500/30 transition-all">
                                 <span className="material-symbols-outlined">format_list_bulleted</span>
                             </div>
                             <h4 className="text-xl font-bold text-slate-900 dark:text-white mb-3">IEEE/Springer/APA</h4>
                             <p className="text-slate-600 dark:text-slate-400 leading-relaxed">Apply 1000+ citation styles with one click. We maintain up-to-date templates for major publishers and international conferences.</p>
                         </div>
-                        {/* Feature 5 */}
-                        <div className="group p-8 bg-background-light dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-primary/50 transition-all hover:shadow-lg hover:-translate-y-1">
-                            <div className="size-12 rounded-xl bg-primary text-white flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                        {/* Feature 5 — Rose */}
+                        <div className="group p-8 bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-rose-400/50 transition-all duration-300 hover:shadow-xl hover:shadow-rose-500/10 hover:-translate-y-1.5 hover:bg-rose-50/50 dark:hover:bg-rose-950/20 relative overflow-hidden">
+                            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-rose-500 to-pink-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <div className="size-12 rounded-xl bg-gradient-to-br from-rose-500 to-pink-600 text-white flex items-center justify-center mb-6 group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-rose-500/30 transition-all">
                                 <span className="material-symbols-outlined">auto_awesome</span>
                             </div>
                             <h4 className="text-xl font-bold text-slate-900 dark:text-white mb-3">AI-assisted insights</h4>
                             <p className="text-slate-600 dark:text-slate-400 leading-relaxed">Structural feedback on document flow and writing clarity. Identify passive voice, repetitive phrases, and weak transitions instantly.</p>
                         </div>
-                        {/* Feature 6 */}
-                        <div className="group p-8 bg-background-light dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-primary/50 transition-all hover:shadow-lg hover:-translate-y-1">
-                            <div className="size-12 rounded-xl bg-primary text-white flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                        {/* Feature 6 — Cyan */}
+                        <div className="group p-8 bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-cyan-400/50 transition-all duration-300 hover:shadow-xl hover:shadow-cyan-500/10 hover:-translate-y-1.5 hover:bg-cyan-50/50 dark:hover:bg-cyan-950/20 relative overflow-hidden">
+                            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-cyan-500 to-sky-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <div className="size-12 rounded-xl bg-gradient-to-br from-cyan-500 to-sky-600 text-white flex items-center justify-center mb-6 group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-cyan-500/30 transition-all">
                                 <span className="material-symbols-outlined">lock</span>
                             </div>
                             <h4 className="text-xl font-bold text-slate-900 dark:text-white mb-3">IP Protection</h4>
@@ -161,58 +238,62 @@ export default function Landing() {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
                         {/* IEEE Preview Card */}
-                        <Link to="/templates" className="flex flex-col gap-4 p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:shadow-xl hover:border-primary/30 transition-all group">
+                        <Link to="/templates" className="flex flex-col gap-4 p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:shadow-xl hover:shadow-blue-500/10 hover:border-blue-300 dark:hover:border-blue-500/40 transition-all duration-300 group relative overflow-hidden hover:-translate-y-1">
+                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-blue-500 to-cyan-400 rounded-l-xl" />
                             <div className="flex justify-between items-start">
-                                <div className="size-10 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-primary border border-slate-100 dark:border-slate-700">
+                                <div className="size-10 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800/30">
                                     <span className="material-symbols-outlined text-[24px]">architecture</span>
                                 </div>
                                 <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Available</span>
                             </div>
                             <div className="flex flex-col gap-1">
-                                <h3 className="text-[#0d131b] dark:text-white text-lg font-bold">IEEE Transactions</h3>
-                                <p className="text-xs text-[#4c6c9a] dark:text-slate-400 leading-relaxed line-clamp-2">Official format for technical, electrical, and engineering research.</p>
+                                <h3 className="text-slate-900 dark:text-white text-lg font-bold group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">IEEE Transactions</h3>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-2">Official format for technical, electrical, and engineering research.</p>
                             </div>
                         </Link>
 
                         {/* Nature Preview Card */}
-                        <Link to="/templates" className="flex flex-col gap-4 p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:shadow-xl hover:border-primary/30 transition-all group">
+                        <Link to="/templates" className="flex flex-col gap-4 p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:shadow-xl hover:shadow-emerald-500/10 hover:border-emerald-300 dark:hover:border-emerald-500/40 transition-all duration-300 group relative overflow-hidden hover:-translate-y-1">
+                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-emerald-500 to-teal-400 rounded-l-xl" />
                             <div className="flex justify-between items-start">
-                                <div className="size-10 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-primary border border-slate-100 dark:border-slate-700">
+                                <div className="size-10 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800/30">
                                     <span className="material-symbols-outlined text-[24px]">biotech</span>
                                 </div>
                                 <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Available</span>
                             </div>
                             <div className="flex flex-col gap-1">
-                                <h3 className="text-[#0d131b] dark:text-white text-lg font-bold">Nature Portfolio</h3>
-                                <p className="text-xs text-[#4c6c9a] dark:text-slate-400 leading-relaxed line-clamp-2">Standard template for submission to all Nature Portfolio journals.</p>
+                                <h3 className="text-slate-900 dark:text-white text-lg font-bold group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">Nature Portfolio</h3>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-2">Standard template for submission to all Nature Portfolio journals.</p>
                             </div>
                         </Link>
 
                         {/* Elsevier Preview Card */}
-                        <Link to="/templates" className="flex flex-col gap-4 p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:shadow-xl hover:border-primary/30 transition-all group">
+                        <Link to="/templates" className="flex flex-col gap-4 p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:shadow-xl hover:shadow-violet-500/10 hover:border-violet-300 dark:hover:border-violet-500/40 transition-all duration-300 group relative overflow-hidden hover:-translate-y-1">
+                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-violet-500 to-purple-400 rounded-l-xl" />
                             <div className="flex justify-between items-start">
-                                <div className="size-10 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-primary border border-slate-100 dark:border-slate-700">
+                                <div className="size-10 rounded-lg bg-violet-50 dark:bg-violet-900/20 flex items-center justify-center text-violet-600 dark:text-violet-400 border border-violet-100 dark:border-violet-800/30">
                                     <span className="material-symbols-outlined text-[24px]">description</span>
                                 </div>
                                 <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Available</span>
                             </div>
                             <div className="flex flex-col gap-1">
-                                <h3 className="text-[#0d131b] dark:text-white text-lg font-bold">Elsevier Standard</h3>
-                                <p className="text-xs text-[#4c6c9a] dark:text-slate-400 leading-relaxed line-clamp-2">Guidelines compatible with Elsevier&apos;s wide range of journals.</p>
+                                <h3 className="text-slate-900 dark:text-white text-lg font-bold group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">Elsevier Standard</h3>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-2">Guidelines compatible with Elsevier&apos;s wide range of journals.</p>
                             </div>
                         </Link>
 
                         {/* APA Preview Card */}
-                        <Link to="/templates" className="flex flex-col gap-4 p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:shadow-xl hover:border-primary/30 transition-all group">
+                        <Link to="/templates" className="flex flex-col gap-4 p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:shadow-xl hover:shadow-amber-500/10 hover:border-amber-300 dark:hover:border-amber-500/40 transition-all duration-300 group relative overflow-hidden hover:-translate-y-1">
+                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-500 to-orange-400 rounded-l-xl" />
                             <div className="flex justify-between items-start">
-                                <div className="size-10 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-primary border border-slate-100 dark:border-slate-700">
+                                <div className="size-10 rounded-lg bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-800/30">
                                     <span className="material-symbols-outlined text-[24px]">history_edu</span>
                                 </div>
                                 <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Available</span>
                             </div>
                             <div className="flex flex-col gap-1">
-                                <h3 className="text-[#0d131b] dark:text-white text-lg font-bold">APA 7th Edition</h3>
-                                <p className="text-xs text-[#4c6c9a] dark:text-slate-400 leading-relaxed line-clamp-2">Latest standards for social and behavioral sciences research.</p>
+                                <h3 className="text-slate-900 dark:text-white text-lg font-bold group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">APA 7th Edition</h3>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-2">Latest standards for social and behavioral sciences research.</p>
                             </div>
                         </Link>
                     </div>
@@ -227,7 +308,7 @@ export default function Landing() {
             </section>
 
             {/* Pricing Section */}
-            <section className="py-20 bg-white dark:bg-background-dark/50" id="pricing">
+            <section className="py-20 bg-white dark:bg-background-dark/50 section-texture" id="pricing">
                 <div ref={pricingRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 scroll-reveal">
                     <div className="text-center max-w-3xl mx-auto mb-16">
                         <h2 className="text-primary font-bold text-sm tracking-widest uppercase mb-3">Pricing</h2>
@@ -350,8 +431,10 @@ export default function Landing() {
             {/* CTA Section */}
             <section className="py-16">
                 <div ref={ctaRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 scroll-reveal">
-                    <div className="relative bg-slate-900 dark:bg-primary/20 rounded-3xl p-8 md:p-16 overflow-hidden">
-                        <div className="absolute inset-0 bg-primary opacity-5 mix-blend-overlay"></div>
+                    <div className="relative bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950 rounded-3xl p-8 md:p-16 overflow-hidden">
+                        <div className="absolute -top-20 -right-20 w-80 h-80 bg-primary/20 rounded-full blur-3xl" />
+                        <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-violet-500/15 rounded-full blur-3xl" />
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl" />
                         <div className="relative z-10 flex flex-col items-center text-center gap-8">
                             <h2 className="text-3xl md:text-5xl font-black text-white leading-tight max-w-2xl">
                                 Ready to format your paper for publication?
@@ -388,16 +471,16 @@ export default function Landing() {
                                 We combine deep learning models trained on thousands of published papers with rule-based validation engines that catch every formatting detail. From citation styles to figure placement, margin sizes to heading hierarchy — we handle it all so you can focus on what matters: your research.
                             </p>
                             <div className="grid grid-cols-3 gap-6 mt-4">
-                                <div className="text-center">
-                                    <p className="text-3xl font-black text-primary">25k+</p>
+                                <div ref={researchers.ref} className="text-center">
+                                    <p className="text-3xl font-black text-primary">{researchers.count >= 1000 ? `${(researchers.count / 1000).toFixed(researchers.count >= 25000 ? 0 : 1)}k+` : `${researchers.count}+`}</p>
                                     <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-1">Researchers</p>
                                 </div>
-                                <div className="text-center">
-                                    <p className="text-3xl font-black text-primary">1,000+</p>
+                                <div ref={templates.ref} className="text-center">
+                                    <p className="text-3xl font-black text-primary">{templates.count >= 1000 ? `${(templates.count / 1000).toFixed(templates.count >= 1000 ? 0 : 0)},000+` : `${templates.count}+`}</p>
                                     <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-1">Journal Templates</p>
                                 </div>
-                                <div className="text-center">
-                                    <p className="text-3xl font-black text-primary">50+</p>
+                                <div ref={universities.ref} className="text-center">
+                                    <p className="text-3xl font-black text-primary">{universities.count}+</p>
                                     <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-1">Universities</p>
                                 </div>
                             </div>

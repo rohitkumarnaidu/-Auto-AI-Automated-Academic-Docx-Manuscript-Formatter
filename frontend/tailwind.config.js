@@ -20,6 +20,8 @@ export default {
                 "diff-text-add": "#166534",
                 "diff-text-remove": "#991b1b",
                 "diff-text-mod": "#854d0e",
+                "accent": "#8B5CF6",
+                "accent-warm": "#F59E0B",
             },
             fontFamily: {
                 "display": ["Inter", "sans-serif"]

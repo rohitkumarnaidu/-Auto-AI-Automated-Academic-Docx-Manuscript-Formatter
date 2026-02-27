@@ -1,5 +1,6 @@
 import json
 import re
+import sys
 import time
 from typing import List, Dict, Any, Optional
 import requests
@@ -58,13 +59,19 @@ except ImportError:
     LLM_DEEPSEEK = "ollama/deepseek-r1"
     print("[WARN] llm_service not available - using legacy LangChain paths")
 
-# LangChain Ollama (kept as secondary fallback when litellm unavailable)
-try:
-    from langchain_ollama import ChatOllama
-    _CHAT_OLLAMA_AVAILABLE = True
-except ImportError:
+# LangChain Ollama (secondary fallback when litellm/direct clients are unavailable)
+# Avoid importing langchain_ollama on Python 3.14+ because upstream still routes
+# through pydantic-v1 shims that emit deprecation warnings.
+if sys.version_info >= (3, 14):
     ChatOllama = None
     _CHAT_OLLAMA_AVAILABLE = False
+else:
+    try:
+        from langchain_ollama import ChatOllama
+        _CHAT_OLLAMA_AVAILABLE = True
+    except ImportError:
+        ChatOllama = None
+        _CHAT_OLLAMA_AVAILABLE = False
 
 class ReasoningEngine:
     """

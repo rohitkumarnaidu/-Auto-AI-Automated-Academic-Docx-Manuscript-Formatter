@@ -8,6 +8,7 @@ Public API unchanged:
 """
 from __future__ import annotations
 import os
+import sys
 import logging
 from typing import List
 from unittest.mock import Mock
@@ -21,14 +22,20 @@ except ImportError:
     LITELLM_AVAILABLE = False
     _llm_generate = None
 
-try:
-    from langchain_openai import ChatOpenAI  # type: ignore
-except Exception:  # pragma: no cover - optional dependency
+if sys.version_info < (3, 14):
+    try:
+        from langchain_openai import ChatOpenAI  # type: ignore
+    except Exception:  # pragma: no cover - optional dependency
+        ChatOpenAI = None
+else:
     ChatOpenAI = None
 
-try:
-    from langchain_community.llms import Ollama  # type: ignore
-except Exception:  # pragma: no cover - optional dependency
+if sys.version_info < (3, 14):
+    try:
+        from langchain_community.llms import Ollama  # type: ignore
+    except Exception:  # pragma: no cover - optional dependency
+        Ollama = None
+else:
     Ollama = None
 
 
@@ -117,10 +124,14 @@ class CustomLLMFactory:
                 raise ValueError("OPENAI_API_KEY not set")
             llm_cls = ChatOpenAI
             if llm_cls is None:
+                if sys.version_info >= (3, 14):
+                    raise ImportError("LangChain OpenAI backend disabled on Python 3.14+")
                 from langchain_openai import ChatOpenAI as llm_cls
             return llm_cls(model=model, temperature=temperature, api_key=api_key,
                               **{k: v for k, v in kwargs.items() if k != "api_key"})
         elif provider == "anthropic":
+            if sys.version_info >= (3, 14):
+                raise ImportError("LangChain Anthropic backend disabled on Python 3.14+")
             try:
                 from langchain_anthropic import ChatAnthropic
             except ImportError:
@@ -134,6 +145,8 @@ class CustomLLMFactory:
             base_url = kwargs.get("base_url", "http://localhost:11434")
             llm_cls = Ollama
             if llm_cls is None:
+                if sys.version_info >= (3, 14):
+                    raise ImportError("LangChain Ollama backend disabled on Python 3.14+")
                 from langchain_community.llms import Ollama as llm_cls
             return llm_cls(model=model, temperature=temperature, base_url=base_url,
                           **{k: v for k, v in kwargs.items() if k != "base_url"})
@@ -149,12 +162,13 @@ class CustomLLMFactory:
             providers.append("nvidia")
         if os.getenv("OPENAI_API_KEY"):
             providers.append("openai")
-        try:
-            import langchain_anthropic  # noqa
-            if os.getenv("ANTHROPIC_API_KEY"):
-                providers.append("anthropic")
-        except ImportError:
-            pass
+        if sys.version_info < (3, 14):
+            try:
+                import langchain_anthropic  # noqa
+                if os.getenv("ANTHROPIC_API_KEY"):
+                    providers.append("anthropic")
+            except ImportError:
+                pass
         try:
             import requests
             r = requests.get("http://localhost:11434/api/tags", timeout=1)

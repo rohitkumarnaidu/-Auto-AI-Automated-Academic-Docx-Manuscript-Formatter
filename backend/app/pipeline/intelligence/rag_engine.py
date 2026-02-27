@@ -19,12 +19,31 @@ logger = logging.getLogger(__name__)
 # Optional ChromaDB — imported at module level so tests can patch it via:
 #   with patch('app.pipeline.intelligence.rag_engine.chromadb') as mock: ...
 # ---------------------------------------------------------------------------
-try:
-    import chromadb  # noqa: F401  (used below and patchable by tests)
-    _CHROMADB_AVAILABLE = True
-except Exception:
-    chromadb = None  # type: ignore[assignment]
-    _CHROMADB_AVAILABLE = False
+chromadb = None  # type: ignore[assignment]
+_CHROMADB_AVAILABLE = False
+_CHROMADB_IMPORT_ATTEMPTED = False
+
+
+def _load_chromadb():
+    """Lazy-load chromadb only when a RagEngine instance needs it."""
+    global chromadb, _CHROMADB_AVAILABLE, _CHROMADB_IMPORT_ATTEMPTED
+
+    if chromadb is not None:
+        _CHROMADB_AVAILABLE = True
+        return chromadb
+
+    if _CHROMADB_IMPORT_ATTEMPTED:
+        return None
+
+    _CHROMADB_IMPORT_ATTEMPTED = True
+    try:
+        import chromadb as chromadb_module  # type: ignore[import-not-found]
+        chromadb = chromadb_module
+        _CHROMADB_AVAILABLE = True
+        return chromadb
+    except Exception:
+        _CHROMADB_AVAILABLE = False
+        return None
 
 # --------------------------------------------------------------------------- #
 #  Constants
@@ -95,11 +114,6 @@ class RagEngine:
     """
 
     def __init__(self, persist_directory: Optional[str] = None, auto_seed: Optional[bool] = None):
-        # Suppress ChromaDB Pydantic compatibility warnings
-        import warnings
-        warnings.filterwarnings("ignore", message=".*Core Pydantic V1 functionality.*")
-        warnings.filterwarnings("ignore", category=UserWarning, module="chromadb")
-
         if persist_directory is None:
             base_dir = os.path.dirname(
                 os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -141,9 +155,10 @@ class RagEngine:
             if not hasattr(np, 'int_'):
                 np.int_ = np.int64
 
-            if chromadb is None:
+            chromadb_module = chromadb if chromadb is not None else _load_chromadb()
+            if chromadb_module is None:
                 raise ImportError("chromadb not installed or unavailable")
-            self.client = chromadb.PersistentClient(path=self.persist_directory)
+            self.client = chromadb_module.PersistentClient(path=self.persist_directory)
             self.collection = self.client.get_or_create_collection(self._collection_name)
             self.chroma_enabled = True
             self.backend = "chromadb"

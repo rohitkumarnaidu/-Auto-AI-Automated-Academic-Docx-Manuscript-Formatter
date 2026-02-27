@@ -1,3 +1,4 @@
+import usePageTitle from '../hooks/usePageTitle';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -38,6 +39,7 @@ const isAllowedUploadFile = (selectedFile) => {
 };
 
 export default function Upload() {
+    usePageTitle('Upload Document');
     const { isLoggedIn } = useAuth();
     const { job, setJob } = useDocument();
     const fileInputRef = useRef(null);

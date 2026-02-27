@@ -1,9 +1,11 @@
+import usePageTitle from '../hooks/usePageTitle';
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
 
 export default function ResetPassword() {
+    usePageTitle('Reset Password');
     const navigate = useNavigate();
     const location = useLocation();
     const { resetPassword } = useAuth();

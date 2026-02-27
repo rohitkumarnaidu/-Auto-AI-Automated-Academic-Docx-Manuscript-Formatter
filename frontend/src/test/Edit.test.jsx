@@ -22,6 +22,11 @@ vi.mock('../components/Navbar', () => ({
 
 import Edit from '../pages/Edit';
 
+const ROUTER_FUTURE_FLAGS = {
+    v7_startTransition: true,
+    v7_relativeSplatPath: true,
+};
+
 describe('Edit page', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -43,7 +48,7 @@ describe('Edit page', () => {
 
     it('loads editable content from job data', async () => {
         render(
-            <MemoryRouter>
+            <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
                 <Edit />
             </MemoryRouter>
         );
@@ -54,7 +59,7 @@ describe('Edit page', () => {
 
     it('renders validation sections from job result', () => {
         render(
-            <MemoryRouter>
+            <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
                 <Edit />
             </MemoryRouter>
         );

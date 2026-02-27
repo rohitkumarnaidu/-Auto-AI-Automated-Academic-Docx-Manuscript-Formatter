@@ -34,6 +34,11 @@ vi.mock('../components/ValidationCard', () => ({
 
 import ValidationResults from '../pages/ValidationResults';
 
+const ROUTER_FUTURE_FLAGS = {
+    v7_startTransition: true,
+    v7_relativeSplatPath: true,
+};
+
 describe('ValidationResults page', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -62,7 +67,7 @@ describe('ValidationResults page', () => {
         });
 
         render(
-            <MemoryRouter>
+            <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
                 <ValidationResults />
             </MemoryRouter>
         );

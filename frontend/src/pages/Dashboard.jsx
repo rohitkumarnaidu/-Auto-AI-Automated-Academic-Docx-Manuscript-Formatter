@@ -1,3 +1,4 @@
+import usePageTitle from '../hooks/usePageTitle';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
@@ -6,6 +7,7 @@ import { isCompleted, isProcessing } from '../constants/status';
 import { useDocuments } from '../services/api';
 
 export default function Dashboard() {
+    usePageTitle('Dashboard');
     const navigate = useNavigate();
     const { user } = useAuth();
     const {
@@ -84,9 +86,9 @@ export default function Dashboard() {
         <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
             <Navbar variant="app" activeTab="dashboard" />
 
-            <main className="flex-1 max-w-[1280px] mx-auto w-full px-4 sm:px-6 py-6 sm:py-8">
+            <main className="flex-1 max-w-[1280px] mx-auto w-full px-4 sm:px-6 py-6 sm:py-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 {/* PageHeading Component */}
-                <div className="mb-10">
+                <div className="mb-10 fade-in-up">
                     <div className="flex flex-col gap-2">
                         <h1 className="text-slate-900 dark:text-white text-3xl sm:text-4xl font-black leading-tight tracking-tight">Welcome back, {displayName}</h1>
                         <p className="text-slate-500 dark:text-slate-400 text-base sm:text-lg font-normal leading-normal max-w-2xl">Manage your academic manuscripts, track validation status, and ensure formatting compliance for upcoming publications.</p>
@@ -96,9 +98,9 @@ export default function Dashboard() {
                 {loadingHistory ? <SkeletonDashboard /> : (
                     <>
                         {/* ImageGrid / Quick Actions */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12 stagger-children">
                             {/* Action Card 1: Upload */}
-                            <Link to="/upload" className="group flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden hover:shadow-lg transition-all cursor-pointer">
+                            <Link to="/upload" className="group flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer">
                                 <div className="h-48 w-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                                     <span className="material-symbols-outlined text-primary text-5xl">cloud_upload</span>
                                 </div>
@@ -113,7 +115,7 @@ export default function Dashboard() {
                             </Link>
 
                             {/* Action Card 2: History */}
-                            <Link to="/history" className="group flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden hover:shadow-lg transition-all cursor-pointer">
+                            <Link to="/history" className="group flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer">
                                 <div className="h-48 w-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center group-hover:bg-slate-200 dark:group-hover:bg-slate-700 transition-colors">
                                     <span className="material-symbols-outlined text-slate-400 text-5xl">description</span>
                                 </div>
@@ -130,7 +132,7 @@ export default function Dashboard() {
                             </Link>
 
                             {/* Action Card 3: Results */}
-                            <div className="group flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden hover:shadow-lg transition-all cursor-pointer">
+                            <div className="group flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer">
                                 <div className="h-48 w-full bg-green-50 dark:bg-green-900/10 flex items-center justify-center group-hover:bg-green-100 dark:group-hover:bg-green-900/20 transition-colors">
                                     <span className="material-symbols-outlined text-green-600 text-5xl">fact_check</span>
                                 </div>

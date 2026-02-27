@@ -1,3 +1,4 @@
+import usePageTitle from '../hooks/usePageTitle';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
@@ -10,6 +11,7 @@ import { isCompleted, isFailed, isProcessing } from '../constants/status';
 import useJobFromUrl from '../hooks/useJobFromUrl';
 
 export default function Download() {
+    usePageTitle('Download');
     const navigate = useNavigate();
     const { setJob } = useDocument();
     const { job, isLoading: isJobLoading, error: jobLoadError } = useJobFromUrl();
@@ -152,7 +154,7 @@ export default function Download() {
     };
 
     return (
-        <div className="min-h-screen flex flex-col bg-background-light dark:bg-background-dark">
+        <div className="min-h-screen flex flex-col bg-background-light dark:bg-background-dark animate-in zoom-in-95 duration-300">
             <Navbar variant="app" />
 
             <main className="px-4 sm:px-6 lg:px-10 flex flex-1 justify-center py-8 sm:py-12 min-h-[calc(100vh-200px)] animate-in zoom-in-95 duration-500 relative">

@@ -1,3 +1,4 @@
+import usePageTitle from '../hooks/usePageTitle';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDocument } from '../context/DocumentContext';
@@ -30,6 +31,7 @@ const getContentFromSections = (sections) => {
 };
 
 export default function Edit() {
+    usePageTitle('Edit Document');
     const navigate = useNavigate();
     const { job, setJob } = useDocument();
     const [content, setContent] = useState('');
@@ -153,7 +155,7 @@ export default function Edit() {
     }
 
     return (
-        <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-display">
+        <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-display animate-in zoom-in-95 duration-300">
             <Navbar variant="app" />
 
             {/* Sub-Header / Breadcrumbs & Quick Actions */}

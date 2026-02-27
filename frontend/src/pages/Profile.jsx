@@ -1,3 +1,4 @@
+import usePageTitle from '../hooks/usePageTitle';
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
@@ -7,6 +8,7 @@ import { useTheme } from '../context/ThemeContext';
 import { supabase } from '../lib/supabaseClient';
 
 export default function Profile() {
+    usePageTitle('Profile');
     const { theme, toggleTheme } = useTheme();
     const [statusUpdates, setStatusUpdates] = useState(true);
     const [newsletter, setNewsletter] = useState(false);

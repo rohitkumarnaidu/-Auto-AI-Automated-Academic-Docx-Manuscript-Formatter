@@ -1,3 +1,4 @@
+import usePageTitle from '../hooks/usePageTitle';
 import { useState, useEffect, useCallback } from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
@@ -31,6 +32,7 @@ const saveNotifications = (items) => {
 };
 
 export default function NotificationsPage() {
+    usePageTitle('Notifications');
     const [notifications, setNotifications] = useState(loadNotifications);
 
     useEffect(() => {

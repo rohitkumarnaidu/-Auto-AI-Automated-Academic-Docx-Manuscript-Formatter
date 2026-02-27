@@ -49,6 +49,11 @@ vi.mock('../components/Footer', () => ({
 
 import Profile from '../pages/Profile';
 
+const ROUTER_FUTURE_FLAGS = {
+    v7_startTransition: true,
+    v7_relativeSplatPath: true,
+};
+
 describe('Profile page', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -72,7 +77,7 @@ describe('Profile page', () => {
 
     it('displays profile data', () => {
         render(
-            <MemoryRouter>
+            <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
                 <Profile />
             </MemoryRouter>
         );
@@ -84,7 +89,7 @@ describe('Profile page', () => {
 
     it('wires action buttons with working handlers', async () => {
         render(
-            <MemoryRouter>
+            <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
                 <Profile />
             </MemoryRouter>
         );

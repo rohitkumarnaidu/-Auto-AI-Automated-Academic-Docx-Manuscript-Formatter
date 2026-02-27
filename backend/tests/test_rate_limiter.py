@@ -11,13 +11,17 @@ from unittest.mock import MagicMock, AsyncMock
 try:
     from app.middleware.rate_limit import RateLimitMiddleware
 except Exception as e:
-    pytest.skip(f"Could not import RateLimitMiddleware: {e}", allow_module_level=True)
+    RateLimitMiddleware = None
+    IMPORT_ERROR = e
+else:
+    IMPORT_ERROR = None
 
 
 class TestRateLimiting:
     """Unit tests for rate-limit logic."""
 
     def _make_middleware(self, rpm: int = 5):
+        assert RateLimitMiddleware is not None, f"RateLimitMiddleware import failed: {IMPORT_ERROR}"
         mock_app = MagicMock()
         return RateLimitMiddleware(mock_app, requests_per_minute=rpm)
 

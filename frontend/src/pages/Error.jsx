@@ -1,3 +1,4 @@
+import usePageTitle from '../hooks/usePageTitle';
 import Navbar from '../components/Navbar';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -19,6 +20,7 @@ function normalizeError(errorValue) {
 }
 
 export default function Error({ error }) {
+    usePageTitle('Error');
     const location = useLocation();
     const stateError = normalizeError(location?.state?.error);
     const resolvedError = normalizeError(error) || stateError;

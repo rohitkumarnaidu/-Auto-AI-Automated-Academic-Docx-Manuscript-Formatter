@@ -34,6 +34,11 @@ vi.mock('../components/Footer', () => ({
 
 import Dashboard from '../pages/Dashboard';
 
+const ROUTER_FUTURE_FLAGS = {
+    v7_startTransition: true,
+    v7_relativeSplatPath: true,
+};
+
 describe('Dashboard page', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -57,7 +62,7 @@ describe('Dashboard page', () => {
 
     it('shows dynamic ready badge count (not hardcoded)', () => {
         render(
-            <MemoryRouter>
+            <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
                 <Dashboard />
             </MemoryRouter>
         );
@@ -68,7 +73,7 @@ describe('Dashboard page', () => {
 
     it('uses job-id download URL in row links and latest completed download action', () => {
         render(
-            <MemoryRouter>
+            <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
                 <Dashboard />
             </MemoryRouter>
         );

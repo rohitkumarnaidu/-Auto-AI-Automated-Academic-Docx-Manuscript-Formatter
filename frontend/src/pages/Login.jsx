@@ -1,9 +1,11 @@
+import usePageTitle from '../hooks/usePageTitle';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
+    usePageTitle('Sign In');
     const { signIn, signInWithGoogle } = useAuth();
     const navigate = useNavigate();
     const [email, setEmail] = useState('');
@@ -42,8 +44,8 @@ export default function Login() {
             <Navbar variant="auth" />
 
             {/* Main Login Content */}
-            <main className="flex flex-1 items-center justify-center py-12 px-4">
-                <div className="layout-content-container flex flex-col w-full max-w-[480px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm p-8">
+            <main className="flex flex-1 items-center justify-center py-12 px-4 animate-in fade-in duration-300">
+                <div className="layout-content-container flex flex-col w-full max-w-[480px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm p-8 animate-in fade-in zoom-in-95 duration-500">
                     {/* Headline */}
                     <h1 className="text-slate-900 dark:text-slate-100 tracking-light text-[32px] font-bold leading-tight text-center pb-2 pt-4 font-display">Welcome back</h1>
                     <p className="text-slate-500 dark:text-slate-400 text-center text-base pb-8 font-normal">Please enter your details to sign in.</p>

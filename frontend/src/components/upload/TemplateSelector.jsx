@@ -29,7 +29,7 @@ export default function TemplateSelector({
                             <option value="browse_more" className="text-primary font-bold">Browse More Templates...</option>
                         </select>
                         <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
-                            <span className="material-symbols-outlined text-[18px] text-slate-500">expand_more</span>
+                            <span className="material-symbols-outlined text-[18px] text-slate-500 dark:text-slate-400">expand_more</span>
                         </div>
                     </div>
                 </div>
@@ -57,12 +57,12 @@ export default function TemplateSelector({
                                                 <span className="material-symbols-outlined text-4xl text-primary">description</span>
                                             </div>
                                             <p className="text-sm font-bold text-slate-900 dark:text-white line-clamp-2 break-all">{file.name}</p>
-                                            <p className="text-xs text-slate-500 mt-1">{formatFileSize(file.size)}</p>
+                                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{formatFileSize(file.size)}</p>
                                         </div>
                                     ) : (
                                         <div className="opacity-50">
                                             <span className="material-symbols-outlined text-5xl text-slate-400 mb-3">upload_file</span>
-                                            <p className="text-sm font-medium text-slate-500">Original File</p>
+                                            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Original File</p>
                                             <p className="text-xs text-slate-400 mt-1">No styling applied</p>
                                         </div>
                                     )}
@@ -76,7 +76,7 @@ export default function TemplateSelector({
                                 </div>
                                 <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
                                     <p className={`text-base font-bold ${template === 'none' ? 'text-primary' : 'text-slate-900 dark:text-white'}`}>Original</p>
-                                    <p className="text-xs text-slate-500 mt-0.5">Keep existing formatting</p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">Keep existing formatting</p>
                                 </div>
                             </div>
 
@@ -117,7 +117,7 @@ export default function TemplateSelector({
                                 </div>
                                 <div className="p-4 border-t border-slate-100 dark:border-slate-800">
                                     <p className={`text-base font-bold ${template === 'modern_red' ? 'text-primary' : 'text-slate-900 dark:text-white'}`}>Modern Red</p>
-                                    <p className="text-xs text-slate-500 mt-0.5">Bold & Professional</p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">Bold & Professional</p>
                                 </div>
                             </div>
 
@@ -162,7 +162,7 @@ export default function TemplateSelector({
                                 </div>
                                 <div className="p-4 border-t border-slate-100 dark:border-slate-800">
                                     <p className={`text-base font-bold ${template === 'modern_gold' ? 'text-primary' : 'text-slate-900 dark:text-white'}`}>Modern Gold</p>
-                                    <p className="text-xs text-slate-500 mt-0.5">Classic & Elegant</p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">Classic & Elegant</p>
                                 </div>
                             </div>
 
@@ -204,7 +204,7 @@ export default function TemplateSelector({
                                 </div>
                                 <div className="p-4 border-t border-slate-100 dark:border-slate-800">
                                     <p className={`text-base font-bold ${template === 'modern_blue' ? 'text-primary' : 'text-slate-900 dark:text-white'}`}>Modern Blue</p>
-                                    <p className="text-xs text-slate-500 mt-0.5">Clean & Corporate</p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">Clean & Corporate</p>
                                 </div>
                             </div>
                         </>
@@ -252,7 +252,7 @@ export default function TemplateSelector({
                             </div>
                             <div className="p-4 border-t border-slate-100 dark:border-slate-800">
                                 <p className={`text-base font-bold ${template === 'ieee' ? 'text-primary' : 'text-slate-900 dark:text-white'}`}>IEEE Standard</p>
-                                <p className="text-xs text-slate-500 mt-0.5">Two-column, technical format</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">Two-column, technical format</p>
                             </div>
                         </div>
                     )}
@@ -289,7 +289,7 @@ export default function TemplateSelector({
                             </div>
                             <div className="p-4 border-t border-slate-100 dark:border-slate-800">
                                 <p className={`text-base font-bold ${template === 'springer' ? 'text-primary' : 'text-slate-900 dark:text-white'}`}>Springer Nature</p>
-                                <p className="text-xs text-slate-500 mt-0.5">Clean, single-column layout</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">Clean, single-column layout</p>
                             </div>
                         </div>
                     )}
@@ -337,7 +337,7 @@ export default function TemplateSelector({
                             </div>
                             <div className="p-4 border-t border-slate-100 dark:border-slate-800">
                                 <p className={`text-base font-bold ${template === 'apa' ? 'text-primary' : 'text-slate-900 dark:text-white'}`}>APA Style</p>
-                                <p className="text-xs text-slate-500 mt-0.5">7th Edition Standard</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">7th Edition Standard</p>
                             </div>
                         </div>
                     )}

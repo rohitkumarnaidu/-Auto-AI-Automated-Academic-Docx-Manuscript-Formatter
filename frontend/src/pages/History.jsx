@@ -1,3 +1,4 @@
+import usePageTitle from '../hooks/usePageTitle';
 import React, { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDocument } from '../context/DocumentContext';
@@ -78,6 +79,7 @@ const buildVersionedHistory = (records) => {
 };
 
 export default function History() {
+    usePageTitle('Document History');
     const navigate = useNavigate();
     const { setJob } = useDocument();
     const { data: documentsPayload, isLoading, refetch: refreshDocuments } = useDocuments({ limit: 50 });

@@ -9,6 +9,7 @@ html {
 /* Animation utilities used across pages without external plugin dependency */
 @layer utilities {
     @media (prefers-reduced-motion: reduce) {
+
         .animate-in,
         .animate-pulse,
         .animate-spin,
@@ -18,6 +19,7 @@ html {
             animation: none !important;
             transition: none !important;
         }
+
         .scroll-reveal {
             opacity: 1 !important;
             transform: none !important;
@@ -26,58 +28,106 @@ html {
     }
 
     @keyframes sf-fade-in {
-        from { opacity: 0; }
-        to { opacity: 1; }
+        from {
+            opacity: 0;
+        }
+
+        to {
+            opacity: 1;
+        }
     }
 
     @keyframes sf-zoom-in {
-        from { opacity: 0; transform: scale(0.98); }
-        to { opacity: 1; transform: scale(1); }
+        from {
+            opacity: 0;
+            transform: scale(0.98);
+        }
+
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
     }
 
     @keyframes sf-slide-in-top {
-        from { opacity: 0; transform: translateY(-8px); }
-        to { opacity: 1; transform: translateY(0); }
+        from {
+            opacity: 0;
+            transform: translateY(-8px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
 
     @keyframes sf-slide-in-bottom {
-        from { opacity: 0; transform: translateY(16px); }
-        to { opacity: 1; transform: translateY(0); }
+        from {
+            opacity: 0.4;
+            transform: translateY(10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
 
     @keyframes sf-fade-in-up {
-        from { opacity: 0; transform: translateY(24px); }
-        to { opacity: 1; transform: translateY(0); }
+        from {
+            opacity: 0.5;
+            transform: translateY(10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
 
     @keyframes sf-stagger-fade {
-        from { opacity: 0; transform: translateY(12px); }
-        to { opacity: 1; transform: translateY(0); }
+        from {
+            opacity: 0;
+            transform: translateY(12px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
 
     .animate-in {
         animation-name: sf-fade-in;
         animation-duration: 200ms;
-        animation-fill-mode: both;
+        animation-fill-mode: forwards;
         animation-timing-function: ease-out;
     }
 
-    .fade-in { animation-name: sf-fade-in; }
+    .fade-in {
+        animation-name: sf-fade-in;
+    }
 
     .zoom-in,
-    .zoom-in-95 { animation-name: sf-zoom-in; }
+    .zoom-in-95 {
+        animation-name: sf-zoom-in;
+    }
 
     .slide-in-from-top,
-    .slide-in-from-top-2 { animation-name: sf-slide-in-top; }
+    .slide-in-from-top-2 {
+        animation-name: sf-slide-in-top;
+    }
 
-    .slide-in-from-bottom-4 { animation-name: sf-slide-in-bottom; }
+    .slide-in-from-bottom-4 {
+        animation-name: sf-slide-in-bottom;
+    }
 
     .fade-in-up {
-        animation: sf-fade-in-up 600ms ease-out both;
+        animation: sf-fade-in-up 400ms ease-out forwards;
     }
 
     .stagger-fade {
-        animation: sf-stagger-fade 400ms ease-out both;
+        animation: sf-stagger-fade 300ms ease-out forwards;
     }
 
     /* Scroll-reveal: hidden until IntersectionObserver adds .revealed */
@@ -86,14 +136,226 @@ html {
         transform: translateY(20px);
         transition: opacity 600ms ease-out, transform 600ms ease-out;
     }
+
     .scroll-reveal.revealed {
         opacity: 1;
         transform: translateY(0);
     }
 
-    .animate-in.duration-200 { animation-duration: 200ms; }
-    .animate-in.duration-300 { animation-duration: 300ms; }
-    .animate-in.duration-500 { animation-duration: 500ms; }
+    /* Hero dashboard live animation */
+    @keyframes hero-line-type {
+
+        0%,
+        10% {
+            width: 0;
+            opacity: 0;
+        }
+
+        15% {
+            opacity: 1;
+        }
+
+        40%,
+        100% {
+            width: 100%;
+            opacity: 1;
+        }
+    }
+
+    @keyframes hero-progress-fill {
+
+        0%,
+        35% {
+            width: 0;
+        }
+
+        70%,
+        100% {
+            width: 100%;
+        }
+    }
+
+    @keyframes hero-check-pop {
+
+        0%,
+        65% {
+            opacity: 0;
+            transform: scale(0);
+        }
+
+        75% {
+            opacity: 1;
+            transform: scale(1.2);
+        }
+
+        80%,
+        100% {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    @keyframes hero-scan-line {
+        0% {
+            top: 0;
+            opacity: 0;
+        }
+
+        10% {
+            opacity: 1;
+        }
+
+        90% {
+            opacity: 1;
+        }
+
+        100% {
+            top: 100%;
+            opacity: 0;
+        }
+    }
+
+    @keyframes hero-pulse-glow {
+
+        0%,
+        100% {
+            box-shadow: 0 0 0 0 rgba(19, 109, 236, 0.3);
+        }
+
+        50% {
+            box-shadow: 0 0 12px 4px rgba(19, 109, 236, 0.15);
+        }
+    }
+
+    .animate-in.duration-200 {
+        animation-duration: 200ms;
+    }
+
+    .animate-in.duration-300 {
+        animation-duration: 300ms;
+    }
+
+    .animate-in.duration-500 {
+        animation-duration: 400ms;
+    }
+
+    /* Staggered children: subtle slide-up only, NO opacity:0 flash */
+    .stagger-children>* {
+        animation: sf-stagger-slide 300ms ease-out forwards;
+    }
+
+    @keyframes sf-stagger-slide {
+        from {
+            transform: translateY(6px);
+        }
+
+        to {
+            transform: translateY(0);
+        }
+    }
+
+    .stagger-children>*:nth-child(1) {
+        animation-delay: 0ms;
+    }
+
+    .stagger-children>*:nth-child(2) {
+        animation-delay: 50ms;
+    }
+
+    .stagger-children>*:nth-child(3) {
+        animation-delay: 100ms;
+    }
+
+    .stagger-children>*:nth-child(4) {
+        animation-delay: 150ms;
+    }
+
+    .stagger-children>*:nth-child(5) {
+        animation-delay: 200ms;
+    }
+
+    .stagger-children>*:nth-child(6) {
+        animation-delay: 250ms;
+    }
+
+    .stagger-children>*:nth-child(7) {
+        animation-delay: 300ms;
+    }
+
+    .stagger-children>*:nth-child(8) {
+        animation-delay: 350ms;
+    }
+
+    .stagger-children>*:nth-child(9) {
+        animation-delay: 400ms;
+    }
+
+    .stagger-children>*:nth-child(10) {
+        animation-delay: 720ms;
+    }
+
+    .stagger-children>*:nth-child(n+11) {
+        animation-delay: 800ms;
+    }
+
+    @keyframes sf-slide-in-left {
+        from {
+            opacity: 0;
+            transform: translateX(-16px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    @keyframes sf-slide-in-right {
+        from {
+            opacity: 0;
+            transform: translateX(16px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    .slide-in-from-left {
+        animation-name: sf-slide-in-left;
+    }
+
+    .slide-in-from-right {
+        animation-name: sf-slide-in-right;
+    }
+}
+
+/* P2.5 — Subtle noise texture for landing sections */
+.section-texture {
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.03'/%3E%3C/svg%3E");
+}
+
+/* P2.7 — CSS-only button ripple effect */
+.btn-ripple {
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-ripple::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.3) 10%, transparent 70%);
+    transform: scale(0);
+    opacity: 0;
+    transition: transform 300ms, opacity 300ms;
+}
+
+.btn-ripple:active::after {
+    transform: scale(2.5);
+    opacity: 1;
+    transition: 0ms;
 }
 
 @layer components {
