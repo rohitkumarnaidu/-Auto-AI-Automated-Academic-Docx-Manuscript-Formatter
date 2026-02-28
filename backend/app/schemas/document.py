@@ -174,3 +174,74 @@ class DocumentCompareResponse(BaseModel):
     html_diff: str = Field(..., description="HTML diff of original vs formatted text.")
     original: CompareOriginal
     formatted: CompareFormatted
+
+
+# Generation Schemas
+
+class SectionSpec(BaseModel):
+    name: str
+    include: bool = True
+
+
+class AcademicPaperMetadata(BaseModel):
+    title: str
+    authors: List[str] = Field(default_factory=list)
+    affiliation: Optional[str] = None
+    abstract: Optional[str] = None
+    keywords: List[str] = Field(default_factory=list)
+    sections: List[SectionSpec] = Field(default_factory=list)
+    language: str = "english"
+
+
+class ResumeEducationItem(BaseModel):
+    institution: str
+    degree: str
+    year: Optional[str] = None
+
+
+class ResumeExperienceItem(BaseModel):
+    company: str
+    role: str
+    duration: Optional[str] = None
+    bullets: List[str] = Field(default_factory=list)
+
+
+class ResumeMetadata(BaseModel):
+    name: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    linkedin: Optional[str] = None
+    summary: Optional[str] = None
+    education: List[ResumeEducationItem] = Field(default_factory=list)
+    experience: List[ResumeExperienceItem] = Field(default_factory=list)
+    skills: List[str] = Field(default_factory=list)
+    certifications: List[str] = Field(default_factory=list)
+
+
+class GenerationOptions(BaseModel):
+    include_placeholder_content: bool = True
+    word_count_target: int = 3000
+
+
+class GenerateRequest(BaseModel):
+    doc_type: str
+    template: str
+    metadata: Dict[str, Any]
+    options: GenerationOptions = Field(default_factory=GenerationOptions)
+
+
+class GenerateResponse(BaseModel):
+    job_id: str
+    status: str
+    message: Optional[str] = None
+
+
+class GenerateStatusResponse(BaseModel):
+    job_id: str
+    status: str
+    stage: str
+    progress: int
+    message: str
+    error: Optional[str] = None
+    output_path: Optional[str] = None
+    outline: List[str] = Field(default_factory=list)

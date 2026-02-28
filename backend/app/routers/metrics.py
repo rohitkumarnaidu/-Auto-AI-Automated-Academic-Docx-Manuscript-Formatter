@@ -9,6 +9,7 @@ from app.utils.dependencies import get_current_user, get_optional_user
 
 from app.services.model_metrics import get_model_metrics
 from app.services.ab_testing import get_ab_testing
+from app.services.enhancement_manager import enhancement_manager
 from app.db.supabase_client import get_supabase_client
 import logging
 
@@ -182,5 +183,23 @@ async def get_metrics_dashboard(admin_user=Depends(require_admin)) -> Dict[str, 
         "live_metrics_summary": model_metrics.get_summary(),
         "live_model_comparison": model_metrics.get_model_comparison(),
         "live_ab_test_summary": ab_testing.get_test_summary()
+    }
+
+
+@router.get("/enhancements")
+async def get_enhancement_metrics(admin_user=Depends(require_admin)) -> Dict[str, Any]:
+    """
+    Expose optional enhancement capability profile and active fallback mode.
+    """
+    profile = enhancement_manager.refresh()
+    profile_dict = profile.to_dict()
+    return {
+        "status": "success",
+        "enhancements_enabled": bool(profile_dict.get("enabled")),
+        "queue_mode": profile_dict.get("queue_provider"),
+        "queue_ready": bool(profile_dict.get("queue_available")),
+        "ocr_backends": profile_dict.get("ocr_backends", []),
+        "keyword_backends": profile_dict.get("keyword_backends", []),
+        "profile": profile_dict,
     }
 

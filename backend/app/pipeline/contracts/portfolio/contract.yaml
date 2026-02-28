@@ -1,0 +1,61 @@
+name: portfolio
+display_name: "Researcher Portfolio"
+category: professional
+description: "Portfolio-focused layout for generated researcher profile documents."
+
+styles:
+  TITLE: "Title"
+  AUTHOR: "Subtitle"
+  AFFILIATION: "Subtitle"
+  ABSTRACT_HEADING: "Heading 1"
+  ABSTRACT_BODY: "Normal"
+  KEYWORDS_HEADING: "Heading 2"
+  KEYWORDS_BODY: "Normal"
+  HEADING_1: "Heading 1"
+  HEADING_2: "Heading 2"
+  HEADING_3: "Heading 3"
+  HEADING_4: "Heading 4"
+  BODY: "Normal"
+  REFERENCES_HEADING: "Heading 1"
+  REFERENCE_ENTRY: "Normal"
+  FIGURE_CAPTION: "Caption"
+  TABLE_CAPTION: "Caption"
+
+layout_name: single-column-portfolio
+layout:
+  default_columns: 1
+  section_overrides:
+    abstract: 1
+    references: 1
+  margins:
+    top: 0.98
+    bottom: 0.98
+    left: 1.0
+    right: 1.0
+  spacing:
+    paragraph:
+      before: 0
+      after: 10
+    heading:
+      before: 16
+      after: 8
+    title:
+      before: 0
+      after: 14
+    references:
+      before: 18
+      after: 10
+
+options:
+  page_numbers: true
+  cover_page: true
+  table_of_contents: true
+  citation_style: apa
+
+section_order:
+  - about
+  - research_interests
+  - key_projects
+  - publications
+  - achievements
+  - contact

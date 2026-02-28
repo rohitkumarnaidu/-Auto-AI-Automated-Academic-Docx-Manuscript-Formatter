@@ -30,6 +30,7 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
         { key: 'dashboard', to: '/dashboard', label: 'Dashboard' },
         { key: 'upload', to: '/upload', label: 'Upload' },
         { key: 'batch-upload', to: '/batch-upload', label: 'Batch' },
+        { key: 'generate', to: '/generate', label: 'Generate' },
         { key: 'templates', to: '/templates', label: 'Templates' },
         { key: 'history', to: '/history', label: 'Manuscripts' },
     ];
@@ -139,6 +140,7 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
         if (path.startsWith('/dashboard')) return 'dashboard';
         if (path.startsWith('/upload') || path.startsWith('/processing')) return 'upload';
         if (path.startsWith('/batch-upload')) return 'batch-upload';
+        if (path.startsWith('/generate')) return 'generate';
         if (path.startsWith('/templates')) return 'templates';
         if (path.startsWith('/template-editor')) return 'template-editor';
         if (path.startsWith('/feedback')) return 'feedback';

@@ -1,29 +1,37 @@
 import usePageTitle from '../hooks/usePageTitle';
 import { useState, useEffect, useMemo } from 'react';
+import * as Dialog from '@radix-ui/react-dialog';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { getBuiltinTemplates, searchCSLStyles, fetchCSLStyle } from '../services/api'; // B-FIX-22f
 
-// Fallback hardcoded templates when API is unavailable
-const FALLBACK_TEMPLATES = [
-    { id: 'ieee', name: 'IEEE Transactions', description: 'Official IEEE format for technical, electrical, and engineering research papers.', category: 'Engineering', icon: 'architecture', available: true },
-    { id: 'nature', name: 'Nature Portfolio', description: 'Standard formatting template for submission to all Nature Portfolio journals.', category: 'Life Sciences', icon: 'biotech', available: true },
-    { id: 'elsevier', name: 'Elsevier Standard', description: "General formatting guidelines compatible with Elsevier's wide range of journals.", category: 'Engineering', icon: 'description', available: true },
-    { id: 'springer', name: 'Springer LNCS', description: 'Multi-column layouts and specific LNCS styles for Computer Science.', category: 'Engineering', icon: 'science', available: false },
-    { id: 'apa', name: 'APA 7th Edition', description: 'Latest APA formatting standards for social and behavioral sciences research.', category: 'Social Sciences', icon: 'history_edu', available: true },
-    { id: 'modern_red', name: 'Modern Crimson', description: 'A bold, elegant modern style with deep red accents, perfect for standout reports.', category: 'All Publishers', icon: 'palette', available: true },
-    { id: 'modern_gold', name: 'Modern Gold', description: 'A prestigious, clean design with gold typography highlights for premium manuscripts.', category: 'All Publishers', icon: 'auto_awesome', available: true },
-    { id: 'modern_blue', name: 'Modern Azure', description: 'A crisp, corporate-friendly modern layout featuring cool blue tones and wide margins.', category: 'All Publishers', icon: 'water_drop', available: true },
+// Built-in templates with stable UI metadata.
+const BUILT_IN_TEMPLATES = [
+    { id: 'ieee', name: 'IEEE', description: 'IEEE manuscript style for engineering and technical papers.', category: 'Engineering', citation: 'Numbered [1]', icon: 'architecture', available: true },
+    { id: 'apa', name: 'APA (7th)', description: 'APA 7th Edition formatting for social and behavioral sciences.', category: 'Social Science', citation: 'Author-Year', icon: 'history_edu', available: true },
+    { id: 'acm', name: 'ACM', description: 'ACM format for computer science conference and journal submissions.', category: 'Computer Science', citation: 'ACM Numbered', icon: 'computer', available: true },
+    { id: 'springer', name: 'Springer', description: 'Springer-ready structure and references for scientific manuscripts.', category: 'Science', citation: 'Author-Year', icon: 'science', available: true },
+    { id: 'elsevier', name: 'Elsevier', description: 'Elsevier manuscript formatting with numbered reference conventions.', category: 'Science', citation: 'Numbered', icon: 'description', available: true },
+    { id: 'nature', name: 'Nature', description: 'Nature-style manuscript setup with superscript citation expectations.', category: 'Biology/Science', citation: 'Superscript', icon: 'biotech', available: true },
+    { id: 'harvard', name: 'Harvard', description: 'Harvard referencing and document conventions for general use.', category: 'General', citation: 'Author-Year', icon: 'menu_book', available: true },
+    { id: 'chicago', name: 'Chicago (17th)', description: 'Chicago Notes-Bibliography formatting for humanities writing.', category: 'Humanities', citation: 'Notes-Bib', icon: 'library_books', available: true },
+    { id: 'mla', name: 'MLA (9th)', description: 'MLA 9th Edition formatting for language and literature manuscripts.', category: 'Humanities', citation: 'Author-Page', icon: 'book_2', available: true },
+    { id: 'vancouver', name: 'Vancouver', description: 'Vancouver numeric style commonly used in medical publishing.', category: 'Medicine', citation: 'Numbered', icon: 'medication', available: true },
+    { id: 'numeric', name: 'Numeric', description: 'Generic numbered citation template for broad journal compatibility.', category: 'General', citation: 'Numbered', icon: 'format_list_numbered', available: true },
+    { id: 'none', name: 'None', description: 'Preserves document structure with minimal formatting intervention.', category: 'Passthrough', citation: 'Preserved', icon: 'filter_none', available: true },
+    { id: 'modern_blue', name: 'Modern Blue', description: 'Modern visual treatment with blue accents and IEEE-like citation behavior.', category: 'Custom', citation: 'IEEE-based', icon: 'water_drop', available: true },
+    { id: 'modern_gold', name: 'Modern Gold', description: 'Modern premium style with gold accents and APA-like citation behavior.', category: 'Custom', citation: 'APA-based', icon: 'auto_awesome', available: true },
+    { id: 'modern_red', name: 'Modern Red', description: 'Modern expressive style with red accents and APA-like citation behavior.', category: 'Custom', citation: 'APA-based', icon: 'palette', available: true },
 ];
 
-const CATEGORIES = ['All Publishers', 'Engineering', 'Life Sciences', 'Social Sciences'];
+const BUILT_IN_TEMPLATE_MAP = new Map(BUILT_IN_TEMPLATES.map((template) => [template.id, template]));
 const ITEMS_PER_PAGE = 6;
 
 export default function Templates() {
     usePageTitle('Journal Templates');
     const navigate = useNavigate();
-    const [templates, setTemplates] = useState(FALLBACK_TEMPLATES);
+    const [templates, setTemplates] = useState(BUILT_IN_TEMPLATES);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeCategory, setActiveCategory] = useState('All Publishers');
     const [currentPage, setCurrentPage] = useState(1);
@@ -44,16 +52,28 @@ export default function Templates() {
         getBuiltinTemplates()
             .then((data) => {
                 if (cancelled) return;
-                if (Array.isArray(data) && data.length > 0) {
-                    setTemplates(data.map(t => ({
-                        id: t.id || t.name?.toLowerCase().replace(/\s+/g, '_'),
-                        name: t.name || t.id,
-                        description: t.description || '',
-                        category: t.category || 'Engineering',
-                        icon: t.icon || 'description',
-                        available: t.available !== false,
-                        guidelines: t.guidelines || t.rules || null,
-                    })));
+                const templatesData = data?.templates ?? data ?? [];
+                if (Array.isArray(templatesData) && templatesData.length > 0) {
+                    const mappedTemplates = templatesData.map((template) => {
+                        const templateId = template.id || template.name?.toLowerCase().replace(/\s+/g, '_');
+                        const metadata = BUILT_IN_TEMPLATE_MAP.get(templateId) || {};
+                        return {
+                            ...metadata,
+                            id: templateId,
+                            name: template.name || metadata.name || templateId,
+                            description: template.description || metadata.description || '',
+                            category: template.category || metadata.category || 'General',
+                            citation: template.citation || metadata.citation || 'Unknown',
+                            icon: template.icon || metadata.icon || 'description',
+                            available: template.available !== false && metadata.available !== false,
+                            guidelines: template.guidelines || template.rules || null,
+                        };
+                    });
+
+                    const byId = new Map(mappedTemplates.map((template) => [template.id, template]));
+                    const allKnownTemplates = BUILT_IN_TEMPLATES.map((template) => byId.get(template.id) || template);
+                    const additionalTemplates = mappedTemplates.filter((template) => !BUILT_IN_TEMPLATE_MAP.has(template.id));
+                    setTemplates([...allKnownTemplates, ...additionalTemplates]);
                 }
             })
             .catch((err) => {
@@ -65,6 +85,11 @@ export default function Templates() {
 
         return () => { cancelled = true; };
     }, []);
+
+    const categories = useMemo(() => ([
+        'All Publishers',
+        ...new Set(templates.map((template) => template.category).filter(Boolean)),
+    ]), [templates]);
 
     // Filter templates by search and category
     const filteredTemplates = useMemo(() => {
@@ -113,9 +138,11 @@ export default function Templates() {
         setCslResults([]);
         setCslBanner(null);
         try {
-            const results = await searchCSLStyles(cslQuery.trim());
-            setCslResults(Array.isArray(results) ? results : []);
-            if (!results?.length) setCslBanner({ type: 'info', msg: 'No styles found. Try a different journal name.' });
+            const cslData = await searchCSLStyles(cslQuery.trim());
+            const results = cslData?.results ?? cslData ?? [];
+            const normalizedResults = Array.isArray(results) ? results : [];
+            setCslResults(normalizedResults);
+            if (!normalizedResults.length) setCslBanner({ type: 'info', msg: 'No styles found. Try a different journal name.' });
         } catch {
             setCslBanner({ type: 'error', msg: 'CSL search failed. Backend endpoint may not be available yet.' });
         } finally {
@@ -168,7 +195,7 @@ export default function Templates() {
                         </div>
                         {/* Filters/Chips */}
                         <div className="flex gap-3 py-2 flex-wrap">
-                            {CATEGORIES.map((cat) => (
+                            {categories.map((cat) => (
                                 <button
                                     key={cat}
                                     onClick={() => setActiveCategory(cat)}
@@ -380,63 +407,82 @@ export default function Templates() {
                 </div>
             </main>
 
-            {/* Preview Guidelines Modal */}
-            {previewTemplate && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setPreviewTemplate(null)}>
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-lg w-full max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-                        <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="size-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-                                    <span className="material-symbols-outlined">{previewTemplate.icon}</span>
-                                </div>
-                                <div>
-                                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">{previewTemplate.name}</h3>
-                                    <p className="text-xs text-slate-500">{previewTemplate.category}</p>
-                                </div>
-                            </div>
-                            <button onClick={() => setPreviewTemplate(null)} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-                                <span className="material-symbols-outlined text-slate-400">close</span>
-                            </button>
-                        </div>
-                        <div className="p-6">
-                            <h4 className="font-bold text-slate-900 dark:text-white mb-3">Formatting Guidelines</h4>
-                            {previewTemplate.guidelines ? (
-                                <pre className="text-sm text-slate-600 dark:text-slate-400 whitespace-pre-wrap font-sans leading-relaxed">{typeof previewTemplate.guidelines === 'string' ? previewTemplate.guidelines : JSON.stringify(previewTemplate.guidelines, null, 2)}</pre>
-                            ) : (
-                                <div className="space-y-3 text-sm text-slate-600 dark:text-slate-400">
-                                    <p>{previewTemplate.description}</p>
-                                    <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4 space-y-2">
-                                        <p className="font-bold text-slate-700 dark:text-slate-200">Standard Rules:</p>
-                                        <ul className="list-disc list-inside space-y-1">
-                                            <li>Two-column layout (where applicable)</li>
-                                            <li>Times New Roman / Computer Modern fonts</li>
-                                            <li>Numbered references in order of citation</li>
-                                            <li>Author-date citation style (APA) or numbered</li>
-                                            <li>Section numbering with hierarchical headings</li>
-                                            <li>Abstract limited to 200-250 words</li>
-                                        </ul>
+            <Dialog.Root
+                open={Boolean(previewTemplate)}
+                onOpenChange={(open) => {
+                    if (!open) setPreviewTemplate(null);
+                }}
+            >
+                <Dialog.Portal>
+                    <Dialog.Overlay className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm" />
+                    {previewTemplate && (
+                        <Dialog.Content className="fixed left-1/2 top-1/2 z-[110] w-[calc(100vw-2rem)] max-w-lg max-h-[80vh] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:border-slate-800 dark:bg-slate-900">
+                            <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="size-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                                        <span className="material-symbols-outlined">{previewTemplate.icon}</span>
+                                    </div>
+                                    <div>
+                                        <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white">
+                                            {previewTemplate.name}
+                                        </Dialog.Title>
+                                        <Dialog.Description className="text-xs text-slate-500">
+                                            {previewTemplate.category}
+                                        </Dialog.Description>
                                     </div>
                                 </div>
-                            )}
-                        </div>
-                        <div className="p-6 border-t border-slate-200 dark:border-slate-800 flex gap-3">
-                            <button
-                                onClick={() => { handleSelectTemplate(previewTemplate); setPreviewTemplate(null); }}
-                                disabled={!previewTemplate.available}
-                                className={`flex-1 py-2.5 rounded-lg font-bold text-sm transition-colors ${previewTemplate.available ? 'bg-primary text-white hover:bg-blue-600' : 'bg-slate-200 text-slate-500 cursor-not-allowed'}`}
-                            >
-                                {previewTemplate.available ? 'Use This Template' : 'Coming Soon'}
-                            </button>
-                            <button
-                                onClick={() => setPreviewTemplate(null)}
-                                className="px-6 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg font-bold text-sm hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-                            >
-                                Close
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+                                <Dialog.Close asChild>
+                                    <button
+                                        type="button"
+                                        className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                        aria-label="Close template preview"
+                                    >
+                                        <span className="material-symbols-outlined text-slate-400">close</span>
+                                    </button>
+                                </Dialog.Close>
+                            </div>
+                            <div className="p-6">
+                                <h4 className="font-bold text-slate-900 dark:text-white mb-3">Formatting Guidelines</h4>
+                                {previewTemplate.guidelines ? (
+                                    <pre className="text-sm text-slate-600 dark:text-slate-400 whitespace-pre-wrap font-sans leading-relaxed">{typeof previewTemplate.guidelines === 'string' ? previewTemplate.guidelines : JSON.stringify(previewTemplate.guidelines, null, 2)}</pre>
+                                ) : (
+                                    <div className="space-y-3 text-sm text-slate-600 dark:text-slate-400">
+                                        <p>{previewTemplate.description}</p>
+                                        <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4 space-y-2">
+                                            <p className="font-bold text-slate-700 dark:text-slate-200">Standard Rules:</p>
+                                            <ul className="list-disc list-inside space-y-1">
+                                                <li>Two-column layout (where applicable)</li>
+                                                <li>Times New Roman / Computer Modern fonts</li>
+                                                <li>Numbered references in order of citation</li>
+                                                <li>Author-date citation style (APA) or numbered</li>
+                                                <li>Section numbering with hierarchical headings</li>
+                                                <li>Abstract limited to 200-250 words</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="p-6 border-t border-slate-200 dark:border-slate-800 flex gap-3">
+                                <button
+                                    onClick={() => { handleSelectTemplate(previewTemplate); setPreviewTemplate(null); }}
+                                    disabled={!previewTemplate.available}
+                                    className={`flex-1 py-2.5 rounded-lg font-bold text-sm transition-colors ${previewTemplate.available ? 'bg-primary text-white hover:bg-blue-600' : 'bg-slate-200 text-slate-500 cursor-not-allowed'}`}
+                                >
+                                    {previewTemplate.available ? 'Use This Template' : 'Coming Soon'}
+                                </button>
+                                <Dialog.Close asChild>
+                                    <button
+                                        type="button"
+                                        className="px-6 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg font-bold text-sm hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                                    >
+                                        Close
+                                    </button>
+                                </Dialog.Close>
+                            </div>
+                        </Dialog.Content>
+                    )}
+                </Dialog.Portal>
+            </Dialog.Root>
 
             <Footer variant="app" />
         </div>

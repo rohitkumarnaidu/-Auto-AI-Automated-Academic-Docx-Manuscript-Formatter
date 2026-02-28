@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Backgro
 from app.utils.dependencies import get_current_user, get_optional_user
 from app.schemas.user import User
 from app.services.document_service import DocumentService
+from app.services.enhancement_manager import enhancement_manager
 from app.pipeline.orchestrator import PipelineOrchestrator
 from app.pipeline.export.pdf_exporter import PDFExporter
 from app.config.settings import settings
@@ -249,16 +250,16 @@ async def upload_document_chunked(
                     pass
                 raise HTTPException(status_code=503, detail="Database temporarily unavailable. Please retry later.")
 
-            from app.utils.background_tasks import run_pipeline_with_timeout
             orchestrator = PipelineOrchestrator()
-            background_tasks.add_task(
-                run_pipeline_with_timeout,
+            dispatch_info = enhancement_manager.dispatch_document_pipeline(
+                background_tasks=background_tasks,
                 orchestrator=orchestrator,
                 input_path=file_path,
-                job_id=job_id,
+                job_id=str(job_id),
                 template_name=template,
                 formatting_options=formatting_options,
             )
+            logger.info("Chunk upload dispatch mode for job %s: %s", job_id, dispatch_info.get("mode"))
 
             return {
                 "status": "complete",
@@ -430,16 +431,16 @@ async def upload_document(
 
         # ── Background pipeline ────────────────────────────────────────────────
 
-        from app.utils.background_tasks import run_pipeline_with_timeout
         orchestrator = PipelineOrchestrator()
-        background_tasks.add_task(
-            run_pipeline_with_timeout,
+        dispatch_info = enhancement_manager.dispatch_document_pipeline(
+            background_tasks=background_tasks,
             orchestrator=orchestrator,
             input_path=file_path,
-            job_id=job_id,
+            job_id=str(job_id),
             template_name=template,
             formatting_options=formatting_options,
         )
+        logger.info("Upload dispatch mode for job %s: %s", job_id, dispatch_info.get("mode"))
 
         return {"message": "Processing started", "job_id": str(job_id), "status": "PROCESSING"}
 
@@ -553,12 +554,14 @@ async def edit_document(
             raise HTTPException(status_code=400, detail="Missing edited_structured_data")
 
         orchestrator = PipelineOrchestrator()
-        background_tasks.add_task(
-            orchestrator.run_edit_flow,
+        dispatch_info = enhancement_manager.dispatch_edit_flow(
+            background_tasks=background_tasks,
+            orchestrator=orchestrator,
             job_id=job_id,
             edited_structured_data=edited_data,
             template_name=doc.get("template"),
         )
+        logger.info("Edit dispatch mode for job %s: %s", job_id, dispatch_info.get("mode"))
 
         return {"message": "Edit received, re-formatting started", "job_id": job_id, "status": "PROCESSING"}
 
@@ -895,13 +898,15 @@ async def batch_upload(
 
             # Start background processing
             orchestrator = PipelineOrchestrator()
-            background_tasks.add_task(
-                orchestrator.run_pipeline,
+            dispatch_info = enhancement_manager.dispatch_document_pipeline(
+                background_tasks=background_tasks,
+                orchestrator=orchestrator,
                 input_path=file_path,
                 job_id=job_id,
                 template_name=template,
                 formatting_options={},
             )
+            logger.info("Batch upload dispatch mode for job %s: %s", job_id, dispatch_info.get("mode"))
 
             results.append({
                 "filename": file.filename,

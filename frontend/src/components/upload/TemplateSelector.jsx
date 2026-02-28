@@ -1,5 +1,23 @@
 import { Link } from 'react-router-dom';
 
+const TEMPLATE_OPTIONS = [
+    { value: 'none', label: 'None (No formatting)' },
+    { value: 'ieee', label: 'IEEE' },
+    { value: 'apa', label: 'APA (7th Edition)' },
+    { value: 'acm', label: 'ACM' },
+    { value: 'springer', label: 'Springer' },
+    { value: 'elsevier', label: 'Elsevier' },
+    { value: 'nature', label: 'Nature' },
+    { value: 'harvard', label: 'Harvard' },
+    { value: 'chicago', label: 'Chicago (17th)' },
+    { value: 'mla', label: 'MLA (9th)' },
+    { value: 'vancouver', label: 'Vancouver' },
+    { value: 'numeric', label: 'Numeric' },
+    { value: 'modern_blue', label: 'Modern Blue' },
+    { value: 'modern_gold', label: 'Modern Gold' },
+    { value: 'modern_red', label: 'Modern Red' },
+];
+
 export default function TemplateSelector({
     category,
     template,
@@ -24,12 +42,11 @@ export default function TemplateSelector({
                             disabled={isProcessing}
                             className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 pl-3 pr-8 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none appearance-none disabled:opacity-50 transition-all font-medium cursor-pointer"
                         >
-                            <option value="none">None (General Formatting)</option>
-                            <option value="ieee">IEEE Standard</option>
-                            <option value="springer">Springer Nature (Standard)</option>
-                            <option value="apa">APA Style (7th Edition)</option>
-                            <option value="modern">Modern Styles (Red, Gold, Blue)</option>
-                            <option value="browse_more" className="text-primary font-bold">Browse More Templates...</option>
+                            {TEMPLATE_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                    {option.label}
+                                </option>
+                            ))}
                         </select>
                         <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
                             <span className="material-symbols-outlined text-[18px] text-slate-500 dark:text-slate-400">expand_more</span>

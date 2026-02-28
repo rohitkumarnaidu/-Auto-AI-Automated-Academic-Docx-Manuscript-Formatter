@@ -73,7 +73,7 @@ describe('Templates page', () => {
         fireEvent.click(selectButtons[0]);
 
         expect(navigateMock).toHaveBeenCalledWith('/upload', {
-            state: { preselectedTemplate: 'ieee' },
+            state: { template: 'ieee' },
         });
     });
 });

@@ -1,0 +1,62 @@
+name: resume
+display_name: "Professional Resume / CV"
+category: professional
+description: "Single-column professional resume template for generated CV documents."
+
+styles:
+  TITLE: "Title"
+  AUTHOR: "Normal"
+  AFFILIATION: "Normal"
+  ABSTRACT_HEADING: "Heading 1"
+  ABSTRACT_BODY: "Normal"
+  KEYWORDS_HEADING: "Heading 2"
+  KEYWORDS_BODY: "Normal"
+  HEADING_1: "Heading 1"
+  HEADING_2: "Heading 2"
+  HEADING_3: "Heading 3"
+  HEADING_4: "Heading 4"
+  BODY: "Normal"
+  REFERENCES_HEADING: "Heading 1"
+  REFERENCE_ENTRY: "References"
+  FIGURE_CAPTION: "Caption"
+  TABLE_CAPTION: "Caption"
+
+layout_name: single-column-professional
+layout:
+  default_columns: 1
+  section_overrides:
+    references: 1
+  margins:
+    top: 0.79
+    bottom: 0.79
+    left: 0.79
+    right: 0.79
+  spacing:
+    paragraph:
+      before: 0
+      after: 6
+    heading:
+      before: 12
+      after: 6
+    title:
+      before: 0
+      after: 12
+    references:
+      before: 12
+      after: 6
+
+options:
+  page_numbers: false
+  cover_page: false
+  table_of_contents: false
+  citation_style: none
+
+section_order:
+  - name
+  - contact
+  - summary
+  - skills
+  - experience
+  - education
+  - certifications
+  - publications

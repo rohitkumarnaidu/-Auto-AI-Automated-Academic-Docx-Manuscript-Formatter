@@ -109,6 +109,7 @@ class PdfParser(BaseParser):
         
         # Extract content
         blocks, figures, tables = self._extract_content(pdf_doc)
+        blocks, ocr_backend = self._maybe_apply_ocr_fallback(file_path, pdf_doc, blocks)
         
         document.blocks = blocks
         document.figures = figures
@@ -121,6 +122,7 @@ class PdfParser(BaseParser):
             message=(
                 f"Parsed PDF: {len(blocks)} blocks, {len(figures)} figures, "
                 f"{len(tables)} tables from {len(pdf_doc)} pages"
+                + (f" (OCR fallback backend: {ocr_backend})" if ocr_backend else "")
             )
         )
         
@@ -144,6 +146,107 @@ class PdfParser(BaseParser):
                 metadata.keywords = [k.strip() for k in keywords_raw.split(',') if k.strip()]
         
         return metadata
+
+    @staticmethod
+    def _should_attempt_ocr_fallback(blocks: List[Block], page_count: int) -> bool:
+        """
+        Determine whether OCR fallback should run for sparse-text PDFs.
+        """
+        if page_count <= 0:
+            return False
+
+        text_chars = sum(len((block.text or "").strip()) for block in blocks)
+        chars_per_page = text_chars / max(1, page_count)
+
+        # Conservative threshold: avoid unnecessary OCR for normal searchable PDFs.
+        return text_chars < 300 or chars_per_page < 80
+
+    def _maybe_apply_ocr_fallback(
+        self,
+        file_path: str,
+        pdf_doc,
+        parsed_blocks: List[Block],
+    ) -> Tuple[List[Block], Optional[str]]:
+        """
+        When a PDF is likely scanned/image-based, extract OCR text and replace sparse blocks.
+        Keeps core parser path unchanged if OCR is unavailable/fails.
+        """
+        try:
+            from app.services.enhancement_manager import enhancement_manager
+            from app.pipeline.ocr.pdf_ocr import OCRError, PdfOCR
+        except Exception as exc:
+            logger.debug("OCR fallback imports unavailable: %s", exc)
+            return parsed_blocks, None
+
+        profile = enhancement_manager.profile
+        if not (profile.enabled and profile.ocr_enabled):
+            return parsed_blocks, None
+
+        if not self._should_attempt_ocr_fallback(parsed_blocks, len(pdf_doc)):
+            return parsed_blocks, None
+
+        backends = [name for name in enhancement_manager.get_ocr_backends() if name in {"tesseract", "paddle"}]
+        if not backends:
+            return parsed_blocks, None
+
+        ocr = PdfOCR(text_threshold=300)
+        is_scanned = ocr.is_scanned(file_path)
+        if not is_scanned and parsed_blocks:
+            # Keep parsed text if this doesn't strongly look scanned and parser produced content.
+            return parsed_blocks, None
+
+        try:
+            extracted_text, backend_used = ocr.extract_text(file_path, backends=backends)
+            ocr_blocks = self._build_ocr_blocks(extracted_text, backend_used)
+            if not ocr_blocks:
+                return parsed_blocks, None
+
+            logger.info(
+                "PDF OCR fallback applied for %s using backend=%s (blocks: %d -> %d)",
+                file_path,
+                backend_used,
+                len(parsed_blocks),
+                len(ocr_blocks),
+            )
+            return ocr_blocks, backend_used
+        except OCRError as exc:
+            logger.warning("PDF OCR fallback failed for %s: %s", file_path, exc)
+            return parsed_blocks, None
+        except Exception as exc:
+            logger.warning("Unexpected PDF OCR fallback error for %s: %s", file_path, exc)
+            return parsed_blocks, None
+
+    def _build_ocr_blocks(self, extracted_text: str, backend_used: str) -> List[Block]:
+        """
+        Build body blocks from OCR text while preserving parser Block model semantics.
+        """
+        cleaned_text = (extracted_text or "").strip()
+        if not cleaned_text:
+            return []
+
+        # Paragraph-aware splitting first; fallback to line splitting.
+        paragraphs = [part.strip() for part in re.split(r"\n\s*\n", cleaned_text) if part.strip()]
+        if not paragraphs:
+            paragraphs = [line.strip() for line in cleaned_text.splitlines() if line.strip()]
+
+        ocr_blocks: List[Block] = []
+        for paragraph in paragraphs:
+            block_id = generate_block_id(self.block_counter)
+            self.block_counter += 1
+            ocr_blocks.append(
+                Block(
+                    block_id=block_id,
+                    text=paragraph,
+                    index=self.block_counter * 100,
+                    block_type=BlockType.BODY,
+                    page_number=None,
+                    metadata={
+                        "ocr_generated": True,
+                        "ocr_backend": backend_used,
+                    },
+                )
+            )
+        return ocr_blocks
 
     def _calculate_font_stats(self, pdf_doc) -> float:
         """

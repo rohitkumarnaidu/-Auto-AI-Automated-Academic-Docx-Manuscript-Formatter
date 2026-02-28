@@ -38,6 +38,8 @@ const Terms = lazy(() => import('./pages/Terms'));
 const Privacy = lazy(() => import('./pages/Privacy'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Profile = lazy(() => import('./pages/Profile'));
+const DocumentGenerator = lazy(() => import('./pages/DocumentGenerator'));
+
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -172,6 +174,15 @@ function App() {
                                             element={withBoundary(
                                                 <ProtectedRoute>
                                                     <SettingsPage />
+                                                </ProtectedRoute>,
+                                            )}
+                                        />
+
+                                        <Route
+                                            path="/generate"
+                                            element={withBoundary(
+                                                <ProtectedRoute>
+                                                    <DocumentGenerator />
                                                 </ProtectedRoute>,
                                             )}
                                         />

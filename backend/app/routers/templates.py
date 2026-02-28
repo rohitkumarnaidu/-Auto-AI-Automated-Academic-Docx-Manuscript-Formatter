@@ -92,6 +92,23 @@ def _extract_template_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
 async def list_builtin_templates():
     """List all built-in templates (public)."""
     templates_dir = Path(__file__).resolve().parents[1] / "templates"
+    public_templates = {
+        "ieee",
+        "apa",
+        "acm",
+        "springer",
+        "elsevier",
+        "nature",
+        "harvard",
+        "chicago",
+        "mla",
+        "vancouver",
+        "numeric",
+        "none",
+        "modern_blue",
+        "modern_gold",
+        "modern_red",
+    }
     descriptions = {
         "ieee": "IEEE manuscript style",
         "springer": "Springer journal style",
@@ -105,6 +122,8 @@ async def list_builtin_templates():
         for entry in sorted(templates_dir.iterdir()):
             if entry.is_dir() and not entry.name.startswith("__"):
                 template_id = entry.name
+                if template_id not in public_templates:
+                    continue
                 items.append(
                     {
                         "id": template_id,
@@ -118,23 +137,40 @@ async def list_builtin_templates():
 
 
 @templates_router.get("/csl/search")
-async def csl_search(query: str = Query(..., min_length=1)):
+async def csl_search(
+    q: Optional[str] = Query(default=None, min_length=1),
+    query: Optional[str] = Query(default=None, min_length=1),
+):
     """Search CSL styles by keyword."""
-    results = await search_styles(query)
-    return {"query": query, "results": results}
+    search_query = (q or query or "").strip()
+    if not search_query:
+        raise HTTPException(status_code=422, detail="q query parameter is required")
+
+    results = await search_styles(search_query)
+    return {"query": search_query, "results": results}
 
 
-@templates_router.get("/csl/fetch")
-async def csl_fetch(slug: str = Query(..., min_length=1)):
-    """Fetch CSL XML by style slug."""
+async def _fetch_csl_style(slug: str):
     try:
-        style = await fetch_style(slug)
+        style = await fetch_style(slug.strip())
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
         logger.error("Failed to fetch CSL style '%s': %s", slug, exc)
         raise HTTPException(status_code=502, detail=f"Failed to fetch CSL style '{slug}'")
     return style
+
+
+@templates_router.get("/csl/fetch")
+async def csl_fetch(slug: str = Query(..., min_length=1)):
+    """Fetch CSL XML by style slug."""
+    return await _fetch_csl_style(slug)
+
+
+@templates_router.get("/csl/{style_id}")
+async def csl_fetch_by_style_id(style_id: str):
+    """Fetch CSL XML by style id/slug."""
+    return await _fetch_csl_style(style_id)
 
 
 @templates_router.get("/custom")

@@ -1,5 +1,5 @@
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -114,3 +114,31 @@ def test_custom_template_validation(client, authenticated_user):
         )
     assert response.status_code == 422
     assert "config" in response.json()["detail"].lower()
+
+
+def test_list_builtin_templates_response_shape(client):
+    response = client.get("/api/templates/")
+    assert response.status_code == 200
+    payload = response.json()
+    assert isinstance(payload, dict)
+    assert isinstance(payload.get("templates"), list)
+
+
+def test_csl_search_uses_q_and_returns_results(client):
+    mocked_results = [{"slug": "nature", "title": "Nature"}]
+    with patch("app.routers.templates.search_styles", new=AsyncMock(return_value=mocked_results)) as mocked_search:
+        response = client.get("/api/templates/csl/search?q=nature")
+
+    assert response.status_code == 200
+    assert response.json() == {"query": "nature", "results": mocked_results}
+    mocked_search.assert_awaited_once_with("nature")
+
+
+def test_csl_fetch_by_style_id_uses_get(client):
+    mocked_style = {"slug": "ieee", "source": "local", "content": "<style />"}
+    with patch("app.routers.templates.fetch_style", new=AsyncMock(return_value=mocked_style)) as mocked_fetch:
+        response = client.get("/api/templates/csl/ieee")
+
+    assert response.status_code == 200
+    assert response.json() == mocked_style
+    mocked_fetch.assert_awaited_once_with("ieee")

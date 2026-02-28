@@ -67,6 +67,8 @@ temp/
 .coverage
 htmlcov/
 .pytest_cache/
+frontend/playwright-report/
+frontend/test-results/
 
 
 # Local logs and test artifacts

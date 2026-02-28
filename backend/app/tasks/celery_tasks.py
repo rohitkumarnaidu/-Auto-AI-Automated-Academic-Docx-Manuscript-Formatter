@@ -3,6 +3,7 @@
 import os
 import logging
 import time
+import asyncio
 from celery import Celery
 from app.pipeline.orchestrator import PipelineOrchestrator
 
@@ -68,4 +69,48 @@ def process_document_task(document_id: str, use_agent: bool = True):
         logger.error("Async processing failed for %s: %s", document_id, exc, exc_info=True)
         # Mark as FAILED — never raises
         DocumentService.mark_document_failed(document_id, str(exc))
+        return False
+
+
+@celery_app.task(name="process_generation_async")
+def process_generation_task(job_id: str):
+    """
+    Run generate-from-scratch jobs through Celery when enabled.
+    """
+    logger.info("Starting async generation for job: %s", job_id)
+    try:
+        from app.pipeline.generation.document_generator import get_generator
+
+        generator = get_generator()
+        asyncio.run(generator.run_pipeline(str(job_id)))
+        logger.info("Generation job %s completed successfully via Celery", job_id)
+        return True
+    except Exception as exc:
+        logger.error("Generation task failed for %s: %s", job_id, exc, exc_info=True)
+        DocumentService.mark_document_failed(str(job_id), str(exc))
+        return False
+
+
+@celery_app.task(name="process_edit_document_async")
+def process_edit_document_task(job_id: str, edited_structured_data: dict, template_name: str = "IEEE"):
+    """
+    Run edit/reformat flow through Celery when enabled.
+    """
+    logger.info("Starting async edit flow for job: %s", job_id)
+    try:
+        orchestrator = PipelineOrchestrator()
+        result = orchestrator.run_edit_flow(
+            job_id=str(job_id),
+            edited_structured_data=edited_structured_data or {},
+            template_name=template_name or "IEEE",
+        )
+        ok = isinstance(result, dict) and result.get("status") == "success"
+        if ok:
+            logger.info("Edit job %s completed successfully via Celery", job_id)
+        else:
+            logger.warning("Edit job %s finished with non-success result: %s", job_id, result)
+        return ok
+    except Exception as exc:
+        logger.error("Edit task failed for %s: %s", job_id, exc, exc_info=True)
+        DocumentService.mark_document_failed(str(job_id), f"Edit flow failed: {exc}")
         return False

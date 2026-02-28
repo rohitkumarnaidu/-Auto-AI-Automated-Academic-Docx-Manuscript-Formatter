@@ -156,41 +156,74 @@ def _get_keybert_model():
 
 def extract_keywords(text: str, top_k: int = 8) -> List[str]:
     """
-    Hybrid keyword extraction:
-    1) YAKE for cheap candidate generation.
-    2) KeyBERT re-ranking when available.
+    Enhancement-aware keyword extraction with strict fallback order.
+    Default order: keybert -> yake -> basic.
     """
     text = (text or "").strip()
     if not text:
         return []
 
+    def basic_fallback() -> List[str]:
+        # Ultimate fallback: deterministic token frequency heuristic.
+        tokens = [t.strip(".,;:!?()[]{}").lower() for t in text.split()]
+        tokens_local = [t for t in tokens if len(t) > 3]
+        freq: Dict[str, int] = {}
+        for token in tokens_local:
+            freq[token] = freq.get(token, 0) + 1
+        return [tok for tok, _count in sorted(freq.items(), key=lambda item: item[1], reverse=True)[:top_k]]
+
+    backend_order = ["keybert", "yake", "basic"]
+    try:
+        from app.services.enhancement_manager import enhancement_manager
+
+        profile = enhancement_manager.profile
+        if profile.enabled and profile.keyword_enabled:
+            backend_order = enhancement_manager.get_keyword_backends()
+        else:
+            backend_order = ["basic"]
+    except Exception as exc:
+        logger.debug("Enhancement profile unavailable for keyword extraction: %s", exc)
+
     yake_candidates: List[str] = []
-    if YAKE_AVAILABLE and yake is not None:
-        try:
-            extractor = yake.KeywordExtractor(lan="en", n=2, top=max(top_k * 2, 10))
-            yake_candidates = [kw for kw, _score in extractor.extract_keywords(text) if kw]
-        except Exception as exc:
-            logger.warning("YAKE extraction failed: %s", exc)
+    for backend in backend_order:
+        if backend == "yake":
+            if not (YAKE_AVAILABLE and yake is not None):
+                continue
+            try:
+                extractor = yake.KeywordExtractor(lan="en", n=2, top=max(top_k * 2, 10))
+                yake_candidates = [kw for kw, _score in extractor.extract_keywords(text) if kw]
+                if yake_candidates:
+                    return yake_candidates[:top_k]
+            except Exception as exc:
+                logger.warning("YAKE extraction failed: %s", exc)
 
-    keybert_model = _get_keybert_model()
-    if keybert_model is not None:
-        try:
-            kw = keybert_model.extract_keywords(
-                text,
-                candidates=yake_candidates or None,
-                top_n=top_k,
-                stop_words="english",
-            )
-            keywords = [item[0] for item in kw if item and item[0]]
-            if keywords:
-                return keywords
-        except Exception as exc:
-            logger.warning("KeyBERT extraction failed: %s", exc)
+        elif backend == "keybert":
+            keybert_model = _get_keybert_model()
+            if keybert_model is None:
+                continue
+            try:
+                if not yake_candidates and YAKE_AVAILABLE and yake is not None:
+                    extractor = yake.KeywordExtractor(lan="en", n=2, top=max(top_k * 2, 10))
+                    yake_candidates = [kw for kw, _score in extractor.extract_keywords(text) if kw]
 
+                kw = keybert_model.extract_keywords(
+                    text,
+                    candidates=yake_candidates or None,
+                    top_n=top_k,
+                    stop_words="english",
+                )
+                keywords = [item[0] for item in kw if item and item[0]]
+                if keywords:
+                    return keywords
+            except Exception as exc:
+                logger.warning("KeyBERT extraction failed: %s", exc)
+
+        elif backend == "basic":
+            return basic_fallback()
+
+    # Safety fallback: never fail keyword extraction.
     if yake_candidates:
         return yake_candidates[:top_k]
-
-    # Ultimate fallback: deterministic token frequency heuristic.
     tokens = [t.strip(".,;:!?()[]{}").lower() for t in text.split()]
     tokens = [t for t in tokens if len(t) > 3]
     freq: Dict[str, int] = {}

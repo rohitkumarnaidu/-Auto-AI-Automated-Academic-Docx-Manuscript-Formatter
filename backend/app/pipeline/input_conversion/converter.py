@@ -110,10 +110,21 @@ class InputConverter:
         Auto-detects scanned PDFs and applies OCR if needed.
         """
         from app.pipeline.ocr.pdf_ocr import PdfOCR, OCRError
+        from app.services.enhancement_manager import enhancement_manager
         
         output_path = os.path.join(output_dir, "input.docx")
+        profile = enhancement_manager.profile
+        if not (profile.enabled and profile.ocr_enabled):
+            enable_ocr = False
+            logger.info(
+                "Job %s: OCR enhancement disabled by capability profile. Using LibreOffice fallback path.",
+                job_id,
+            )
+        ocr_backends = enhancement_manager.get_ocr_backends()
         
-        if enable_ocr:
+        supported_ocr_backends = [backend for backend in ocr_backends if backend in {"tesseract", "paddle"}]
+
+        if enable_ocr and supported_ocr_backends:
             # Check if scanned
             ocr = PdfOCR()
             is_scanned = ocr.is_scanned(input_path)
@@ -121,13 +132,19 @@ class InputConverter:
             if is_scanned:
                 try:
                     logger.info("Job %s: PDF detected as scanned. Attempting OCR...", job_id)
-                    ocr.convert_to_docx(input_path, output_path)
+                    ocr.convert_to_docx(input_path, output_path, backends=supported_ocr_backends)
                     logger.info("Job %s: OCR conversion successful.", job_id)
                     return output_path
                 except OCRError as exc:
                     logger.warning("Job %s: OCR failed (%s). Falling back to LibreOffice.", job_id, exc)
                 except Exception as exc:
                     logger.warning("Job %s: Unexpected OCR error (%s). Falling back.", job_id, exc)
+        elif enable_ocr:
+            logger.info(
+                "Job %s: OCR requested but no supported OCR backend is available (detected=%s). Falling back to LibreOffice.",
+                job_id,
+                ",".join(ocr_backends),
+            )
         else:
             logger.info("Job %s: OCR disabled. Skipping scanned check.", job_id)
                 

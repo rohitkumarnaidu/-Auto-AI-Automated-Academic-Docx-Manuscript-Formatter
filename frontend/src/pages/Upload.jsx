@@ -73,11 +73,7 @@ export default function Upload() {
         const preSelectedTemplate = location.state?.template;
         if (preSelectedTemplate && typeof preSelectedTemplate === 'string') {
             setTemplate(preSelectedTemplate);
-            if (preSelectedTemplate.startsWith('modern_')) {
-                setCategory('modern');
-            } else {
-                setCategory(preSelectedTemplate === 'none' ? 'none' : preSelectedTemplate);
-            }
+            setCategory(preSelectedTemplate === 'none' ? 'none' : preSelectedTemplate);
         }
         // Only run on mount — location.state is stable
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -474,11 +470,7 @@ export default function Upload() {
             return;
         }
         setCategory(nextCategory);
-        if (nextCategory === 'none') setTemplate('none');
-        else if (nextCategory === 'ieee') setTemplate('ieee');
-        else if (nextCategory === 'springer') setTemplate('springer');
-        else if (nextCategory === 'apa') setTemplate('apa');
-        else if (nextCategory === 'modern') setTemplate('modern_red'); // default default
+        setTemplate(nextCategory);
     }, [navigate]);
 
     const isJobCompleted = isCompleted(job?.status);

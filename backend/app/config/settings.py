@@ -47,6 +47,15 @@ if _PS:
         FORCE_HTTPS: bool = False
         DEBUG: bool = True
 
+        # Enhancement Layer (all optional / fallback-safe)
+        ENHANCEMENTS_ENABLED: bool = True
+        ENHANCEMENT_QUEUE_ENABLED: bool = False
+        ENHANCEMENT_QUEUE_PROVIDER: str = "auto"  # auto | local | celery
+        ENHANCEMENT_OCR_ENABLED: bool = True
+        ENHANCEMENT_OCR_BACKENDS: str = "tesseract,paddle,surya"
+        ENHANCEMENT_KEYWORD_ENABLED: bool = True
+        ENHANCEMENT_KEYWORD_BACKENDS: str = "keybert,yake,basic"
+
         # Template
         DEFAULT_TEMPLATE: str = "none"
 
@@ -121,6 +130,13 @@ else:
         SUPABASE_DB_URL: Optional[str] = os.getenv("SUPABASE_DB_URL")
         ALGORITHM: str = "HS256"
         CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000")
+        ENHANCEMENTS_ENABLED: bool = os.getenv("ENHANCEMENTS_ENABLED", "true").lower() == "true"
+        ENHANCEMENT_QUEUE_ENABLED: bool = os.getenv("ENHANCEMENT_QUEUE_ENABLED", "false").lower() == "true"
+        ENHANCEMENT_QUEUE_PROVIDER: str = os.getenv("ENHANCEMENT_QUEUE_PROVIDER", "auto")
+        ENHANCEMENT_OCR_ENABLED: bool = os.getenv("ENHANCEMENT_OCR_ENABLED", "true").lower() == "true"
+        ENHANCEMENT_OCR_BACKENDS: str = os.getenv("ENHANCEMENT_OCR_BACKENDS", "tesseract,paddle,surya")
+        ENHANCEMENT_KEYWORD_ENABLED: bool = os.getenv("ENHANCEMENT_KEYWORD_ENABLED", "true").lower() == "true"
+        ENHANCEMENT_KEYWORD_BACKENDS: str = os.getenv("ENHANCEMENT_KEYWORD_BACKENDS", "keybert,yake,basic")
         DEFAULT_TEMPLATE: str = os.getenv("DEFAULT_TEMPLATE", "none")
         HEADING_STYLE_THRESHOLD: float = float(os.getenv("HEADING_STYLE_THRESHOLD", "0.4"))
         HEADING_FALLBACK_CONFIDENCE: float = float(os.getenv("HEADING_FALLBACK_CONFIDENCE", "0.45"))

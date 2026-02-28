@@ -32,6 +32,7 @@ transformers_logging.set_verbosity_error()
 logger = logging.getLogger(__name__)
 
 from app.pipeline.safety import safe_execution
+from app.services.enhancement_manager import enhancement_manager
 
 
 # ── Lifespan (replaces deprecated @app.on_event) ─────────────────────────────
@@ -86,6 +87,12 @@ async def lifespan(app: FastAPI):
             logger.info("Startup: AI models loaded and registered successfully.")
         except Exception as e:
             logger.warning("AI Model Pre-load Warning: %s. Falling back to lazy-loading.", e)
+
+        try:
+            profile = enhancement_manager.refresh()
+            logger.info("Enhancement capabilities loaded: %s", profile.to_dict())
+        except Exception as e:
+            logger.warning("Enhancement capability bootstrap failed: %s", e)
 
     yield  # App is running
 
@@ -147,19 +154,9 @@ app.include_router(feedback.router, prefix="/api")
 from app.routers import stream
 app.include_router(stream.router)
 
-
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    """
-    Global Safety Net: Catches any unhandled exception to prevent server crash.
-    Returns 500 but keeps the server alive.
-    """
-    with safe_execution("Global Exception Handler"):
-        logger.error("Unhandled exception: %s", exc, exc_info=True)
-        return JSONResponse(
-            status_code=500,
-            content={"detail": "An internal server error occurred."},
-        )
+# Document Generator (generate from scratch — no upload needed)
+from app.routers import generator
+app.include_router(generator.router, prefix="/api")
 
 
 @app.get("/ready")
