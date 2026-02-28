@@ -1,47 +1,58 @@
-[
-    {
-        "template": "IEEE",
-        "category": "formatting",
-        "guideline": "Use Times New Roman font, 10pt size for the main body text. The document must be formatted in a two-column layout."
-    },
-    {
-        "template": "IEEE",
-        "category": "headings",
-        "guideline": "Level 1 headings should be uppercase, centered, and numbered with Roman numerals. Level 2 headings should be italicized, left-aligned, and numbered with capital letters."
-    },
-    {
-        "template": "IEEE",
-        "category": "references",
-        "guideline": "References must be numbered sequentially in square brackets, e.g., [1]. The reference list should be ordered by appearance in the text."
-    },
-    {
-        "template": "APA",
-        "category": "formatting",
-        "guideline": "Use margins of 1 inch on all sides. The text should be double-spaced throughout the manuscript, including the reference list. Preferred font is Times New Roman 12pt or Calibri 11pt."
-    },
-    {
-        "template": "APA",
-        "category": "headings",
-        "guideline": "Level 1 headings must be centered, bold, and title case. Level 2 headings must be flush left, bold, and title case."
-    },
-    {
-        "template": "APA",
-        "category": "references",
-        "guideline": "Citations in text should use the author-date format (e.g., Smith, 2023). The reference list must be arranged alphabetically by the authors' last names and use a hanging indent."
-    },
-    {
-        "template": "Springer",
-        "category": "formatting",
-        "guideline": "The manuscript should be compiled in a single column layout unless specified otherwise by the specific journal. Standard font is Times 10pt."
-    },
-    {
-        "template": "Springer",
-        "category": "headings",
-        "guideline": "Primary headings should be bold and left-aligned. Decimal numbering scheme is frequently used for sections, e.g., 1, 1.1, 1.1.1."
-    },
-    {
-        "template": "Springer",
-        "category": "references",
-        "guideline": "Reference style varies by discipline (Math/Phys vs Life Sciences). As a general baseline, use numbered citations for physics/math, and name-year citations for life sciences."
-    }
-]
+{
+  "guidelines": [
+    {"publisher": "IEEE", "section": "abstract", "text": "Abstract should be concise (typically 150-250 words) and focused on problem, method, and results."},
+    {"publisher": "IEEE", "section": "section_order", "text": "Section flow should follow Abstract, Keywords, Introduction, Methodology, Results, Conclusion, References."},
+    {"publisher": "IEEE", "section": "references", "text": "Use numeric citations in square brackets ordered by first appearance."},
+    {"publisher": "IEEE", "section": "figures", "text": "Figures must be numbered sequentially and captions should be placed below the figure."},
+
+    {"publisher": "APA", "section": "abstract", "text": "Abstract should summarize objective, method, and findings in up to 250 words."},
+    {"publisher": "APA", "section": "section_order", "text": "Section flow should follow Title, Abstract, Introduction, Method, Results, Discussion, References."},
+    {"publisher": "APA", "section": "references", "text": "Use author-date citations and alphabetized reference entries with hanging indents."},
+    {"publisher": "APA", "section": "figures", "text": "Figures must include descriptive captions and be referenced in text."},
+
+    {"publisher": "SPRINGER", "section": "abstract", "text": "Abstract should be a compact summary with key findings and practical significance."},
+    {"publisher": "SPRINGER", "section": "section_order", "text": "Common order is Abstract, Keywords, Introduction, Related Work, Methodology, Results, Discussion, References."},
+    {"publisher": "SPRINGER", "section": "references", "text": "Reference style may vary by venue; maintain consistency and complete bibliographic fields."},
+    {"publisher": "SPRINGER", "section": "figures", "text": "Figures require clear labels, readable resolution, and numbered captions."},
+
+    {"publisher": "ACM", "section": "abstract", "text": "Abstract should include motivation, approach, and key contributions succinctly."},
+    {"publisher": "ACM", "section": "section_order", "text": "Typical order is Abstract, CCS Concepts, Keywords, Introduction, Method, Evaluation, Conclusion, References."},
+    {"publisher": "ACM", "section": "references", "text": "Use numeric or ACM-specific bibliography style as required by venue template."},
+    {"publisher": "ACM", "section": "figures", "text": "Figures must be cited in text and captions should concisely describe findings."},
+
+    {"publisher": "NATURE", "section": "abstract", "text": "Abstract should highlight novelty and principal findings with strong clarity."},
+    {"publisher": "NATURE", "section": "section_order", "text": "Typical order is Abstract, Main Text, Methods, References, Acknowledgements, Author Contributions."},
+    {"publisher": "NATURE", "section": "references", "text": "Use Nature citation style with numbered references and strict formatting."},
+    {"publisher": "NATURE", "section": "figures", "text": "Figures must be publication quality, with concise legends and panel labels where needed."},
+
+    {"publisher": "ELSEVIER", "section": "abstract", "text": "Abstract should present context, methods, major findings, and implications."},
+    {"publisher": "ELSEVIER", "section": "section_order", "text": "Common order is Abstract, Keywords, Introduction, Materials and Methods, Results, Discussion, Conclusions, References."},
+    {"publisher": "ELSEVIER", "section": "references", "text": "Use the target journal citation style consistently, often numeric for engineering journals."},
+    {"publisher": "ELSEVIER", "section": "figures", "text": "Provide high-resolution figures with informative captions and source data notes when applicable."},
+
+    {"publisher": "HARVARD", "section": "abstract", "text": "Abstract should summarize question, approach, findings, and significance in concise prose."},
+    {"publisher": "HARVARD", "section": "section_order", "text": "Section flow should follow Abstract, Introduction, Main Sections, Conclusion, References."},
+    {"publisher": "HARVARD", "section": "references", "text": "Use author-year Harvard referencing style and ensure complete bibliographic metadata."},
+    {"publisher": "HARVARD", "section": "figures", "text": "Figures should be clearly numbered and cross-referenced from relevant sections."},
+
+    {"publisher": "CHICAGO", "section": "abstract", "text": "Abstract should briefly state the topic, methods, and principal argument or findings."},
+    {"publisher": "CHICAGO", "section": "section_order", "text": "Section flow should follow Introduction, Body Sections, Conclusion, and Bibliography/References."},
+    {"publisher": "CHICAGO", "section": "references", "text": "Use Chicago footnote-bibliography or author-date style consistently as configured."},
+    {"publisher": "CHICAGO", "section": "figures", "text": "Figures should include source attribution and descriptive captions."},
+
+    {"publisher": "MLA", "section": "abstract", "text": "Abstract, when required, should summarize thesis and principal evidence."},
+    {"publisher": "MLA", "section": "section_order", "text": "Section flow should follow Introduction, Analysis Sections, Conclusion, and Works Cited."},
+    {"publisher": "MLA", "section": "references", "text": "Use MLA author-page in-text citations with Works Cited formatted per MLA guidance."},
+    {"publisher": "MLA", "section": "figures", "text": "Figures should include figure labels and source documentation where applicable."},
+
+    {"publisher": "VANCOUVER", "section": "abstract", "text": "Abstract should summarize objective, methods, results, and conclusion clearly."},
+    {"publisher": "VANCOUVER", "section": "section_order", "text": "Section flow should follow Abstract, Introduction, Methods, Results, Discussion, References."},
+    {"publisher": "VANCOUVER", "section": "references", "text": "Use numbered references in citation order following Vancouver style."},
+    {"publisher": "VANCOUVER", "section": "figures", "text": "Figures require numeric labels and concise explanatory captions."},
+
+    {"publisher": "NUMERIC", "section": "abstract", "text": "Abstract should succinctly describe objective, method, results, and conclusion."},
+    {"publisher": "NUMERIC", "section": "section_order", "text": "Section flow should follow Abstract, Introduction, Methods, Results, Discussion, References."},
+    {"publisher": "NUMERIC", "section": "references", "text": "Use bracketed numeric references in order of citation."},
+    {"publisher": "NUMERIC", "section": "figures", "text": "Figures should be sequentially numbered with descriptive captions and in-text references."}
+  ]
+}

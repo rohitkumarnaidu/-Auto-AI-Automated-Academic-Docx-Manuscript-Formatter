@@ -1,5 +1,5 @@
 import usePageTitle from '../hooks/usePageTitle';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
@@ -25,54 +25,74 @@ export default function Profile() {
     const [passwordSaving, setPasswordSaving] = useState(false);
     const [passwordMessage, setPasswordMessage] = useState('');
     const [verifyStatus, setVerifyStatus] = useState('');
+    const [cropImage, setCropImage] = useState(null);
+    const canvasRef = useRef(null);
     const fileInputRef = useRef(null);
-    const { user, signOut, refreshSession, forgotPassword } = useAuth();
+    const { user, signOut, refreshSession } = useAuth();
     const navigate = useNavigate();
 
     const handleAvatarClick = () => {
+        if (fileInputRef.current) fileInputRef.current.value = '';
         fileInputRef.current?.click();
     };
 
-    const handleAvatarChange = async (event) => {
-        try {
-            setUploading(true);
+    const handleAvatarChange = (event) => {
+        if (!event.target.files || event.target.files.length === 0) return;
+        const file = event.target.files[0];
+        const reader = new FileReader();
+        reader.onload = (e) => setCropImage({ src: e.target.result, fileExt: file.name.split('.').pop() });
+        reader.readAsDataURL(file);
+    };
 
-            if (!event.target.files || event.target.files.length === 0) {
-                return;
-            }
-
-            const file = event.target.files[0];
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${user.id}/${Math.random()}.${fileExt}`;
-            const filePath = `${fileName}`;
-
-            const { error: uploadError } = await supabase.storage
-                .from('avatars')
-                .upload(filePath, file);
-
-            if (uploadError) {
-                throw uploadError;
-            }
-
-            const { data: { publicUrl } } = supabase.storage
-                .from('avatars')
-                .getPublicUrl(filePath);
-
-            const { error: updateError } = await supabase.auth.updateUser({
-                data: { avatar_url: publicUrl }
-            });
-
-            if (updateError) {
-                throw updateError;
-            }
-
-            await refreshSession();
-        } catch (error) {
-            console.error('Error uploading avatar:', error);
-            alert('Error uploading avatar: ' + error.message);
-        } finally {
-            setUploading(false);
+    useEffect(() => {
+        if (cropImage && canvasRef.current) {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = canvasRef.current;
+                const ctx = canvas.getContext('2d');
+                const size = Math.min(img.width, img.height);
+                const startX = (img.width - size) / 2;
+                const startY = (img.height - size) / 2;
+                canvas.width = 300;
+                canvas.height = 300;
+                ctx.clearRect(0, 0, 300, 300);
+                ctx.drawImage(img, startX, startY, size, size, 0, 0, 300, 300);
+            };
+            img.src = cropImage.src;
         }
+    }, [cropImage]);
+
+    const handleCropUpload = () => {
+        if (!canvasRef.current || !cropImage) return;
+        canvasRef.current.toBlob(async (blob) => {
+            try {
+                setUploading(true);
+                setCropImage(null);
+
+                const fileName = `${user.id}/${Math.random()}.${cropImage.fileExt}`;
+                const { error: uploadError } = await supabase.storage
+                    .from('avatars')
+                    .upload(fileName, blob, { contentType: `image/${cropImage.fileExt}` });
+
+                if (uploadError) throw uploadError;
+
+                const { data: { publicUrl } } = supabase.storage
+                    .from('avatars')
+                    .getPublicUrl(fileName);
+
+                const { error: updateError } = await supabase.auth.updateUser({
+                    data: { avatar_url: publicUrl }
+                });
+
+                if (updateError) throw updateError;
+                await refreshSession();
+            } catch (error) {
+                console.error('Error uploading avatar:', error);
+                alert('Error uploading avatar: ' + error.message);
+            } finally {
+                setUploading(false);
+            }
+        });
     };
 
     const fullName = user?.user_metadata?.full_name || 'Scholar User';
@@ -408,6 +428,31 @@ export default function Profile() {
                     <p className="text-xs sm:text-sm text-slate-400 font-medium tracking-wide italic break-words">User ID: <span className="font-mono not-italic font-bold">{user?.id?.slice(0, 8) || 'Unknown'}</span> | Join Date: {new Date(user?.created_at || Date.now()).toLocaleDateString()}</p>
                 </footer>
             </main>
+
+            {cropImage && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+                    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xl w-full max-w-sm overflow-hidden border border-slate-200 dark:border-slate-800 animate-in zoom-in-95 duration-200">
+                        <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+                            <h3 className="font-bold text-slate-800 dark:text-slate-100">Adjust Avatar</h3>
+                            <button onClick={() => setCropImage(null)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                                <span className="material-symbols-outlined text-xl">close</span>
+                            </button>
+                        </div>
+                        <div className="p-6 flex flex-col items-center gap-4">
+                            <p className="text-sm text-center text-slate-500 dark:text-slate-400">1:1 square crop from center</p>
+                            <div className="rounded-full overflow-hidden border-4 border-slate-100 dark:border-slate-800 shadow-inner w-[200px] h-[200px] flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+                                <canvas ref={canvasRef} className="w-full h-full object-cover" />
+                            </div>
+                            <button
+                                onClick={handleCropUpload}
+                                className="w-full mt-4 py-2.5 bg-primary text-white rounded-lg font-bold hover:bg-blue-600 transition-colors"
+                            >
+                                Upload Avatar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <Footer variant="app" />
         </div>

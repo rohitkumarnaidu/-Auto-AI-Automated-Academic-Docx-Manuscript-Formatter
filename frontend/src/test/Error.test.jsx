@@ -5,6 +5,9 @@ import { MemoryRouter } from 'react-router-dom';
 vi.mock('../components/Navbar', () => ({
     default: () => <div data-testid="navbar" />,
 }));
+vi.mock('../context/AuthContext', () => ({
+    useAuth: () => ({ isLoggedIn: false }),
+}));
 
 import ErrorPage from '../pages/Error';
 

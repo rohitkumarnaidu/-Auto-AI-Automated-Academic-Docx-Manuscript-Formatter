@@ -51,7 +51,7 @@ export default function Privacy() {
                     Last updated: February 2026
                 </p>
                 <p className="mt-4 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    ScholarForm AI ("we", "our", or "us") is committed to protecting your privacy. This policy explains how we collect, use, store, and protect your information when you use our academic manuscript formatting platform.
+                    ScholarForm AI ({'"'}we{'"'}, {'"'}our{'"'}, or {'"'}us{'"'}) is committed to protecting your privacy. This policy explains how we collect, use, store, and protect your information when you use our academic manuscript formatting platform.
                 </p>
 
                 <div className="mt-8 space-y-4 stagger-children">

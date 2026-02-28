@@ -1,8 +1,13 @@
-import subprocess
+import html
+import logging
 import os
 import platform
+import subprocess
 from typing import Optional
-from app.config.settings import settings  # Import settings for dynamic path
+
+from app.config.settings import settings
+
+logger = logging.getLogger(__name__)
 
 class PDFExporter:
     """
@@ -28,16 +33,52 @@ class PDFExporter:
         else:  # Linux
             return "libreoffice"  # Usually on PATH
 
+    def _weasyprint_fallback(self, docx_path: str, pdf_path: str) -> Optional[str]:
+        """
+        Fallback PDF renderer using WeasyPrint with lightweight DOCX-to-HTML conversion.
+        """
+        try:
+            from docx import Document as DocxDocument
+            from weasyprint import HTML
+        except Exception as exc:
+            logger.warning("WeasyPrint fallback unavailable: %s", exc)
+            return None
+
+        try:
+            doc = DocxDocument(docx_path)
+            paragraphs = []
+            for para in doc.paragraphs:
+                raw_text = (para.text or "").strip()
+                if raw_text:
+                    paragraphs.append(f"<p>{html.escape(raw_text)}</p>")
+
+            if not paragraphs:
+                paragraphs.append("<p></p>")
+
+            html_content = (
+                "<!doctype html><html><head><meta charset='utf-8'>"
+                "<style>body{font-family:'Times New Roman', serif;font-size:12pt;line-height:1.5;}</style>"
+                "</head><body>"
+                + "".join(paragraphs)
+                + "</body></html>"
+            )
+
+            HTML(string=html_content).write_pdf(pdf_path)
+            if os.path.exists(pdf_path):
+                return pdf_path
+            return None
+        except Exception as exc:
+            logger.warning("WeasyPrint fallback failed: %s", exc)
+            return None
+
     def convert_to_pdf(self, docx_path: str, output_dir: str) -> Optional[str]:
         """
-        Convert DOCX to PDF using LibreOffice, falling back to docx2pdf.
-        Raises RuntimeError if both engines fail.
+        Convert DOCX to PDF using LibreOffice, then WeasyPrint, then docx2pdf.
+        Raises RuntimeError if all engines fail.
         """
         if not os.path.exists(docx_path):
             return None
-            
-        import logging
-        logger = logging.getLogger(__name__)
+
         pdf_filename = os.path.splitext(os.path.basename(docx_path))[0] + ".pdf"
         pdf_path = os.path.join(output_dir, pdf_filename)
         
@@ -67,11 +108,16 @@ class PDFExporter:
                 raise RuntimeError(f"LibreOffice conversion failed: {error_msg}")
                 
             except Exception as lo_err:
-                logger.warning("LibreOffice conversion failed: %s. Trying docx2pdf fallback...", lo_err)
+                logger.warning("LibreOffice conversion failed: %s. Trying WeasyPrint fallback...", lo_err)
         else:
-            logger.warning("LibreOffice not found. Trying docx2pdf fallback directly...")
-            
-        # 2. Try docx2pdf Fallback
+            logger.warning("LibreOffice not found. Trying WeasyPrint fallback directly...")
+
+        # 2. Try WeasyPrint fallback
+        weasy_path = self._weasyprint_fallback(docx_path, pdf_path)
+        if weasy_path:
+            return weasy_path
+
+        # 3. Try docx2pdf fallback
         try:
             from docx2pdf import convert
             # docx2pdf requires an absolute path on Windows, let's make sure

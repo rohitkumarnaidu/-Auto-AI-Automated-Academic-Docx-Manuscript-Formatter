@@ -21,3 +21,24 @@ styles:
 
   # Captions
   BLOCK_CAPTION: "Caption"
+
+layout:
+  page_size: "Letter"
+  default_columns: 1
+  line_spacing: 2.0
+  margins:
+    top: 1.0
+    bottom: 1.0
+    left: 1.0
+    right: 1.0
+  section_overrides:
+    abstract: 1
+    references: 1
+    title: 1
+  spacing:
+    paragraph:
+      before: 0
+      after: 10
+    heading:
+      before: 16
+      after: 6

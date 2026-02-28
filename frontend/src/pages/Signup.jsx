@@ -20,6 +20,22 @@ export default function Signup() {
     const [termsAccepted, setTermsAccepted] = useState(false);
     const isPasswordValid = password.length >= 8 && /\d/.test(password);
 
+    const getPasswordStrength = (pass) => {
+        if (!pass) return { score: 0, label: '', color: 'bg-slate-200 dark:bg-slate-700', textColor: 'text-slate-500' };
+        let score = 0;
+        if (pass.length >= 8) score += 1;
+        if (/[A-Z]/.test(pass) && /[a-z]/.test(pass)) score += 1;
+        if (/\d/.test(pass)) score += 1;
+        if (/[^a-zA-Z\d]/.test(pass)) score += 1;
+
+        if (score <= 1) return { score: 1, label: 'Weak', color: 'bg-red-500', textColor: 'text-red-500' };
+        if (score === 2) return { score: 2, label: 'Fair', color: 'bg-amber-500', textColor: 'text-amber-500' };
+        if (score === 3) return { score: 3, label: 'Good', color: 'bg-blue-500', textColor: 'text-blue-500' };
+        return { score: 4, label: 'Strong', color: 'bg-green-500', textColor: 'text-green-500' };
+    };
+
+    const strength = getPasswordStrength(password);
+
     const handleSignup = async (e) => {
         e.preventDefault();
         setError('');
@@ -150,6 +166,21 @@ export default function Signup() {
                                         onChange={(e) => setPassword(e.target.value)}
                                     />
                                 </div>
+                                {password && (
+                                    <div className="flex items-center gap-3 mt-3 px-1">
+                                        <div className="flex-1 flex gap-1 h-1.5">
+                                            {[1, 2, 3, 4].map(level => (
+                                                <div
+                                                    key={level}
+                                                    className={`h-full flex-1 rounded-full transition-colors duration-300 ${level <= strength.score ? strength.color : 'bg-slate-200 dark:bg-slate-700'}`}
+                                                />
+                                            ))}
+                                        </div>
+                                        <span className={`text-[10px] font-bold uppercase tracking-wide w-12 text-right ${strength.textColor}`}>
+                                            {strength.label}
+                                        </span>
+                                    </div>
+                                )}
                             </div>
                             <div className="flex flex-col">
                                 <p className="text-slate-900 dark:text-slate-200 text-sm font-medium pb-2">Confirm Password</p>

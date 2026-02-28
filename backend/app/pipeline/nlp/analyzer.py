@@ -3,15 +3,28 @@ NLP Content Analyzer - Enriches document with AI/NLP hints (Read-Only).
 """
 
 import re
+import logging
 from typing import List, Dict, Any
 from app.models import PipelineDocument as Document, Block, BlockType
 
+logger = logging.getLogger(__name__)
+
 try:
-    # import spacy
-    # NLP_AVAILABLE = True
-    NLP_AVAILABLE = False
+    import yake
+    YAKE_AVAILABLE = True
 except ImportError:
-    NLP_AVAILABLE = False
+    yake = None
+    YAKE_AVAILABLE = False
+
+try:
+    from keybert import KeyBERT
+    KEYBERT_AVAILABLE = True
+except ImportError:
+    KeyBERT = None  # type: ignore[assignment]
+    KEYBERT_AVAILABLE = False
+
+NLP_AVAILABLE = YAKE_AVAILABLE or KEYBERT_AVAILABLE
+_KEYBERT_MODEL = None
 
 from app.pipeline.base import PipelineStage
 
@@ -23,16 +36,6 @@ class ContentAnalyzer(PipelineStage):
     
     def __init__(self):
         self.nlp = None
-        if NLP_AVAILABLE:
-            try:
-                # Load small English model
-                # We attempt to load, if fails (model not downloaded), we warn
-                if not spacy.util.is_package("en_core_web_sm"):
-                     print("Warning: spacy model 'en_core_web_sm' not found. NLP analysis will be limited.")
-                else:
-                    self.nlp = spacy.load("en_core_web_sm")
-            except Exception as e:
-                print(f"Warning: Failed to load spacy model: {e}")
 
     def process(self, document: Document) -> Document:
         """
@@ -136,3 +139,61 @@ def methods_detect_abstract(text: str) -> bool:
     """Helper to detect abstract-like text."""
     # Heuristic
     return "background" in text.lower() and "results" in text.lower() and len(text) > 200
+
+
+def _get_keybert_model():
+    global _KEYBERT_MODEL
+    if not KEYBERT_AVAILABLE:
+        return None
+    if _KEYBERT_MODEL is None:
+        try:
+            _KEYBERT_MODEL = KeyBERT()
+        except Exception as exc:
+            logger.warning("KeyBERT model initialization failed: %s", exc)
+            _KEYBERT_MODEL = None
+    return _KEYBERT_MODEL
+
+
+def extract_keywords(text: str, top_k: int = 8) -> List[str]:
+    """
+    Hybrid keyword extraction:
+    1) YAKE for cheap candidate generation.
+    2) KeyBERT re-ranking when available.
+    """
+    text = (text or "").strip()
+    if not text:
+        return []
+
+    yake_candidates: List[str] = []
+    if YAKE_AVAILABLE and yake is not None:
+        try:
+            extractor = yake.KeywordExtractor(lan="en", n=2, top=max(top_k * 2, 10))
+            yake_candidates = [kw for kw, _score in extractor.extract_keywords(text) if kw]
+        except Exception as exc:
+            logger.warning("YAKE extraction failed: %s", exc)
+
+    keybert_model = _get_keybert_model()
+    if keybert_model is not None:
+        try:
+            kw = keybert_model.extract_keywords(
+                text,
+                candidates=yake_candidates or None,
+                top_n=top_k,
+                stop_words="english",
+            )
+            keywords = [item[0] for item in kw if item and item[0]]
+            if keywords:
+                return keywords
+        except Exception as exc:
+            logger.warning("KeyBERT extraction failed: %s", exc)
+
+    if yake_candidates:
+        return yake_candidates[:top_k]
+
+    # Ultimate fallback: deterministic token frequency heuristic.
+    tokens = [t.strip(".,;:!?()[]{}").lower() for t in text.split()]
+    tokens = [t for t in tokens if len(t) > 3]
+    freq: Dict[str, int] = {}
+    for token in tokens:
+        freq[token] = freq.get(token, 0) + 1
+    return [tok for tok, _count in sorted(freq.items(), key=lambda item: item[1], reverse=True)[:top_k]]

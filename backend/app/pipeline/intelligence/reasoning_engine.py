@@ -2,12 +2,17 @@ import json
 import re
 import sys
 import time
+import logging
 from typing import List, Dict, Any, Optional
 import requests
 from app.pipeline.safety.retry_guard import retry_guard
 from app.pipeline.safety.circuit_breaker import circuit_breaker
 from app.pipeline.safety.llm_validator import guard_llm_output
 from pydantic import BaseModel, Field
+from app.config.settings import settings
+
+logger = logging.getLogger(__name__)
+MAX_BLOCKS_PER_CALL = 30
 
 class SemanticBlockSchema(BaseModel):
     block_id: str
@@ -41,7 +46,7 @@ try:
     METRICS_AVAILABLE = True
 except ImportError:
     METRICS_AVAILABLE = False
-    print("[WARN] Model metrics unavailable")
+    logger.warning("Model metrics unavailable")
 
 # Import unified LLM service (LiteLLM-backed)
 try:
@@ -57,7 +62,7 @@ except ImportError:
     LITELLM_AVAILABLE = False
     LLM_NVIDIA = "nvidia_nim/meta/llama-3.3-70b-instruct"
     LLM_DEEPSEEK = "ollama/deepseek-r1"
-    print("[WARN] llm_service not available - using legacy LangChain paths")
+    logger.warning("llm_service not available - using legacy LangChain paths")
 
 # LangChain Ollama (secondary fallback when litellm/direct clients are unavailable)
 # Avoid importing langchain_ollama on Python 3.14+ because upstream still routes
@@ -126,7 +131,7 @@ class ReasoningEngine:
             enable_nvidia = False
         
         # Ollama Configuration
-        self.ollama_base_url = "http://localhost:11434"
+        self.ollama_base_url = settings.OLLAMA_URL
         self.fallback_model = "deepseek-r1:8b"
         
         self.timeout = max(5, int(timeout))  # Supports ReasoningEngine(timeout=N)
@@ -141,11 +146,11 @@ class ReasoningEngine:
                 self.nvidia_client = get_nvidia_client()
                 self.nvidia_available = self.nvidia_client is not None
                 if self.nvidia_available:
-                    print("[OK] NVIDIA Llama 3.3 70B available (primary)")
+                    logger.info("NVIDIA Llama 3.3 70B available (primary)")
             except Exception as e:
-                print(f"[WARN] NVIDIA unavailable: {e}")
+                logger.warning("NVIDIA unavailable: %s", e)
         else:
-            print("[INFO] NVIDIA reasoning disabled for current environment.")
+            logger.info("NVIDIA reasoning disabled for current environment.")
         
         # Initialize DeepSeek/Ollama (fallback)
         self.ollama_available = self._check_ollama_health()
@@ -158,17 +163,17 @@ class ReasoningEngine:
                     format="json",  # Ensure JSON output
                     timeout=self.timeout
                 )
-                print(f"[OK] DeepSeek {self.fallback_model} available (fallback)")
+                logger.info("DeepSeek %s available (fallback)", self.fallback_model)
             except Exception as e:
-                print(f"[WARN] Failed to init ChatOllama: {e}")
+                logger.warning("Failed to init ChatOllama: %s", e)
                 self.llm = None
                 self.ollama_available = False
         else:
             self.llm = None
-            print(f"[WARN] Ollama server unavailable at {self.ollama_base_url}")
+            logger.warning("Ollama server unavailable at %s", self.ollama_base_url)
         
         # Always have rule-based fallback
-        print("[OK] Rule-based heuristics available (final fallback)")
+        logger.info("Rule-based heuristics available (final fallback)")
     
     def _check_ollama_health(self) -> bool:
         """Check if Ollama server is reachable and find best model."""
@@ -194,13 +199,13 @@ class ReasoningEngine:
                 # Find best alternative (prefer deepseek)
                 for m in model_names:
                     if "deepseek" in m.lower():
-                        print(f"[INFO] Auto-selected DeepSeek model: {m}")
+                        logger.info("Auto-selected DeepSeek model: %s", m)
                         self.fallback_model = m
                         return True
                 
                 # Fallback to any model if deepseek not found
                 if model_names:
-                    print(f"[INFO] DeepSeek not found, using available model: {model_names[0]}")
+                    logger.info("DeepSeek not found, using available model: %s", model_names[0])
                     self.fallback_model = model_names[0]
                     return True
                 
@@ -360,7 +365,7 @@ class ReasoningEngine:
     
     def _rule_based_fallback(self, semantic_blocks: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Rule-based classification fallback when Ollama unavailable."""
-        print("[WARN] Using rule-based fallback classification")
+        logger.warning("Using rule-based fallback classification")
         blocks = []
         for block in semantic_blocks:
             text = block.get("text", "").strip().lower()
@@ -418,10 +423,10 @@ class ReasoningEngine:
                         return None
                 return None
         except requests.exceptions.RequestException as e:
-            print(f"Ollama API call failed: {e}")
+            logger.warning("Ollama API call failed: %s", e)
             return None
         except Exception as e:
-            print(f"Unexpected error during Ollama call: {e}")
+            logger.warning("Unexpected error during Ollama call: %s", e)
             return None
 
     @retry_guard(max_retries=2, base_delay=0.5)
@@ -469,7 +474,7 @@ class ReasoningEngine:
         - Timeout protection
         """
         if self._is_cancelled(cancellation_event):
-            print("[INFO] Reasoning cancelled before start; using rule-based fallback.")
+            logger.info("Reasoning cancelled before start; using rule-based fallback.")
             return self._rule_based_fallback(semantic_blocks)
 
         # Try NVIDIA first (if available)
@@ -477,9 +482,9 @@ class ReasoningEngine:
             start_time = 0.0  # initialised before try so except can reference it safely
             try:
                 if self._is_cancelled(cancellation_event):
-                    print("[INFO] Reasoning cancelled before NVIDIA call; using rule-based fallback.")
+                    logger.info("Reasoning cancelled before NVIDIA call; using rule-based fallback.")
                     return self._rule_based_fallback(semantic_blocks)
-                print("Attempting NVIDIA Llama 3.3 70B...")
+                logger.info("Attempting NVIDIA Llama 3.3 70B...")
                 start_time = time.time()
                 result = self._generate_with_nvidia(semantic_blocks, rules, cancellation_event=cancellation_event)
                 result = self._normalize_instruction_payload(result, semantic_blocks)
@@ -494,29 +499,29 @@ class ReasoningEngine:
                     if METRICS_AVAILABLE:
                         get_model_metrics().record_call("nvidia", True, latency)
                     
-                    print(f"NVIDIA analysis successful ({latency:.2f}s)")
+                    logger.info("NVIDIA analysis successful (%.2fs)", latency)
                     return result
                 else:
                     # Record failure
                     if METRICS_AVAILABLE:
                         get_model_metrics().record_call("nvidia", False, latency)
                         get_model_metrics().record_fallback("nvidia", "deepseek", "Invalid schema")
-                    print("NVIDIA returned invalid schema or no result, falling back...")
+                    logger.warning("NVIDIA returned invalid schema or no result, falling back...")
             except Exception as e:
                 # Record failure
                 if METRICS_AVAILABLE:
                     get_model_metrics().record_call("nvidia", False, time.time() - start_time)
                     get_model_metrics().record_fallback("nvidia", "deepseek", str(e))
-                print(f"NVIDIA failed: {e}. Falling back to DeepSeek...")
+                logger.warning("NVIDIA failed: %s. Falling back to DeepSeek...", e)
 
         if self._is_cancelled(cancellation_event):
-            print("[INFO] Reasoning cancelled before DeepSeek fallback; using rule-based fallback.")
+            logger.info("Reasoning cancelled before DeepSeek fallback; using rule-based fallback.")
             return self._rule_based_fallback(semantic_blocks)
         
         # Fallback to DeepSeek/Ollama
         if getattr(self, 'ollama_available', False) and getattr(self, 'llm', None) is not None:
             try:
-                print("[INFO] Attempting DeepSeek via Ollama...")
+                logger.info("Attempting DeepSeek via Ollama...")
                 start_time = time.time()
                 result = self._generate_with_deepseek(
                     semantic_blocks,
@@ -533,7 +538,7 @@ class ReasoningEngine:
                     if METRICS_AVAILABLE:
                         get_model_metrics().record_call("deepseek", False, latency)
                         get_model_metrics().record_fallback("deepseek", "rules", "DeepSeek returned fallback payload")
-                    print("[WARN] DeepSeek returned fallback payload; using normalized rule-based output.")
+                    logger.warning("DeepSeek returned fallback payload; using normalized rule-based output.")
                     return result
 
                 if result and self._validate_json_schema(result):
@@ -545,23 +550,23 @@ class ReasoningEngine:
                     if METRICS_AVAILABLE:
                         get_model_metrics().record_call("deepseek", True, latency)
                     
-                    print(f"[OK] DeepSeek analysis successful ({latency:.2f}s)")
+                    logger.info("DeepSeek analysis successful (%.2fs)", latency)
                     return result
                 else:
                     # Record failure
                     if METRICS_AVAILABLE:
                         get_model_metrics().record_call("deepseek", False, latency)
                         get_model_metrics().record_fallback("deepseek", "rules", "Invalid schema")
-                    print("[WARN] DeepSeek returned invalid schema or no result, falling back...")
+                    logger.warning("DeepSeek returned invalid schema or no result, falling back...")
             except Exception as e:
                 # Record failure
                 if METRICS_AVAILABLE:
                     get_model_metrics().record_call("deepseek", False, time.time() - start_time)
                     get_model_metrics().record_fallback("deepseek", "rules", str(e))
-                print(f"[WARN] DeepSeek failed: {e}. Falling back to rules...")
+                logger.warning("DeepSeek failed: %s. Falling back to rules...", e)
         
         # Final fallback to rule-based
-        print("[INFO] Using rule-based heuristics (final fallback)")
+        logger.info("Using rule-based heuristics (final fallback)")
         return self._rule_based_fallback(semantic_blocks)
     
     def _generate_with_nvidia(
@@ -574,71 +579,89 @@ class ReasoningEngine:
         if self._is_cancelled(cancellation_event):
             return self._rule_based_fallback(semantic_blocks)
 
-        blocks_summary = []
-        for i, b in enumerate(semantic_blocks[:15]):
-            text = b.get('text', '')[:150]
-            hints = []
-            if b.get('metadata', {}).get('heading_level'):
-                hints.append(f"H{b['metadata']['heading_level']}")
-            if b.get('metadata', {}).get('is_code_block'):
-                hints.append(f"CODE({b['metadata']['code_language']})")
-            if b.get('metadata', {}).get('is_table'):
-                hints.append("TABLE")
-            if b.get('metadata', {}).get('is_list_item'):
-                hints.append("LIST_ITEM")
-            if b.get('metadata', {}).get('font_size'):
-                hints.append(f"Size:{b['metadata']['font_size']:.1f}")
-            if b.get('style', {}).get('bold'):
-                hints.append("BOLD")
-            hint_str = f" [{', '.join(hints)}]" if hints else ""
-            blocks_summary.append(f"Block {i}: {text}{hint_str}")
+        if not semantic_blocks:
+            return {"blocks": []}
 
-        system_prompt = (
-            "You are an expert academic manuscript structure analyzer. "
-            "Classify document blocks with HIGH CONFIDENCE.\n\n"
-            "Available types: TITLE, AUTHOR, AFFILIATION, ABSTRACT_HEADING, ABSTRACT_BODY, "
-            "HEADING_1, HEADING_2, BODY, FIGURE_CAPTION, TABLE_CAPTION, "
-            "REFERENCES_HEADING, REFERENCE_ENTRY.\n\n"
-            "Return ONLY valid JSON: {\"blocks\": [{\"block_id\": ..., "
-            "\"semantic_type\": ..., \"confidence\": ...}]}"
-        )
-        user_prompt = (
-            f"Classify all blocks:\n\n"
-            f"{chr(10).join(blocks_summary)}\n\n"
-            "Return JSON only."
-        )
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user",   "content": user_prompt},
-        ]
+        merged_blocks: List[Dict[str, Any]] = []
+        for batch_start in range(0, len(semantic_blocks), MAX_BLOCKS_PER_CALL):
+            batch = semantic_blocks[batch_start: batch_start + MAX_BLOCKS_PER_CALL]
+            blocks_summary = []
+            for i, b in enumerate(batch):
+                global_index = batch_start + i
+                text = b.get("text", "")[:150]
+                hints = []
+                if b.get("metadata", {}).get("heading_level"):
+                    hints.append(f"H{b['metadata']['heading_level']}")
+                if b.get("metadata", {}).get("is_code_block"):
+                    hints.append(f"CODE({b['metadata']['code_language']})")
+                if b.get("metadata", {}).get("is_table"):
+                    hints.append("TABLE")
+                if b.get("metadata", {}).get("is_list_item"):
+                    hints.append("LIST_ITEM")
+                if b.get("metadata", {}).get("font_size"):
+                    hints.append(f"Size:{b['metadata']['font_size']:.1f}")
+                if b.get("style", {}).get("bold"):
+                    hints.append("BOLD")
+                hint_str = f" [{', '.join(hints)}]" if hints else ""
+                blocks_summary.append(f"Block {global_index}: {text}{hint_str}")
 
-        # Prefer llm_service (LiteLLM) -> fall back to nvidia_client.chat()
-        response = ""
-        if _LLM_SERVICE_AVAILABLE and LITELLM_AVAILABLE:
-            try:
-                response = _llm_generate(
-                    messages=messages, model=LLM_NVIDIA,
-                    temperature=0.3, max_tokens=1536, timeout=self.timeout,
-                )
-            except Exception as exc:
-                print(f"[WARN] llm_service NVIDIA call failed: {exc}")
+            system_prompt = (
+                "You are an expert academic manuscript structure analyzer. "
+                "Classify document blocks with HIGH CONFIDENCE.\n\n"
+                "Available types: TITLE, AUTHOR, AFFILIATION, ABSTRACT_HEADING, ABSTRACT_BODY, "
+                "HEADING_1, HEADING_2, BODY, FIGURE_CAPTION, TABLE_CAPTION, "
+                "REFERENCES_HEADING, REFERENCE_ENTRY.\n\n"
+                "Return ONLY valid JSON: {\"blocks\": [{\"block_id\": ..., "
+                "\"semantic_type\": ..., \"confidence\": ...}]}"
+            )
+            user_prompt = (
+                f"Classify all blocks:\n\n"
+                f"{chr(10).join(blocks_summary)}\n\n"
+                "Return JSON only."
+            )
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ]
 
-        if not response and self.nvidia_client:
-            response = self.nvidia_client.chat(messages, model="llama-70b", temperature=0.3, max_tokens=2048)
-
-        if not response:
-            return None
-
-        try:
-            return json.loads(response)
-        except json.JSONDecodeError:
-            json_match = re.search(r'\{.*\}', response, re.DOTALL)
-            if json_match:
+            response = ""
+            if _LLM_SERVICE_AVAILABLE and LITELLM_AVAILABLE:
                 try:
-                    return json.loads(json_match.group())
-                except json.JSONDecodeError:
-                    pass
-        return None
+                    response = _llm_generate(
+                        messages=messages,
+                        model=LLM_NVIDIA,
+                        temperature=0.3,
+                        max_tokens=1536,
+                        timeout=self.timeout,
+                    )
+                except Exception as exc:
+                    logger.warning("llm_service NVIDIA call failed: %s", exc)
+
+            if not response and self.nvidia_client:
+                response = self.nvidia_client.chat(messages, model="llama-70b", temperature=0.3, max_tokens=2048)
+
+            if not response:
+                return None
+
+            parsed = None
+            try:
+                parsed = json.loads(response)
+            except json.JSONDecodeError:
+                json_match = re.search(r"\{.*\}", response, re.DOTALL)
+                if json_match:
+                    try:
+                        parsed = json.loads(json_match.group())
+                    except json.JSONDecodeError:
+                        parsed = None
+
+            if not isinstance(parsed, dict):
+                return None
+
+            batch_blocks = parsed.get("blocks")
+            if isinstance(batch_blocks, list):
+                merged_blocks.extend(batch_blocks)
+
+        return {"blocks": merged_blocks} if merged_blocks else None
     
     def _generate_with_deepseek(
         self,
@@ -648,17 +671,6 @@ class ReasoningEngine:
         cancellation_event: Any = None,
     ) -> Dict[str, Any]:
         """Generate instruction set using DeepSeek via llm_service (LiteLLM) or direct Ollama."""
-        blocks_json = json.dumps(semantic_blocks[:20])
-        prompt = (
-            f"Analyze these academic manuscript blocks and publisher guidelines.\n\n"
-            f"MANUSCRIPT BLOCKS:\n{blocks_json}\n\n"
-            f"PUBLISHER RULES (RAG):\n{rules}\n\n"
-            "TASK: Generate a JSON 'Semantic Instruction Set'. "
-            "For each block provide: block_id, semantic_type, canonical_section_name, confidence.\n"
-            "OUTPUT JSON ONLY. Return format: {\"blocks\": [...]}"
-        )
-        messages = [{"role": "user", "content": prompt}]
-
         def _parse_response(raw: str):  # type: Optional[Dict[str, Any]]
             try:
                 return json.loads(raw)
@@ -671,51 +683,86 @@ class ReasoningEngine:
                         pass
             return None
 
-        for attempt in range(max_retries + 1):
-            if self._is_cancelled(cancellation_event):
-                print("[INFO] Reasoning cancelled during DeepSeek loop; using rule-based fallback.")
-                return self._rule_based_fallback(semantic_blocks)
-            start_time = time.time()
-            try:
-                # Path 1: LangChain ChatOllama (preferred when self.llm is set - test mock compat)
-                if self.llm is not None:
-                    response = self.llm.invoke(prompt)
-                    result = _parse_response(
-                        response.content if hasattr(response, 'content') else str(response)
-                    )
+        merged_blocks: List[Dict[str, Any]] = []
+        for batch_start in range(0, len(semantic_blocks), MAX_BLOCKS_PER_CALL):
+            batch = semantic_blocks[batch_start: batch_start + MAX_BLOCKS_PER_CALL]
+            blocks_json = json.dumps(batch)
+            prompt = (
+                f"Analyze these academic manuscript blocks and publisher guidelines.\n\n"
+                f"MANUSCRIPT BLOCKS:\n{blocks_json}\n\n"
+                f"PUBLISHER RULES (RAG):\n{rules}\n\n"
+                "TASK: Generate a JSON 'Semantic Instruction Set'. "
+                "For each block provide: block_id, semantic_type, canonical_section_name, confidence.\n"
+                "OUTPUT JSON ONLY. Return format: {\"blocks\": [...]}"
+            )
+            messages = [{"role": "user", "content": prompt}]
 
-                # Path 2: llm_service (LiteLLM) - used when no local llm
-                elif _LLM_SERVICE_AVAILABLE and LITELLM_AVAILABLE:
-                    raw = _llm_generate(
-                        messages=messages, model=LLM_DEEPSEEK,
-                        temperature=0.3, max_tokens=1536, timeout=self.timeout,
-                    )
-                    result = _parse_response(raw)
-
-                else:
-                    result = None
-
-                latency = time.time() - start_time
-                if result:
-                    print(f"[OK] DeepSeek reasoning completed in {latency:.2f}s")
-                    return result
-
-                print(f"[WARN] DeepSeek returned unparseable response (attempt {attempt + 1}/{max_retries + 1})")
-
-            except json.JSONDecodeError as e:
-                print(f"[WARN] DeepSeek JSON parse error (attempt {attempt + 1}/{max_retries + 1}): {e}")
-            except Exception as e:
-                print(f"[WARN] DeepSeek error (attempt {attempt + 1}/{max_retries + 1}): {e}")
-
-            if attempt < max_retries:
+            batch_result = None
+            for attempt in range(max_retries + 1):
                 if self._is_cancelled(cancellation_event):
+                    logger.info("Reasoning cancelled during DeepSeek loop; using rule-based fallback.")
                     return self._rule_based_fallback(semantic_blocks)
-                time.sleep(1)
-            else:
-                print("[ERROR] All retries failed. Falling back to rule-based classification.")
-                return self._rule_based_fallback(semantic_blocks)
+                start_time = time.time()
+                try:
+                    if self.llm is not None:
+                        response = self.llm.invoke(prompt)
+                        batch_result = _parse_response(
+                            response.content if hasattr(response, "content") else str(response)
+                        )
+                    elif _LLM_SERVICE_AVAILABLE and LITELLM_AVAILABLE:
+                        raw = _llm_generate(
+                            messages=messages,
+                            model=LLM_DEEPSEEK,
+                            temperature=0.3,
+                            max_tokens=1536,
+                            timeout=self.timeout,
+                        )
+                        batch_result = _parse_response(raw)
+                    else:
+                        batch_result = None
 
-        return self._rule_based_fallback(semantic_blocks)
+                    latency = time.time() - start_time
+                    if batch_result:
+                        logger.info("DeepSeek reasoning batch completed in %.2fs", latency)
+                        break
+
+                    logger.warning(
+                        "DeepSeek returned unparseable response (attempt %d/%d)",
+                        attempt + 1,
+                        max_retries + 1,
+                    )
+                except json.JSONDecodeError as e:
+                    logger.warning(
+                        "DeepSeek JSON parse error (attempt %d/%d): %s",
+                        attempt + 1,
+                        max_retries + 1,
+                        e,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "DeepSeek error (attempt %d/%d): %s",
+                        attempt + 1,
+                        max_retries + 1,
+                        e,
+                    )
+
+                if attempt < max_retries:
+                    if self._is_cancelled(cancellation_event):
+                        return self._rule_based_fallback(semantic_blocks)
+                    time.sleep(1)
+                else:
+                    logger.error("All retries failed for DeepSeek batch. Falling back to rule-based classification.")
+                    return self._rule_based_fallback(semantic_blocks)
+
+            if not isinstance(batch_result, dict):
+                return self._rule_based_fallback(semantic_blocks)
+            batch_blocks = batch_result.get("blocks") or batch_result.get("instructions")
+            if isinstance(batch_blocks, list):
+                merged_blocks.extend(batch_blocks)
+
+        if not merged_blocks:
+            return self._rule_based_fallback(semantic_blocks)
+        return {"blocks": merged_blocks, "instructions": merged_blocks}
 
 # Singleton Access
 _reasoning_engine = None

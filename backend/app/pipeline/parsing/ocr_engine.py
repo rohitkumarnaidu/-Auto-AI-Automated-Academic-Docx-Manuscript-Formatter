@@ -78,12 +78,12 @@ class OCREngine:
             self._det_model = model_store.get_model("surya_det_model")
             self._det_processor = model_store.get_model("surya_det_processor")
         else:
-            print("OCREngine: Loading Surya text detection model...")
+            logger.info("OCREngine: Loading Surya text detection model...")
             self._det_model = load_det_model()
             self._det_processor = load_det_processor()
             model_store.set_model("surya_det_model", self._det_model)
             model_store.set_model("surya_det_processor", self._det_processor)
-            print("OCREngine: ✅ Detection model loaded.")
+            logger.info("OCREngine: Detection model loaded.")
         self._loaded_det = True
 
     def _ensure_recognition_loaded(self):
@@ -95,12 +95,12 @@ class OCREngine:
             self._rec_model = model_store.get_model("surya_rec_model")
             self._rec_processor = model_store.get_model("surya_rec_processor")
         else:
-            print("OCREngine: Loading Surya text recognition model...")
+            logger.info("OCREngine: Loading Surya text recognition model...")
             self._rec_model = load_rec_model()
             self._rec_processor = load_rec_processor()
             model_store.set_model("surya_rec_model", self._rec_model)
             model_store.set_model("surya_rec_processor", self._rec_processor)
-            print("OCREngine: ✅ Recognition model loaded.")
+            logger.info("OCREngine: Recognition model loaded.")
         self._loaded_rec = True
 
     def _ensure_ordering_loaded(self):
@@ -112,12 +112,12 @@ class OCREngine:
             self._order_model = model_store.get_model("surya_order_model")
             self._order_processor = model_store.get_model("surya_order_processor")
         else:
-            print("OCREngine: Loading Surya reading-order model...")
+            logger.info("OCREngine: Loading Surya reading-order model...")
             self._order_model = load_order_model()
             self._order_processor = load_order_processor()
             model_store.set_model("surya_order_model", self._order_model)
             model_store.set_model("surya_order_processor", self._order_processor)
-            print("OCREngine: ✅ Reading-order model loaded.")
+            logger.info("OCREngine: Reading-order model loaded.")
         self._loaded_order = True
 
     # ------------------------------------------------------------------ #

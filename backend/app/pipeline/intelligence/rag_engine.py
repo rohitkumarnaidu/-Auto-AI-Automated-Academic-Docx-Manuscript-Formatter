@@ -162,10 +162,11 @@ class RagEngine:
             self.collection = self.client.get_or_create_collection(self._collection_name)
             self.chroma_enabled = True
             self.backend = "chromadb"
-            print(
-                f"RagEngine: Initialized with backend={self.backend}, "
-                f"model={self.active_model_name}, "
-                f"collection={self._collection_name}"
+            logger.info(
+                "RagEngine initialized with backend=%s model=%s collection=%s",
+                self.backend,
+                self.active_model_name,
+                self._collection_name,
             )
         except Exception as e:
             error_msg = str(e)
@@ -181,15 +182,16 @@ class RagEngine:
             is_known = any(s in error_msg for s in _known_compat_errors)
 
             if not is_known:
-                print(f"RagEngine: ChromaDB unavailable ({error_msg}). Using native store.")
+                logger.warning("RagEngine: ChromaDB unavailable (%s). Using native store.", error_msg)
 
             self.client = None
             self.collection = None
             self.backend = "native"
             self._load_native()
-            print(
-                f"RagEngine: Initialized with backend={self.backend}, "
-                f"model={self.active_model_name}"
+            logger.info(
+                "RagEngine initialized with backend=%s model=%s",
+                self.backend,
+                self.active_model_name,
             )
 
         # ---- Auto-Seed Default Guidelines ---- #
@@ -212,13 +214,27 @@ class RagEngine:
                 
             logger.info("RagEngine: Knowledge base is empty. Seeding from default_guidelines.json...")
             with open(default_file, "r") as f:
-                guidelines = json.load(f)
-                
+                payload = json.load(f)
+
+            if isinstance(payload, dict):
+                guidelines = payload.get("guidelines", [])
+            elif isinstance(payload, list):
+                guidelines = payload
+            else:
+                guidelines = []
+
             for item in guidelines:
+                if not isinstance(item, dict):
+                    continue
+                publisher = item.get("publisher") or item.get("template")
+                section = item.get("section") or item.get("category")
+                text = item.get("text") or item.get("guideline")
+                if not publisher or not section or not text:
+                    continue
                 self.add_guideline(
-                    publisher=item["template"], 
-                    section=item["category"], 
-                    text=item["guideline"],
+                    publisher=str(publisher),
+                    section=str(section),
+                    text=str(text),
                     metadata={"source": "auto-seed"}
                 )
             logger.info("RagEngine: Auto-seeding complete.")
@@ -317,9 +333,10 @@ class RagEngine:
                     self.active_model_name = PRIMARY_MODEL
                 else:
                     self.active_model_name = FALLBACK_MODEL
-                print(
-                    f"RagEngine: Reusing global SentenceTransformer from ModelStore "
-                    f"(dim={test_dim}, model={self.active_model_name})."
+                logger.info(
+                    "RagEngine: Reusing global SentenceTransformer from ModelStore (dim=%s, model=%s).",
+                    test_dim,
+                    self.active_model_name,
                 )
                 return
             logger.warning(
@@ -328,14 +345,14 @@ class RagEngine:
 
         # 2. Try loading BGE-M3 (primary)
         try:
-            print(f"RagEngine: Loading primary model '{PRIMARY_MODEL}'...")
+            logger.info("RagEngine: Loading primary model '%s'...", PRIMARY_MODEL)
             self.embedding_model = SentenceTransformer(PRIMARY_MODEL)
             self.active_model_name = PRIMARY_MODEL
             # Register in ModelStore for reuse
             model_store.set_model("embedding_model", self.embedding_model)
-            print(
-                f"RagEngine: ✅ Primary model loaded successfully "
-                f"(dim={self.embedding_model.get_sentence_embedding_dimension()})."
+            logger.info(
+                "RagEngine: Primary model loaded successfully (dim=%s).",
+                self.embedding_model.get_sentence_embedding_dimension(),
             )
             return
         except Exception as exc:
@@ -347,13 +364,13 @@ class RagEngine:
 
         # 3. Fallback to bge-small-en-v1.5
         try:
-            print(f"RagEngine: Loading fallback model '{FALLBACK_MODEL}'...")
+            logger.info("RagEngine: Loading fallback model '%s'...", FALLBACK_MODEL)
             self.embedding_model = SentenceTransformer(FALLBACK_MODEL)
             self.active_model_name = FALLBACK_MODEL
             model_store.set_model("embedding_model", self.embedding_model)
-            print(
-                f"RagEngine: ✅ Fallback model loaded "
-                f"(dim={self.embedding_model.get_sentence_embedding_dimension()})."
+            logger.info(
+                "RagEngine: Fallback model loaded (dim=%s).",
+                self.embedding_model.get_sentence_embedding_dimension(),
             )
         except Exception as exc:
             logger.error(
@@ -406,7 +423,7 @@ class RagEngine:
                 if results and results["documents"]:
                     return results["documents"][0]
             except Exception as e:
-                print(f"RagEngine: Chroma query failed ({e}). Falling back to native.")
+                logger.warning("RagEngine: Chroma query failed (%s). Falling back to native.", e)
 
         # Native Fallback: Cosine Similarity
         if self.embedding_model is None:
@@ -435,7 +452,7 @@ class RagEngine:
             scores.sort(key=lambda x: x[0], reverse=True)
             return [s[1] for s in scores[:top_k]]
         except Exception as e:
-            print(f"RagEngine: Native query failed ({e}). Returning empty list.")
+            logger.warning("RagEngine: Native query failed (%s). Returning empty list.", e)
             return []
 
     def query_rules(
@@ -457,7 +474,7 @@ class RagEngine:
                 for txt in guidelines
             ]
         except Exception as e:
-            print(f"RagEngine Guard: query_rules failed: {e}. Returning empty list.")
+            logger.warning("RagEngine Guard: query_rules failed: %s. Returning empty list.", e)
             return []
 
     # ------------------------------------------------------------------ #

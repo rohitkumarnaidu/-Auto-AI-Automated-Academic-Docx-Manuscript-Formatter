@@ -23,7 +23,9 @@ styles:
   BLOCK_CAPTION: "Figure Caption"
 
 layout:
+  page_size: "Letter"
   default_columns: 1
+  line_spacing: 1.5
   margins:
     top: 1.0
     bottom: 1.0

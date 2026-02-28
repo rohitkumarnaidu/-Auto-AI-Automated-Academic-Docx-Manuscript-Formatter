@@ -1,4 +1,4 @@
-import usePageTitle from '../hooks/usePageTitle';
+
 import { useEffect, useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
@@ -85,27 +85,46 @@ function ValidationResults() {
 
     if (!job) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-background-light dark:bg-background-dark">
-                <p className="text-slate-500 dark:text-slate-400 mb-4">No validation results found.</p>
-                <button onClick={() => navigate('/upload')} className="text-primary font-bold hover:underline">Return to Upload</button>
+            <div className="min-h-screen flex flex-col bg-background-light dark:bg-background-dark">
+                <Navbar variant="app" />
+                <main className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+                    <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
+                        <span className="material-symbols-outlined text-slate-400 text-3xl">find_in_page</span>
+                    </div>
+                    <p className="text-slate-500 dark:text-slate-400 mb-4">No validation results found. Your document may not have been processed yet.</p>
+                    <button onClick={() => navigate('/upload')} className="text-primary font-bold hover:underline">Return to Upload</button>
+                </main>
+                <Footer variant="app" />
             </div>
         );
     }
 
     if (isLoadingResult && !resolvedResult) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-background-light dark:bg-background-dark">
-                <p className="text-slate-500 dark:text-slate-400 mb-4">Loading validation results...</p>
+            <div className="min-h-screen flex flex-col bg-background-light dark:bg-background-dark">
+                <Navbar variant="app" />
+                <main className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+                    <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+                    <p className="text-slate-500 dark:text-slate-400">Loading validation results...</p>
+                </main>
+                <Footer variant="app" />
             </div>
         );
     }
 
     if (!resolvedResult) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-background-light dark:bg-background-dark">
-                <p className="text-slate-500 dark:text-slate-400 mb-2">No validation results found.</p>
-                {resultLoadError ? <p className="text-red-500 text-sm mb-4">{resultLoadError}</p> : null}
-                <button onClick={() => navigate('/upload')} className="text-primary font-bold hover:underline">Return to Upload</button>
+            <div className="min-h-screen flex flex-col bg-background-light dark:bg-background-dark">
+                <Navbar variant="app" />
+                <main className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+                    <div className="w-16 h-16 bg-red-50 dark:bg-red-900/20 text-red-500 rounded-full flex items-center justify-center mb-4">
+                        <span className="material-symbols-outlined text-3xl">error</span>
+                    </div>
+                    <p className="text-slate-500 dark:text-slate-400 mb-2">Failed to load validation results.</p>
+                    {resultLoadError ? <p className="text-red-500 text-sm mb-4">{resultLoadError}</p> : null}
+                    <button onClick={() => navigate('/upload')} className="text-primary font-bold hover:underline">Return to Upload</button>
+                </main>
+                <Footer variant="app" />
             </div>
         );
     }

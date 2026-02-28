@@ -1,7 +1,7 @@
 import usePageTitle from '../hooks/usePageTitle';
 import { useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+
+
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import BatchUploadPanel from '../components/BatchUploadPanel';
@@ -9,8 +9,6 @@ import { uploadDocumentWithProgress } from '../services/api';
 
 export default function BatchUpload() {
     usePageTitle('Batch Upload');
-    const { isLoggedIn } = useAuth();
-    const navigate = useNavigate();
     const [files, setFiles] = useState([]);
     const [template, setTemplate] = useState('IEEE');
     const [processing, setProcessing] = useState(false);
@@ -34,6 +32,10 @@ export default function BatchUpload() {
     const updateFile = useCallback((id, updates) => {
         setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, ...updates } : f)));
     }, []);
+
+    const retryFile = useCallback((id) => {
+        updateFile(id, { status: 'pending', error: null, progress: 0 });
+    }, [updateFile]);
 
     const processAll = async () => {
         const pending = files.filter((f) => f.status === 'pending');
@@ -111,6 +113,7 @@ export default function BatchUpload() {
                     files={files}
                     onFilesSelected={handleFilesSelected}
                     onRemove={removeFile}
+                    onRetry={retryFile}
                     disabled={processing}
                 />
 

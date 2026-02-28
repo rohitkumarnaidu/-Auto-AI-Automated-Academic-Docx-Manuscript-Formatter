@@ -1,0 +1,88 @@
+publisher: "ACM"
+description: "Association for Computing Machinery proceedings contract"
+
+sections:
+  required:
+    - "abstract"
+    - "introduction"
+    - "references"
+  order:
+    - "title"
+    - "abstract"
+    - "keywords"
+    - "introduction"
+    - "methodology"
+    - "results"
+    - "discussion"
+    - "conclusion"
+    - "references"
+  canonical_names:
+    "related work": "introduction"
+    "bibliography": "references"
+
+numbering:
+  headings:
+    1: "numeric"
+    2: "decimal"
+    3: "decimal_deep"
+  figures: "numeric"
+  tables: "numeric"
+  equations: "numeric"
+
+styles:
+  TITLE: "Title"
+  AUTHOR: "Normal"
+  AFFILIATION: "Normal"
+  ABSTRACT_HEADING: "Heading 1"
+  ABSTRACT_BODY: "Normal"
+  KEYWORDS_HEADING: "Heading 2"
+  KEYWORDS_BODY: "Normal"
+  HEADING_1: "Heading 1"
+  HEADING_2: "Heading 2"
+  HEADING_3: "Heading 3"
+  HEADING_4: "Heading 4"
+  BODY: "Normal"
+  REFERENCES_HEADING: "Heading 1"
+  REFERENCE_ENTRY: "Reference"
+
+references:
+  style: "numeric"
+  citation_format: "[N]"
+  normalization:
+    enabled: true
+    max_authors: 6
+    et_al_suffix: "et al."
+
+layout:
+  page_size: "Letter"
+  default_columns: 2
+  font_family: "Linux Libertine"
+  font_size: 9
+  line_spacing: 1.0
+  section_overrides:
+    title: 1
+    abstract: 1
+    references: 1
+  margins:
+    top: 0.75
+    bottom: 0.75
+    left: 0.75
+    right: 0.75
+  spacing:
+    paragraph:
+      before: 0
+      after: 6
+    heading:
+      before: 10
+      after: 4
+    references:
+      before: 8
+      after: 4
+  page_breaks:
+    before: []
+
+equations:
+  numbering: "numeric"
+  scope: "global"
+  brackets: "()"
+  alignment: "right"

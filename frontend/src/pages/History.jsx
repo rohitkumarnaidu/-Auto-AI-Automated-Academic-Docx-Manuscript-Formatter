@@ -8,6 +8,15 @@ import { isCompleted, isFailed } from '../constants/status';
 import DeleteConfirmDialog from '../components/DeleteConfirmDialog';
 import { deleteDocument, useDocuments } from '../services/api';
 
+const Checkbox = ({ checked, onChange, disabled }) => (
+    <div
+        className={`w-5 h-5 rounded flex items-center justify-center border transition-colors cursor-pointer ${disabled ? 'opacity-50 cursor-not-allowed border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900' : checked ? 'bg-primary border-primary' : 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 hover:border-primary'}`}
+        onClick={() => !disabled && onChange(!checked)}
+    >
+        {checked && <span className="material-symbols-outlined text-[14px] text-white font-bold">check</span>}
+    </div>
+);
+
 const toTimestamp = (value) => new Date(value || 0).getTime();
 const resolveFilename = (item) => (
     item?.filename
@@ -86,6 +95,8 @@ export default function History() {
     const [documentToDelete, setDocumentToDelete] = useState(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState('');
+    const [selectedIds, setSelectedIds] = useState(new Set());
+    const [isDeletingBulk, setIsDeletingBulk] = useState(false);
 
     const history = useMemo(() => {
         const records = documentsPayload?.documents || [];
@@ -123,6 +134,11 @@ export default function History() {
         try {
             await deleteDocument(documentToDelete.id);
             setDocumentToDelete(null);
+            setSelectedIds(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(documentToDelete.id);
+                return newSet;
+            });
             await refreshDocuments();
         } catch (error) {
             setDeleteError(
@@ -132,6 +148,42 @@ export default function History() {
             );
         } finally {
             setIsDeleting(false);
+        }
+    };
+
+    const toggleSelection = (id) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) {
+                next.delete(id);
+            } else {
+                next.add(id);
+            }
+            return next;
+        });
+    };
+
+    const toggleAll = () => {
+        if (selectedIds.size === versionedHistory.length) {
+            setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(versionedHistory.map(item => item.id).filter(Boolean)));
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        if (selectedIds.size === 0 || isDeletingBulk) return;
+        setIsDeletingBulk(true);
+        setDeleteError('');
+        try {
+            const promises = Array.from(selectedIds).map(id => deleteDocument(id));
+            await Promise.allSettled(promises);
+            setSelectedIds(new Set());
+            await refreshDocuments();
+        } catch (error) {
+            setDeleteError('Failed to delete some documents.');
+        } finally {
+            setIsDeletingBulk(false);
         }
     };
 
@@ -201,6 +253,13 @@ export default function History() {
                                 <table className="w-full text-left border-collapse">
                                     <thead>
                                         <tr className="bg-slate-50/50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 uppercase text-[11px] font-bold tracking-widest">
+                                            <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 w-12 text-center">
+                                                <Checkbox
+                                                    checked={versionedHistory.length > 0 && selectedIds.size === versionedHistory.length}
+                                                    onChange={toggleAll}
+                                                    disabled={isLoading || versionedHistory.length === 0}
+                                                />
+                                            </th>
                                             <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-800">Date / Time</th>
                                             <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-800">Manuscript Name</th>
                                             <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-800">Version</th>
@@ -213,6 +272,7 @@ export default function History() {
                                         {isLoading ? (
                                             Array.from({ length: 5 }).map((_, i) => (
                                                 <tr key={`skeleton-${i}`} className="animate-pulse">
+                                                    <td className="px-6 py-5"><div className="w-5 h-5 rounded bg-slate-200 dark:bg-slate-700 mx-auto"></div></td>
                                                     <td className="px-6 py-5"><div className="h-4 w-28 rounded bg-slate-200 dark:bg-slate-700"></div></td>
                                                     <td className="px-6 py-5"><div className="flex items-center gap-2"><div className="w-5 h-5 rounded bg-slate-200 dark:bg-slate-700"></div><div className="h-4 w-36 rounded bg-slate-200 dark:bg-slate-700"></div></div></td>
                                                     <td className="px-6 py-5"><div className="h-4 w-16 rounded bg-slate-200 dark:bg-slate-700"></div></td>
@@ -223,13 +283,20 @@ export default function History() {
                                             ))
                                         ) : versionedHistory.length === 0 ? (
                                             <tr>
-                                                <td colSpan="6" className="px-6 py-12 text-center text-slate-500">
+                                                <td colSpan="7" className="px-6 py-12 text-center text-slate-500">
                                                     No processing history found. Start by uploading a manuscript.
                                                 </td>
                                             </tr>
                                         ) : (
                                             versionedHistory.map((item) => (
-                                                <tr key={item.key} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors group">
+                                                <tr key={item.key} className={`transition-colors group ${selectedIds.has(item.id) ? 'bg-primary/5 dark:bg-primary/10' : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'}`}>
+                                                    <td className="px-6 py-5 whitespace-nowrap text-center">
+                                                        <Checkbox
+                                                            checked={selectedIds.has(item.id)}
+                                                            onChange={() => item.id && toggleSelection(item.id)}
+                                                            disabled={!item.id}
+                                                        />
+                                                    </td>
                                                     <td className="px-6 py-5 whitespace-nowrap">
                                                         <span className="text-slate-600 dark:text-slate-400 text-sm">
                                                             {new Date(item.timestamp).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
@@ -307,6 +374,32 @@ export default function History() {
                     </div>
                 </div>
             </main>
+
+            {/* Sticky Action Bar */}
+            {selectedIds.size > 0 && (
+                <div className="fixed bottom-0 left-0 right-0 z-40 p-4 animate-in slide-in-from-bottom-full duration-300">
+                    <div className="max-w-3xl mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl rounded-2xl p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <span className="material-symbols-outlined text-primary bg-primary/10 p-2 rounded-full">check_circle</span>
+                            <div>
+                                <p className="text-slate-900 dark:text-white font-bold">{selectedIds.size} item{selectedIds.size > 1 ? 's' : ''} selected</p>
+                                <button onClick={() => setSelectedIds(new Set())} className="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 text-sm hover:underline">Clear selection</button>
+                            </div>
+                        </div>
+                        <button
+                            onClick={handleBulkDelete}
+                            disabled={isDeletingBulk}
+                            className="bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 text-red-600 border border-red-200 dark:border-red-900/50 font-bold py-2 px-6 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
+                        >
+                            {isDeletingBulk ? (
+                                <><span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span> Deleting...</>
+                            ) : (
+                                <><span className="material-symbols-outlined text-[18px]">delete</span> Delete Selected</>
+                            )}
+                        </button>
+                    </div>
+                </div>
+            )}
 
             <DeleteConfirmDialog
                 isOpen={Boolean(documentToDelete)}

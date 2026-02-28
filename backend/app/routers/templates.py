@@ -6,9 +6,10 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.db.supabase_client import get_supabase_client
+from app.pipeline.services.csl_fetcher import search_styles, fetch_style
 from app.schemas.user import User
 from app.utils.dependencies import get_optional_user
 
@@ -114,6 +115,26 @@ async def list_builtin_templates():
                 )
 
     return {"templates": items}
+
+
+@templates_router.get("/csl/search")
+async def csl_search(query: str = Query(..., min_length=1)):
+    """Search CSL styles by keyword."""
+    results = await search_styles(query)
+    return {"query": query, "results": results}
+
+
+@templates_router.get("/csl/fetch")
+async def csl_fetch(slug: str = Query(..., min_length=1)):
+    """Fetch CSL XML by style slug."""
+    try:
+        style = await fetch_style(slug)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        logger.error("Failed to fetch CSL style '%s': %s", slug, exc)
+        raise HTTPException(status_code=502, detail=f"Failed to fetch CSL style '{slug}'")
+    return style
 
 
 @templates_router.get("/custom")

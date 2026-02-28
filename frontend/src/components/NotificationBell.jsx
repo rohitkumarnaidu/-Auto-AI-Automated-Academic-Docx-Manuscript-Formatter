@@ -56,9 +56,11 @@ export default function NotificationBell() {
     return (
         <div className="relative" ref={dropdownRef}>
             <button
-                onClick={() => setIsOpen(!isOpen)}
+                onClick={() => setIsOpen((open) => !open)}
                 className="relative p-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                 aria-label="Notifications"
+                aria-expanded={isOpen}
+                aria-haspopup="menu"
             >
                 <span className="material-symbols-outlined">notifications</span>
                 {unreadCount > 0 && (
@@ -69,7 +71,7 @@ export default function NotificationBell() {
             </button>
 
             {isOpen && (
-                <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xl z-50 overflow-hidden">
+                <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xl z-50 overflow-hidden" role="menu" aria-label="Notifications menu">
                     <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700">
                         <p className="text-sm font-semibold text-slate-900 dark:text-white">Notifications</p>
                         {unreadCount > 0 && (
@@ -89,7 +91,7 @@ export default function NotificationBell() {
                             {recentItems.map((n) => (
                                 <li
                                     key={n.id}
-                                    className={`px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors ${!n.read ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
+                                    className={`px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${!n.read ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
                                 >
                                     <p className={`text-sm ${n.read ? 'text-slate-500' : 'text-slate-900 dark:text-white font-medium'} line-clamp-2`}>
                                         {n.message}

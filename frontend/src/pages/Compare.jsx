@@ -54,8 +54,18 @@ const buildHtmlDiffDocument = (htmlDiff, highlightsEnabled) => {
         return '';
     }
 
+    const script = `
+<script>
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'n' || e.key === 'N' || e.key === 'p' || e.key === 'P') {
+            window.parent.postMessage({ type: 'diff_nav', key: e.key }, '*');
+        }
+    });
+</script>
+`;
+
     if (highlightsEnabled) {
-        return htmlDiff;
+        return htmlDiff.includes('</body>') ? htmlDiff.replace('</body>', `${script}</body>`) : htmlDiff + script;
     }
 
     const overrideStyles = `
@@ -65,9 +75,11 @@ const buildHtmlDiffDocument = (htmlDiff, highlightsEnabled) => {
 }
 </style>`;
 
-    return htmlDiff.includes('</head>')
+    const styledHtml = htmlDiff.includes('</head>')
         ? htmlDiff.replace('</head>', `${overrideStyles}</head>`)
         : `${overrideStyles}${htmlDiff}`;
+
+    return styledHtml.includes('</body>') ? styledHtml.replace('</body>', `${script}</body>`) : styledHtml + script;
 };
 
 export default function Compare() {
@@ -83,6 +95,74 @@ export default function Compare() {
     const [htmlDiff, setHtmlDiff] = useState('');
     const [comparisonError, setComparisonError] = useState('');
     const [isComparisonLoading, setIsComparisonLoading] = useState(false);
+
+    const diffRefs = React.useRef([]);
+    const currentDiffIndex = React.useRef(-1);
+
+    useEffect(() => {
+        const handleNavKey = (key) => {
+            if (key === 'n' || key === 'N') {
+                const prev = currentDiffIndex.current;
+                const iframe = document.querySelector('iframe');
+                if (iframe && iframe.contentWindow) {
+                    try {
+                        const diffs = Array.from(iframe.contentWindow.document.querySelectorAll('.diff_add, .diff_sub, .diff_chg'));
+                        if (diffs.length > 0) {
+                            const next = Math.min(prev + 1, diffs.length - 1);
+                            diffs[next].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            currentDiffIndex.current = next;
+                            return;
+                        }
+                    } catch (e) {
+                        // ignore cors errors if any
+                    }
+                }
+                const next = Math.min(prev + 1, diffRefs.current.length - 1);
+                if (diffRefs.current[next]) {
+                    diffRefs.current[next].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                currentDiffIndex.current = next;
+            } else if (key === 'p' || key === 'P') {
+                const prev = currentDiffIndex.current;
+                const iframe = document.querySelector('iframe');
+                if (iframe && iframe.contentWindow) {
+                    try {
+                        const diffs = Array.from(iframe.contentWindow.document.querySelectorAll('.diff_add, .diff_sub, .diff_chg'));
+                        if (diffs.length > 0) {
+                            const next = Math.max(prev - 1, 0);
+                            diffs[next].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            currentDiffIndex.current = next;
+                            return;
+                        }
+                    } catch (e) {
+                        // ignore cors errors if any
+                    }
+                }
+                const next = Math.max(prev - 1, 0);
+                if (diffRefs.current[next]) {
+                    diffRefs.current[next].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                currentDiffIndex.current = next;
+            }
+        };
+
+        const handleKeyDown = (e) => {
+            if (e.target?.tagName === 'INPUT' || e.target?.tagName === 'TEXTAREA') return;
+            handleNavKey(e.key);
+        };
+        const handleMessage = (e) => {
+            if (e.data?.type === 'diff_nav') {
+                handleNavKey(e.data.key);
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('message', handleMessage);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('message', handleMessage);
+        };
+    }, []);
 
     const effectiveHighlights = highlights && !isPaused;
 
@@ -210,6 +290,8 @@ export default function Compare() {
         );
     }
 
+    diffRefs.current = [];
+
     return (
         <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-50 min-h-screen flex flex-col animate-in zoom-in-95 duration-300">
             <Navbar variant="app" />
@@ -223,7 +305,12 @@ export default function Compare() {
                             <span className="material-symbols-outlined text-[14px]">chevron_right</span>
                             <span className="font-medium break-all">{job.originalFileName}</span>
                         </nav>
-                        <h1 className="text-slate-900 dark:text-white text-2xl font-bold leading-tight tracking-[-0.015em]">Document Comparison</h1>
+                        <div className="flex items-center gap-3">
+                            <h1 className="text-slate-900 dark:text-white text-2xl font-bold leading-tight tracking-[-0.015em]">Document Comparison</h1>
+                            <span className="hidden sm:inline-flex px-2 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                                Keyboard: N (Next) • P (Prev)
+                            </span>
+                        </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 mt-4 md:mt-0">
                         <button
@@ -361,10 +448,12 @@ export default function Compare() {
                                 <div className={`flex-1 p-8 overflow-y-auto custom-scrollbar bg-white dark:bg-slate-900 ${scrollSync ? 'scroll-sync-right' : ''}`}>
                                     <div className="max-w-2xl mx-auto space-y-1">
                                         {diffs.right.map((line, i) => (
-                                            <div key={i} className={`min-h-[24px] relative ${effectiveHighlights && line.type === 'added'
-                                                ? 'bg-green-100 dark:bg-green-900/30 border-l-2 border-green-500 pl-2'
-                                                : line.type === 'empty' ? 'bg-slate-50/50 dark:bg-slate-800/30' : ''
-                                                }`}>
+                                            <div key={i}
+                                                ref={(el) => { if (el && line.type === 'added') diffRefs.current.push(el); }}
+                                                className={`min-h-[24px] relative ${effectiveHighlights && line.type === 'added'
+                                                    ? 'bg-green-100 dark:bg-green-900/30 border-l-2 border-green-500 pl-2'
+                                                    : line.type === 'empty' ? 'bg-slate-50/50 dark:bg-slate-800/30' : ''
+                                                    }`}>
                                                 <p>{line.text}</p>
                                                 {effectiveHighlights && line.text.trim() !== '' && line.type !== 'empty' && (
                                                     <span className="inline-block ml-1 text-primary/30 font-serif translate-y-[2px]" title="Formatting Symbol">|</span>

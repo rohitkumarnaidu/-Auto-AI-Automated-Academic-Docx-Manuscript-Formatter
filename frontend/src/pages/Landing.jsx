@@ -395,19 +395,19 @@ export default function Landing() {
                             <ul className="space-y-3 mb-8 flex-1">
                                 <li className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
                                     <span className="material-symbols-outlined text-green-500 text-lg mt-0.5">check_circle</span>
-                                    3 manuscripts per month
+                                    3 manuscript formats / month
                                 </li>
                                 <li className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
                                     <span className="material-symbols-outlined text-green-500 text-lg mt-0.5">check_circle</span>
-                                    Basic formatting (IEEE, APA)
+                                    Core templates (IEEE, APA)
                                 </li>
                                 <li className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
                                     <span className="material-symbols-outlined text-green-500 text-lg mt-0.5">check_circle</span>
-                                    DOCX export
+                                    Standard DOCX export
                                 </li>
                                 <li className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
                                     <span className="material-symbols-outlined text-green-500 text-lg mt-0.5">check_circle</span>
-                                    Community support
+                                    Community forum support
                                 </li>
                             </ul>
                             <Link to="/signup" className="w-full text-center bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white py-3 px-6 rounded-xl font-bold text-sm hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
@@ -431,23 +431,23 @@ export default function Landing() {
                             <ul className="space-y-3 mb-8 flex-1">
                                 <li className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
                                     <span className="material-symbols-outlined text-green-500 text-lg mt-0.5">check_circle</span>
-                                    Unlimited manuscripts
+                                    Unlimited manuscript formatting
                                 </li>
                                 <li className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
                                     <span className="material-symbols-outlined text-green-500 text-lg mt-0.5">check_circle</span>
-                                    All 1,000+ journal templates
+                                    Full access to 1,000+ templates
                                 </li>
                                 <li className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
                                     <span className="material-symbols-outlined text-green-500 text-lg mt-0.5">check_circle</span>
-                                    PDF, LaTeX, DOCX export
+                                    High-fidelity PDF &amp; LaTeX export
                                 </li>
                                 <li className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
                                     <span className="material-symbols-outlined text-green-500 text-lg mt-0.5">check_circle</span>
-                                    AI writing insights
+                                    Deep AI structural insights
                                 </li>
                                 <li className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
                                     <span className="material-symbols-outlined text-green-500 text-lg mt-0.5">check_circle</span>
-                                    Priority processing
+                                    Priority queue processing
                                 </li>
                             </ul>
                             <Link to="/signup" className="w-full text-center bg-primary text-white py-3 px-6 rounded-xl font-bold text-sm hover:bg-blue-600 transition-colors shadow-lg shadow-primary/25">
@@ -467,23 +467,23 @@ export default function Landing() {
                             <ul className="space-y-3 mb-8 flex-1">
                                 <li className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
                                     <span className="material-symbols-outlined text-green-500 text-lg mt-0.5">check_circle</span>
-                                    Everything in Pro
+                                    Everything included in Pro
                                 </li>
                                 <li className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
                                     <span className="material-symbols-outlined text-green-500 text-lg mt-0.5">check_circle</span>
-                                    Unlimited team seats
+                                    Unlimited collaborative team seats
                                 </li>
                                 <li className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
                                     <span className="material-symbols-outlined text-green-500 text-lg mt-0.5">check_circle</span>
-                                    Custom template builder
+                                    Institutional custom template builder
                                 </li>
                                 <li className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
                                     <span className="material-symbols-outlined text-green-500 text-lg mt-0.5">check_circle</span>
-                                    SSO &amp; admin dashboard
+                                    SSO integration &amp; admin analytics
                                 </li>
                                 <li className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
                                     <span className="material-symbols-outlined text-green-500 text-lg mt-0.5">check_circle</span>
-                                    Dedicated support
+                                    Dedicated account manager
                                 </li>
                             </ul>
                             <a href="mailto:sales@scholarform.ai" className="w-full text-center bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white py-3 px-6 rounded-xl font-bold text-sm hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">

@@ -1,13 +1,18 @@
 import usePageTitle from '../hooks/usePageTitle';
 import { useState, useEffect } from 'react';
+import { Navigate } from 'react-router-dom'; // B-FIX-20a
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import MetricsCard from '../components/MetricsCard';
 import HealthStatusIndicator from '../components/HealthStatusIndicator';
 import { getMetricsDb, getMetricsHealth, getMetricsDashboard } from '../services/api';
+import { useAuth } from '../context/AuthContext'; // B-FIX-20a
 
 export default function AdminDashboard() {
     usePageTitle('Admin Dashboard');
+    // B-FIX-20a: Admin role guard — useAuth MUST be called before useState (rules of hooks)
+    const { user } = useAuth();
+    // All hooks must come before any conditional return
     const [dbMetrics, setDbMetrics] = useState(null);
     const [healthData, setHealthData] = useState(null);
     const [dashboardData, setDashboardData] = useState(null);
@@ -51,6 +56,10 @@ export default function AdminDashboard() {
             setLoading(false);
         }
     };
+
+    // B-FIX-20a: Guard AFTER all hook declarations (Rules of Hooks requires all hooks to run unconditionally)
+    const isAdmin = user?.app_metadata?.role === 'admin' || user?.user_metadata?.role === 'admin';
+    if (!isAdmin) return <Navigate to="/" replace />;
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
@@ -117,6 +126,7 @@ export default function AdminDashboard() {
                             value={dbMetrics?.document_count ?? '—'}
                             icon="description"
                             color="primary"
+                            isLoading={loading}
                         />
                         <MetricsCard
                             title="Processing Success"
@@ -124,6 +134,7 @@ export default function AdminDashboard() {
                             icon="check_circle"
                             color="green"
                             subtitle="Completion rate"
+                            isLoading={loading}
                         />
                         <MetricsCard
                             title="Avg Confidence"
@@ -131,6 +142,7 @@ export default function AdminDashboard() {
                             icon="psychology"
                             color="purple"
                             subtitle="AI model confidence"
+                            isLoading={loading}
                         />
                         <MetricsCard
                             title="Error Rate"
@@ -138,6 +150,7 @@ export default function AdminDashboard() {
                             icon="error_outline"
                             color={dashboardData?.error_rate > 5 ? 'red' : 'amber'}
                             subtitle="Last 24 hours"
+                            isLoading={loading}
                         />
                     </div>
                 </section>

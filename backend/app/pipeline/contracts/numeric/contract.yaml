@@ -1,0 +1,82 @@
+publisher: "Numeric"
+description: "Generic numeric citation manuscript contract"
+
+sections:
+  required:
+    - "abstract"
+    - "introduction"
+    - "references"
+  order:
+    - "title"
+    - "abstract"
+    - "introduction"
+    - "methodology"
+    - "results"
+    - "discussion"
+    - "conclusion"
+    - "references"
+  canonical_names:
+    "methods": "methodology"
+    "bibliography": "references"
+
+numbering:
+  headings:
+    1: "numeric"
+    2: "decimal"
+    3: "decimal_deep"
+  figures: "numeric"
+  tables: "numeric"
+  equations: "numeric"
+
+styles:
+  TITLE: "Title"
+  AUTHOR: "Normal"
+  AFFILIATION: "Normal"
+  ABSTRACT_HEADING: "Heading 1"
+  ABSTRACT_BODY: "Normal"
+  HEADING_1: "Heading 1"
+  HEADING_2: "Heading 2"
+  HEADING_3: "Heading 3"
+  HEADING_4: "Heading 4"
+  BODY: "Normal"
+  REFERENCES_HEADING: "Heading 1"
+  REFERENCE_ENTRY: "Reference"
+
+references:
+  style: "numeric"
+  citation_format: "[N]"
+  normalization:
+    enabled: true
+    max_authors: 6
+    et_al_suffix: "et al."
+
+layout:
+  page_size: "Letter"
+  default_columns: 1
+  font_family: "Times New Roman"
+  font_size: 12
+  line_spacing: 1.5
+  section_overrides: {}
+  margins:
+    top: 1.0
+    bottom: 1.0
+    left: 1.0
+    right: 1.0
+  spacing:
+    paragraph:
+      before: 0
+      after: 10
+    heading:
+      before: 16
+      after: 6
+    references:
+      before: 18
+      after: 10
+  page_breaks:
+    before: []
+
+equations:
+  numbering: "numeric"
+  scope: "global"
+  brackets: "()"
+  alignment: "center"

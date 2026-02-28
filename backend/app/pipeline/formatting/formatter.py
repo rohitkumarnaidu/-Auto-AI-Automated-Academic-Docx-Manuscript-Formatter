@@ -7,11 +7,13 @@ one block/figure/equation does not abort the entire document generation.
 
 import logging
 import os
+import re
 import yaml
 from typing import Optional, Any
 from docx import Document as WordDocument
 from docx.shared import Inches, Pt
 from io import BytesIO
+from docx.enum.text import WD_BREAK
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 
@@ -59,6 +61,36 @@ class Formatter:
         if not template_name:
             template_name = "none" # No default template - use neutral formatting
         options = document.formatting_options or {}
+        add_cover_page = self._resolve_bool_option(
+            options,
+            "cover_page",
+            aliases=("add_cover_page",),
+            default=False,
+        )
+        add_toc = self._resolve_bool_option(
+            options,
+            "toc",
+            aliases=("generate_toc",),
+            default=False,
+        )
+        add_page_numbers = self._resolve_bool_option(
+            options,
+            "page_numbers",
+            aliases=("add_page_numbers",),
+            default=True,
+        )
+        add_borders = self._resolve_bool_option(
+            options,
+            "borders",
+            aliases=("add_borders",),
+            default=False,
+        )
+        add_line_numbers = self._resolve_bool_option(
+            options,
+            "line_numbers",
+            aliases=("add_line_numbers",),
+            default=False,
+        )
         template_key = template_name.lower()
         has_non_text_content = bool(document.figures or document.tables or document.equations)
         renderer_mode = str(options.get("template_engine", "auto")).strip().lower()
@@ -76,7 +108,9 @@ class Formatter:
         # Keep legacy python-docx path as a fallback for robustness.
         if use_template_renderer:
             try:
-                return self.template_renderer.render(document, template_name)
+                rendered = self.template_renderer.render(document, template_name)
+                self._post_process_template_render(rendered, document, template_name, options)
+                return rendered
             except Exception as exc:
                 logger.warning(
                     "docxtpl render failed for template '%s'. Falling back to legacy formatter. Error: %s",
@@ -188,27 +222,14 @@ class Formatter:
         
         # 3. Render
         self._apply_initial_layout(word_doc, template_name)
+        self._apply_page_size(word_doc, self._resolve_page_size(template_name, options))
         
-        # --- NEW FORMATTING OPTIONS IMPLEMENTATION ---
-        
-        # A. Page Size
-        self._apply_page_size(word_doc, options.get("page_size", "Letter"))
-        
-        # B. Cover Page
-        if options.get("cover_page", False):
+        # Cover page and TOC must be inserted before main content.
+        if add_cover_page:
             self._add_cover_page(word_doc, document)
             
-        # C. Table of Contents
-        if options.get("toc", False):
+        if add_toc:
             self._add_table_of_contents(word_doc)
-            
-        # D. Page Numbers
-        if options.get("page_numbers", True):
-             self._add_page_numbers(word_doc)
-
-        # E. Borders
-        if options.get("borders", False):
-            self._add_page_borders(word_doc)
 
         current_columns = None
         
@@ -253,6 +274,16 @@ class Formatter:
                 prefix = f"[{fn_id}] " if fn_id else "* "
                 fn_p.add_run(prefix).italic = True
                 fn_p.add_run(fn.text)
+
+        # Apply section-level options after all content/sections are created.
+        if add_page_numbers:
+            self._remove_static_page_number_placeholders(word_doc)
+            self._add_page_numbers(word_doc)
+        if add_borders:
+            self._add_page_borders(word_doc)
+        if add_line_numbers:
+            self._add_line_numbers(word_doc)
+        self._apply_global_line_spacing(word_doc, template_name, options)
                 
         return word_doc
 
@@ -272,29 +303,38 @@ class Formatter:
     @safe_function(fallback_value=None, error_message="Equation rendering failed")
     def _render_equation(self, doc, equation):
         """Render an equation block."""
-        # Simple implementation: Use the text fallback
-        # In more advanced versions, we'd insert the OMML directly
         p = doc.add_paragraph()
+        p.style = "Normal"
+        p.paragraph_format.alignment = 1  # Center
+
+        equation_text = (equation.text or "").strip() or " "
+
+        omath_para = OxmlElement("m:oMathPara")
+        omath = OxmlElement("m:oMath")
+        run = OxmlElement("m:r")
+        text_node = OxmlElement("m:t")
+        text_node.text = equation_text
+        run.append(text_node)
+        omath.append(run)
+        omath_para.append(omath)
+        p._p.append(omath_para)
+
         if equation.number:
-            # Format: [Equation Text] (Number)
-            # Use tabs for alignment if needed
-            p.text = f"{equation.text}\t\t{equation.number}"
-        else:
-            p.text = equation.text
-            
-        p.style = "Normal" # or custom Equation style
-        p.paragraph_format.alignment = 1 # Center
+            p.add_run(f"  ({equation.number})")
 
     def _apply_initial_layout(self, doc, publisher: str):
         """Set margins and initial properties."""
         contract = self.contract_loader.load(publisher)
         layout = contract.get("layout", {})
-        if not layout: return
-        
-        section = doc.sections[0]
-        # Margins (inches)
-        section.top_margin = Inches(layout.get("margins", {}).get("top", 1.0))
-        section.bottom_margin = Inches(layout.get("margins", {}).get("bottom", 1.0))
+        if not layout:
+            return
+
+        margins = layout.get("margins", {})
+        for section in doc.sections:
+            section.top_margin = Inches(margins.get("top", 1.0))
+            section.bottom_margin = Inches(margins.get("bottom", 1.0))
+            section.left_margin = Inches(margins.get("left", 1.0))
+            section.right_margin = Inches(margins.get("right", 1.0))
 
     def _get_target_columns(self, block, publisher: str) -> int:
         """Determine required column count for a block."""
@@ -328,6 +368,67 @@ class Formatter:
             section.page_width = width
             section.page_height = height
 
+    def _resolve_page_size(self, template_name: str, options: dict) -> str:
+        """Resolve page size from options first, then contract, then default."""
+        requested = str(options.get("page_size", "")).strip()
+        if requested:
+            return requested
+
+        contract = self.contract_loader.load(template_name)
+        layout = contract.get("layout", {})
+        contract_page_size = str(layout.get("page_size", "")).strip()
+        return contract_page_size or "Letter"
+
+    def _resolve_line_spacing(self, template_name: str, options: dict) -> Optional[float]:
+        """Resolve global line spacing from options/contract if present."""
+        raw_value = options.get("line_spacing", None)
+        if raw_value is None:
+            raw_value = options.get("add_line_spacing", None)
+        if raw_value is None:
+            contract = self.contract_loader.load(template_name)
+            raw_value = (contract.get("layout", {}) or {}).get("line_spacing")
+
+        if raw_value in (None, "", False):
+            return None
+        try:
+            value = float(raw_value)
+            if value <= 0:
+                return None
+            return value
+        except (TypeError, ValueError):
+            logger.warning("Invalid line spacing value '%s'. Ignoring.", raw_value)
+            return None
+
+    @staticmethod
+    def _coerce_bool_option(value: Any, default: bool) -> bool:
+        if value is None:
+            return default
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return value != 0
+        if isinstance(value, str):
+            token = value.strip().lower()
+            if token in {"1", "true", "yes", "on"}:
+                return True
+            if token in {"0", "false", "no", "off", ""}:
+                return False
+        return bool(value)
+
+    def _resolve_bool_option(
+        self,
+        options: dict,
+        primary_key: str,
+        aliases=(),
+        default: bool = False,
+    ) -> bool:
+        if not isinstance(options, dict):
+            return default
+        for key in (primary_key, *aliases):
+            if key in options:
+                return self._coerce_bool_option(options.get(key), default)
+        return default
+
     def _add_cover_page(self, doc, document_obj):
         """Adds a cover page with title and metadata."""
         # Insert a new paragraph at the very beginning
@@ -357,15 +458,15 @@ class Formatter:
         
         doc.add_page_break()
 
-    def _add_table_of_contents(self, doc):
+    def _add_table_of_contents(self, doc, prepend: bool = False, add_page_break: bool = True):
         """Adds a TOC field code."""
-        from docx.oxml.ns import qn
-        from docx.oxml import OxmlElement
+        inserted = []
 
         p = doc.add_paragraph()
         run = p.add_run("Table of Contents")
         run.bold = True
         run.font.size = Pt(16)
+        inserted.append(p)
         
         # XML for TOC field
         paragraph = doc.add_paragraph()
@@ -386,54 +487,264 @@ class Formatter:
         fldChar3 = OxmlElement('w:fldChar')
         fldChar3.set(qn('w:fldCharType'), 'end')
         run._r.append(fldChar3)
-        
-        doc.add_page_break()
+        inserted.append(paragraph)
+
+        if add_page_break:
+            page_break_para = doc.add_paragraph()
+            page_break_para.add_run().add_break(WD_BREAK.PAGE)
+            inserted.append(page_break_para)
+
+        if prepend:
+            body = doc._body._element
+            for para in reversed(inserted):
+                body.remove(para._p)
+                body.insert(0, para._p)
 
     def _add_page_numbers(self, doc):
         """Adds simple page numbers to the footer."""
-        from docx.oxml.ns import qn
-        from docx.oxml import OxmlElement
-        
-        # Simplification: Add to first section's footer
-        section = doc.sections[0]
-        footer = section.footer
-        p = footer.paragraphs[0]
-        p.alignment = 1 # Center
-        
-        run = p.add_run()
-        fldChar = OxmlElement('w:fldChar')
-        fldChar.set(qn('w:fldCharType'), 'begin')
-        run._r.append(fldChar)
-        
-        instr = OxmlElement('w:instrText')
-        instr.set(qn('xml:space'), 'preserve')
-        instr.text = "PAGE"
-        run._r.append(instr)
-        
-        fldChar2 = OxmlElement('w:fldChar')
-        fldChar2.set(qn('w:fldCharType'), 'end')
-        run._r.append(fldChar2)
+        for section in doc.sections:
+            footer = section.footer
+            if footer.paragraphs:
+                p = footer.paragraphs[0]
+            else:
+                p = footer.add_paragraph()
+            p.alignment = 1  # Center
+            if self._paragraph_has_field_code(p, "PAGE"):
+                continue
+
+            run = p.add_run()
+            fldChar = OxmlElement('w:fldChar')
+            fldChar.set(qn('w:fldCharType'), 'begin')
+            run._r.append(fldChar)
+
+            instr = OxmlElement('w:instrText')
+            instr.set(qn('xml:space'), 'preserve')
+            instr.text = "PAGE"
+            run._r.append(instr)
+
+            fldChar2 = OxmlElement('w:fldChar')
+            fldChar2.set(qn('w:fldCharType'), 'end')
+            run._r.append(fldChar2)
 
     def _add_page_borders(self, doc):
         """Adds page borders via OXML."""
-        from docx.oxml.ns import qn
-        from docx.oxml import OxmlElement
-        
-        # Get the section properties
-        sec_pr = doc.sections[0]._sectPr
-        # Create pgBorders element
-        pg_borders = OxmlElement('w:pgBorders')
-        pg_borders.set(qn('w:offsetFrom'), 'page')
-        
-        for border_name in ('top', 'left', 'bottom', 'right'):
-            border = OxmlElement(f'w:{border_name}')
-            border.set(qn('w:val'), 'single')
-            border.set(qn('w:sz'), '4') # 1/8 point
-            border.set(qn('w:space'), '24')
-            border.set(qn('w:color'), 'auto')
-            pg_borders.append(border)
-            
-        sec_pr.append(pg_borders)
+        for section in doc.sections:
+            sec_pr = section._sectPr
+            existing = sec_pr.xpath('./w:pgBorders')
+            for node in existing:
+                sec_pr.remove(node)
+
+            pg_borders = OxmlElement('w:pgBorders')
+            pg_borders.set(qn('w:offsetFrom'), 'page')
+
+            for border_name in ('top', 'left', 'bottom', 'right'):
+                border = OxmlElement(f'w:{border_name}')
+                border.set(qn('w:val'), 'single')
+                border.set(qn('w:sz'), '4')
+                border.set(qn('w:space'), '24')
+                border.set(qn('w:color'), 'auto')
+                pg_borders.append(border)
+
+            sec_pr.append(pg_borders)
+
+    def _add_line_numbers(self, doc, count_by: int = 1):
+        """Enable line numbering for all sections."""
+        for section in doc.sections:
+            sec_pr = section._sectPr
+            existing = sec_pr.xpath('./w:lnNumType')
+            ln_num = existing[0] if existing else OxmlElement('w:lnNumType')
+            ln_num.set(qn('w:countBy'), str(max(1, int(count_by))))
+            ln_num.set(qn('w:start'), '1')
+            ln_num.set(qn('w:distance'), '360')
+            if not existing:
+                sec_pr.append(ln_num)
+
+    def _apply_global_line_spacing(self, doc, template_name: str, options: dict) -> None:
+        """Apply global line spacing from options or template contract."""
+        line_spacing = self._resolve_line_spacing(template_name, options)
+        if line_spacing is None:
+            return
+        for paragraph in doc.paragraphs:
+            paragraph.paragraph_format.line_spacing = line_spacing
+
+    def _paragraph_has_field_code(self, paragraph, field_name: str) -> bool:
+        """Check whether paragraph XML already contains a field code token."""
+        xml = paragraph._p.xml if paragraph is not None else ""
+        return field_name in xml
+
+    def _remove_paragraph(self, paragraph) -> None:
+        """Remove a paragraph node from the document body."""
+        if paragraph is None:
+            return
+        p = paragraph._p
+        parent = p.getparent()
+        if parent is not None:
+            parent.remove(p)
+
+    def _prepend_paragraph(self, doc, text: str = "", style: Optional[str] = None, alignment: Optional[int] = None):
+        """Create a paragraph and move it to the beginning of the document."""
+        try:
+            paragraph = doc.add_paragraph(style=style) if style else doc.add_paragraph()
+        except Exception:
+            paragraph = doc.add_paragraph()
+
+        if text:
+            paragraph.add_run(text)
+        if alignment is not None:
+            paragraph.alignment = alignment
+
+        body = doc._body._element
+        body.remove(paragraph._p)
+        body.insert(0, paragraph._p)
+        return paragraph
+
+    def _document_contains_text(self, doc, text: str) -> bool:
+        needle = (text or "").strip().lower()
+        if not needle:
+            return False
+        for paragraph in doc.paragraphs:
+            if needle in (paragraph.text or "").strip().lower():
+                return True
+        return False
+
+    def _prepend_front_matter(self, doc, document_obj: Document, as_cover_page: bool) -> None:
+        """Insert title/authors at top when template omitted front-matter markers."""
+        title = document_obj.metadata.title or document_obj.original_filename or "Untitled Document"
+        authors = ", ".join(document_obj.metadata.authors) if document_obj.metadata.authors else "Unknown Author"
+        affiliations = "; ".join(document_obj.metadata.affiliations) if document_obj.metadata.affiliations else ""
+
+        if as_cover_page:
+            from datetime import datetime
+            page_break = self._prepend_paragraph(doc)
+            page_break.add_run().add_break(WD_BREAK.PAGE)
+
+            date_para = self._prepend_paragraph(doc, datetime.now().strftime("%B %d, %Y"), alignment=1)
+            if date_para.runs:
+                date_para.runs[0].font.size = Pt(12)
+
+            if affiliations:
+                aff_para = self._prepend_paragraph(doc, affiliations, alignment=1)
+                if aff_para.runs:
+                    aff_para.runs[0].italic = True
+                    aff_para.runs[0].font.size = Pt(12)
+
+            author_para = self._prepend_paragraph(doc, authors, alignment=1)
+            if author_para.runs:
+                author_para.runs[0].font.size = Pt(14)
+
+            title_para = self._prepend_paragraph(doc, title, style="Title", alignment=1)
+            if title_para.runs:
+                title_para.runs[0].bold = True
+                title_para.runs[0].font.size = Pt(24)
+        else:
+            if affiliations:
+                aff_para = self._prepend_paragraph(doc, affiliations, alignment=1)
+                if aff_para.runs:
+                    aff_para.runs[0].italic = True
+                    aff_para.runs[0].font.size = Pt(11)
+
+            author_para = self._prepend_paragraph(doc, authors, alignment=1)
+            if author_para.runs:
+                author_para.runs[0].font.size = Pt(12)
+
+            title_para = self._prepend_paragraph(doc, title, style="Title", alignment=1)
+            if title_para.runs:
+                title_para.runs[0].bold = True
+
+    def _remove_static_page_number_placeholders(self, doc) -> None:
+        """Remove template-injected static page labels before adding PAGE fields."""
+        for paragraph in list(doc.paragraphs):
+            text = (paragraph.text or "").strip()
+            if re.fullmatch(r"Page\s+\d+", text, flags=re.IGNORECASE):
+                self._remove_paragraph(paragraph)
+
+    def _remove_static_toc_block(self, doc) -> None:
+        """Remove text-only TOC placeholder blocks generated by template loops."""
+        paragraphs = list(doc.paragraphs)
+        for idx, paragraph in enumerate(paragraphs):
+            if (paragraph.text or "").strip().lower() != "table of contents":
+                continue
+            self._remove_paragraph(paragraph)
+            scan = idx + 1
+            while scan < len(paragraphs):
+                candidate = paragraphs[scan]
+                candidate_text = (candidate.text or "").strip()
+                if re.fullmatch(r"\d+\.\s+.+", candidate_text):
+                    self._remove_paragraph(candidate)
+                    scan += 1
+                    continue
+                if not candidate_text:
+                    self._remove_paragraph(candidate)
+                    scan += 1
+                    continue
+                break
+            break
+
+    def _ensure_dynamic_toc(self, doc) -> None:
+        """Ensure a dynamic Word TOC field is present."""
+        if 'TOC \\o "1-3" \\h \\z \\u' in doc._body._element.xml:
+            return
+        self._add_table_of_contents(doc, prepend=True, add_page_break=True)
+
+    def _post_process_template_render(self, rendered, source_document: Document, template_name: str, options: dict) -> None:
+        """Apply backend layout options to docxtpl-rendered templates as well."""
+        word_doc = getattr(rendered, "docx", None)
+        if word_doc is None:
+            logger.warning("Template render returned object without docx payload; skipping post-process.")
+            return
+
+        self._apply_initial_layout(word_doc, template_name)
+        self._apply_page_size(word_doc, self._resolve_page_size(template_name, options))
+
+        title = source_document.metadata.title or source_document.original_filename or ""
+        cover_enabled = self._resolve_bool_option(
+            options,
+            "cover_page",
+            aliases=("add_cover_page",),
+            default=True,
+        )
+        if title and not self._document_contains_text(word_doc, title):
+            self._prepend_front_matter(word_doc, source_document, as_cover_page=cover_enabled)
+
+        add_toc = self._resolve_bool_option(
+            options,
+            "toc",
+            aliases=("generate_toc",),
+            default=False,
+        )
+        add_page_numbers = self._resolve_bool_option(
+            options,
+            "page_numbers",
+            aliases=("add_page_numbers",),
+            default=True,
+        )
+        add_borders = self._resolve_bool_option(
+            options,
+            "borders",
+            aliases=("add_borders",),
+            default=False,
+        )
+        add_line_numbers = self._resolve_bool_option(
+            options,
+            "line_numbers",
+            aliases=("add_line_numbers",),
+            default=False,
+        )
+
+        if add_toc:
+            self._remove_static_toc_block(word_doc)
+            self._ensure_dynamic_toc(word_doc)
+        else:
+            self._remove_static_toc_block(word_doc)
+
+        self._remove_static_page_number_placeholders(word_doc)
+        if add_page_numbers:
+            self._add_page_numbers(word_doc)
+        if add_borders:
+            self._add_page_borders(word_doc)
+        if add_line_numbers:
+            self._add_line_numbers(word_doc)
+        self._apply_global_line_spacing(word_doc, template_name, options)
 
     def _set_columns(self, section, count: int):
         """Helper to set column count on a python-docx section."""
@@ -549,6 +860,13 @@ class Formatter:
             after = spacing.get("after", 0)
             paragraph.paragraph_format.space_before = Pt(before)
             paragraph.paragraph_format.space_after = Pt(after)
+
+        line_spacing = layout.get("line_spacing")
+        try:
+            if line_spacing:
+                paragraph.paragraph_format.line_spacing = float(line_spacing)
+        except (TypeError, ValueError):
+            pass
 
     @safe_function(fallback_value=None, error_message="Image sizing failed")
     def _calculate_image_size(self, figure: Figure):

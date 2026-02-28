@@ -6,7 +6,7 @@ import Footer from '../components/Footer';
 import ExportDialog from '../components/ExportDialog';
 import { useDocument } from '../context/DocumentContext';
 import { useAuth } from '../context/AuthContext';
-import { downloadExport } from '../services/api';
+import { downloadExport, downloadJATS } from '../services/api'; // B-FIX-23: downloadJATS added
 import { isCompleted, isFailed, isProcessing } from '../constants/status';
 import useJobFromUrl from '../hooks/useJobFromUrl';
 
@@ -20,6 +20,7 @@ export default function Download() {
     const [downloadError, setDownloadError] = useState(null);
     const [showLoginModal, setShowLoginModal] = useState(false);
     const [showExportDialog, setShowExportDialog] = useState(false);
+    const [isJatsDownloading, setIsJatsDownloading] = useState(false); // B-FIX-23
 
     const getJobRoute = (suffix, fallback) => (
         job?.id ? `/jobs/${encodeURIComponent(job.id)}/${suffix}` : fallback
@@ -33,28 +34,40 @@ export default function Download() {
 
     if (isJobLoading && !job) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-background-light dark:bg-background-dark">
-                <p className="text-slate-500 dark:text-slate-400 mb-4">Loading document details...</p>
+            <div className="min-h-screen flex flex-col bg-background-light dark:bg-background-dark">
+                <Navbar variant="app" />
+                <main className="flex-1 flex flex-col items-center justify-center">
+                    <p className="text-slate-500 dark:text-slate-400 mb-4">Loading document details...</p>
+                </main>
+                <Footer variant="app" />
             </div>
         );
     }
 
     if (jobLoadError && !job) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center px-4 text-center bg-background-light dark:bg-background-dark">
-                <p className="text-red-600 dark:text-red-400 mb-3">{jobLoadError}</p>
-                <button onClick={() => navigate('/history')} className="text-primary font-bold hover:underline">
-                    Return to History
-                </button>
+            <div className="min-h-screen flex flex-col bg-background-light dark:bg-background-dark">
+                <Navbar variant="app" />
+                <main className="flex-1 flex flex-col items-center justify-center px-4 text-center">
+                    <p className="text-red-600 dark:text-red-400 mb-3">{jobLoadError}</p>
+                    <button onClick={() => navigate('/history')} className="text-primary font-bold hover:underline">
+                        Return to History
+                    </button>
+                </main>
+                <Footer variant="app" />
             </div>
         );
     }
 
     if (!job) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-background-light dark:bg-background-dark">
-                <p className="text-slate-500 dark:text-slate-400 mb-4">No completed job found.</p>
-                <button onClick={() => navigate('/upload')} className="text-primary font-bold hover:underline">Return to Upload</button>
+            <div className="min-h-screen flex flex-col bg-background-light dark:bg-background-dark">
+                <Navbar variant="app" />
+                <main className="flex-1 flex flex-col items-center justify-center">
+                    <p className="text-slate-500 dark:text-slate-400 mb-4">No completed job found.</p>
+                    <button onClick={() => navigate('/upload')} className="text-primary font-bold hover:underline">Return to Upload</button>
+                </main>
+                <Footer variant="app" />
             </div>
         );
     }
@@ -181,8 +194,23 @@ export default function Download() {
                         )}
 
                         <div className="flex flex-col items-stretch justify-start rounded-xl @xl:flex-row @xl:items-start shadow-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
-                            <div className="w-full md:w-1/3 bg-slate-100 dark:bg-slate-800 flex items-center justify-center aspect-[3/4] group">
-                                <span className="material-symbols-outlined text-7xl text-slate-300 dark:text-slate-600 group-hover:scale-110 transition-transform">description</span>
+                            <div className="w-full md:w-1/3 bg-slate-100 dark:bg-slate-800 flex items-center justify-center aspect-[3/4] p-8 group">
+                                <div className="w-full h-full max-h-[240px] max-w-[170px] bg-white dark:bg-slate-900 shadow-md border border-slate-200 dark:border-slate-700 rounded-md p-4 flex flex-col gap-3 group-hover:scale-105 transition-transform duration-300">
+                                    <div className="w-3/4 h-3 bg-slate-200 dark:bg-slate-700 rounded"></div>
+                                    <div className="space-y-1.5 mt-2">
+                                        <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded"></div>
+                                        <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded"></div>
+                                        <div className="w-5/6 h-1.5 bg-slate-100 dark:bg-slate-800 rounded"></div>
+                                    </div>
+                                    <div className="space-y-1.5 mt-2">
+                                        <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded"></div>
+                                        <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded"></div>
+                                        <div className="w-4/6 h-1.5 bg-slate-100 dark:bg-slate-800 rounded"></div>
+                                    </div>
+                                    <div className="mt-auto self-end w-8 h-8 rounded bg-primary/10 flex items-center justify-center">
+                                        <span className="material-symbols-outlined text-[16px] text-primary">auto_awesome</span>
+                                    </div>
+                                </div>
                             </div>
                             <div className="flex w-full grow flex-col items-stretch justify-center gap-6 py-6 sm:py-8 px-5 sm:px-6 @xl:px-8">
                                 <div>
@@ -219,8 +247,40 @@ export default function Download() {
                                             </>
                                         )}
                                     </button>
+                                    {/* B-FIX-23: JATS XML download button */}
+                                    <button
+                                        onClick={async () => {
+                                            setIsJatsDownloading(true);
+                                            setDownloadError(null);
+                                            try {
+                                                const url = await downloadJATS(job.id);
+                                                const link = document.createElement('a');
+                                                link.href = url;
+                                                const baseName = job.originalFileName
+                                                    ? `JATS_${job.originalFileName.replace(/\.[^/.]+$/, '')}`
+                                                    : 'Manuscript_JATS';
+                                                link.setAttribute('download', `${baseName}.xml`);
+                                                document.body.appendChild(link);
+                                                link.click();
+                                                link.parentNode.removeChild(link);
+                                                setTimeout(() => window.URL.revokeObjectURL(url), 0);
+                                            } catch {
+                                                setDownloadError('JATS download failed. The server may not support this format yet.');
+                                            } finally {
+                                                setIsJatsDownloading(false);
+                                            }
+                                        }}
+                                        disabled={isJatsDownloading}
+                                        className="flex w-full cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-10 px-6 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-sm font-bold leading-normal transition-all hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {isJatsDownloading ? (
+                                            <><span className="material-symbols-outlined animate-spin text-sm">progress_activity</span><span>Downloading JATS...</span></>
+                                        ) : (
+                                            <><span className="material-symbols-outlined text-sm">code</span><span>Download JATS XML</span></>
+                                        )}
+                                    </button>
                                     <p className="text-xs text-slate-500 text-center">
-                                        Available formats: DOCX, PDF
+                                        Available formats: DOCX, PDF, JATS XML
                                     </p>
                                 </div>
                             </div>
@@ -235,7 +295,7 @@ export default function Download() {
                                 <p className="text-[#4c6c9a] dark:text-slate-400 text-sm font-semibold uppercase tracking-tight">Output Format</p>
                                 <div className="flex items-center gap-2">
                                     <span className="material-symbols-outlined text-blue-500">article</span>
-                                    <p className="text-[#0d131b] dark:text-slate-200 text-sm font-medium">DOCX, PDF</p>
+                                    <p className="text-[#0d131b] dark:text-slate-200 text-sm font-medium">DOCX, PDF, JATS XML</p>
                                 </div>
                             </div>
                             <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-[220px_1fr] gap-2 md:gap-6 border-b border-slate-200 dark:border-slate-800 py-4 items-center">

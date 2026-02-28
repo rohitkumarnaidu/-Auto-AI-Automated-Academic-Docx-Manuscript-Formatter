@@ -61,10 +61,12 @@ if _PS:
         LIBREOFFICE_PATH: Optional[str] = None
 
         # GROBID
+        GROBID_URL: str = "http://localhost:8070"
         GROBID_BASE_URL: str = "http://localhost:8070"
         GROBID_TIMEOUT: int = 30
         GROBID_MAX_RETRIES: int = 3
         GROBID_ENABLED: bool = True
+        OLLAMA_URL: str = "http://localhost:11434"
 
         model_config = {
             "env_file": ".env",
@@ -126,10 +128,12 @@ else:
         HEURISTIC_CONFIDENCE_MEDIUM: float = float(os.getenv("HEURISTIC_CONFIDENCE_MEDIUM", "0.9"))
         HEURISTIC_CONFIDENCE_LOW: float = float(os.getenv("HEURISTIC_CONFIDENCE_LOW", "0.5"))
         LIBREOFFICE_PATH: Optional[str] = os.getenv("LIBREOFFICE_PATH")
+        GROBID_URL: str = os.getenv("GROBID_URL", os.getenv("GROBID_BASE_URL", "http://localhost:8070"))
         GROBID_BASE_URL: str = os.getenv("GROBID_BASE_URL", "http://localhost:8070")
         GROBID_TIMEOUT: int = int(os.getenv("GROBID_TIMEOUT", "30"))
         GROBID_MAX_RETRIES: int = int(os.getenv("GROBID_MAX_RETRIES", "3"))
         GROBID_ENABLED: bool = os.getenv("GROBID_ENABLED", "true").lower() == "true"
+        OLLAMA_URL: str = os.getenv("OLLAMA_URL", "http://localhost:11434")
 
         def validate(self) -> None:
             for name in ("SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_JWT_SECRET", "SUPABASE_SERVICE_ROLE_KEY"):

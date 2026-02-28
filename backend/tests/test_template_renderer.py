@@ -109,3 +109,18 @@ def test_template_renderer_renders_apa_template(tmp_path):
     assert "Neural Rendering for Scientific Manuscripts" in text
     assert "References" in text
     assert "Journal of Formatting" in text
+
+
+def test_template_renderer_supports_option_aliases():
+    renderer = TemplateRenderer(templates_dir="app/templates")
+    pipeline_doc = _build_sample_document()
+    pipeline_doc.formatting_options = {
+        "add_cover_page": "false",
+        "generate_toc": "true",
+        "add_page_numbers": "false",
+    }
+
+    context = renderer.build_context(pipeline_doc)
+    assert context["cover_page"] is False
+    assert context["toc"] is True
+    assert context["page_numbers"] is False

@@ -24,13 +24,14 @@ class InputConverter:
     
     SUPPORTED_EXTENSIONS = {
         '.docx': 'pass',
-        '.md': 'pandoc',
+        '.doc':  'libreoffice',   # A-FIX-1: was missing — caused ConversionError on .doc uploads
+        '.md':   'pandoc',
         '.html': 'pandoc',
-        '.txt': 'pandoc',
-        '.tex': 'pandoc',      # LaTeX support via Pandoc
-        '.pdf': 'libreoffice',
-        '.odt': 'libreoffice',
-        '.rtf': 'libreoffice'
+        '.txt':  'pandoc',
+        '.tex':  'pandoc',        # LaTeX support via Pandoc
+        '.pdf':  'libreoffice',
+        '.odt':  'libreoffice',   # A-FIX-25: OpenDocument support
+        '.rtf':  'libreoffice',   # A-FIX-25: Rich Text Format support
     }
     
     def __init__(self, temp_dir: Optional[str] = None):

@@ -5,6 +5,7 @@ Template Renderer - Jinja2/docxtpl rendering for manuscript output.
 from __future__ import annotations
 
 import logging
+import re
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -33,6 +34,33 @@ class TemplateRenderer:
     def __init__(self, templates_dir: str = "app/templates"):
         self.templates_dir = Path(templates_dir)
         self._template_marker_cache: Dict[Path, bool] = {}
+
+    @staticmethod
+    def _coerce_bool(value: Any, default: bool) -> bool:
+        if value is None:
+            return default
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return value != 0
+        if isinstance(value, str):
+            token = value.strip().lower()
+            if token in {"1", "true", "yes", "on"}:
+                return True
+            if token in {"0", "false", "no", "off", ""}:
+                return False
+        return bool(value)
+
+    def _resolve_bool_option(
+        self,
+        options: Dict[str, Any],
+        keys: List[str],
+        default: bool,
+    ) -> bool:
+        for key in keys:
+            if key in options:
+                return self._coerce_bool(options.get(key), default)
+        return default
 
     def render(self, document: Document, template_name: str = "ieee") -> "DocxTemplate":
         """Render a template using document context."""
@@ -89,9 +117,21 @@ class TemplateRenderer:
             # Templates currently gate title/authors behind `{% if cover_page %}`.
             # Default to rendering front matter so metadata is not dropped when
             # formatting_options does not explicitly provide a flag.
-            cover_page = formatting_options.get("cover_page")
-            if cover_page is None:
-                cover_page = True
+            cover_page = self._resolve_bool_option(
+                formatting_options,
+                keys=["cover_page", "add_cover_page"],
+                default=True,
+            )
+            toc = self._resolve_bool_option(
+                formatting_options,
+                keys=["toc", "generate_toc"],
+                default=False,
+            )
+            page_numbers = self._resolve_bool_option(
+                formatting_options,
+                keys=["page_numbers", "add_page_numbers"],
+                default=True,
+            )
 
             return {
                 "title": title,
@@ -102,9 +142,9 @@ class TemplateRenderer:
                 "keywords": keywords,
                 "sections": sections,
                 "references": references,
-                "cover_page": bool(cover_page),
-                "toc": formatting_options.get("toc", False),
-                "page_numbers": formatting_options.get("page_numbers", True),
+                "cover_page": cover_page,
+                "toc": toc,
+                "page_numbers": page_numbers,
                 "page_number": formatting_options.get("page_number", "1"),
             }
         except Exception as exc:
@@ -131,8 +171,19 @@ class TemplateRenderer:
         has_markers = False
         try:
             with ZipFile(template_path) as zf:
-                xml = zf.read("word/document.xml").decode("utf-8", errors="ignore")
-            has_markers = ("{{" in xml) or ("{%" in xml)
+                xml_entries = [
+                    name for name in zf.namelist()
+                    if name.startswith("word/") and name.endswith(".xml")
+                ]
+
+                for xml_name in xml_entries:
+                    xml = zf.read(xml_name).decode("utf-8", errors="ignore")
+                    # Some templates split markers across <w:t> runs; strip tags to
+                    # inspect the underlying text stream as well.
+                    xml_text = re.sub(r"<[^>]+>", "", xml)
+                    if ("{{" in xml) or ("{%" in xml) or ("{{" in xml_text) or ("{%" in xml_text):
+                        has_markers = True
+                        break
         except Exception as exc:
             logger.warning(
                 "Unable to inspect template '%s' for Jinja markers: %s",

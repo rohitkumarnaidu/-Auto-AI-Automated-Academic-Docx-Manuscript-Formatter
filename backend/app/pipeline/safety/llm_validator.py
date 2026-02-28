@@ -1,13 +1,16 @@
 import asyncio
+import logging
 import sys
 import warnings
 from pydantic import BaseModel
 from typing import Callable, Any, Type, Optional
 
+logger = logging.getLogger(__name__)
+
 # --- Optional Guardrails Import ---
 if sys.version_info >= (3, 14):
     HAS_GUARDRAILS = False
-    print("[INFO] Guardrails AI disabled on Python >= 3.14. Falling back to native Pydantic validation.")
+    logger.info("Guardrails AI disabled on Python >= 3.14. Falling back to native Pydantic validation.")
 else:
     try:
         with warnings.catch_warnings():
@@ -18,10 +21,10 @@ else:
             )
             from guardrails import Guard
         HAS_GUARDRAILS = True
-        print("[SUCCESS] Guardrails AI loaded for robust LLM validation.")
+        logger.info("Guardrails AI loaded for robust LLM validation.")
     except ImportError:
         HAS_GUARDRAILS = False
-        print("[INFO] Guardrails AI unavailable. Falling back to native Pydantic validation (validator_guard.py).")
+        logger.info("Guardrails AI unavailable. Falling back to native Pydantic validation (validator_guard.py).")
 
 # Gracefully import the old wrapper as a fallback
 try:
@@ -104,12 +107,12 @@ def guard_llm_output(schema: Type[BaseModel], error_return_value: Optional[Any] 
                     return val
                     
                 # If Guardrails returned None (failed validation severely)
-                print(f"[GUARDRAILS] Schema rejected JSON payload for {func.__name__}")
+                logger.warning("[GUARDRAILS] Schema rejected JSON payload for %s", func.__name__)
                 return error_return_value or {}
                 
             except Exception as e:
                 # Catch Guardrails specific parsing errors securely
-                print(f"[GUARDRAILS] Exception in {func.__name__}: {e}")
+                logger.warning("[GUARDRAILS] Exception in %s: %s", func.__name__, e)
                 import traceback
                 traceback.print_exc()
                 # Provide graceful degradation via error_return_value instead of crashing pipeline

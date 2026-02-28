@@ -21,6 +21,7 @@ from pathlib import Path
 # Resolve relative to this file so the path is correct regardless of cwd.
 _BASE_DIR = Path(__file__).resolve().parent.parent.parent  # backend/
 LOGS_DIR = _BASE_DIR / "logs"
+_bootstrap_logger = logging.getLogger(__name__)
 
 try:
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
@@ -29,7 +30,11 @@ except OSError as _exc:
     import tempfile
     LOGS_DIR = Path(tempfile.gettempdir()) / "scholarform_logs"
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
-    print(f"[logging_config] WARNING: Could not create logs dir, using {LOGS_DIR}: {_exc}")
+    _bootstrap_logger.warning(
+        "[logging_config] Could not create logs dir, using %s: %s",
+        LOGS_DIR,
+        _exc,
+    )
 
 # ── Logging dict config ────────────────────────────────────────────────────────
 LOGGING_CONFIG = {

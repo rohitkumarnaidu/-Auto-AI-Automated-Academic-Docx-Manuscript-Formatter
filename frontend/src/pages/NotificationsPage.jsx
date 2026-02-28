@@ -1,5 +1,5 @@
 import usePageTitle from '../hooks/usePageTitle';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 
@@ -34,6 +34,8 @@ const saveNotifications = (items) => {
 export default function NotificationsPage() {
     usePageTitle('Notifications');
     const [notifications, setNotifications] = useState(loadNotifications);
+    const [undoState, setUndoState] = useState(null);
+    const undoTimeoutRef = useRef(null);
 
     useEffect(() => {
         saveNotifications(notifications);
@@ -44,8 +46,27 @@ export default function NotificationsPage() {
     }, []);
 
     const markAllRead = useCallback(() => {
-        setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+        setNotifications((prev) => {
+            const hasUnread = prev.some(n => !n.read);
+            if (!hasUnread) return prev;
+
+            setUndoState(prev);
+            if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
+            undoTimeoutRef.current = setTimeout(() => {
+                setUndoState(null);
+            }, 5000);
+
+            return prev.map(n => ({ ...n, read: true }));
+        });
     }, []);
+
+    const handleUndo = useCallback(() => {
+        if (undoState) {
+            setNotifications(undoState);
+            setUndoState(null);
+            if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
+        }
+    }, [undoState]);
 
     const deleteNotification = useCallback((id) => {
         setNotifications((prev) => prev.filter((n) => n.id !== id));
@@ -118,12 +139,24 @@ export default function NotificationsPage() {
                     </div>
                 </div>
 
+                {undoState && (
+                    <div className="mb-6 flex items-center justify-between p-4 bg-slate-800 dark:bg-slate-800 text-white rounded-lg shadow-lg animate-in slide-in-from-top-2 fade-in duration-300">
+                        <span className="text-sm font-medium">All notifications marked as read.</span>
+                        <button
+                            onClick={handleUndo}
+                            className="text-sm font-bold text-blue-400 hover:text-blue-300 transition-colors uppercase tracking-wide"
+                        >
+                            Undo
+                        </button>
+                    </div>
+                )}
+
                 {notifications.length === 0 ? (
                     <div className="text-center py-16">
                         <span className="material-symbols-outlined text-6xl text-slate-300 dark:text-slate-600">notifications_none</span>
                         <p className="text-slate-500 dark:text-slate-400 mt-4 text-lg">No notifications yet</p>
                         <p className="text-slate-400 dark:text-slate-500 text-sm mt-1">
-                            You'll see processing updates, feedback responses, and system alerts here.
+                            You&apos;ll see processing updates, feedback responses, and system alerts here.
                         </p>
                     </div>
                 ) : (

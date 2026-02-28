@@ -1,5 +1,5 @@
 import usePageTitle from '../hooks/usePageTitle';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 
@@ -27,6 +27,7 @@ export default function SettingsPage() {
     usePageTitle('Settings');
     const [settings, setSettings] = useState(loadSettings);
     const [saved, setSaved] = useState(false);
+    const [error, setError] = useState('');
 
     const update = (key, value) => {
         setSettings((prev) => ({ ...prev, [key]: value }));
@@ -37,9 +38,12 @@ export default function SettingsPage() {
         try {
             localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
             setSaved(true);
+            setError('');
             setTimeout(() => setSaved(false), 3000);
-        } catch {
-            /* ignore quota */
+        } catch (err) {
+            setError(err.message || 'Failed to save settings');
+            setSaved(false);
+            setTimeout(() => setError(''), 3000);
         }
     };
 
@@ -185,6 +189,20 @@ export default function SettingsPage() {
                     </p>
                 </section>
 
+                {/* Toast Banners */}
+                {saved && (
+                    <div className="mb-6 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 flex items-center text-green-700 dark:text-green-400 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <span className="material-symbols-outlined mr-2">check_circle</span>
+                        <span className="font-medium text-sm">Settings saved ✓</span>
+                    </div>
+                )}
+                {error && (
+                    <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex items-center text-red-700 dark:text-red-400 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <span className="material-symbols-outlined mr-2">error</span>
+                        <span className="font-medium text-sm">{error}</span>
+                    </div>
+                )}
+
                 {/* Action Buttons */}
                 <div className="flex items-center justify-between">
                     <button
@@ -194,12 +212,6 @@ export default function SettingsPage() {
                         Reset to Defaults
                     </button>
                     <div className="flex items-center gap-3">
-                        {saved && (
-                            <span className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
-                                <span className="material-symbols-outlined text-sm">check_circle</span>
-                                Saved
-                            </span>
-                        )}
                         <button
                             onClick={handleSave}
                             className="px-6 py-3 bg-primary hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-primary/25 transition-all flex items-center gap-2"

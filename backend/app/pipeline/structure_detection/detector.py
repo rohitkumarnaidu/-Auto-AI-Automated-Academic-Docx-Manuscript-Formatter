@@ -8,6 +8,7 @@ Input: Normalized Document
 Output: Document with structure hints attached to blocks
 """
 
+import logging
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
 from statistics import mean, median
@@ -20,6 +21,8 @@ from .position_rules import analyze_position, boost_heading_confidence_by_positi
 
 from app.pipeline.base import PipelineStage
 from app.pipeline.safety.safe_execution import safe_function, safe_execution
+
+logger = logging.getLogger(__name__)
 
 class StructureDetector(PipelineStage):
     """
@@ -67,13 +70,18 @@ class StructureDetector(PipelineStage):
             if docling_layout:
                 # path: Enhanced structure detection using Docling layout analysis
                 # Features: Bounding box aware, font size confident, logo tolerant
-                print(f"INFO: Using Docling layout data for structure detection ({len(docling_layout.get('elements', []))} elements)")
+                logger.info(
+                    "Using Docling layout data for structure detection (%d elements)",
+                    len(docling_layout.get("elements", [])),
+                )
                 heading_candidates = self._detect_structure_with_docling(document.blocks, docling_layout)
             
             # Fallback if Docling unavailable OR failed (returned empty/None)
             if not heading_candidates:
                 if docling_layout:
-                    print("WARNING: Docling detection returned no results (or failed). Fallback to standard rule-based detection.")
+                    logger.warning(
+                        "Docling detection returned no results (or failed). Fallback to standard rule-based detection."
+                    )
                 # Fallback: Use standard rule-based detection
                 heading_candidates = self._detect_heading_candidates(document.blocks)
         
@@ -354,7 +362,7 @@ class StructureDetector(PipelineStage):
                 if block.section_name:
                     block.section_name = self.contract_loader.get_canonical_name(publisher, block.section_name)
         except Exception as e:
-            print(f"Warning: Section canonicalization failed: {e}")
+            logger.warning("Section canonicalization failed: %s", e)
 
     def _validate_hierarchy(self, blocks: List[Block]) -> None:
         """
@@ -407,7 +415,7 @@ class StructureDetector(PipelineStage):
         # 1. Parse Layout Elements
         elements = layout_data.get("elements", [])
         if not elements:
-            print("WARNING: Docling layout data empty. Fallback to standard detection.")
+            logger.warning("Docling layout data empty. Fallback to standard detection.")
             return self._detect_heading_candidates(blocks)
             
         # 2. Identify Visual Hierarchy (Font Sizes)
@@ -522,8 +530,8 @@ class StructureDetector(PipelineStage):
         
         # If Docling found nothing (e.g. scanned doc without OCR), fallback
         if not candidates:
-             print("WARNING: Docling found no structure. Fallback to standard detection.")
-             return self._detect_heading_candidates(blocks)
+            logger.warning("Docling found no structure. Fallback to standard detection.")
+            return self._detect_heading_candidates(blocks)
              
         return candidates
 

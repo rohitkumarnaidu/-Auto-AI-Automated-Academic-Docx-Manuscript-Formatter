@@ -17,6 +17,7 @@ except ImportError:
     detect_language = None
 
 logger = logging.getLogger(__name__)
+USE_SCIBERT_CLASSIFICATION = False
 
 # Silence non-critical transformer loading warnings
 transformers_logging.set_verbosity_error()
@@ -51,12 +52,11 @@ class SemanticParser:
         logger.info("SemanticParser: Loading SciBERT model (%s)...", self.model_name)
         try:
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            logger.warning("Initializing SciBERT for classification. Warning: If using base weights ('allenai/scibert_scivocab_uncased'), the classification head is randomly initialized. Predictions will be unreliable unless a fine-tuned model path is provided.")
             self.model = AutoModel.from_pretrained(
                 self.model_name,
                 ignore_mismatched_sizes=True
             )
-            self.model.eval()
-            self._is_loaded = True
             logger.info("SemanticParser: Model loaded successfully.")
         except Exception as e:
             logger.warning("Failed to load transformer %s: %s", self.model_name, e)
@@ -92,7 +92,8 @@ class SemanticParser:
         Produce a list of SemanticBlock structures.
         Identifies boundaries and repairs fragmented headers semantically.
         """
-        self._load_model()
+        if USE_SCIBERT_CLASSIFICATION:
+            self._load_model()
         semantic_blocks = []
         
         # FEAT 44: Language detection — skip SciBERT for non-English documents
@@ -112,31 +113,7 @@ class SemanticParser:
         repaired_blocks = self._repair_fragmented_headings(blocks)
         
         for i, block in enumerate(repaired_blocks):
-            if use_transformer:
-                prediction = self._predict_block_type(block.text)
-            else:
-                # Improved Heuristic-only fallback
-                prediction = {"type": "BODY", "confidence": 0.5}
-                text = block.text.strip()
-                upper_text = text.upper()
-                
-                if len(text) < 150:
-                    if upper_text.startswith("ABSTRACT"):
-                        prediction = {"type": "ABSTRACT", "confidence": 0.8}
-                    elif upper_text.startswith("REFERENCES") or upper_text.startswith("BIBLIOGRAPHY"):
-                        prediction = {"type": "REFERENCES", "confidence": 0.8}
-                    elif upper_text.startswith("ACKNOWLEDGEMENTS") or upper_text.startswith("ACKNOWLEDGMENTS"):
-                        prediction = {"type": "ACKNOWLEDGEMENTS", "confidence": 0.8}
-                    elif upper_text.startswith("METHODOLOGY") or upper_text.startswith("METHODS"):
-                        prediction = {"type": "METHODOLOGY", "confidence": 0.8}
-                    elif upper_text.startswith("CONCLUSION"):
-                        prediction = {"type": "CONCLUSION", "confidence": 0.8}
-                    elif text.startswith("Figure") or text.startswith("Fig."):
-                        prediction = {"type": "FIGURE_CAPTION", "confidence": 0.7}
-                    elif text.startswith("Table"):
-                        prediction = {"type": "TABLE_CAPTION", "confidence": 0.7}
-                    elif text and text[0].isupper() and len(text) < 80:
-                        prediction = {"type": "HEADING", "confidence": 0.6}
+            prediction = self.classify_block(block.text, use_transformer=use_transformer)
             
             # Create SemanticBlock Structure (as requested)
             semantic_block = {
@@ -175,6 +152,41 @@ class SemanticParser:
             "type": predicted_label,
             "confidence": float(confidence.item())
         }
+
+    def _heuristic_classify(self, text: str) -> Dict[str, Any]:
+        """Rule-based block classification when transformer inference is disabled."""
+        prediction = {"type": "BODY", "confidence": 0.5}
+        text = (text or "").strip()
+        upper_text = text.upper()
+
+        if len(text) < 150:
+            if upper_text.startswith("ABSTRACT"):
+                prediction = {"type": "ABSTRACT", "confidence": 0.8}
+            elif upper_text.startswith("REFERENCES") or upper_text.startswith("BIBLIOGRAPHY"):
+                prediction = {"type": "REFERENCES", "confidence": 0.8}
+            elif upper_text.startswith("ACKNOWLEDGEMENTS") or upper_text.startswith("ACKNOWLEDGMENTS"):
+                prediction = {"type": "ACKNOWLEDGEMENTS", "confidence": 0.8}
+            elif upper_text.startswith("METHODOLOGY") or upper_text.startswith("METHODS"):
+                prediction = {"type": "METHODOLOGY", "confidence": 0.8}
+            elif upper_text.startswith("CONCLUSION") or upper_text.startswith("CONCLUSIONS"):
+                prediction = {"type": "CONCLUSION", "confidence": 0.8}
+            elif upper_text.startswith("INTRODUCTION"):
+                prediction = {"type": "HEADING", "confidence": 0.8}
+            elif upper_text.startswith("RESULTS") or upper_text.startswith("DISCUSSION"):
+                prediction = {"type": "HEADING", "confidence": 0.8}
+            elif text.startswith("Figure") or text.startswith("Fig."):
+                prediction = {"type": "FIGURE_CAPTION", "confidence": 0.7}
+            elif text.startswith("Table") or text.startswith("Tab."):
+                prediction = {"type": "TABLE_CAPTION", "confidence": 0.7}
+            elif text and text[0].isupper() and len(text) < 80:
+                prediction = {"type": "HEADING", "confidence": 0.6}
+        return prediction
+
+    def classify_block(self, text: str, use_transformer: bool = True) -> Dict[str, Any]:
+        """Classify a single block using SciBERT or deterministic heuristics."""
+        if USE_SCIBERT_CLASSIFICATION and use_transformer:
+            return self._predict_block_type(text)
+        return self._heuristic_classify(text)
 
     def _repair_fragmented_headings(self, blocks: List[Block]) -> List[Block]:
         """Semantically re-stitch split headers using proximity and content analysis."""

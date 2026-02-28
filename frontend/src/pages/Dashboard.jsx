@@ -185,13 +185,28 @@ export default function Dashboard() {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                        {recentJobs.length === 0 ? (
+                                        {history.length === 0 && !loadingHistory && !fetchingHistory ? (
+                                            <tr>
+                                                <td colSpan="4" className="px-6 py-16 text-center">
+                                                    <div className="flex flex-col items-center justify-center max-w-md mx-auto">
+                                                        <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mb-6">
+                                                            <span className="material-symbols-outlined text-5xl text-primary">post_add</span>
+                                                        </div>
+                                                        <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Ready for your first manuscript?</h3>
+                                                        <p className="text-slate-500 dark:text-slate-400 mb-8 text-sm">Upload a document to run AI analysis, validate formatting, and export to academic standards.</p>
+                                                        <button onClick={() => navigate('/upload')} className="bg-primary hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg shadow-primary/20 transition-all active:scale-95 flex items-center gap-2">
+                                                            <span className="material-symbols-outlined text-lg">upload_file</span>
+                                                            Upload your first manuscript
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ) : recentJobs.length === 0 ? (
                                             <tr>
                                                 <td colSpan="4" className="px-6 py-12 text-center">
                                                     <div className="flex flex-col items-center gap-3">
                                                         <span className="material-symbols-outlined text-4xl text-slate-300 dark:text-slate-700">inbox</span>
                                                         <p className="text-slate-500 dark:text-slate-400 font-medium">No manuscripts yet</p>
-                                                        <Link to="/upload" className="text-primary text-sm font-bold hover:underline">Upload your first manuscript</Link>
                                                     </div>
                                                 </td>
                                             </tr>

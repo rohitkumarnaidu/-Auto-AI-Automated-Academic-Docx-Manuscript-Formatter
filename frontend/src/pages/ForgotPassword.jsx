@@ -12,6 +12,7 @@ export default function ForgotPassword() {
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [countdown, setCountdown] = useState(null);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -26,15 +27,16 @@ export default function ForgotPassword() {
             setLoading(false);
         } else {
             setMessage('OTP has been sent to your email.');
-            // Navigate after a short delay so user can see success message
-            setTimeout(() => {
-                navigate('/verify-otp', { state: { email } });
-            }, 1500);
-            // loading is intentionally kept true or handled by navigate? 
-            // Better to reset it or keep it true until navigation if button should remain disabled.
-            // But common practice is to reset if we are not "waiting" anymore.
-            // However, the acceptance criteria says "Loading always stops on error".
-            // Let's reset it after success message too, or trust redirect.
+            setCountdown(5);
+            let timeLeft = 5;
+            const timer = setInterval(() => {
+                timeLeft -= 1;
+                setCountdown(timeLeft);
+                if (timeLeft <= 0) {
+                    clearInterval(timer);
+                    navigate('/login');
+                }
+            }, 1000);
             setLoading(false);
         }
     };
@@ -65,7 +67,7 @@ export default function ForgotPassword() {
 
                     {message && (
                         <div className="mb-6 p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-600 dark:text-green-400 text-sm">
-                            {message}
+                            {message} {countdown !== null && `Redirecting in ${countdown}s...`}
                         </div>
                     )}
 

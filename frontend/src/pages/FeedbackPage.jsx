@@ -1,6 +1,5 @@
 import usePageTitle from '../hooks/usePageTitle';
-import { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useState } from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import FeedbackForm from '../components/FeedbackForm';
@@ -8,7 +7,6 @@ import { getFeedbackSummary } from '../services/api';
 
 export default function FeedbackPage() {
     usePageTitle('Feedback');
-    const { isLoggedIn } = useAuth();
     const [summaryData, setSummaryData] = useState(null);
     const [summaryLoading, setSummaryLoading] = useState(false);
     const [activeTab, setActiveTab] = useState('submit');

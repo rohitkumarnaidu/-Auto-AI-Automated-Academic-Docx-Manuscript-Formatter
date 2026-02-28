@@ -1,6 +1,7 @@
 import usePageTitle from '../hooks/usePageTitle';
 import Navbar from '../components/Navbar';
 import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const DEFAULT_PROCESSING_MESSAGE = "Unsupported file type or corrupted metadata detected. We couldn't parse your manuscript for formatting. Please check your file format and try again.";
 const DEFAULT_NOT_FOUND_MESSAGE = 'The page you requested could not be found. It may have been moved or deleted.';
@@ -22,6 +23,7 @@ function normalizeError(errorValue) {
 export default function Error({ error }) {
     usePageTitle('Error');
     const location = useLocation();
+    const { isLoggedIn } = useAuth();
     const stateError = normalizeError(location?.state?.error);
     const resolvedError = normalizeError(error) || stateError;
     const isNotFound = !resolvedError;
@@ -40,8 +42,8 @@ export default function Error({ error }) {
             'Rename the file to remove special characters and retry',
         ];
 
-    const primaryLink = isNotFound ? '/' : '/upload';
-    const primaryLabel = isNotFound ? 'Go to Home' : 'Return to Upload';
+    const primaryLink = isNotFound ? (isLoggedIn ? '/dashboard' : '/') : '/upload';
+    const primaryLabel = isNotFound ? (isLoggedIn ? 'Go to Dashboard' : 'Go to Home') : 'Return to Upload';
 
     return (
         <div className="flex flex-col min-h-screen">

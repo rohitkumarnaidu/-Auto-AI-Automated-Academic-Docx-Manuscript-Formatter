@@ -18,25 +18,30 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
     );
     const { theme, toggleTheme } = useTheme();
     const [isProfileOpen, setIsProfileOpen] = useState(false);
+    const [isMoreOpen, setIsMoreOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
     const profileRef = useRef(null);
+    const moreMenuRef = useRef(null);
     const navigate = useNavigate();
     const location = useLocation();
 
-    const loggedInLinks = [
+    const loggedInPrimaryLinks = [
         { key: 'dashboard', to: '/dashboard', label: 'Dashboard' },
         { key: 'upload', to: '/upload', label: 'Upload' },
-        { key: 'batch-upload', to: '/batch-upload', label: 'Batch Upload' },
+        { key: 'batch-upload', to: '/batch-upload', label: 'Batch' },
         { key: 'templates', to: '/templates', label: 'Templates' },
+        { key: 'history', to: '/history', label: 'Manuscripts' },
+    ];
+    const loggedInSecondaryLinks = [
         { key: 'template-editor', to: '/template-editor', label: 'Template Editor' },
         { key: 'feedback', to: '/feedback', label: 'Feedback' },
         { key: 'results', to: '/results', label: 'Validate Results' },
-        { key: 'history', to: '/history', label: 'My Manuscripts' },
         { key: 'notifications', to: '/notifications', label: 'Notifications' },
         { key: 'settings', to: '/settings', label: 'Settings' },
         ...(isAdminUser ? [{ key: 'admin-dashboard', to: '/admin-dashboard', label: 'Admin Dashboard' }] : []),
     ];
+    const loggedInLinks = [...loggedInPrimaryLinks, ...loggedInSecondaryLinks];
     const guestLinks = [
         { key: 'dashboard', to: '/', label: 'Home' },
         { key: 'upload', to: '/upload', label: 'Upload' },
@@ -64,10 +69,14 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
             if (profileRef.current && !profileRef.current.contains(event.target)) {
                 setIsProfileOpen(false);
             }
+            if (moreMenuRef.current && !moreMenuRef.current.contains(event.target)) {
+                setIsMoreOpen(false);
+            }
         }
         function handleEscape(event) {
             if (event.key === 'Escape') {
                 setIsProfileOpen(false);
+                setIsMoreOpen(false);
                 setIsMobileMenuOpen(false);
             }
         }
@@ -111,7 +120,39 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
     useEffect(() => {
         setIsMobileMenuOpen(false);
         setIsProfileOpen(false);
+        setIsMoreOpen(false);
     }, [location.pathname]);
+
+    const userAvatarUrl = user?.user_metadata?.avatar_url || user?.user_metadata?.picture || '';
+    const userDisplayName = user?.user_metadata?.full_name || user?.email || 'User';
+    const userInitials = String(userDisplayName)
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0]?.toUpperCase() || '')
+        .join('') || 'U';
+
+    const inferActiveTabFromPath = (pathname = '') => {
+        if (!pathname) return '';
+
+        const path = pathname.toLowerCase();
+        if (path.startsWith('/dashboard')) return 'dashboard';
+        if (path.startsWith('/upload') || path.startsWith('/processing')) return 'upload';
+        if (path.startsWith('/batch-upload')) return 'batch-upload';
+        if (path.startsWith('/templates')) return 'templates';
+        if (path.startsWith('/template-editor')) return 'template-editor';
+        if (path.startsWith('/feedback')) return 'feedback';
+        if (path.startsWith('/results') || path.includes('/results') || path.startsWith('/compare') || path.startsWith('/preview') || path.startsWith('/edit') || path.startsWith('/download')) return 'results';
+        if (path.startsWith('/history')) return 'history';
+        if (path.startsWith('/notifications')) return 'notifications';
+        if (path.startsWith('/settings')) return 'settings';
+        if (path.startsWith('/admin-dashboard')) return 'admin-dashboard';
+        return '';
+    };
+
+    const resolvedActiveTab = (activeTab || '').trim() || inferActiveTabFromPath(location.pathname);
+    const isMoreActive = loggedInSecondaryLinks.some((link) => link.key === resolvedActiveTab);
+    const isMoreHighlighted = isMoreActive || isMoreOpen;
 
     // Prevent rendering while auth state is indeterminate
     if (loading) return null;
@@ -210,10 +251,10 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
 
     // App Navbar
     const getTabClasses = (tabName) => {
-        const isActive = activeTab === tabName;
+        const isActive = resolvedActiveTab === tabName;
         return isActive
-            ? "text-primary text-sm font-bold border-b-2 border-primary py-1"
-            : "text-slate-600 dark:text-slate-300 text-sm font-medium hover:text-primary transition-colors";
+            ? "text-primary text-sm font-bold border-b-2 border-primary py-1 whitespace-nowrap shrink-0"
+            : "text-slate-600 dark:text-slate-300 text-sm font-medium hover:text-primary transition-colors whitespace-nowrap shrink-0";
     };
 
     return (
@@ -221,7 +262,7 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
             ? 'bg-white/80 dark:bg-background-dark/80 backdrop-blur-lg shadow-sm'
             : 'bg-white dark:bg-background-dark'
             }`}>
-            <div className="max-w-[1600px] mx-auto flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 gap-3">
+            <div className="max-w-[1440px] mx-auto flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 gap-3">
                 <div className="flex items-center gap-4 text-primary min-w-0">
                     <Link to={isLoggedIn ? "/dashboard" : "/"} className="flex items-center gap-2 hover:opacity-80 transition-opacity min-w-0">
                         <div className="bg-primary text-white p-1.5 rounded-lg flex items-center justify-center shrink-0">
@@ -231,9 +272,9 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
                     </Link>
                 </div>
 
-                <div className="hidden xl:flex flex-1 justify-end gap-8 min-w-0">
-                    <nav className="flex items-center gap-7">
-                        {activeLinks.map((link) => (
+                <div className="hidden xl:flex flex-1 justify-end items-center gap-4 min-w-0">
+                    <nav className="flex items-center gap-4 min-w-0 flex-nowrap overflow-visible">
+                        {(isLoggedIn ? loggedInPrimaryLinks : activeLinks).map((link) => (
                             <Link key={link.key} to={link.to} className={`${getTabClasses(link.key)} relative`}>
                                 {link.label}
                                 {link.key === 'upload' && isJobActive && (
@@ -244,10 +285,44 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
                                 )}
                             </Link>
                         ))}
+                        {isLoggedIn && (
+                            <div className="relative shrink-0" ref={moreMenuRef}>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsMoreOpen((open) => !open)}
+                                    className={`inline-flex items-center gap-1 py-1 border-b-2 text-sm font-medium transition-colors ${isMoreHighlighted ? 'text-primary border-primary' : 'text-slate-600 dark:text-slate-300 border-transparent hover:text-primary hover:border-primary/40'}`}
+                                    aria-haspopup="menu"
+                                    aria-expanded={isMoreOpen}
+                                    aria-label="More navigation links"
+                                >
+                                    More
+                                    <span className={`material-symbols-outlined text-[18px] transition-transform ${isMoreOpen ? 'rotate-180' : ''}`}>expand_more</span>
+                                </button>
+                                {isMoreOpen && (
+                                    <div
+                                        role="menu"
+                                        aria-label="More navigation"
+                                        className="absolute right-0 mt-2 min-w-[220px] bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden py-1 z-50"
+                                    >
+                                        {loggedInSecondaryLinks.map((link) => (
+                                            <Link
+                                                key={link.key}
+                                                role="menuitem"
+                                                to={link.to}
+                                                className={`block px-4 py-2 text-sm transition-colors ${resolvedActiveTab === link.key ? 'text-primary bg-primary/5 font-semibold' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                                                onClick={() => setIsMoreOpen(false)}
+                                            >
+                                                {link.label}
+                                            </Link>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </nav>
 
                     {isLoggedIn ? (
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-3 shrink-0">
                             <ThemeToggle />
                             <div className="flex gap-2">
                                 <NotificationBell />
@@ -271,7 +346,20 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
                                     aria-label="Profile menu"
                                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsProfileOpen(!isProfileOpen); } }}
                                 >
-                                    <div className="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 border border-slate-200 dark:border-slate-700" style={{ backgroundImage: `url("${user?.user_metadata?.avatar_url || user?.user_metadata?.picture || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCBAnQke1dGWniClQX7rHZBtni1hbRlIpllATyD41NPPw3Br765F9F0vIWQH7I2SezfqlRBNZW0hgkDJ4Kl-Ekd0MVD60AqnPJe_Q0QkDvG2fqpVzmz_HTsQKFKkBIvfvFH26zii0uK7s11gs1bnXmlnWvG6LS6GTXhY6thfBqwRUWqvuAIMWQfqwnAs0DFEX2j3QBP0F7mG913xvhu2iMMo_MIgxF_nqEmviIbI0G3jFBvWtp3KPkAPAxfc4YVXlrDPh_tJJ5ZgnHP'}")` }}></div>
+                                    {userAvatarUrl ? (
+                                        <div
+                                            className="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 border border-slate-200 dark:border-slate-700"
+                                            style={{ backgroundImage: `url("${userAvatarUrl}")` }}
+                                            aria-label={`${userDisplayName} avatar`}
+                                        ></div>
+                                    ) : (
+                                        <div
+                                            className="rounded-full size-10 border border-slate-200 dark:border-slate-700 bg-gradient-to-br from-primary/90 to-blue-600 text-white text-xs font-bold flex items-center justify-center"
+                                            aria-label={`${userDisplayName} avatar`}
+                                        >
+                                            {userInitials}
+                                        </div>
+                                    )}
                                     <span className={`material-symbols-outlined text-slate-400 group-hover:text-primary transition-all duration-200 ${isProfileOpen ? 'rotate-180' : ''}`}>expand_more</span>
                                 </div>
 
@@ -351,7 +439,7 @@ export default function Navbar({ variant = 'app', activeTab = '' }) {
                             <Link
                                 key={link.key}
                                 to={link.to}
-                                className={`px-3 py-2 rounded-lg text-sm ${activeTab === link.key
+                                className={`px-3 py-2 rounded-lg text-sm ${resolvedActiveTab === link.key
                                     ? 'bg-primary/10 text-primary font-bold'
                                     : 'text-slate-700 dark:text-slate-300 font-medium hover:bg-slate-100 dark:hover:bg-slate-800'
                                     }`}

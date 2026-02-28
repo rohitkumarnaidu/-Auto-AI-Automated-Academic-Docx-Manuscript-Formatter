@@ -77,26 +77,38 @@ export default function FeedbackForm({ documentId: propDocId, onSubmitted }) {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                        Original Value
+                    <label className="flex justify-between items-baseline mb-1">
+                        <span className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                            Original Value
+                        </span>
+                        <span className={`text-xs ${originalValue.length > 900 ? 'text-red-500 font-bold' : 'text-slate-500'}`}>
+                            {originalValue.length}/1000
+                        </span>
                     </label>
                     <textarea
                         value={originalValue}
                         onChange={(e) => setOriginalValue(e.target.value)}
                         placeholder="What the AI produced"
                         rows={3}
+                        maxLength={1000}
                         className="w-full p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary outline-none resize-none"
                     />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                        Corrected Value *
+                    <label className="flex justify-between items-baseline mb-1">
+                        <span className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                            Corrected Value *
+                        </span>
+                        <span className={`text-xs ${correctedValue.length > 900 ? 'text-red-500 font-bold' : 'text-slate-500'}`}>
+                            {correctedValue.length}/1000
+                        </span>
                     </label>
                     <textarea
                         value={correctedValue}
                         onChange={(e) => setCorrectedValue(e.target.value)}
                         placeholder="What it should be"
                         rows={3}
+                        maxLength={1000}
                         className="w-full p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary outline-none resize-none"
                         required
                     />
@@ -104,14 +116,20 @@ export default function FeedbackForm({ documentId: propDocId, onSubmitted }) {
             </div>
 
             <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Additional Comment
+                <label className="flex justify-between items-baseline mb-1">
+                    <span className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                        Additional Comment
+                    </span>
+                    <span className={`text-xs ${comment.length > 450 ? 'text-red-500 font-bold' : 'text-slate-500'}`}>
+                        {comment.length}/500
+                    </span>
                 </label>
                 <textarea
                     value={comment}
                     onChange={(e) => setComment(e.target.value)}
                     placeholder="Any notes about why this correction is needed"
                     rows={2}
+                    maxLength={500}
                     className="w-full p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary outline-none resize-none"
                 />
             </div>

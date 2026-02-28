@@ -1,7 +1,10 @@
 import functools
 import json
+import logging
 from typing import Callable, Any, Dict
 from pydantic import BaseModel, ValidationError
+
+logger = logging.getLogger(__name__)
 
 def validate_output(
     schema: Any, # Pydantic Model or expected structure
@@ -25,7 +28,7 @@ def validate_output(
                             valid_obj = schema(**result)
                             return valid_obj.model_dump()
                         except ValidationError as ve:
-                            print(f"🛡️ Validator Guard: Schema mismatch in {func.__name__}: {ve}")
+                            logger.warning("Validator Guard: Schema mismatch in %s: %s", func.__name__, ve)
                             # Attempt to repair or fall back
                             return error_return_value or {}
                     elif isinstance(result, schema):
@@ -35,12 +38,12 @@ def validate_output(
                 if isinstance(schema, dict) and isinstance(result, dict):
                     missing = [k for k in schema.keys() if k not in result]
                     if missing:
-                        print(f"🛡️ Validator Guard: Missing keys in {func.__name__}: {missing}")
+                        logger.warning("Validator Guard: Missing keys in %s: %s", func.__name__, missing)
                         return error_return_value or {}
                 
                 return result
             except Exception as e:
-                print(f"🛡️ Validator Guard: Exception in {func.__name__}: {e}")
+                logger.warning("Validator Guard: Exception in %s: %s", func.__name__, e)
                 return error_return_value or {}
         return wrapper
     return decorator

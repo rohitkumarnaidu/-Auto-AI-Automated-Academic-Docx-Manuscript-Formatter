@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 from typing import Optional, List, Dict, Any
+from datetime import datetime, timedelta, timezone
 
 # ── Old ORM imports (kept for reference, replaced by supabase-py) ──────────────
 # from sqlalchemy.orm import Session
@@ -31,6 +32,8 @@ class DocumentService:
     """
     _supports_file_hash: Optional[bool] = None
     _file_hash_warning_logged: bool = False
+    _supports_output_hash: Optional[bool] = None
+    _output_hash_warning_logged: bool = False
 
     # ── Documents ──────────────────────────────────────────────────────────────
 
@@ -119,6 +122,31 @@ class DocumentService:
             return result.count or 0
         except Exception as exc:
             logger.error("count_documents(user=%s) failed: %s", user_id, exc)
+            return 0
+
+    @staticmethod
+    def count_uploads_today(user_id: str) -> int:
+        """
+        Count uploads created by this user during the current UTC day.
+        Returns 0 on error.
+        """
+        sb = get_supabase_client()
+        if sb is None:
+            return 0
+        try:
+            day_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+            day_end = day_start + timedelta(days=1)
+            result = (
+                sb.table("documents")
+                .select("id", count="exact")
+                .eq("user_id", str(user_id))
+                .gte("created_at", day_start.isoformat())
+                .lt("created_at", day_end.isoformat())
+                .execute()
+            )
+            return int(result.count or 0)
+        except Exception as exc:
+            logger.error("count_uploads_today(user=%s) failed: %s", user_id, exc)
             return 0
 
     @staticmethod
@@ -220,6 +248,42 @@ class DocumentService:
         except Exception as exc:
             logger.error("update_document(%s) failed: %s", doc_id, exc)
             return None
+
+    @staticmethod
+    def update_output_hash(doc_id: str, output_hash: str) -> bool:
+        """
+        Persist SHA256 for generated output artifacts.
+        Returns True when persisted, False otherwise.
+        """
+        if not output_hash:
+            return False
+        if DocumentService._supports_output_hash is False:
+            return False
+
+        sb = get_supabase_client()
+        if sb is None:
+            return False
+        try:
+            sb.table("documents").update({"output_hash": output_hash}).eq("id", str(doc_id)).execute()
+            DocumentService._supports_output_hash = True
+            return True
+        except Exception as exc:
+            err = str(exc)
+            missing_output_hash = (
+                "output_hash" in err
+                and ("schema cache" in err or "column" in err or "PGRST204" in err)
+            )
+            if missing_output_hash:
+                DocumentService._supports_output_hash = False
+                if not DocumentService._output_hash_warning_logged:
+                    logger.warning(
+                        "documents.output_hash not found in Supabase schema; "
+                        "download integrity checks will be best-effort until migration is applied."
+                    )
+                    DocumentService._output_hash_warning_logged = True
+                return False
+            logger.error("update_output_hash(%s) failed: %s", doc_id, exc)
+            return False
 
     @staticmethod
     def mark_document_failed(doc_id: str, error_message: str) -> None:

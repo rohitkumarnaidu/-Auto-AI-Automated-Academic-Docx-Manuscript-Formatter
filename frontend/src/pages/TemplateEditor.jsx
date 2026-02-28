@@ -1,5 +1,5 @@
 import usePageTitle from '../hooks/usePageTitle';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { getCustomTemplates, saveCustomTemplate } from '../services/api';
@@ -128,7 +128,7 @@ export default function TemplateEditor() {
         setTimeout(() => window.URL.revokeObjectURL(url), 1000);
     };
 
-    const handleSaveTemplate = async () => {
+    const handleSaveTemplate = useCallback(async () => {
         setSaving(true);
         setSaveMessage('');
         const timestamp = new Date().toISOString();
@@ -169,7 +169,21 @@ export default function TemplateEditor() {
             lineSpacing: prev.lineSpacing,
         }));
         setSaving(false);
-    };
+    }, [settings, savedTemplates.length]);
+
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+                e.preventDefault();
+                if (!saving) {
+                    handleSaveTemplate();
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [handleSaveTemplate, saving]);
 
     return (
         <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-display">

@@ -15,13 +15,14 @@ import os
 import time
 import hashlib
 import logging
+import inspect
 from collections import defaultdict
 from typing import Dict, List, Optional
 
-import redis.asyncio as aioredis
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
+from app.cache.redis_cache import RedisCache
 
 # ---------------------------------------------------------------------------
 # Module-level Redis client (lazily initialised, patched in tests)
@@ -33,17 +34,16 @@ REDIS_ENABLED = (
     if _redis_enabled_raw is not None
     else bool(os.getenv("REDIS_URL"))
 )
-redis: Optional[aioredis.Redis] = None  # kept for test-patch compat
+_redis_backend = RedisCache()
+redis = _redis_backend.client  # kept for test-patch compat
 logger = logging.getLogger(__name__)
 
 
-def _ensure_redis() -> Optional[aioredis.Redis]:
+def _ensure_redis():
     """Return (and lazily create) the module-level redis client."""
     global redis
     if not REDIS_ENABLED:
         return None
-    if redis is None:
-        redis = aioredis.from_url(REDIS_URL, decode_responses=True)
     return redis
 
 
@@ -107,9 +107,14 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             r = _ensure_redis()
             if r is None:
                 return None
-            count = await r.incr(key)
+            count = r.incr(key)
+            if inspect.isawaitable(count):
+                count = await count
+            count = int(count)
             if count == 1:
-                await r.expire(key, self.WINDOW_SECONDS + 1)
+                expire_result = r.expire(key, self.WINDOW_SECONDS + 1)
+                if inspect.isawaitable(expire_result):
+                    await expire_result
             return count
         except Exception as exc:
             if not self._redis_warning_logged:

@@ -5,6 +5,7 @@ This factory pattern allows the pipeline to support multiple input formats
 without hardcoding parser selection logic throughout the codebase.
 """
 
+import logging
 import os
 from typing import Optional
 
@@ -16,6 +17,8 @@ from app.pipeline.parsing.html_parser import HtmlParser
 from app.pipeline.parsing.md_parser import MarkdownParser
 from app.pipeline.parsing.tex_parser import TexParser
 from app.pipeline.safety import safe_function
+
+logger = logging.getLogger(__name__)
 
 
 class ParserFactory:
@@ -41,15 +44,15 @@ class ParserFactory:
         try:
             self.parsers.append(DocxParser())
         except Exception as e:
-            print(f"Warning: DocxParser initialization failed: {e}")
+            logger.warning("DocxParser initialization failed: %s", e)
 
         # PDF parser - PRIMARY (fast path via PyMuPDF)
         try:
             self.parsers.append(PdfParser())
         except ImportError:
-            print("Info: PDF parsing not available (install PyMuPDF: pip install PyMuPDF)")
+            logger.info("PDF parsing not available (install PyMuPDF: pip install PyMuPDF)")
         except Exception as e:
-            print(f"Warning: PdfParser initialization failed: {e}")
+            logger.warning("PdfParser initialization failed: %s", e)
 
         # Nougat parser is optional and used as OCR fallback when enabled.
         if enable_nougat:
@@ -57,37 +60,39 @@ class ParserFactory:
                 from app.pipeline.parsing.nougat_parser import NougatParser
 
                 self.parsers.append(NougatParser())
-                print("Info: NougatParser (Meta AI) enabled as optional PDF OCR fallback.")
+                logger.info("NougatParser (Meta AI) enabled as optional PDF OCR fallback.")
             except ImportError:
-                print("Info: Nougat not available (install with: pip install nougat-ocr).")
+                logger.info("Nougat not available (install with: pip install nougat-ocr).")
             except Exception as e:
-                print(f"Warning: NougatParser initialization failed: {e}.")
+                logger.warning("NougatParser initialization failed: %s.", e)
 
         # Plain text parser (always available)
         try:
             self.parsers.append(TxtParser())
         except Exception as e:
-            print(f"Warning: TxtParser initialization failed: {e}")
+            logger.warning("TxtParser initialization failed: %s", e)
 
         # HTML parser (requires BeautifulSoup4)
         try:
             self.parsers.append(HtmlParser())
         except ImportError:
-            print("Info: HTML parsing not available (install beautifulsoup4: pip install beautifulsoup4)")
+            logger.info(
+                "HTML parsing not available (install beautifulsoup4: pip install beautifulsoup4)"
+            )
         except Exception as e:
-            print(f"Warning: HtmlParser initialization failed: {e}")
+            logger.warning("HtmlParser initialization failed: %s", e)
 
         # Markdown parser (always available)
         try:
             self.parsers.append(MarkdownParser())
         except Exception as e:
-            print(f"Warning: MarkdownParser initialization failed: {e}")
+            logger.warning("MarkdownParser initialization failed: %s", e)
 
         # TeX parser (always available)
         try:
             self.parsers.append(TexParser())
         except Exception as e:
-            print(f"Warning: TexParser initialization failed: {e}")
+            logger.warning("TexParser initialization failed: %s", e)
 
     @safe_function(fallback_value=None, error_message="ParserFactory.get_parser failed")
     def get_parser(self, file_path: str) -> Optional[BaseParser]:

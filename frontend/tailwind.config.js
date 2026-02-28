@@ -24,7 +24,7 @@ export default {
                 "accent-warm": "#F59E0B",
             },
             fontFamily: {
-                "display": ["Inter", "sans-serif"]
+                "display": ['"Plus Jakarta Sans"', "sans-serif"]
             },
             borderRadius: {
                 "DEFAULT": "0.25rem",

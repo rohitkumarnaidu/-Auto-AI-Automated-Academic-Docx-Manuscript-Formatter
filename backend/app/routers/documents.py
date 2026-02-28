@@ -1,6 +1,7 @@
 import logging
 import os
 import uuid
+import hashlib
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 
@@ -26,6 +27,30 @@ UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 _READY_FOR_EXPORT_STATUSES = {"COMPLETED", "COMPLETED_WITH_WARNINGS"}
 _SUPPORTED_EXPORT_FORMATS = {"docx", "pdf"}
+MAX_DAILY_UPLOADS = 20
+
+ACCEPTED_EXTENSIONS = {
+    ".docx",
+    ".doc",
+    ".pdf",
+    ".odt",
+    ".rtf",
+    ".tex",
+    ".txt",
+    ".html",
+    ".htm",
+    ".md",
+    ".markdown",
+}
+
+TEXT_EXTENSIONS = {".tex", ".txt", ".html", ".htm", ".md", ".markdown"}
+MAGIC_BYTES_MAP = {
+    b"\x50\x4b\x03\x04": {".docx", ".odt"},  # ZIP-backed Office/OpenDocument
+    b"\x50\x4b\x05\x06": {".docx", ".odt"},  # Empty ZIP archive
+    b"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1": {".doc"},  # CFB (legacy Word)
+    b"%PDF": {".pdf"},
+    b"{\\rtf": {".rtf"},
+}
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -38,6 +63,70 @@ def _require_db():
             status_code=503,
             detail="Database not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.",
         )
+
+
+def _compute_sha256(filepath: str) -> str:
+    """Compute a file SHA256 digest without loading the full file into memory."""
+    hasher = hashlib.sha256()
+    with open(filepath, "rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            hasher.update(chunk)
+    return hasher.hexdigest()
+
+
+def _enforce_daily_upload_quota(current_user: Optional[User]) -> None:
+    if current_user is None:
+        return
+    uploads_today_raw = DocumentService.count_uploads_today(str(current_user.id))
+    try:
+        uploads_today = int(uploads_today_raw)
+    except (TypeError, ValueError):
+        uploads_today = 0
+    if uploads_today >= MAX_DAILY_UPLOADS:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Daily upload limit reached ({MAX_DAILY_UPLOADS} uploads/day).",
+        )
+
+
+async def _validate_magic_bytes(
+    file: UploadFile,
+    *,
+    content: Optional[bytes] = None,
+    file_ext: Optional[str] = None,
+) -> bytes:
+    """
+    Validate extension + file signature.
+    Returns content bytes to avoid duplicate reads at call-sites.
+    """
+    payload = content if content is not None else await file.read()
+    ext = (file_ext or os.path.splitext(file.filename or "")[1]).lower()
+
+    if ext not in ACCEPTED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type '{ext}'. Allowed types: {', '.join(sorted(ACCEPTED_EXTENSIONS))}",
+        )
+
+    if ext in TEXT_EXTENSIONS:
+        try:
+            payload.decode("utf-8")
+        except UnicodeDecodeError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"File is not valid UTF-8 text for extension '{ext}'.",
+            )
+        return payload
+
+    header = payload[:8]
+    for magic, allowed_exts in MAGIC_BYTES_MAP.items():
+        if header[: len(magic)] == magic and ext in allowed_exts:
+            return payload
+
+    raise HTTPException(
+        status_code=400,
+        detail=f"Unsupported file format or spoofed extension '{ext}'.",
+    )
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────────
@@ -56,6 +145,8 @@ async def upload_document_chunked(
     add_borders: bool = Form(False),
     add_cover_page: bool = Form(False),
     generate_toc: bool = Form(False),
+    add_line_numbers: bool = Form(False),
+    line_spacing: Optional[float] = Form(None),
     page_size: str = Form("Letter"),
     fast_mode: bool = Form(False),
     current_user: User = Depends(get_current_user)
@@ -64,6 +155,8 @@ async def upload_document_chunked(
     FEAT 42: Chunked file upload for large documents
     """
     _require_db()
+    if chunk_index == 0:
+        _enforce_daily_upload_quota(current_user)
     
     import re
     if not re.match(r"^[a-zA-Z0-9-]+$", file_id):
@@ -76,7 +169,6 @@ async def upload_document_chunked(
     
     # Save the chunk with 5MB limit
     chunk_path = upload_dir / f"{file_id}.part{chunk_index}"
-    allowed_extensions = {'.docx', '.pdf', '.tex', '.txt', '.html', '.htm', '.md', '.markdown', '.doc'}
     try:
         content = await file.read()
         if len(content) > 5 * 1024 * 1024:
@@ -97,7 +189,6 @@ async def upload_document_chunked(
 
             # Reassemble the file
             final_path = upload_dir / f"{file_id}_complete"
-            import hashlib
             hasher = hashlib.sha256()
             with open(final_path, "wb") as outfile:
                 for i in range(total_chunks):
@@ -111,12 +202,15 @@ async def upload_document_chunked(
 
             original_filename = os.path.basename(file.filename or f"{file_id}.docx")
             file_ext = os.path.splitext(original_filename)[1].lower() or ".docx"
-            if file_ext not in allowed_extensions:
+            if file_ext not in ACCEPTED_EXTENSIONS:
                 final_path.unlink(missing_ok=True)
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Invalid file type '{file_ext}'. Allowed types: {', '.join(allowed_extensions)}",
+                    detail=f"Invalid file type '{file_ext}'. Allowed types: {', '.join(sorted(ACCEPTED_EXTENSIONS))}",
                 )
+
+            assembled_content = final_path.read_bytes()
+            await _validate_magic_bytes(file, content=assembled_content, file_ext=file_ext)
 
             job_id = uuid.uuid4()
             os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -133,6 +227,8 @@ async def upload_document_chunked(
                 "borders": add_borders,
                 "cover_page": add_cover_page,
                 "toc": generate_toc,
+                "line_numbers": add_line_numbers,
+                "line_spacing": line_spacing,
                 "page_size": page_size,
                 "fast_mode": fast_mode,
             }
@@ -248,6 +344,8 @@ async def upload_document(
     add_borders: bool = Form(False),
     add_cover_page: bool = Form(False),
     generate_toc: bool = Form(False),
+    add_line_numbers: bool = Form(False),
+    line_spacing: Optional[float] = Form(None),
     page_size: str = Form("Letter"),
     fast_mode: bool = Form(False),
     current_user: Optional[User] = Depends(get_optional_user)
@@ -256,19 +354,18 @@ async def upload_document(
     Handle document upload and trigger async background processing.
     """
     _require_db()
+    _enforce_daily_upload_quota(current_user)
 
     logger.debug("upload_document received template='%s' from request.", template)
-
-    ALLOWED_EXTENSIONS = {'.docx', '.pdf', '.tex', '.txt', '.html', '.htm', '.md', '.markdown', '.doc'}
 
     try:
         # ── File validation ────────────────────────────────────────────────────
 
         file_ext = os.path.splitext(file.filename)[1].lower()
-        if file_ext not in ALLOWED_EXTENSIONS:
+        if file_ext not in ACCEPTED_EXTENSIONS:
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid file type '{file_ext}'. Allowed types: {', '.join(ALLOWED_EXTENSIONS)}"
+                detail=f"Invalid file type '{file_ext}'. Allowed types: {', '.join(sorted(ACCEPTED_EXTENSIONS))}"
             )
 
         safe_filename = os.path.basename(file.filename)
@@ -288,35 +385,7 @@ async def upload_document(
             raise HTTPException(status_code=400, detail="File is empty. Please upload a valid document.")
 
         # ── Magic bytes validation ─────────────────────────────────────────
-        MAGIC_BYTES_MAP = {
-            b'\x50\x4b\x03\x04': {'.docx'},  # PK zip (Office docs)
-            b'\x50\x4b\x05\x06': {'.docx'},  # PK zip (empty archive)
-            b'\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1': {'.doc'}, # CFB (Legacy Word)
-            b'%PDF': {'.pdf'},
-        }
-        TEXT_EXTENSIONS = {'.tex', '.txt', '.html', '.htm', '.md', '.markdown'}
-
-        if file_ext not in TEXT_EXTENSIONS:
-            header = file_content[:4]
-            matched = False
-            for magic, allowed_exts in MAGIC_BYTES_MAP.items():
-                if header[:len(magic)] == magic and file_ext in allowed_exts:
-                    matched = True
-                    break
-            if not matched:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Unsupported file format or spoofed extension '{file_ext}'."
-                )
-        else:
-            # For text formats, verify valid UTF-8
-            try:
-                file_content.decode('utf-8')
-            except UnicodeDecodeError:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"File is not valid UTF-8 text for extension '{file_ext}'."
-                )
+        file_content = await _validate_magic_bytes(file, content=file_content, file_ext=file_ext)
 
         # ── File storage ───────────────────────────────────────────────────────
 
@@ -338,11 +407,12 @@ async def upload_document(
             "borders": add_borders,
             "cover_page": add_cover_page,
             "toc": generate_toc,
+            "line_numbers": add_line_numbers,
+            "line_spacing": line_spacing,
             "page_size": page_size,
             "fast_mode": fast_mode,
         }
 
-        import hashlib
         file_hash = hashlib.sha256(file_content).hexdigest()
 
         created = DocumentService.create_document(
@@ -652,20 +722,24 @@ async def download_document(
         base_filename = os.path.splitext(doc.get("filename") or "document")[0]
         filename = f"{base_filename}_formatted.docx"
 
-        # --- A14: Verify SHA256 integrity on download ---
+        # --- A14: Verify SHA256 integrity for generated DOCX downloads ---
         if requested_format == "docx":
-            try:
-                import hashlib
-                with open(output_path, "rb") as f:
-                    actual_hash = hashlib.sha256(f.read()).hexdigest()
-                stored_hash = doc.get("file_hash")
-                # Note: The output docx hash will be different from original file_hash.
-                # However, for consistency with A14 "verify on download", we should ideally 
-                # store the OUTPUT hash during persistence. For now, we verify the file exists 
-                # and matches a freshly computed hash if we were monitoring output integrity.
-                logger.info("SHA256 integrity check passed for job %s (filename: %s)", job_id, filename)
-            except Exception as e:
-                logger.warning("Integrity check failed: %s", e)
+            stored_hash = (doc.get("output_hash") or "").strip()
+            if stored_hash:
+                actual_hash = _compute_sha256(output_path)
+                if actual_hash != stored_hash:
+                    logger.error(
+                        "Output hash mismatch for job %s: expected=%s actual=%s",
+                        job_id,
+                        stored_hash,
+                        actual_hash,
+                    )
+                    raise HTTPException(
+                        status_code=500,
+                        detail="Output integrity check failed. Please re-run processing.",
+                    )
+            else:
+                logger.warning("No stored output_hash for job %s. Skipping integrity comparison.", job_id)
 
         path_to_serve = output_path
         media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -763,9 +837,18 @@ async def batch_upload(
     Maximum 10 files per batch.
     """
     _require_db()
+    _enforce_daily_upload_quota(current_user)
 
     if len(files) > settings.MAX_BATCH_FILES:
         raise HTTPException(status_code=400, detail=f"Maximum {settings.MAX_BATCH_FILES} files per batch upload.")
+
+    uploads_today = DocumentService.count_uploads_today(str(current_user.id))
+    if uploads_today + len(files) > MAX_DAILY_UPLOADS:
+        remaining = max(0, MAX_DAILY_UPLOADS - uploads_today)
+        raise HTTPException(
+            status_code=429,
+            detail=f"Daily upload limit exceeded. Remaining uploads today: {remaining}.",
+        )
 
     results = []
     for file in files:
@@ -773,8 +856,7 @@ async def batch_upload(
         try:
             # Validate file extension
             ext = os.path.splitext(file.filename or "")[1].lower()
-            allowed = {'.docx', '.pdf', '.tex', '.txt', '.html', '.htm', '.md', '.markdown', '.doc'}
-            if ext not in allowed:
+            if ext not in ACCEPTED_EXTENSIONS:
                 results.append({
                     "filename": file.filename,
                     "status": "rejected",
@@ -795,6 +877,9 @@ async def batch_upload(
                 })
                 continue
 
+            # A-FIX-17: Shared magic-byte validation for every file in batch.
+            content = await _validate_magic_bytes(file, content=content, file_ext=ext)
+
             with open(file_path, "wb") as f:
                 f.write(content)
 
@@ -805,6 +890,7 @@ async def batch_upload(
                 original_file_path=file_path,
                 template=template,
                 user_id=str(current_user.id) if current_user else None,
+                file_hash=hashlib.sha256(content).hexdigest(),
             )
 
             # Start background processing

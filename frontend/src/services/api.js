@@ -98,8 +98,17 @@ const extractServerErrorMessage = (errorData, fallbackMessage = '') => {
     return fallbackMessage;
 };
 
-const getFriendlyErrorMessage = ({ status, errorData, fallbackMessage = '', error } = {}) => {
+const getFriendlyErrorMessage = ({
+    status,
+    errorData,
+    fallbackMessage = '',
+    error,
+    endpoint = '',
+} = {}) => {
     if (status === 401) {
+        if (typeof endpoint === 'string' && endpoint.startsWith('/api/auth/login')) {
+            return 'Invalid email or password.';
+        }
         return 'Your session has expired. Please log in again.';
     }
 
@@ -256,6 +265,7 @@ const handleRequest = async (endpoint, options = {}) => {
                     status: response.status,
                     errorData,
                     fallbackMessage,
+                    endpoint,
                 })
             );
         }
@@ -266,6 +276,7 @@ const handleRequest = async (endpoint, options = {}) => {
             error,
             fallbackMessage:
                 typeof error.message === 'string' ? error.message : String(error || ''),
+            endpoint,
         });
 
         console.error(`API Error [${endpoint}]:`, finalMessage, error);
@@ -812,4 +823,59 @@ export const resetPassword = async (data) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(sanitizedData),
     });
+};
+
+// ─── B-FIX-22f: CSL Style Importer ────────────────────────────────────────
+
+/**
+ * Searches the CSL style repository for journal styles matching a query.
+ * @param {string} query - Search term (journal name or ISSN)
+ * @returns {Promise<Array>} List of matching styles with name and slug
+ */
+export const searchCSLStyles = async (query) => {
+    const sanitized = sanitizeText(query);
+    return handleRequest(`/api/templates/csl/search?q=${encodeURIComponent(sanitized)}`);
+};
+
+/**
+ * Fetches and stores a specific CSL style by slug from the GitHub CSL repo.
+ * @param {string} slug - The CSL style slug (e.g. 'nature', 'ieee')
+ * @returns {Promise<{id: string, name: string, template_id: string}>}
+ */
+export const fetchCSLStyle = async (slug) => {
+    const sanitized = sanitizeText(slug);
+    return handleRequest('/api/templates/csl/fetch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug: sanitized }),
+    });
+};
+
+// ─── B-FIX-23: JATS Download ──────────────────────────────────────────────
+
+/**
+ * Downloads a JATS XML export for the given job.
+ * @param {string} jobId - The job ID to download JATS for
+ * @returns {Promise<string>} Blob URL for the download
+ */
+export const downloadJATS = async (jobId) => {
+    const url = `${API_BASE_URL}/api/jobs/${encodeURIComponent(jobId)}/download?format=jats`;
+    const headers = {};
+
+    // Attach auth header if Supabase session available
+    try {
+        const { data: { session } } = await (supabase?.auth?.getSession() ?? Promise.resolve({ data: { session: null } }));
+        if (session?.access_token) {
+            headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+    } catch {
+        // proceed without auth
+    }
+
+    const response = await fetch(url, { headers });
+    if (!response.ok) {
+        throw new Error(`JATS download failed: ${response.status} ${response.statusText}`);
+    }
+    const blob = await response.blob();
+    return window.URL.createObjectURL(blob);
 };

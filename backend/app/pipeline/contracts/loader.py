@@ -71,3 +71,11 @@ class ContractLoader:
         contract = self.load(publisher)
         required = contract.get("sections", {}).get("required", [])
         return section_name.lower() in [s.lower() for s in required]
+
+
+_default_pipeline_loader = ContractLoader(contracts_dir="app/pipeline/contracts")
+
+
+def load_contract(name: str) -> Dict[str, Any]:
+    """Convenience loader for call-sites that only need one contract by name."""
+    return _default_pipeline_loader.load(name)

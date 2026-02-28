@@ -190,7 +190,7 @@ class NougatParser(BaseParser):
             self.device = next(self.model.parameters()).device
             self.active_model_name = "cached"
             self._model_loaded = True
-            print("NougatParser: Reusing cached model from ModelStore.")
+            logger.info("NougatParser: Reusing cached model from ModelStore.")
             return
 
         # Detect device
@@ -204,7 +204,7 @@ class NougatParser(BaseParser):
         # Try primary, then fallback
         for name in [model_name, FALLBACK_MODEL]:
             try:
-                print(f"NougatParser: Loading model '{name}'... (this may download ~1GB on first use)")
+                logger.info("NougatParser: Loading model '%s'... (this may download ~1GB on first use)", name)
                 self.processor = NougatProcessor.from_pretrained(name)
                 self.model = VisionEncoderDecoderModel.from_pretrained(name)
                 self.model.to(self.device)
@@ -214,8 +214,7 @@ class NougatParser(BaseParser):
                 # Cache in ModelStore
                 model_store.set_model("nougat_model", self.model)
                 model_store.set_model("nougat_processor", self.processor)
-
-                print(f"NougatParser: ✅ Model '{name}' loaded on {self.device}.")
+                logger.info("NougatParser: Model '%s' loaded on %s.", name, self.device)
                 self._model_loaded = True
                 return
             except Exception as exc:
@@ -264,9 +263,9 @@ class NougatParser(BaseParser):
         document.metadata = DocumentMetadata()
 
         # Convert PDF pages to images
-        print(f"NougatParser: Converting PDF to images...")
+        logger.info("NougatParser: Converting PDF to images...")
         page_images = _pdf_to_images(file_path)
-        print(f"NougatParser: Processing {len(page_images)} pages with Nougat...")
+        logger.info("NougatParser: Processing %d pages with Nougat...", len(page_images))
 
         # Run inference on each page
         all_text_parts: List[str] = []
@@ -299,8 +298,7 @@ class NougatParser(BaseParser):
         document.metadata.ai_hints = document.metadata.ai_hints or {}
         document.metadata.ai_hints["parser"] = "nougat"
         document.metadata.ai_hints["nougat_model"] = self.active_model_name
-
-        print(f"NougatParser: ✅ Extracted {len(blocks)} blocks from {len(page_images)} pages.")
+        logger.info("NougatParser: Extracted %d blocks from %d pages.", len(blocks), len(page_images))
         return document
 
     # ------------------------------------------------------------------ #

@@ -15,8 +15,19 @@ import logging
 router = APIRouter(prefix="/api/metrics", tags=["Metrics"])
 logger = logging.getLogger(__name__)
 
+def require_admin(current_user=Depends(get_current_user)):
+    """Guard admin-only observability endpoints."""
+    role = getattr(current_user, "role", None)
+    metadata_role = None
+    app_metadata = getattr(current_user, "app_metadata", None)
+    if isinstance(app_metadata, dict):
+        metadata_role = app_metadata.get("role")
+    if role == "admin" or metadata_role == "admin":
+        return current_user
+    raise HTTPException(status_code=403, detail="Admin privileges required")
+
 @router.get("/db")
-async def get_database_metrics():
+async def get_database_metrics(admin_user=Depends(require_admin)):
     """
     Get database health metrics via Supabase client.
     
@@ -89,7 +100,7 @@ async def log_frontend_error(error_data: dict, current_user=Depends(get_optional
         return {"status": "error", "message": str(e)}
 
 @router.get("/health")
-async def health_check(current_user=Depends(get_current_user)):
+async def health_check(admin_user=Depends(require_admin)):
     """
     Comprehensive health check endpoint.
     Requires authentication.
@@ -137,7 +148,7 @@ async def health_check(current_user=Depends(get_current_user)):
 
 
 @router.get("/dashboard")
-async def get_metrics_dashboard() -> Dict[str, Any]:
+async def get_metrics_dashboard(admin_user=Depends(require_admin)) -> Dict[str, Any]:
     """Get aggregated AI metrics and A/B testing results."""
     # Local runtime metrics
     model_metrics = get_model_metrics()

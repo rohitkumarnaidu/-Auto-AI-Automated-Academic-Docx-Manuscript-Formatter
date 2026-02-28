@@ -519,7 +519,7 @@ def normalize_document(document: Document) -> Document:
         >>> 
         >>> doc = parse_docx("manuscript.docx", "job_123")
         >>> doc = normalize_document(doc)
-        >>> print("Normalized!")
+        >>> bool(doc)
     """
     normalizer = Normalizer()
     return normalizer.process(document)

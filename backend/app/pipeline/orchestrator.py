@@ -4,6 +4,7 @@ Pipeline Orchestrator - Coordinates all processing stages.
 
 import os
 import asyncio
+import hashlib
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any
@@ -17,7 +18,7 @@ from app.models import (
 from app.pipeline.parsing.parser_factory import ParserFactory
 from app.pipeline.normalization.normalizer import Normalizer as TextNormalizer
 from app.pipeline.structure_detection.detector import StructureDetector
-from app.pipeline.nlp.analyzer import ContentAnalyzer
+from app.pipeline.nlp.analyzer import ContentAnalyzer, extract_keywords
 from app.pipeline.classification.classifier import ContentClassifier
 from app.pipeline.figures.caption_matcher import CaptionMatcher
 from app.pipeline.tables.caption_matcher import TableCaptionMatcher
@@ -109,7 +110,7 @@ class PipelineOrchestrator:
         document_id = str(document_id)
         sb = get_supabase_client()
         if not sb:
-            print(f"WARNING: Supabase client unavailable for status update: {phase} -> {status}")
+            logger.warning("Supabase client unavailable for status update: %s -> %s", phase, status)
             return
 
         try:
@@ -164,7 +165,7 @@ class PipelineOrchestrator:
                 "progress": progress
             })
         except Exception as e:
-            print(f"ERROR: Supabase status update failed for job {document_id}: {e}")
+            logger.error("Supabase status update failed for job %s: %s", document_id, e)
 
     def _check_cancelled(self, job_id: str):
         """Check if the job has been cancelled by the user in Supabase."""
@@ -393,7 +394,7 @@ class PipelineOrchestrator:
 
     def _log_quality_summary(self, job_id: str, summary: Dict[str, Any]) -> None:
         """Emit compact quality diagnostics in terminal and structured logs."""
-        print(
+        logger.info(
             "PIPELINE SCORE | "
             f"job={job_id} | "
             f"quality={summary.get('quality_score', 0):.2f}% | "
@@ -408,6 +409,14 @@ class PipelineOrchestrator:
             f"review={summary.get('review_status', 'N/A')}"
         )
         logger.info("Pipeline quality summary for job %s: %s", job_id, summary)
+
+    @staticmethod
+    def _compute_sha256(filepath: str) -> str:
+        hasher = hashlib.sha256()
+        with open(filepath, "rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                hasher.update(chunk)
+        return hasher.hexdigest()
 
     # --- A10: Decorated Pipeline Stages ---
 
@@ -710,7 +719,10 @@ class PipelineOrchestrator:
                     try:
                         doc_obj = self._run_semantic_parsing(doc_obj)
                     except Exception as e:
-                        print(f"AI ERROR (Layer 2 - NLP Analysis): {e}. Falling back to Phase-1 Heuristics.")
+                        logger.warning(
+                            "AI ERROR (Layer 2 - NLP Analysis): %s. Falling back to Phase-1 Heuristics.",
+                            e,
+                        )
                 else:
                     logger.info("Fast mode enabled: skipping semantic parser for job %s", job_id)
                 
@@ -720,6 +732,23 @@ class PipelineOrchestrator:
                 
                 self._check_stage_interface(self.analyzer, "process", "ContentAnalyzer")
                 doc_obj = execute_with_retry(self.analyzer.process, doc_obj)
+
+                # A-FIX-12: Extract keywords from abstract-like content and persist in metadata.
+                try:
+                    abstract_text = (getattr(doc_obj.metadata, "abstract", "") or "").strip()
+                    if not abstract_text:
+                        for candidate in doc_obj.blocks:
+                            bt = str(candidate.block_type).lower()
+                            if bt in {"abstract_body", "abstract"} and (candidate.text or "").strip():
+                                abstract_text = candidate.text.strip()
+                                break
+                    if abstract_text:
+                        detected_keywords = extract_keywords(abstract_text)
+                        if detected_keywords:
+                            doc_obj.metadata.keywords = detected_keywords
+                            doc_obj.metadata.ai_hints["keywords"] = detected_keywords
+                except Exception as kw_exc:
+                    logger.warning("Keyword extraction failed for job %s: %s", job_id, kw_exc)
                 
                 caption_matcher = CaptionMatcher(enable_vision=True)
                 self._check_stage_interface(caption_matcher, "process", "CaptionMatcher")
@@ -748,7 +777,10 @@ class PipelineOrchestrator:
                             from app.services.crossref_client import get_crossref_client
                             crossref = get_crossref_client()
                             if hasattr(doc_obj, "references") and doc_obj.references:
-                                print(f"INFO: Validating {len(doc_obj.references)} references against CrossRef...")
+                                logger.info(
+                                    "Validating %d references against CrossRef...",
+                                    len(doc_obj.references),
+                                )
                                 with ThreadPoolExecutor(max_workers=4) as cr_exec:
                                     def validate_ref(ref):
                                         raw = getattr(ref, "raw_text", getattr(ref, "text", None))
@@ -767,7 +799,7 @@ class PipelineOrchestrator:
                                     
                                     list(cr_exec.map(validate_ref, doc_obj.references))
                         except Exception as e:
-                            print(f"WARNING: CrossRef validation skipped (Non-Fatal): {e}")
+                            logger.warning("CrossRef validation skipped (Non-Fatal): %s", e)
                 else:
                     logger.info("Fast mode enabled: skipping CrossRef enrichment for job %s", job_id)
                 # ---------------------------------------------
@@ -875,7 +907,7 @@ class PipelineOrchestrator:
                     output_path = self._export_document(doc_obj, input_path, job_id)
                 else:
                     # RAISE EXPLICIT FAILURE
-                    print(f"CRITICAL: Formatter failed to produce generated_doc for job {job_id}")
+                    logger.critical("Formatter failed to produce generated_doc for job %s", job_id)
                     if sb:
                         sb.table("documents").update({
                             "status": "FAILED",
@@ -927,6 +959,12 @@ class PipelineOrchestrator:
                 if output_ready:
                     final_status = "COMPLETED"
                     final_msg = "All results persisted."
+                    if output_path and os.path.exists(output_path):
+                        try:
+                            from app.services.document_service import DocumentService
+                            DocumentService.update_output_hash(job_id, self._compute_sha256(output_path))
+                        except Exception as hash_exc:
+                            logger.warning("Failed to persist output hash for job %s: %s", job_id, hash_exc)
                     if sb:
                         sb.table("documents").update({
                             "status": "COMPLETED",
@@ -954,7 +992,7 @@ class PipelineOrchestrator:
         except asyncio.CancelledError:
             # Graceful shutdown: Log the interruption but do NOT re-raise.
             # This prevents noisy stack traces in Starlette/Uvicorn logs.
-            print(f"Graceful Shutdown: Task {job_id} was cancelled by server reload/shutdown.")
+            logger.info("Graceful Shutdown: Task %s was cancelled by server reload/shutdown.", job_id)
             try:
                 self._update_status(job_id, "SYSTEM", "FAILED", "Interrupted by server shutdown", progress=0)
                 if sb:
@@ -980,6 +1018,11 @@ class PipelineOrchestrator:
             # Fallback: If we have an output path, we can downgrade to WARNING
             if output_path and os.path.exists(output_path):
                 logger.warning("Pipeline Validation Error (Non-Fatal): %s", error_msg)
+                try:
+                    from app.services.document_service import DocumentService
+                    DocumentService.update_output_hash(job_id, self._compute_sha256(output_path))
+                except Exception as hash_exc:
+                    logger.warning("Failed to persist warning-path output hash for job %s: %s", job_id, hash_exc)
                 self._update_status(job_id, "PERSISTENCE", "COMPLETED", "Completed with validation warnings.", progress=100)
                 if sb:
                     sb.table("documents").update({
@@ -1066,6 +1109,11 @@ class PipelineOrchestrator:
                 
                 pipeline_doc.output_path = output_path
                 exporter.process(pipeline_doc)
+                try:
+                    from app.services.document_service import DocumentService
+                    DocumentService.update_output_hash(job_id, self._compute_sha256(output_path))
+                except Exception as hash_exc:
+                    logger.warning("Failed to persist edit-flow output hash for job %s: %s", job_id, hash_exc)
             
             # 5. Save current DocumentResult as a version BEFORE overwriting
             existing_result = sb.table("document_results").select("*").eq("document_id", job_id).execute()
@@ -1118,7 +1166,7 @@ class PipelineOrchestrator:
             
             return {"status": "success", "output_path": output_path}
         except asyncio.CancelledError:
-            print(f"Graceful Shutdown: Edit flow {job_id} was cancelled by server reload/shutdown.")
+            logger.info("Graceful Shutdown: Edit flow %s was cancelled by server reload/shutdown.", job_id)
             try:
                 self._update_status(job_id, "SYSTEM", "FAILED", "Edit interrupted by server shutdown", progress=0)
             except:
@@ -1126,6 +1174,6 @@ class PipelineOrchestrator:
             return {"status": "cancelled", "message": "Edit interrupted by server shutdown"}
         except Exception as e:
             import traceback
-            print(f"Edit flow error: {e}")
+            logger.error("Edit flow error: %s", e)
             self._update_status(job_id, "PERSISTENCE", "FAILED", f"Edit pass failed: {str(e)}", progress=0)
             return {"status": "error", "message": str(e)}

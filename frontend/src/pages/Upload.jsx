@@ -1,6 +1,6 @@
 import usePageTitle from '../hooks/usePageTitle';
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useDocument } from '../context/DocumentContext';
 import Navbar from '../components/Navbar';
@@ -42,6 +42,7 @@ export default function Upload() {
     usePageTitle('Upload Document');
     const { isLoggedIn } = useAuth();
     const { job, setJob } = useDocument();
+    const location = useLocation(); // B-FIX-9
     const fileInputRef = useRef(null);
     const terminalStatusHandledRef = useRef(false);
     const completionNotificationSentRef = useRef(false);
@@ -66,6 +67,21 @@ export default function Upload() {
     const [pageSize, setPageSize] = useState('Letter');
     const [fastMode, setFastMode] = useState(false);
     const navigate = useNavigate();
+
+    // B-FIX-9: Pre-select template from navigation state if set (e.g. coming from Templates page)
+    useEffect(() => {
+        const preSelectedTemplate = location.state?.template;
+        if (preSelectedTemplate && typeof preSelectedTemplate === 'string') {
+            setTemplate(preSelectedTemplate);
+            if (preSelectedTemplate.startsWith('modern_')) {
+                setCategory('modern');
+            } else {
+                setCategory(preSelectedTemplate === 'none' ? 'none' : preSelectedTemplate);
+            }
+        }
+        // Only run on mount — location.state is stable
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const sendCompletionNotification = useCallback(() => {
         if (typeof window === 'undefined' || !('Notification' in window)) {
@@ -433,6 +449,7 @@ export default function Upload() {
         setActiveJobId,
         setJob,
         template,
+        fastMode,
     ]);
 
     // FEAT 46: Keyboard shortcuts
@@ -461,6 +478,7 @@ export default function Upload() {
         else if (nextCategory === 'ieee') setTemplate('ieee');
         else if (nextCategory === 'springer') setTemplate('springer');
         else if (nextCategory === 'apa') setTemplate('apa');
+        else if (nextCategory === 'modern') setTemplate('modern_red'); // default default
     }, [navigate]);
 
     const isJobCompleted = isCompleted(job?.status);
@@ -470,8 +488,19 @@ export default function Upload() {
             <Navbar variant="app" activeTab="upload" />
 
             <main className="max-w-[1280px] mx-auto px-4 sm:px-6 py-6 sm:py-8">
-                {/* NEW HEADER SECTION: Category & Style Selection */}
-                <div className="mb-12 space-y-8">
+                <div className="mb-8">
+                    <h1 className="text-slate-900 dark:text-white text-3xl sm:text-4xl font-black leading-tight tracking-[-0.033em]">
+                        Upload Manuscript
+                    </h1>
+                    <p className="text-slate-500 dark:text-slate-400 text-base sm:text-lg mt-2">
+                        {isLoggedIn
+                            ? 'Transform your research into a publication-ready document in minutes.'
+                            : 'Professional academic formatting in seconds. No account required to start.'}
+                    </p>
+                </div>
+
+                {/* HEADER SECTION: Category & Style Selection */}
+                <div className="mb-7 space-y-5">
                     <CategoryTabs />
                     <TemplateSelector
                         category={category}
@@ -482,16 +511,6 @@ export default function Upload() {
                         onCategoryChange={handleCategoryChange}
                         onTemplateSelect={setTemplate}
                     />
-                </div>
-                <div className="mb-8">
-                    <h1 className="text-slate-900 dark:text-white text-3xl sm:text-4xl font-black leading-tight tracking-[-0.033em]">
-                        Upload Manuscript
-                    </h1>
-                    <p className="text-slate-500 dark:text-slate-400 text-base sm:text-lg mt-2">
-                        {isLoggedIn
-                            ? 'Transform your research into a publication-ready document in minutes.'
-                            : 'Professional academic formatting in seconds. No account required to start.'}
-                    </p>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -517,9 +536,16 @@ export default function Upload() {
                                         <p className="text-slate-900 dark:text-white text-lg font-bold">
                                             {file ? 'File selected' : 'Drag and drop your manuscript here'}
                                         </p>
-                                        <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-                                            {file ? `File: ${file.name} (${formatFileSize(file.size)})` : 'Supported formats: DOCX, PDF, TEX, TXT, HTML/HTM, MD/MARKDOWN, DOC (Max 50MB)'}
-                                        </p>
+                                        <div className="text-slate-500 dark:text-slate-400 text-sm mt-1 flex items-center justify-center gap-2">
+                                            {file ? (
+                                                <>
+                                                    <span>{`File: ${file.name} (${formatFileSize(file.size)})`}</span>
+                                                    <button onClick={(e) => { e.stopPropagation(); setFile(null); setFileError(null); }} className="hover:text-red-500 dark:hover:text-red-400 transition-colors flex items-center" title="Remove file">
+                                                        <span className="material-symbols-outlined text-sm">close</span>
+                                                    </button>
+                                                </>
+                                            ) : 'Supported formats: DOCX, PDF, TEX, TXT, HTML/HTM, MD/MARKDOWN, DOC (Max 50MB)'}
+                                        </div>
                                         {fileError && <p className="text-red-500 text-sm mt-2 font-medium">{fileError}</p>}
                                     </div>
                                 </div>
@@ -536,7 +562,7 @@ export default function Upload() {
                                     disabled={isProcessing}
                                     className={`flex w-full sm:w-auto min-w-[140px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-11 px-6 bg-primary text-white text-sm font-bold tracking-wide shadow-md hover:bg-blue-700 transition-all ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 >
-                                    Browse Files
+                                    {file ? 'Change File' : 'Browse Files'}
                                 </button>
                             </div>
                         </div>
@@ -578,43 +604,41 @@ export default function Upload() {
                             </button>
                         )}
 
-                        {/* 3. Post-Processing Actions - ALWAYS SHOW */}
-                        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
-                            <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
-                                <span className="material-symbols-outlined text-primary">analytics</span>
-                                3. Post-Processing Actions
-                            </h2>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <button
-                                    onClick={() => isJobCompleted && !isProcessing && handleReviewClick('/compare')}
-                                    disabled={!isJobCompleted || isProcessing}
-                                    className={`flex flex-col items-center justify-center gap-2 p-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 transition-all group ${(!isJobCompleted || isProcessing) ? 'opacity-50 cursor-not-allowed text-slate-500' : 'hover:border-primary hover:bg-primary/5 text-slate-900 dark:text-white'}`}
-                                >
-                                    <span className={`material-symbols-outlined text-2xl ${(!isJobCompleted || isProcessing) ? 'text-slate-400' : 'text-primary'}`}>difference</span>
-                                    <span className="text-sm font-bold">Compare Results</span>
-                                </button>
-                                <button
-                                    onClick={() => isJobCompleted && !isProcessing && navigate('/preview')}
-                                    disabled={!isJobCompleted || isProcessing}
-                                    className={`flex flex-col items-center justify-center gap-2 p-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 transition-all group ${(!isJobCompleted || isProcessing) ? 'opacity-50 cursor-not-allowed text-slate-500' : 'hover:border-primary hover:bg-primary/5 text-slate-900 dark:text-white'}`}
-                                >
-                                    <span className={`material-symbols-outlined text-2xl ${(!isJobCompleted || isProcessing) ? 'text-slate-400' : 'text-primary'}`}>visibility</span>
-                                    <span className="text-sm font-bold">Preview Document</span>
-                                </button>
-                                <button
-                                    onClick={() => isJobCompleted && !isProcessing && navigate('/download')}
-                                    disabled={!isJobCompleted || isProcessing}
-                                    className={`flex flex-col items-center justify-center gap-2 p-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 transition-all group ${(!isJobCompleted || isProcessing) ? 'opacity-50 cursor-not-allowed text-slate-500' : 'hover:border-primary hover:bg-primary/5 text-slate-900 dark:text-white'}`}
-                                >
-                                    <span className={`material-symbols-outlined text-2xl ${(!isJobCompleted || isProcessing) ? 'text-slate-400' : 'text-primary'}`}>download</span>
-                                    <span className="text-sm font-bold">Download Final</span>
-                                </button>
+                        {/* Post-Processing Actions */}
+                        {isJobCompleted && (
+                            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-primary">analytics</span>
+                                    Next Steps
+                                </h2>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <button
+                                        onClick={() => handleReviewClick('/compare')}
+                                        disabled={isProcessing}
+                                        className={`flex flex-col items-center justify-center gap-2 p-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 transition-all group ${isProcessing ? 'opacity-50 cursor-not-allowed text-slate-500' : 'hover:border-primary hover:bg-primary/5 text-slate-900 dark:text-white'}`}
+                                    >
+                                        <span className={`material-symbols-outlined text-2xl ${isProcessing ? 'text-slate-400' : 'text-primary'}`}>difference</span>
+                                        <span className="text-sm font-bold">Compare Results</span>
+                                    </button>
+                                    <button
+                                        onClick={() => navigate('/preview')}
+                                        disabled={isProcessing}
+                                        className={`flex flex-col items-center justify-center gap-2 p-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 transition-all group ${isProcessing ? 'opacity-50 cursor-not-allowed text-slate-500' : 'hover:border-primary hover:bg-primary/5 text-slate-900 dark:text-white'}`}
+                                    >
+                                        <span className={`material-symbols-outlined text-2xl ${isProcessing ? 'text-slate-400' : 'text-primary'}`}>visibility</span>
+                                        <span className="text-sm font-bold">Preview Document</span>
+                                    </button>
+                                    <button
+                                        onClick={() => navigate('/download')}
+                                        disabled={isProcessing}
+                                        className={`flex flex-col items-center justify-center gap-2 p-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 transition-all group ${isProcessing ? 'opacity-50 cursor-not-allowed text-slate-500' : 'hover:border-primary hover:bg-primary/5 text-slate-900 dark:text-white'}`}
+                                    >
+                                        <span className={`material-symbols-outlined text-2xl ${isProcessing ? 'text-slate-400' : 'text-primary'}`}>download</span>
+                                        <span className="text-sm font-bold">Download Final</span>
+                                    </button>
+                                </div>
                             </div>
-                            <div className="mt-4 flex items-start gap-2 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-                                <span className="material-symbols-outlined text-primary text-[18px]">info</span>
-                                <p className="text-xs text-blue-700 dark:text-blue-300 font-medium">These actions will become available once your document processing is complete.</p>
-                            </div>
-                        </div>
+                        )}
                     </div>
 
                     {/* Progress Sidebar */}

@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-import { getBuiltinTemplates } from '../services/api';
+import { getBuiltinTemplates, searchCSLStyles, fetchCSLStyle } from '../services/api'; // B-FIX-22f
 
 // Fallback hardcoded templates when API is unavailable
 const FALLBACK_TEMPLATES = [
@@ -12,6 +12,9 @@ const FALLBACK_TEMPLATES = [
     { id: 'elsevier', name: 'Elsevier Standard', description: "General formatting guidelines compatible with Elsevier's wide range of journals.", category: 'Engineering', icon: 'description', available: true },
     { id: 'springer', name: 'Springer LNCS', description: 'Multi-column layouts and specific LNCS styles for Computer Science.', category: 'Engineering', icon: 'science', available: false },
     { id: 'apa', name: 'APA 7th Edition', description: 'Latest APA formatting standards for social and behavioral sciences research.', category: 'Social Sciences', icon: 'history_edu', available: true },
+    { id: 'modern_red', name: 'Modern Crimson', description: 'A bold, elegant modern style with deep red accents, perfect for standout reports.', category: 'All Publishers', icon: 'palette', available: true },
+    { id: 'modern_gold', name: 'Modern Gold', description: 'A prestigious, clean design with gold typography highlights for premium manuscripts.', category: 'All Publishers', icon: 'auto_awesome', available: true },
+    { id: 'modern_blue', name: 'Modern Azure', description: 'A crisp, corporate-friendly modern layout featuring cool blue tones and wide margins.', category: 'All Publishers', icon: 'water_drop', available: true },
 ];
 
 const CATEGORIES = ['All Publishers', 'Engineering', 'Life Sciences', 'Social Sciences'];
@@ -26,6 +29,12 @@ export default function Templates() {
     const [currentPage, setCurrentPage] = useState(1);
     const [isLoading, setIsLoading] = useState(true);
     const [previewTemplate, setPreviewTemplate] = useState(null);
+    // B-FIX-22f: CSL importer state
+    const [cslQuery, setCslQuery] = useState('');
+    const [cslResults, setCslResults] = useState([]);
+    const [cslSearching, setCslSearching] = useState(false);
+    const [cslImporting, setCslImporting] = useState(null); // slug being imported
+    const [cslBanner, setCslBanner] = useState(null); // { type: 'success'|'error', msg }
 
     // Fetch templates from API on mount
     useEffect(() => {
@@ -86,13 +95,45 @@ export default function Templates() {
         setCurrentPage(1);
     }, [searchQuery, activeCategory]);
 
-    const handleSelectTemplate = (template) => {
-        if (!template.available) return;
-        navigate('/upload', { state: { preselectedTemplate: template.id } });
+    const handleSelectTemplate = (tmpl) => {
+        if (!tmpl.available) return;
+        // B-FIX-9: navigate with state.template so Upload.jsx useEffect can pick it up
+        navigate('/upload', { state: { template: tmpl.id } });
     };
 
     const handlePreviewGuidelines = (template) => {
         setPreviewTemplate(template);
+    };
+
+    // B-FIX-22f: CSL importer handlers
+    const handleCslSearch = async (e) => {
+        e.preventDefault();
+        if (!cslQuery.trim()) return;
+        setCslSearching(true);
+        setCslResults([]);
+        setCslBanner(null);
+        try {
+            const results = await searchCSLStyles(cslQuery.trim());
+            setCslResults(Array.isArray(results) ? results : []);
+            if (!results?.length) setCslBanner({ type: 'info', msg: 'No styles found. Try a different journal name.' });
+        } catch {
+            setCslBanner({ type: 'error', msg: 'CSL search failed. Backend endpoint may not be available yet.' });
+        } finally {
+            setCslSearching(false);
+        }
+    };
+
+    const handleCslImport = async (slug, name) => {
+        setCslImporting(slug);
+        setCslBanner(null);
+        try {
+            await fetchCSLStyle(slug);
+            setCslBanner({ type: 'success', msg: `Imported "${name}" successfully! Refresh templates to see it.` });
+        } catch {
+            setCslBanner({ type: 'error', msg: `Failed to import "${name}". The backend CSL endpoint may not be ready.` });
+        } finally {
+            setCslImporting(null);
+        }
     };
 
     return (
@@ -275,6 +316,67 @@ export default function Templates() {
                             </button>
                         </div>
                     )}
+
+                    {/* CSL Import Section */}
+                    <div className="mt-12 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-800 transition-colors">
+                        <div className="flex flex-col gap-2 mb-6">
+                            <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                <span className="material-symbols-outlined text-primary">cloud_download</span>
+                                Import Custom Style
+                            </h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400">Search the global Citation Style Language (CSL) repository (10,000+ journals).</p>
+                        </div>
+
+                        {cslBanner && (
+                            <div className={`mb-4 p-3 rounded-lg text-sm font-medium ${cslBanner.type === 'error' ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400 border border-red-200 dark:border-red-800/50' : cslBanner.type === 'success' ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400 border border-green-200 dark:border-green-800/50' : 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 border border-blue-200 dark:border-blue-800/50'}`}>
+                                {cslBanner.msg}
+                            </div>
+                        )}
+
+                        <form onSubmit={handleCslSearch} className="flex gap-3 max-w-2xl mb-2">
+                            <div className="relative flex-1">
+                                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+                                <input
+                                    type="text"
+                                    value={cslQuery}
+                                    onChange={(e) => setCslQuery(e.target.value)}
+                                    placeholder="e.g. American Medical Association"
+                                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-primary focus:border-transparent transition-all disabled:opacity-50 text-slate-900 dark:text-white"
+                                    disabled={cslSearching || Boolean(cslImporting)}
+                                />
+                            </div>
+                            <button
+                                type="submit"
+                                disabled={!cslQuery.trim() || cslSearching || Boolean(cslImporting)}
+                                className="px-6 py-2.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold rounded-lg hover:bg-slate-800 dark:hover:bg-slate-100 disabled:opacity-50 transition-colors flex items-center gap-2 justify-center min-w-[120px]"
+                            >
+                                {cslSearching ? (
+                                    <><span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span> Searching</>
+                                ) : 'Search'}
+                            </button>
+                        </form>
+
+                        {cslResults.length > 0 && (
+                            <div className="mt-4 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden bg-white dark:bg-slate-900 shadow-sm">
+                                <ul className="divide-y divide-slate-100 dark:divide-slate-800 max-h-64 overflow-y-auto">
+                                    {cslResults.map((res) => (
+                                        <li key={res.slug} className="flex justify-between items-center p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                            <span className="text-sm font-medium text-slate-900 dark:text-white truncate pr-4">{res.title}</span>
+                                            <button
+                                                onClick={() => handleCslImport(res.slug, res.title)}
+                                                disabled={Boolean(cslImporting)}
+                                                className="shrink-0 px-4 py-1.5 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-md text-xs font-bold transition-colors disabled:opacity-50 flex items-center justify-center min-w-[80px]"
+                                            >
+                                                {cslImporting === res.slug ? (
+                                                    <span className="material-symbols-outlined animate-spin text-[16px]">progress_activity</span>
+                                                ) : 'Import'}
+                                            </button>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </main>
 

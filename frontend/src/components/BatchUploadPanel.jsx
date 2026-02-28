@@ -2,7 +2,7 @@ import { useRef, useCallback } from 'react';
 
 const ACCEPTED_FORMATS = '.docx,.pdf,.tex,.txt,.html,.htm,.md,.markdown,.doc';
 
-export default function BatchUploadPanel({ files, onFilesSelected, onRemove, disabled }) {
+export default function BatchUploadPanel({ files, onFilesSelected, onRemove, onRetry, disabled }) {
     const inputRef = useRef(null);
 
     const handleDrop = useCallback(
@@ -42,6 +42,19 @@ export default function BatchUploadPanel({ files, onFilesSelected, onRemove, dis
         if (bytes < 1024) return `${bytes} B`;
         if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
         return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    };
+
+    const StatusBadge = ({ status }) => {
+        switch (status) {
+            case 'done':
+                return <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-[10px] font-bold uppercase tracking-wider shrink-0">Done</span>;
+            case 'error':
+                return <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 text-[10px] font-bold uppercase tracking-wider shrink-0">Failed</span>;
+            case 'uploading':
+                return <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 text-[10px] font-bold uppercase tracking-wider shrink-0">Processing</span>;
+            default:
+                return <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wider shrink-0">Pending</span>;
+        }
     };
 
     return (
@@ -85,40 +98,60 @@ export default function BatchUploadPanel({ files, onFilesSelected, onRemove, dis
                         {files.map((entry) => (
                             <li
                                 key={entry.id}
-                                className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors"
+                                className="flex items-center gap-4 px-5 py-4 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group"
                             >
-                                {statusIcon(entry.status)}
+                                <div className="shrink-0 mt-0.5">
+                                    {statusIcon(entry.status)}
+                                </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
-                                        {entry.file.name}
-                                    </p>
+                                    <div className="flex justify-between items-center mb-1 gap-3">
+                                        <p className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                                            {entry.file.name}
+                                        </p>
+                                        <StatusBadge status={entry.status} />
+                                    </div>
                                     <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                                        <span>{formatSize(entry.file.size)}</span>
+                                        <span className="shrink-0">{formatSize(entry.file.size)}</span>
                                         {entry.error && (
-                                            <span className="text-red-500">{entry.error}</span>
+                                            <span className="text-red-500 truncate max-w-xs" title={entry.error}>• {entry.error}</span>
                                         )}
                                         {entry.jobId && (
-                                            <span className="text-green-600 dark:text-green-400">Job: {entry.jobId.slice(0, 8)}...</span>
+                                            <span className="text-green-600 dark:text-green-400 shrink-0">• Job: {entry.jobId.slice(0, 8)}</span>
                                         )}
                                     </div>
                                     {entry.status === 'uploading' && (
-                                        <div className="w-full h-1 bg-slate-200 dark:bg-slate-700 rounded-full mt-1">
+                                        <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full mt-2.5 overflow-hidden">
                                             <div
-                                                className="h-1 bg-primary rounded-full transition-all duration-300"
-                                                style={{ width: `${entry.progress}%` }}
-                                            />
+                                                className="h-full bg-primary rounded-full transition-all duration-300 relative"
+                                                style={{ width: `${Math.max(2, entry.progress)}%` }}
+                                            >
+                                                <div className="absolute inset-0 bg-white/20 animate-[shimmer_1s_infinite] w-full" style={{ backgroundImage: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)' }} />
+                                            </div>
                                         </div>
                                     )}
                                 </div>
-                                {entry.status === 'pending' && (
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); onRemove(entry.id); }}
-                                        disabled={disabled}
-                                        className="text-slate-400 hover:text-red-500 transition-colors disabled:opacity-50"
-                                    >
-                                        <span className="material-symbols-outlined text-lg">close</span>
-                                    </button>
-                                )}
+                                <div className="shrink-0 flex items-center gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                                    {entry.status === 'pending' && (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); onRemove(entry.id); }}
+                                            disabled={disabled}
+                                            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-50"
+                                            title="Remove File"
+                                        >
+                                            <span className="material-symbols-outlined text-lg">close</span>
+                                        </button>
+                                    )}
+                                    {entry.status === 'error' && onRetry && (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); onRetry(entry.id); }}
+                                            disabled={disabled}
+                                            className="px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                                        >
+                                            <span className="material-symbols-outlined text-[16px]">refresh</span>
+                                            Retry
+                                        </button>
+                                    )}
+                                </div>
                             </li>
                         ))}
                     </ul>

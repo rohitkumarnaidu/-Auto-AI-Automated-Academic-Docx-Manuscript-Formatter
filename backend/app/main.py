@@ -103,16 +103,16 @@ app = FastAPI(
 
 # CORS Configuration (from environment)
 origins = settings.CORS_ORIGINS.split(",") if hasattr(settings, 'CORS_ORIGINS') and settings.CORS_ORIGINS else [
-    "http://localhost:5173",  # Vite dev server
-    "http://localhost:3000",
+    "http://127.0.0.1:5173",  # Vite dev server
+    "http://127.0.0.1:3000",
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Requested-With", "Accept"],
 )
 
 # Rate Limiting Middleware (DoS Protection)
@@ -188,7 +188,7 @@ async def readiness_probe():
     # ── Check GROBID ──
     try:
         async with httpx.AsyncClient(timeout=2) as client:
-            response = await client.get("http://localhost:8070/api/isalive")
+            response = await client.get(f"{settings.GROBID_URL}/api/isalive")
             checks["grobid"] = "ready" if response.status_code == 200 else "unavailable"
     except (httpx.RequestError, Exception):
         checks["grobid"] = "unavailable"
@@ -253,7 +253,7 @@ async def health_check():
     # Check Ollama server (non-blocking)
     try:
         async with httpx.AsyncClient(timeout=2) as client:
-            response = await client.get("http://localhost:11434/api/tags")
+            response = await client.get(f"{settings.OLLAMA_URL}/api/tags")
             if response.status_code == 200:
                 health_status["components"]["ollama"] = "healthy"
             else:

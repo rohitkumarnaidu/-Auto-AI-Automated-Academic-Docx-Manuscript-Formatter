@@ -16,6 +16,7 @@ IMPORTANT:
 """
 
 import io
+import logging
 import os
 from typing import List, Optional, Tuple, Dict, Any
 from datetime import datetime, timezone
@@ -53,6 +54,8 @@ from app.utils.id_generator import (
 
 
 from app.pipeline.parsing.base_parser import BaseParser
+
+logger = logging.getLogger(__name__)
 
 
 class DocxParser(BaseParser):
@@ -221,7 +224,7 @@ class DocxParser(BaseParser):
                             note_blocks.append(block)
         except Exception as e:
             # Silent failure as per requirements ("No crashes allowed")
-            print(f"Warning: Footnote extraction skipped: {e}")
+            logger.warning("Footnote extraction skipped: %s", e)
 
         # 2. Endnotes
         try:
@@ -294,7 +297,7 @@ class DocxParser(BaseParser):
                             block.metadata["section_index"] = i
                             hf_blocks.append(block)
         except Exception as e:
-            print(f"Warning: Header/Footer extraction skipped: {e}")
+            logger.warning("Header/Footer extraction skipped: %s", e)
             
         return hf_blocks
 
@@ -628,7 +631,7 @@ class DocxParser(BaseParser):
                 except Exception as e:
                     # If image extraction fails, log but continue
                     # Don't let image errors stop paragraph processing
-                    print(f"Warning: Failed to extract inline image: {e}")
+                    logger.warning("Failed to extract inline image: %s", e)
         
         return figures
     
@@ -697,7 +700,7 @@ class DocxParser(BaseParser):
             return figure
         
         except Exception as e:
-            print(f"Warning: Failed to extract image: {e}")
+            logger.warning("Failed to extract image: %s", e)
             return None
     
     def _get_image_format(self, content_type: str) -> ImageFormat:
@@ -803,7 +806,7 @@ class DocxParser(BaseParser):
                 is_block=is_block
             )
         except Exception as e:
-            print(f"Warning: Failed to extract equation: {e}")
+            logger.warning("Failed to extract equation: %s", e)
             return None
 
 
@@ -823,7 +826,7 @@ def parse_docx(docx_path: str, document_id: str) -> Document:
     
     Example:
         >>> doc = parse_docx("manuscript.docx", "job_123")
-        >>> print(f"Extracted {len(doc.blocks)} blocks")
+        >>> len(doc.blocks) > 0
     """
     parser = DocxParser()
     return parser.parse(docx_path, document_id)

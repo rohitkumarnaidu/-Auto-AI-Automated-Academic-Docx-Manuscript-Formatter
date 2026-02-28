@@ -11,9 +11,12 @@ Tracks:
 
 import time
 import json
+import logging
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
 from collections import defaultdict
+
+logger = logging.getLogger(__name__)
 
 
 class ModelMetrics:
@@ -190,7 +193,7 @@ class ModelMetrics:
         with open(filepath, 'w') as f:
             json.dump(data, f, indent=2)
         
-        print(f"✅ Metrics exported to {filepath}")
+        logger.info("Metrics exported to %s", filepath)
 
 
 # Global metrics instance

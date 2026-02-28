@@ -88,7 +88,7 @@ class TableExtractor:
             self._detection_model = model_store.get_model("table_detection_model")
             self._detection_processor = model_store.get_model("table_detection_processor")
         else:
-            print(f"TableExtractor: Loading detection model '{DETECTION_MODEL}'...")
+            logger.info("TableExtractor: Loading detection model '%s'...", DETECTION_MODEL)
             self._detection_processor = AutoImageProcessor.from_pretrained(DETECTION_MODEL)
             self._detection_model = TableTransformerForObjectDetection.from_pretrained(
                 DETECTION_MODEL
@@ -97,14 +97,14 @@ class TableExtractor:
             self._detection_model.eval()
             model_store.set_model("table_detection_model", self._detection_model)
             model_store.set_model("table_detection_processor", self._detection_processor)
-            print(f"TableExtractor: ✅ Detection model loaded on {self._device}.")
+            logger.info("TableExtractor: Detection model loaded on %s.", self._device)
 
         # --- Structure recognition model --- #
         if model_store.is_loaded("table_structure_model"):
             self._structure_model = model_store.get_model("table_structure_model")
             self._structure_processor = model_store.get_model("table_structure_processor")
         else:
-            print(f"TableExtractor: Loading structure model '{STRUCTURE_MODEL}'...")
+            logger.info("TableExtractor: Loading structure model '%s'...", STRUCTURE_MODEL)
             self._structure_processor = AutoImageProcessor.from_pretrained(STRUCTURE_MODEL)
             self._structure_model = TableTransformerForObjectDetection.from_pretrained(
                 STRUCTURE_MODEL
@@ -113,7 +113,7 @@ class TableExtractor:
             self._structure_model.eval()
             model_store.set_model("table_structure_model", self._structure_model)
             model_store.set_model("table_structure_processor", self._structure_processor)
-            print(f"TableExtractor: ✅ Structure model loaded on {self._device}.")
+            logger.info("TableExtractor: Structure model loaded on %s.", self._device)
 
         self._loaded = True
 

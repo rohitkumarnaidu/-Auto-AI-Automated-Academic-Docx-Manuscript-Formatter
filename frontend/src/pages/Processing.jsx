@@ -1,6 +1,6 @@
 import usePageTitle from '../hooks/usePageTitle';
-import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import Stepper from '../components/Stepper';
@@ -25,6 +25,22 @@ const PHASE_MAPPING = {
     FAILED: 7,
 };
 
+const HUMAN_PHASE_LABELS = {
+    UPLOADED: 'File Uploaded',
+    UPLOAD: 'Uploading Manuscript',
+    PARSING: 'Parsing Document',
+    EXTRACTION: 'Extracting Content',
+    CLASSIFICATION: 'Classifying Sections',
+    INTELLIGENCE: 'AI Analysis',
+    NLP_ANALYSIS: 'AI Content Analysis',
+    VALIDATION: 'Validating Format',
+    FORMATTING: 'Applying Styles',
+    EXPORT: 'Exporting Output',
+    PERSISTENCE: 'Saving Results',
+    COMPLETED: 'Processing Complete',
+    FAILED: 'Processing Failed',
+};
+
 export default function Processing() {
     usePageTitle('Processing');
     const navigate = useNavigate();
@@ -33,6 +49,8 @@ export default function Processing() {
     const [phase, setPhase] = useState('Initializing...');
     const [activeStep, setActiveStep] = useState(0);
     const [isCancelling, setIsCancelling] = useState(false);
+    const startTimeRef = useRef(Date.now());
+    const [etaString, setEtaString] = useState('');
 
     const notifyCompletion = useCallback(() => {
         if (typeof window === 'undefined' || !('Notification' in window)) {
@@ -74,9 +92,23 @@ export default function Processing() {
         const normalizedPhase = String(nextPhase).toUpperCase();
         const stepIndex = PHASE_MAPPING[normalizedPhase] !== undefined ? PHASE_MAPPING[normalizedPhase] : 1;
 
-        setProgress(statusData.progress_percentage || 0);
-        setPhase(statusData.message || nextPhase || 'Processing...');
+        const currentProgress = statusData.progress_percentage || 0;
+        setProgress(currentProgress);
+        setPhase(statusData.message || HUMAN_PHASE_LABELS[normalizedPhase] || nextPhase || 'Processing...');
         setActiveStep(stepIndex);
+
+        if (currentProgress > 5 && currentProgress < 100) {
+            const elapsed = Date.now() - startTimeRef.current;
+            const remainingMs = (elapsed / currentProgress) * (100 - currentProgress);
+            const remainingSecs = Math.ceil(remainingMs / 1000);
+            if (remainingSecs > 60) {
+                setEtaString(`~${Math.ceil(remainingSecs / 60)} min remaining`);
+            } else {
+                setEtaString(`~${remainingSecs} sec remaining`);
+            }
+        } else if (currentProgress >= 100) {
+            setEtaString('');
+        }
 
         if (isCompleted(statusData.status)) {
             setJob((previousJob) => ({
@@ -134,7 +166,10 @@ export default function Processing() {
                         <div>
                             <div className="flex items-center justify-between mb-2">
                                 <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Overall Progress</span>
-                                <span className="text-sm font-black text-primary">{Math.round(progress)}%</span>
+                                <div className="flex items-center gap-3">
+                                    {etaString && <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">{etaString}</span>}
+                                    <span className="text-sm font-black text-primary">{Math.round(progress)}%</span>
+                                </div>
                             </div>
                             <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-3 overflow-hidden">
                                 <div className="bg-primary h-full transition-all duration-500 ease-out" style={{ width: `${progress}%` }}></div>
@@ -165,13 +200,15 @@ export default function Processing() {
                         <span className="material-symbols-outlined text-lg">cancel</span>
                         {isCancelling ? 'Cancelling...' : 'Cancel Processing'}
                     </button>
-                    <Link
-                        to="/upload"
-                        className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
-                    >
-                        <span className="material-symbols-outlined text-lg">upload_file</span>
-                        Upload Another Document
-                    </Link>
+                    {!isCancelling && (
+                        <button
+                            onClick={handleCancelProcessing}
+                            className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
+                        >
+                            <span className="material-symbols-outlined text-lg">upload_file</span>
+                            Upload Another Document
+                        </button>
+                    )}
                 </div>
 
                 <p className="mt-6 text-slate-400 text-sm flex items-center gap-2">

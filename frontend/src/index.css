@@ -4,6 +4,17 @@
 
 html {
     scroll-behavior: smooth;
+    @apply transition-colors duration-300;
+}
+
+body {
+    @apply text-slate-900 dark:text-slate-100 antialiased;
+}
+
+/* Shared focus treatment for keyboard navigation */
+:focus-visible {
+    outline: 2px solid #136dec;
+    outline-offset: 2px;
 }
 
 /* Animation utilities used across pages without external plugin dependency */
