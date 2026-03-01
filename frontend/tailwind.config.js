@@ -6,14 +6,20 @@ export default {
     content: [
         "./index.html",
         "./src/**/*.{js,ts,jsx,tsx}",
+        "./app/**/*.{js,ts,jsx,tsx}",
+        "./components/**/*.{js,ts,jsx,tsx}"
     ],
     darkMode: "class",
     theme: {
         extend: {
             colors: {
-                "primary": "#136dec",
-                "background-light": "#f6f7f8",
-                "background-dark": "#101822",
+                "primary": "#6c2bee",
+                "primary-hover": "#5b22cd",
+                "background-light": "#f6f6f8",
+                "background-dark": "#0f172a",
+                "surface-dark": "#1e293b",
+                "glass-border": "rgba(255, 255, 255, 0.08)",
+                "glass-surface": "rgba(30, 41, 59, 0.7)",
                 "diff-add": "#dcfce7",
                 "diff-remove": "#fee2e2",
                 "diff-mod": "#fef9c3",
@@ -24,14 +30,18 @@ export default {
                 "accent-warm": "#F59E0B",
             },
             fontFamily: {
-                "display": ['"Plus Jakarta Sans"', "sans-serif"]
+                "display": ['"Manrope"', "sans-serif"]
             },
             borderRadius: {
-                "DEFAULT": "0.25rem",
-                "lg": "0.5rem",
-                "xl": "0.75rem",
+                "DEFAULT": "0.5rem",
+                "lg": "1rem",
+                "xl": "1.5rem",
+                "2xl": "2rem",
                 "full": "9999px"
             },
+            backgroundImage: {
+                'glow-radial': 'radial-gradient(circle at center, var(--tw-gradient-stops))',
+            }
         },
     },
     plugins: [

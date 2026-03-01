@@ -7,6 +7,7 @@ from urllib.parse import quote_plus
 import requests
 
 from app.config.settings import settings
+from app.utils.singleton import get_or_create
 
 logger = logging.getLogger(__name__)
 
@@ -133,8 +134,10 @@ class CrossRefClient:
         return result
 
 
-_crossref_client = CrossRefClient()
+_crossref_client: Optional[CrossRefClient] = None
 
 
 def get_crossref_client() -> CrossRefClient:
+    global _crossref_client
+    _crossref_client = get_or_create(_crossref_client, CrossRefClient)
     return _crossref_client

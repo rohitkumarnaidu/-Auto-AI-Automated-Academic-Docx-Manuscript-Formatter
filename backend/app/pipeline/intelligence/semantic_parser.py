@@ -4,6 +4,7 @@ from typing import List, Dict, Any
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, logging as transformers_logging
 from app.models import PipelineDocument as Document, Block, BlockType
 from app.pipeline.safety import safe_function
+from app.utils.singleton import get_or_create
 
 # Backward-compat alias for tests and older code paths that patch AutoModel.
 AutoModel = AutoModelForSequenceClassification
@@ -216,6 +217,5 @@ _semantic_parser = None
 
 def get_semantic_parser() -> SemanticParser:
     global _semantic_parser
-    if _semantic_parser is None:
-        _semantic_parser = SemanticParser()
+    _semantic_parser = get_or_create(_semantic_parser, SemanticParser)
     return _semantic_parser

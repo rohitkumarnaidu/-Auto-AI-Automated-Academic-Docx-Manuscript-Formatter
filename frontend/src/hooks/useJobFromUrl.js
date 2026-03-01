@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams } from 'next/navigation';
 import { useDocument } from '../context/DocumentContext';
 import { getJobSummary } from '../services/api';
 

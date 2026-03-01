@@ -1,0 +1,1018 @@
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+import { supabase } from '../lib/supabaseClient';
+import { useQuery } from '@tanstack/react-query';
+
+const SUPPORTED_EXPORT_FORMATS = ['docx', 'pdf'];
+const RETRYABLE_STATUS_CODES = [408, 429, 500, 502, 503, 504];
+const DEFAULT_MAX_RETRIES = 2;
+const BASE_RETRY_DELAY_MS = 500;
+const DEFAULT_DEBOUNCE_MS = 250;
+const DEBOUNCED_REQUESTS = new Map();
+const SENSITIVE_INPUT_KEYS = /(password|otp|token|secret)/i;
+const CHUNK_SIZE_BYTES = 5 * 1024 * 1024;
+export const CHUNK_UPLOAD_THRESHOLD_BYTES = 10 * 1024 * 1024;
+
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const normalizeExportFormat = (format = 'docx') => {
+    const normalized = String(format || 'docx').toLowerCase();
+    return SUPPORTED_EXPORT_FORMATS.includes(normalized) ? normalized : 'docx';
+};
+
+
+
+
+const removeControlChars = (input) => (
+    Array.from(String(input ?? ''))
+        .filter((char) => {
+            const code = char.charCodeAt(0);
+            return code >= 32 && code !== 127;
+        })
+        .join('')
+);
+
+const sanitizeText = (value) => (
+    removeControlChars(value)
+        .replace(/[<>]/g, '')
+        .trim()
+);
+
+const sanitizeValue = (value, path = '') => {
+    if (typeof value === 'string') {
+        if (SENSITIVE_INPUT_KEYS.test(path)) {
+            return value.trim();
+        }
+        return sanitizeText(value);
+    }
+
+    if (Array.isArray(value)) {
+        return value.map((entry, index) => sanitizeValue(entry, `${path}.${index}`));
+    }
+
+    if (value && typeof value === 'object') {
+        return Object.entries(value).reduce((accumulator, [key, nestedValue]) => {
+            const nextPath = path ? `${path}.${key}` : key;
+            accumulator[key] = sanitizeValue(nestedValue, nextPath);
+            return accumulator;
+        }, {});
+    }
+
+    return value;
+};
+
+const sanitizePayload = (payload) => sanitizeValue(payload);
+
+const isNetworkError = (error) => {
+    if (!error) return false;
+
+    const message = String(error.message || error).toLowerCase();
+    return (
+        error.name === 'TypeError' ||
+        message.includes('failed to fetch') ||
+        message.includes('networkerror') ||
+        message.includes('network request failed') ||
+        message.includes('load failed') ||
+        message.includes('timeout')
+    );
+};
+
+const extractServerErrorMessage = (errorData, fallbackMessage = '') => {
+    if (!errorData || typeof errorData !== 'object') {
+        return fallbackMessage;
+    }
+
+    if (typeof errorData.detail === 'string') {
+        return errorData.detail;
+    }
+
+    if (Array.isArray(errorData.detail)) {
+        return errorData.detail
+            .map((err) => err.msg || JSON.stringify(err))
+            .join('. ');
+    }
+
+    if (typeof errorData.detail === 'object') {
+        return JSON.stringify(errorData.detail);
+    }
+
+    return fallbackMessage;
+};
+
+const getFriendlyErrorMessage = ({
+    status,
+    errorData,
+    fallbackMessage = '',
+    error,
+    endpoint = '',
+} = {}) => {
+    if (status === 401) {
+        if (typeof endpoint === 'string' && endpoint.startsWith('/api/auth/login')) {
+            return 'Invalid email or password.';
+        }
+        return 'Your session has expired. Please log in again.';
+    }
+
+    if (status === 403) {
+        return 'You do not have permission to perform this action.';
+    }
+
+    if (status === 404) {
+        return 'The requested resource could not be found.';
+    }
+
+    if (status === 429) {
+        return 'Too many requests right now. Please wait a moment and try again.';
+    }
+
+    if (typeof status === 'number' && status >= 500) {
+        return 'The server is temporarily unavailable. Please try again shortly.';
+    }
+
+    if (isNetworkError(error)) {
+        return 'Unable to reach the server. Please check your internet connection and try again.';
+    }
+
+    const serverMessage = extractServerErrorMessage(errorData, '');
+    if (serverMessage) {
+        return serverMessage;
+    }
+
+    if (typeof fallbackMessage === 'string' && fallbackMessage.trim()) {
+        return fallbackMessage;
+    }
+
+    return 'Something went wrong. Please try again.';
+};
+
+const shouldRetryRequest = ({ method = 'GET', status, error, attempt, maxRetries }) => {
+    if (attempt >= maxRetries) {
+        return false;
+    }
+
+    const normalizedMethod = String(method || 'GET').toUpperCase();
+    const isSafeMethod = ['GET', 'HEAD', 'OPTIONS'].includes(normalizedMethod);
+    if (!isSafeMethod) {
+        return false;
+    }
+
+    if (isNetworkError(error)) {
+        return true;
+    }
+
+    if (typeof status === 'number' && RETRYABLE_STATUS_CODES.includes(status)) {
+        return true;
+    }
+
+    return false;
+};
+
+const fetchWithRetry = async (url, options = {}, retryConfig = {}) => {
+    const maxRetries = retryConfig.maxRetries ?? DEFAULT_MAX_RETRIES;
+    const method = options.method || 'GET';
+    let lastError = null;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+        try {
+            const response = await fetch(url, options);
+
+            if (response.ok) {
+                return response;
+            }
+
+            if (!shouldRetryRequest({ method, status: response.status, attempt, maxRetries })) {
+                return response;
+            }
+        } catch (error) {
+            lastError = error;
+
+            if (!shouldRetryRequest({ method, error, attempt, maxRetries })) {
+                throw error;
+            }
+        }
+
+        const delayMs = BASE_RETRY_DELAY_MS * (2 ** attempt);
+        await wait(delayMs);
+    }
+
+    throw lastError || new Error('Request failed after retries.');
+};
+
+const getAuthorizedHeaders = async (initialHeaders = {}) => {
+    const headers = { ...initialHeaders };
+
+    try {
+        if (!supabase) return headers;
+        const {
+            data: { session },
+        } = await supabase.auth.getSession();
+
+        if (session?.access_token) {
+            headers.Authorization = `Bearer ${session.access_token}`;
+        }
+    } catch (error) {
+        // Keep requests working even if auth bootstrap fails.
+        console.warn('Auth header injection skipped:', error);
+    }
+    return headers;
+};
+
+/**
+ * Logs frontend errors to the backend for monitoring.
+ */
+export const logFrontendError = async (errorInfo) => {
+    try {
+        const headers = await getAuthorizedHeaders({ 'Content-Type': 'application/json' });
+        await fetch(`${API_BASE_URL}/api/metrics/log-error`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+                message: errorInfo.message || String(errorInfo),
+                stack: errorInfo.stack,
+                url: window.location.href,
+                timestamp: new Date().toISOString(),
+            }),
+        });
+    } catch (e) {
+        // Silently fail to avoid infinite error loops
+        console.warn('Failed to log frontend error to backend:', e);
+    }
+};
+
+/**
+ * Generic helper to handle fetch requests and throw detailed errors.
+ */
+const handleRequest = async (endpoint, options = {}) => {
+    try {
+        const headers = await getAuthorizedHeaders(options.headers);
+        const { retryConfig, ...fetchOptions } = options;
+
+        const finalOptions = {
+            ...fetchOptions,
+            headers,
+            credentials: fetchOptions.credentials || 'include',
+        };
+
+        const response = await fetchWithRetry(
+            `${API_BASE_URL}${endpoint}`,
+            finalOptions,
+            retryConfig
+        );
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            const fallbackMessage = `Request failed (${response.status})`;
+            throw new Error(
+                getFriendlyErrorMessage({
+                    status: response.status,
+                    errorData,
+                    fallbackMessage,
+                    endpoint,
+                })
+            );
+        }
+
+        return await response.json();
+    } catch (error) {
+        const finalMessage = getFriendlyErrorMessage({
+            error,
+            fallbackMessage:
+                typeof error.message === 'string' ? error.message : String(error || ''),
+            endpoint,
+        });
+
+        console.error(`API Error [${endpoint}]:`, finalMessage, error);
+
+        // Log to monitoring service
+        logFrontendError({
+            message: `API Error [${endpoint}]: ${finalMessage}`,
+            stack: error.stack,
+        });
+
+        throw new Error(finalMessage);
+    }
+};
+
+const getDebounceKey = (endpoint, options = {}) => {
+    const method = String(options.method || 'GET').toUpperCase();
+    return `${method}:${endpoint}`;
+};
+
+const handleRequestDebounced = (endpoint, options = {}, debounceMs = DEFAULT_DEBOUNCE_MS) => {
+    if (!debounceMs || debounceMs <= 0) {
+        return handleRequest(endpoint, options);
+    }
+
+    const key = getDebounceKey(endpoint, options);
+    const existing = DEBOUNCED_REQUESTS.get(key) || {
+        endpoint,
+        options,
+        waiters: [],
+        timer: null,
+    };
+
+    existing.endpoint = endpoint;
+    existing.options = options;
+
+    const requestPromise = new Promise((resolve, reject) => {
+        existing.waiters.push({ resolve, reject });
+    });
+
+    if (existing.timer) {
+        clearTimeout(existing.timer);
+    }
+
+    existing.timer = setTimeout(async () => {
+        DEBOUNCED_REQUESTS.delete(key);
+
+        try {
+            const result = await handleRequest(existing.endpoint, existing.options);
+            existing.waiters.forEach((waiter) => waiter.resolve(result));
+        } catch (error) {
+            existing.waiters.forEach((waiter) => waiter.reject(error));
+        }
+    }, debounceMs);
+
+    DEBOUNCED_REQUESTS.set(key, existing);
+    return requestPromise;
+};
+
+/* =====================
+   DOCUMENT APIs
+   ===================== */
+
+const normalizeQueryParams = (params = {}) => (
+    Object.fromEntries(
+        Object.entries(params || {})
+            .filter(([, value]) => value !== undefined && value !== null && value !== '')
+            .sort(([left], [right]) => left.localeCompare(right))
+    )
+);
+
+const mapDocumentRecord = (doc) => ({
+    ...doc,
+    originalFileName: doc?.filename,
+    timestamp: doc?.created_at,
+});
+
+const parseResponseJson = (responseText) => {
+    if (!responseText) return {};
+    try {
+        return JSON.parse(responseText);
+    } catch {
+        return {};
+    }
+};
+
+/**
+ * Fetches the list of documents for the current user.
+ */
+export const getDocuments = async (params = {}) => {
+    const normalizedParams = normalizeQueryParams(params);
+    const query = new URLSearchParams(normalizedParams).toString();
+    const endpoint = query ? `/api/documents?${query}` : '/api/documents';
+    return handleRequest(endpoint);
+};
+
+export const useDocuments = (params = {}, queryOptions = {}) => {
+    const normalizedParams = normalizeQueryParams(params);
+
+    return useQuery({
+        queryKey: ['documents', normalizedParams],
+        queryFn: () => getDocuments(normalizedParams),
+        select: (data) => ({
+            ...data,
+            documents: Array.isArray(data?.documents)
+                ? data.documents.map(mapDocumentRecord)
+                : [],
+        }),
+        ...queryOptions,
+    });
+};
+
+/**
+ * Uploads a document with template and processing options.
+ */
+export const uploadDocument = async (file, template, options = {}, signal = null) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('template', sanitizeText(template));
+
+    formData.append('add_page_numbers', options.add_page_numbers ?? true);
+    formData.append('add_borders', options.add_borders ?? false);
+    formData.append('add_cover_page', options.add_cover_page ?? true);
+    formData.append('generate_toc', options.generate_toc ?? false);
+    formData.append('page_size', sanitizeText(options.page_size || 'Letter'));
+
+    const fetchOptions = {
+        method: 'POST',
+        body: formData,
+    };
+    if (signal) fetchOptions.signal = signal;
+
+    return handleRequest('/api/documents/upload', fetchOptions);
+};
+
+/**
+ * Uploads a document with real client-side progress (XMLHttpRequest).
+ */
+export const uploadDocumentWithProgress = async (
+    file,
+    template,
+    options = {},
+    { signal = null, onProgress = null } = {}
+) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('template', sanitizeText(template));
+
+    formData.append('add_page_numbers', options.add_page_numbers ?? true);
+    formData.append('add_borders', options.add_borders ?? false);
+    formData.append('add_cover_page', options.add_cover_page ?? true);
+    formData.append('generate_toc', options.generate_toc ?? false);
+    formData.append('page_size', sanitizeText(options.page_size || 'Letter'));
+    formData.append('fast_mode', options.fast_mode ?? false);
+
+    const headers = await getAuthorizedHeaders();
+
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `${API_BASE_URL}/api/documents/upload`);
+        xhr.withCredentials = true;
+
+        Object.entries(headers).forEach(([header, value]) => {
+            if (value !== undefined && value !== null) {
+                xhr.setRequestHeader(header, value);
+            }
+        });
+
+        xhr.upload.onprogress = (event) => {
+            if (!event.lengthComputable || typeof onProgress !== 'function') {
+                return;
+            }
+            const percent = Math.round((event.loaded / event.total) * 100);
+            onProgress(percent, event);
+        };
+
+        xhr.onerror = () => {
+            reject(new Error('Upload failed due to a network error.'));
+        };
+
+        xhr.onabort = () => {
+            reject(new DOMException('Upload was cancelled.', 'AbortError'));
+        };
+
+        xhr.onload = () => {
+            const responsePayload = parseResponseJson(xhr.responseText);
+            if (xhr.status >= 200 && xhr.status < 300) {
+                resolve(responsePayload);
+                return;
+            }
+
+            const fallbackMessage = `Upload failed (${xhr.status})`;
+            reject(
+                new Error(
+                    getFriendlyErrorMessage({
+                        status: xhr.status,
+                        errorData: responsePayload,
+                        fallbackMessage,
+                    })
+                )
+            );
+        };
+
+        if (signal) {
+            if (signal.aborted) {
+                xhr.abort();
+                return;
+            }
+            const abortHandler = () => xhr.abort();
+            signal.addEventListener('abort', abortHandler, { once: true });
+            xhr.onloadend = () => signal.removeEventListener('abort', abortHandler);
+        }
+
+        xhr.send(formData);
+    });
+};
+
+/**
+ * Uploads large files in chunks before triggering normal processing.
+ */
+export const uploadChunked = async (file, options = {}) => {
+    if (!(file instanceof File)) {
+        throw new Error('Invalid file supplied for chunked upload.');
+    }
+
+    const chunkSize = options.chunkSize || CHUNK_SIZE_BYTES;
+    const onProgress = typeof options.onProgress === 'function' ? options.onProgress : null;
+    const signal = options.signal || null;
+    const totalChunks = Math.max(1, Math.ceil(file.size / chunkSize));
+    let finalChunkResponse = null;
+
+    const fileId = typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+    for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex += 1) {
+        if (signal?.aborted) {
+            throw new DOMException('Chunked upload cancelled.', 'AbortError');
+        }
+
+        const start = chunkIndex * chunkSize;
+        const end = Math.min(file.size, start + chunkSize);
+        const chunkBlob = file.slice(start, end);
+        const formData = new FormData();
+        formData.append('file_id', fileId);
+        formData.append('chunk_index', String(chunkIndex));
+        formData.append('total_chunks', String(totalChunks));
+        formData.append('file', chunkBlob, `${file.name}.part${chunkIndex}`);
+
+        const headers = await getAuthorizedHeaders();
+        const response = await fetchWithRetry(`${API_BASE_URL}/api/documents/upload/chunked`, {
+            method: 'POST',
+            headers,
+            body: formData,
+            credentials: 'include',
+            signal,
+        });
+
+        const responsePayload = await response.json().catch(() => ({}));
+        finalChunkResponse = responsePayload;
+        if (!response.ok) {
+            throw new Error(
+                getFriendlyErrorMessage({
+                    status: response.status,
+                    errorData: responsePayload,
+                    fallbackMessage: `Chunk upload failed (${response.status})`,
+                })
+            );
+        }
+
+        if (onProgress) {
+            const loaded = Math.min(file.size, end);
+            const percent = Math.round((loaded / file.size) * 100);
+            onProgress({
+                chunkIndex,
+                totalChunks,
+                loaded,
+                total: file.size,
+                percent,
+                response: responsePayload,
+            });
+        }
+    }
+
+    if (finalChunkResponse && typeof finalChunkResponse === 'object') {
+        return {
+            ...finalChunkResponse,
+            file_id: finalChunkResponse.file_id || fileId,
+            total_chunks: finalChunkResponse.total_chunks || totalChunks,
+        };
+    }
+
+    return { file_id: fileId, total_chunks: totalChunks, status: 'complete' };
+};
+
+/**
+ * Polls the processing status of a job.
+ */
+export const getJobStatus = async (jobId) => {
+    return handleRequest(`/api/documents/${jobId}/status`);
+};
+
+export const useDocumentStatus = (jobId, queryOptions = {}) => (
+    useQuery({
+        queryKey: ['document-status', jobId],
+        queryFn: () => getJobStatus(jobId),
+        ...queryOptions,
+        enabled: Boolean(jobId) && (queryOptions.enabled ?? true),
+    })
+);
+
+/**
+ * Fetches the preview data (structured content + validation results).
+ */
+export const getPreview = async (jobId, options = {}) => {
+    return handleRequestDebounced(
+        `/api/documents/${jobId}/preview`,
+        {},
+        options.debounceMs ?? DEFAULT_DEBOUNCE_MS
+    );
+};
+
+/**
+ * Fetches the comparison data (original vs formatted).
+ */
+export const getComparison = async (jobId, options = {}) => {
+    return handleRequestDebounced(
+        `/api/documents/${jobId}/compare`,
+        {},
+        options.debounceMs ?? DEFAULT_DEBOUNCE_MS
+    );
+};
+
+/**
+ * Submits edited content for re-processing.
+ */
+export const submitEdit = async (jobId, editedData) => {
+    return handleRequest(`/api/documents/${jobId}/edit`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ edited_structured_data: editedData }),
+    });
+};
+
+/**
+ * Returns the supported export formats for the current frontend flow.
+ */
+export const getExportFormats = () => [...SUPPORTED_EXPORT_FORMATS];
+
+/**
+ * Downloads a processed file.
+ */
+export const downloadFile = async (jobId, format = 'docx') => {
+    const normalizedFormat = normalizeExportFormat(format);
+
+    try {
+        const headers = await getAuthorizedHeaders();
+        const response = await fetchWithRetry(
+            `${API_BASE_URL}/api/documents/${jobId}/download?format=${normalizedFormat}`,
+            { headers, method: 'GET', credentials: 'include' }
+        );
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(
+                getFriendlyErrorMessage({
+                    status: response.status,
+                    errorData,
+                    fallbackMessage: 'Download failed. Please try again.',
+                })
+            );
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        // Auto-revoke after 5 minutes to prevent memory leak
+        setTimeout(() => window.URL.revokeObjectURL(url), 300000);
+        return url;
+    } catch (error) {
+        const message = getFriendlyErrorMessage({
+            error,
+            fallbackMessage: 'Download failed. Please try again.',
+        });
+        console.error('Download error:', message, error);
+        throw new Error(message);
+    }
+};
+
+/**
+ * Downloads a selected export format.
+ */
+export const downloadExport = async (jobId, format = 'docx') => {
+    const normalizedFormat = normalizeExportFormat(format);
+    return downloadFile(jobId, normalizedFormat);
+};
+
+/**
+ * Fetches custom template presets for the current user.
+ */
+export const getCustomTemplates = async () => {
+    return handleRequest('/api/templates/custom');
+};
+
+/**
+ * Persists a custom template preset for the current user.
+ */
+export const saveCustomTemplate = async (template) => {
+    const sanitizedTemplate = sanitizePayload(template);
+    return handleRequest('/api/templates/custom', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ template: sanitizedTemplate }),
+    });
+};
+
+/**
+ * Deletes a document job by ID.
+ */
+export const deleteDocument = async (jobId) => {
+    return handleRequest(`/api/documents/${encodeURIComponent(jobId)}`, {
+        method: 'DELETE',
+    });
+};
+
+/**
+ * Fetches a lightweight job summary for URL-based page hydration.
+ */
+export const getJobSummary = async (jobId) => {
+    return handleRequest(`/api/documents/${encodeURIComponent(jobId)}/summary`);
+};
+
+/**
+ * Fetches all available built-in templates (public).
+ */
+export const getBuiltinTemplates = async () => {
+    return handleRequest('/api/templates/');
+};
+
+/**
+ * Submits user feedback / correction for a processed document.
+ */
+export const submitFeedback = async (data) => {
+    const sanitizedData = sanitizePayload(data);
+    return handleRequest('/api/feedback/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sanitizedData),
+    });
+};
+
+/**
+ * Fetches the feedback summary for a specific document.
+ */
+export const getFeedbackSummary = async (jobId) => {
+    return handleRequest(`/api/feedback/summary?document_id=${encodeURIComponent(jobId)}`);
+};
+
+/**
+ * Fetches database health metrics (admin).
+ */
+export const getMetricsDb = async () => {
+    return handleRequest('/api/metrics/db');
+};
+
+/**
+ * Fetches overall system health status (admin).
+ */
+export const getMetricsHealth = async () => {
+    return handleRequest('/api/metrics/health');
+};
+
+/**
+ * Fetches AI model metrics dashboard data (admin).
+ */
+export const getMetricsDashboard = async () => {
+    return handleRequest('/api/metrics/dashboard');
+};
+
+/**
+ * Fetches enhancement capability profile and active fallback modes (admin).
+ */
+export const getMetricsEnhancements = async () => {
+    return handleRequest('/api/metrics/enhancements');
+};
+
+/* =====================
+   AUTH APIs (BACKEND PROXY)
+   ===================== */
+
+/**
+ * Proxies signup to Supabase via backend.
+ * Payload: { full_name, email, institution, password, terms_accepted }
+ */
+export const signup = async (data) => {
+    const sanitizedData = sanitizePayload(data);
+    return handleRequest('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sanitizedData),
+    });
+};
+
+/**
+ * Proxies login to Supabase via backend.
+ * Payload: { email, password }
+ */
+export const login = async (data) => {
+    const sanitizedData = sanitizePayload(data);
+    return handleRequest('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sanitizedData),
+    });
+};
+
+/**
+ * Triggers the Supabase recovery OTP flow.
+ * Payload: { email }
+ */
+export const forgotPassword = async (data) => {
+    const sanitizedData = sanitizePayload(data);
+    return handleRequest('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sanitizedData),
+    });
+};
+
+/**
+ * Verifies the 6-digit OTP.
+ * Payload: { email, otp }
+ */
+export const verifyOtp = async (data) => {
+    const sanitizedData = sanitizePayload(data);
+    return handleRequest('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sanitizedData),
+    });
+};
+
+/**
+ * Finalizes password reset using the verified OTP.
+ * Payload: { email, otp, new_password }
+ */
+export const resetPassword = async (data) => {
+    const sanitizedData = sanitizePayload(data);
+    return handleRequest('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sanitizedData),
+    });
+};
+
+// ─── B-FIX-22f: CSL Style Importer ────────────────────────────────────────
+
+/**
+ * Searches the CSL style repository for journal styles matching a query.
+ * @param {string} query - Search term (journal name or ISSN)
+ * @returns {Promise<Array>} List of matching styles with name and slug
+ */
+export const searchCSLStyles = async (query) => {
+    const sanitized = sanitizeText(query);
+    return handleRequest(`/api/templates/csl/search?q=${encodeURIComponent(sanitized)}`);
+};
+
+/**
+ * Fetches and stores a specific CSL style by slug from the GitHub CSL repo.
+ * @param {string} slug - The CSL style slug (e.g. 'nature', 'ieee')
+ * @returns {Promise<{id: string, name: string, template_id: string}>}
+ */
+export const fetchCSLStyle = async (slug) => {
+    const sanitized = sanitizeText(slug);
+    return handleRequest(`/api/templates/csl/${encodeURIComponent(sanitized)}`);
+};
+
+// ─── Document Generator APIs ───────────────────────────────────────────────
+
+/**
+ * Starts a generate-from-scratch job.
+ * @param {Object} payload
+ * @returns {Promise<{job_id: string, status: string, message?: string}>}
+ */
+export const generateDocument = async (payload) => {
+    const sanitizedPayload = sanitizePayload(payload);
+    return handleRequest('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sanitizedPayload),
+    });
+};
+
+/**
+ * Fetches generation status snapshot.
+ * @param {string} jobId
+ * @returns {Promise<Object>}
+ */
+export const getGenerationStatus = async (jobId) => {
+    return handleRequest(`/api/generate/status/${encodeURIComponent(jobId)}`);
+};
+
+/**
+ * Streams generation status events via SSE using fetch stream parsing.
+ * Returns a disposer that aborts the stream.
+ *
+ * @param {string} jobId
+ * @param {(event: {event: string, data: any}) => void} onEvent
+ * @param {(error: Error) => void} onError
+ * @returns {Promise<() => void>}
+ */
+export const streamGenerationStatus = async (jobId, onEvent, onError) => {
+    const abortController = new AbortController();
+    const headers = await getAuthorizedHeaders({ Accept: 'text/event-stream' });
+
+    (async () => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/stream/${encodeURIComponent(jobId)}`, {
+                method: 'GET',
+                headers,
+                credentials: 'include',
+                signal: abortController.signal,
+            });
+
+            if (!response.ok || !response.body) {
+                throw new Error(`Failed to open generation stream (${response.status})`);
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (!abortController.signal.aborted) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+
+                let boundaryIndex = buffer.indexOf('\n\n');
+                while (boundaryIndex !== -1) {
+                    const frame = buffer.slice(0, boundaryIndex);
+                    buffer = buffer.slice(boundaryIndex + 2);
+                    boundaryIndex = buffer.indexOf('\n\n');
+
+                    let eventType = 'message';
+                    const dataLines = [];
+                    for (const lineRaw of frame.split(/\r?\n/)) {
+                        const line = lineRaw.trimEnd();
+                        if (line.startsWith('event:')) {
+                            eventType = line.slice(6).trim();
+                        } else if (line.startsWith('data:')) {
+                            dataLines.push(line.slice(5).trim());
+                        }
+                    }
+
+                    if (!dataLines.length) continue;
+                    const payloadRaw = dataLines.join('\n');
+                    let payload = payloadRaw;
+                    try {
+                        payload = JSON.parse(payloadRaw);
+                    } catch {
+                        // Keep raw payload if not JSON
+                    }
+
+                    if (typeof onEvent === 'function') {
+                        onEvent({ event: eventType, data: payload });
+                    }
+                }
+            }
+        } catch (error) {
+            if (abortController.signal.aborted) return;
+            if (typeof onError === 'function') {
+                onError(error instanceof Error ? error : new Error(String(error)));
+            }
+        }
+    })();
+
+    return () => abortController.abort();
+};
+
+/**
+ * Downloads generated DOCX/PDF and returns a blob URL.
+ * @param {string} jobId
+ * @param {'docx'|'pdf'} format
+ * @returns {Promise<string>}
+ */
+export const downloadGeneratedDocument = async (jobId, format = 'docx') => {
+    const normalizedFormat = normalizeExportFormat(format);
+    const headers = await getAuthorizedHeaders();
+    const response = await fetchWithRetry(
+        `${API_BASE_URL}/api/generate/download/${encodeURIComponent(jobId)}?format=${normalizedFormat}`,
+        { headers, method: 'GET', credentials: 'include' }
+    );
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+            getFriendlyErrorMessage({
+                status: response.status,
+                errorData,
+                fallbackMessage: 'Generation download failed.',
+            })
+        );
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    setTimeout(() => window.URL.revokeObjectURL(url), 300000);
+    return url;
+};
+
+// ─── B-FIX-23: JATS Download ──────────────────────────────────────────────
+
+/**
+ * Downloads a JATS XML export for the given job.
+ * @param {string} jobId - The job ID to download JATS for
+ * @returns {Promise<string>} Blob URL for the download
+ */
+export const downloadJATS = async (jobId) => {
+    const url = `${API_BASE_URL}/api/jobs/${encodeURIComponent(jobId)}/download?format=jats`;
+    const headers = {};
+
+    // Attach auth header if Supabase session available
+    try {
+        const { data: { session } } = await (supabase?.auth?.getSession() ?? Promise.resolve({ data: { session: null } }));
+        if (session?.access_token) {
+            headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+    } catch {
+        // proceed without auth
+    }
+
+    const response = await fetch(url, { headers });
+    if (!response.ok) {
+        throw new Error(`JATS download failed: ${response.status} ${response.statusText}`);
+    }
+    const blob = await response.blob();
+    return window.URL.createObjectURL(blob);
+};

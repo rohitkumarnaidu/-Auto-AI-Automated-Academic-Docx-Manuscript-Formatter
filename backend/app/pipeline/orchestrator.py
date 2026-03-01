@@ -30,6 +30,8 @@ from app.pipeline.formatting.formatter import Formatter
 from app.pipeline.export.exporter import Exporter
 from app.pipeline.input_conversion.converter import InputConverter
 from app.pipeline.contracts.loader import ContractLoader
+from app.utils.serialization import build_structured_data, safe_model_dump
+from app.utils.singleton import resolve_optional_callable
 # from app.routers.stream import emit_event  # Moved to local scope inside _update_status
 from app.pipeline.equations.standardizer import get_equation_standardizer
 
@@ -37,20 +39,18 @@ from app.pipeline.equations.standardizer import get_equation_standardizer
 # Note: Engines are imported locally within methods to prevent circular dependencies
 def get_rag_engine():
     """Resolve RAG engine lazily so tests can patch either module path."""
-    try:
-        from app.pipeline.intelligence.rag_engine import get_rag_engine as _get_rag_engine
-        return _get_rag_engine()
-    except Exception:
-        return None
+    return resolve_optional_callable(
+        "app.pipeline.intelligence.rag_engine",
+        "get_rag_engine",
+    )
 
 
 def get_reasoning_engine():
     """Resolve reasoning engine lazily so tests can patch either module path."""
-    try:
-        from app.pipeline.intelligence.reasoning_engine import get_reasoning_engine as _get_reasoning_engine
-        return _get_reasoning_engine()
-    except Exception:
-        return None
+    return resolve_optional_callable(
+        "app.pipeline.intelligence.reasoning_engine",
+        "get_reasoning_engine",
+    )
 
 # Week 2: GROBID and Docling Services
 from app.pipeline.services import GROBIDClient, DoclingClient
@@ -191,20 +191,7 @@ class PipelineOrchestrator:
             
         logger.info("Persisting partial results for failed job %s", job_id)
         try:
-            # Reconstruct partial structured data
-            structured_data = {
-                "sections": {},
-                "metadata": doc_obj.metadata.model_dump(mode='json') if hasattr(doc_obj, 'metadata') and doc_obj.metadata else {},
-                "references": [ref.model_dump(mode='json') for ref in getattr(doc_obj, 'references', [])],
-                "history": [s.model_dump(mode='json') for s in getattr(doc_obj, 'processing_history', [])],
-                "partial": True
-            }
-            for b in getattr(doc_obj, 'blocks', []):
-                if getattr(b, 'block_type', None):
-                    bt_val = b.block_type.value if hasattr(b.block_type, 'value') else str(b.block_type)
-                    if bt_val not in structured_data["sections"]:
-                        structured_data["sections"][bt_val] = []
-                    structured_data["sections"][bt_val].append(b.text)
+            structured_data = build_structured_data(doc_obj, partial=True)
             
             # Upsert into document_results
             existing = sb.table("document_results").select("id").eq("document_id", job_id).execute()
@@ -923,18 +910,7 @@ class PipelineOrchestrator:
                 validation_results["ai_explanations"] = ai_explanations
                 
                 # Fetch structured data (already generated above)
-                structured_data = {
-                    "sections": {},
-                    "metadata": doc_obj.metadata.model_dump(mode='json'),
-                    "references": [ref.model_dump(mode='json') for ref in doc_obj.references],
-                    "history": [s.model_dump(mode='json') for s in doc_obj.processing_history]
-                }
-                for b in doc_obj.blocks:
-                    if b.block_type:
-                        bt_val = b.block_type.value if hasattr(b.block_type, 'value') else str(b.block_type)
-                        if bt_val not in structured_data["sections"]:
-                            structured_data["sections"][bt_val] = []
-                        structured_data["sections"][bt_val].append(b.text)
+                structured_data = build_structured_data(doc_obj)
 
                 doc_result_data = {
                     "document_id": job_id,
@@ -1074,6 +1050,7 @@ class PipelineOrchestrator:
             # 2. Reconstruct doc_obj from structured_data
             pipeline_doc = PipelineDocument(document_id=job_id)
             sections = edited_structured_data.get("sections", {})
+            known_block_types = {enum_member.value for enum_member in BlockType}
             idx = 0
             for sec_name, texts in sections.items():
                 for text in texts:
@@ -1081,7 +1058,7 @@ class PipelineOrchestrator:
                         block_id=f"edit_{idx}",
                         index=idx,
                         text=text,
-                        block_type=BlockType(sec_name) if sec_name in [e.value for e in BlockType] else BlockType.UNKNOWN
+                        block_type=BlockType(sec_name) if sec_name in known_block_types else BlockType.UNKNOWN
                     )
                     pipeline_doc.blocks.append(block)
                     idx += 1
@@ -1091,7 +1068,7 @@ class PipelineOrchestrator:
             
             from app.pipeline.validation import validate_document
             val_result = validate_document(pipeline_doc)
-            validation_results = val_result.model_dump() if hasattr(val_result, 'model_dump') else val_result.dict() if hasattr(val_result, 'dict') else {}
+            validation_results = safe_model_dump(val_result)
             
             # 4. Re-run Formatting
             self._update_status(job_id, "VALIDATION", "PROCESSING", "Applying styles to edited content...", progress=60)

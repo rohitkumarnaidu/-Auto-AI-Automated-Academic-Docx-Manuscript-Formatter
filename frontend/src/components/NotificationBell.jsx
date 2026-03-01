@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter as useNavigate } from 'next/navigation';
 import { loadNotifications, STORAGE_KEY } from '../pages/NotificationsPage';
 
 export default function NotificationBell() {

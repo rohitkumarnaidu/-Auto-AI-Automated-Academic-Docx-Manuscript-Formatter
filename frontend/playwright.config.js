@@ -1,7 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:4173';
-const useExternalServer = Boolean(process.env.PLAYWRIGHT_BASE_URL);
+const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000';
 
 export default defineConfig({
     testDir: './e2e',
@@ -21,14 +20,12 @@ export default defineConfig({
         screenshot: 'only-on-failure',
         video: 'retain-on-failure',
     },
-    webServer: useExternalServer
-        ? undefined
-        : {
-            command: 'npm run dev -- --host 127.0.0.1 --port 4173',
-            url: baseURL,
-            reuseExistingServer: !process.env.CI,
-            timeout: 120000,
-        },
+    webServer: {
+        command: 'npm run build && npm run start',
+        url: 'http://localhost:3000',
+        reuseExistingServer: !process.env.CI,
+        timeout: 120 * 1000,
+    },
     projects: [
         {
             name: 'chromium',

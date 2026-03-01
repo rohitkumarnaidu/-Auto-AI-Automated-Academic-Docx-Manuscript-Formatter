@@ -4,15 +4,14 @@ Exporter Module - Handles saving of formatted documents.
 
 import os
 import json
-import base64
 import html as html_mod
 import logging
-from enum import Enum
-from datetime import datetime, timezone, date, time as time_type
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from app.models import PipelineDocument as Document
 from app.pipeline.export.jats_generator import JATSGenerator
 from app.pipeline.export.pdf_exporter import PDFExporter
+from app.utils.serialization import safe_model_dump
 
 logger = logging.getLogger(__name__)
 
@@ -245,60 +244,21 @@ class Exporter:
             "source_path": doc_obj.source_path,
             "output_path": doc_obj.output_path,
             "template": template_name,
-            "metadata": self._safe_model_dump(doc_obj.metadata),
+            "metadata": safe_model_dump(doc_obj.metadata),
             "stats": doc_obj.get_stats(),
             "validation": {
                 "is_valid": doc_obj.is_valid,
                 "errors": doc_obj.validation_errors,
                 "warnings": doc_obj.validation_warnings,
             },
-            "blocks": [self._safe_model_dump(block) for block in doc_obj.blocks],
-            "references": [self._safe_model_dump(ref) for ref in doc_obj.references],
-            "figures": [self._safe_model_dump(figure) for figure in doc_obj.figures],
-            "tables": [self._safe_model_dump(table) for table in doc_obj.tables],
-            "equations": [self._safe_model_dump(equation) for equation in doc_obj.equations],
-            "processing_history": [self._safe_model_dump(stage) for stage in doc_obj.processing_history],
+            "blocks": [safe_model_dump(block) for block in doc_obj.blocks],
+            "references": [safe_model_dump(ref) for ref in doc_obj.references],
+            "figures": [safe_model_dump(figure) for figure in doc_obj.figures],
+            "tables": [safe_model_dump(table) for table in doc_obj.tables],
+            "equations": [safe_model_dump(equation) for equation in doc_obj.equations],
+            "processing_history": [safe_model_dump(stage) for stage in doc_obj.processing_history],
             "exported_at": datetime.now(timezone.utc).isoformat(),
         }
-
-    def _safe_model_dump(self, model_obj: Any) -> Dict[str, Any]:
-        """
-        Dump a Pydantic model to a JSON-safe dict.
-        Falls back to python-mode dumping + recursive sanitization for payloads
-        containing binary fields (e.g., Figure.image_data bytes).
-        """
-        try:
-            return model_obj.model_dump(mode="json")
-        except Exception:
-            raw_payload = model_obj.model_dump(mode="python")
-            return self._sanitize_for_json(raw_payload)
-
-    def _sanitize_for_json(self, value: Any) -> Any:
-        """Recursively sanitize values so json.dump never fails."""
-        if isinstance(value, dict):
-            return {str(key): self._sanitize_for_json(val) for key, val in value.items()}
-        if isinstance(value, list):
-            return [self._sanitize_for_json(item) for item in value]
-        if isinstance(value, tuple):
-            return [self._sanitize_for_json(item) for item in value]
-        if isinstance(value, set):
-            return [self._sanitize_for_json(item) for item in sorted(value, key=str)]
-        if isinstance(value, bytes):
-            # Avoid huge JSON payloads by omitting raw image bytes.
-            preview = base64.b64encode(value[:16]).decode("ascii") if value else ""
-            return {
-                "encoding": "binary",
-                "size_bytes": len(value),
-                "omitted": True,
-                "preview_b64": preview,
-            }
-        if isinstance(value, datetime):
-            return value.isoformat()
-        if isinstance(value, (date, time_type)):
-            return value.isoformat()
-        if isinstance(value, Enum):
-            return value.value
-        return value
 
     def _build_markdown(self, doc_obj: Document) -> str:
         """Build markdown export preserving metadata and content."""

@@ -10,6 +10,7 @@ Falls back gracefully if dependencies are unavailable.
 
 import logging
 from typing import List, Dict, Any, Optional, Tuple
+from app.utils.singleton import get_or_create_catching
 
 logger = logging.getLogger(__name__)
 
@@ -340,10 +341,9 @@ _extractor: Optional[TableExtractor] = None
 def get_table_extractor() -> Optional[TableExtractor]:
     """Get or create a TableExtractor instance. Returns None if unavailable."""
     global _extractor
-    if _extractor is not None:
-        return _extractor
-    try:
-        _extractor = TableExtractor()
-        return _extractor
-    except ImportError:
-        return None
+    _extractor = get_or_create_catching(
+        _extractor,
+        TableExtractor,
+        exceptions=(ImportError,),
+    )
+    return _extractor

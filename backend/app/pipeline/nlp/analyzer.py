@@ -6,6 +6,7 @@ import re
 import logging
 from typing import List, Dict, Any
 from app.models import PipelineDocument as Document, Block, BlockType
+from app.utils.singleton import get_or_create_safe
 
 logger = logging.getLogger(__name__)
 
@@ -145,12 +146,13 @@ def _get_keybert_model():
     global _KEYBERT_MODEL
     if not KEYBERT_AVAILABLE:
         return None
-    if _KEYBERT_MODEL is None:
-        try:
-            _KEYBERT_MODEL = KeyBERT()
-        except Exception as exc:
-            logger.warning("KeyBERT model initialization failed: %s", exc)
-            _KEYBERT_MODEL = None
+    _KEYBERT_MODEL = get_or_create_safe(
+        _KEYBERT_MODEL,
+        KeyBERT,
+        logger=logger,
+        name="KeyBERT model",
+        log_level="warning",
+    )
     return _KEYBERT_MODEL
 
 

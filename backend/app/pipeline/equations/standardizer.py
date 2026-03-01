@@ -3,6 +3,7 @@ import logging
 from typing import List
 from lxml import etree
 from app.models import PipelineDocument, Equation
+from app.utils.singleton import get_or_create
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +112,5 @@ _standardizer = None
 
 def get_equation_standardizer() -> EquationStandardizer:
     global _standardizer
-    if _standardizer is None:
-        _standardizer = EquationStandardizer()
+    _standardizer = get_or_create(_standardizer, EquationStandardizer)
     return _standardizer

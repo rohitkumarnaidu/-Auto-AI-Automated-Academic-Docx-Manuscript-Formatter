@@ -4,6 +4,7 @@ import sys
 import warnings
 from pydantic import BaseModel
 from typing import Callable, Any, Type, Optional
+from app.utils.serialization import safe_model_dump
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +84,7 @@ def guard_llm_output(schema: Type[BaseModel], error_return_value: Optional[Any] 
                 
                 # If the function already returned the Pydantic model natively
                 if isinstance(raw_result, schema):
-                    return raw_result.model_dump()
+                    return safe_model_dump(raw_result)
                     
                 # Format to JSON string for Guardrails
                 if isinstance(raw_result, dict):
@@ -100,10 +101,8 @@ def guard_llm_output(schema: Type[BaseModel], error_return_value: Optional[Any] 
                 
                 if validated_output and validated_output.validated_output:
                     val = validated_output.validated_output
-                    if hasattr(val, "model_dump"):
-                        return val.model_dump()
-                    elif hasattr(val, "dict"):
-                        return val.dict()
+                    if hasattr(val, "model_dump") or hasattr(val, "dict") or isinstance(val, dict):
+                        return safe_model_dump(val)
                     return val
                     
                 # If Guardrails returned None (failed validation severely)

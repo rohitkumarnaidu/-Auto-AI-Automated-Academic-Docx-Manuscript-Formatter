@@ -73,7 +73,7 @@ class ErrorBoundary extends React.Component {
                             </button>
                         </div>
 
-                        {import.meta.env.DEV && this.state.details ? (
+                        {process.env.NODE_ENV !== 'production' && this.state.details ? (
                             <p className="mt-4 text-xs text-slate-500 break-words">
                                 Debug: {this.state.details}
                             </p>

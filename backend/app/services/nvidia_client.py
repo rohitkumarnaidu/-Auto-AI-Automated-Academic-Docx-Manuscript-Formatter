@@ -6,6 +6,7 @@ import os
 import base64
 import logging
 from typing import List, Dict, Any, Optional
+from app.utils.singleton import get_or_create_safe
 
 logger = logging.getLogger(__name__)
 
@@ -241,10 +242,10 @@ _nvidia_client: Optional[NvidiaClient] = None
 def get_nvidia_client() -> Optional[NvidiaClient]:
     """Get or create the singleton NVIDIA client instance."""
     global _nvidia_client
-    if _nvidia_client is None:
-        try:
-            _nvidia_client = NvidiaClient()
-        except Exception as exc:
-            logger.error("get_nvidia_client: initialization failed: %s", exc)
-            _nvidia_client = None
+    _nvidia_client = get_or_create_safe(
+        _nvidia_client,
+        NvidiaClient,
+        logger=logger,
+        name="get_nvidia_client",
+    )
     return _nvidia_client

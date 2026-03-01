@@ -1,3 +1,4 @@
+'use client';
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import {
@@ -16,11 +17,24 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [loading, setLoading] = useState(true);
+    const sanitizeRedirectPath = (path) => {
+        if (typeof path !== 'string') return '/dashboard';
+        if (!path.startsWith('/') || path.startsWith('//')) return '/dashboard';
+        return path;
+    };
 
     useEffect(() => {
         let mounted = true;
 
         const initializeAuth = async () => {
+            if (!supabase) {
+                if (mounted) {
+                    setUser(null);
+                    setIsLoggedIn(false);
+                    setLoading(false);
+                }
+                return;
+            }
             try {
                 // 1. Get the initial session
                 const { data: { session } } = await supabase.auth.getSession();
@@ -69,30 +83,34 @@ export const AuthProvider = ({ children }) => {
         initializeAuth();
 
         // 4. Listener for SUBSEQUENT changes (login/logout events)
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            // Only update state if we are NOT in the middle of initial loading
-            // (Actually, checking if mounted handles unmounts, but we just update reactive state)
+        let subscription;
+        if (supabase) {
+            const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+                // Only update state if we are NOT in the middle of initial loading
+                // (Actually, checking if mounted handles unmounts, but we just update reactive state)
 
-            if (event === 'SIGNED_OUT') {
-                setUser(null);
-                setIsLoggedIn(false);
-                sessionStorage.clear();
-                sessionStorage.removeItem('scholarform_currentJob');
-            } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-                // For sign-in/refresh, we trust the session but access_token must exist
-                if (session?.user && session?.access_token) {
-                    setUser(session.user);
-                    setIsLoggedIn(true);
-                } else {
+                if (event === 'SIGNED_OUT') {
                     setUser(null);
                     setIsLoggedIn(false);
+                    sessionStorage.clear();
+                    sessionStorage.removeItem('scholarform_currentJob');
+                } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+                    // For sign-in/refresh, we trust the session but access_token must exist
+                    if (session?.user && session?.access_token) {
+                        setUser(session.user);
+                        setIsLoggedIn(true);
+                    } else {
+                        setUser(null);
+                        setIsLoggedIn(false);
+                    }
                 }
-            }
-        });
+            });
+            subscription = data.subscription;
+        }
 
         return () => {
             mounted = false;
-            subscription.unsubscribe();
+            if (subscription) subscription.unsubscribe();
         };
     }, []);
 
@@ -101,7 +119,7 @@ export const AuthProvider = ({ children }) => {
             setLoading(true);
             const data = await apiSignup(signupData);
 
-            if (data?.session) {
+            if (data?.session && supabase) {
                 const { error: sessionError } = await supabase.auth.setSession({
                     access_token: data.session.access_token,
                     refresh_token: data.session.refresh_token
@@ -130,7 +148,7 @@ export const AuthProvider = ({ children }) => {
         try {
             const data = await apiLogin({ email, password });
 
-            if (data?.session) {
+            if (data?.session && supabase) {
                 await supabase.auth.setSession({
                     access_token: data.session.access_token,
                     refresh_token: data.session.refresh_token
@@ -143,18 +161,20 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    const signInWithGoogle = async () => {
+    const signInWithGoogle = async (redirectPath = '/dashboard') => {
+        if (!supabase) throw new Error('Supabase client is not initialized');
+        const safeRedirectPath = sanitizeRedirectPath(redirectPath);
         return await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: `${window.location.origin}/dashboard`, // Redirect back to dashboard
+                redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(safeRedirectPath)}`
             }
         });
     };
 
     const signOut = async () => {
         try {
-            await supabase.auth.signOut();
+            if (supabase) await supabase.auth.signOut();
         } catch (error) {
             console.error("Error signing out:", error);
         } finally {
@@ -167,6 +187,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     const refreshSession = async () => {
+        if (!supabase) return;
         const { data: { user }, error } = await supabase.auth.getUser();
         if (user && !error) {
             setUser(user);

@@ -15,6 +15,7 @@ import logging
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
 from collections import defaultdict
+from app.utils.singleton import get_or_create
 
 logger = logging.getLogger(__name__)
 
@@ -197,9 +198,11 @@ class ModelMetrics:
 
 
 # Global metrics instance
-_model_metrics = ModelMetrics()
+_model_metrics: Optional[ModelMetrics] = None
 
 
 def get_model_metrics() -> ModelMetrics:
     """Get global metrics instance."""
+    global _model_metrics
+    _model_metrics = get_or_create(_model_metrics, ModelMetrics)
     return _model_metrics

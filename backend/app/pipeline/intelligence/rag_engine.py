@@ -12,6 +12,7 @@ import logging
 import hashlib
 import numpy as np
 from typing import List, Dict, Any, Optional
+from app.utils.singleton import get_or_create
 
 logger = logging.getLogger(__name__)
 
@@ -512,6 +513,5 @@ _rag_engine = None
 
 def get_rag_engine() -> RagEngine:
     global _rag_engine
-    if _rag_engine is None:
-        _rag_engine = RagEngine()
+    _rag_engine = get_or_create(_rag_engine, RagEngine)
     return _rag_engine

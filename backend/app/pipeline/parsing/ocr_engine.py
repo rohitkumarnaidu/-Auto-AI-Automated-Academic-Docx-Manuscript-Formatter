@@ -11,6 +11,7 @@ Falls back gracefully if Surya is not installed.
 
 import logging
 from typing import List, Dict, Any, Optional
+from app.utils.singleton import get_or_create_catching
 
 logger = logging.getLogger(__name__)
 
@@ -278,10 +279,9 @@ _ocr_engine: Optional[OCREngine] = None
 def get_ocr_engine() -> Optional[OCREngine]:
     """Get or create an OCREngine instance. Returns None if Surya is unavailable."""
     global _ocr_engine
-    if _ocr_engine is not None:
-        return _ocr_engine
-    try:
-        _ocr_engine = OCREngine()
-        return _ocr_engine
-    except ImportError:
-        return None
+    _ocr_engine = get_or_create_catching(
+        _ocr_engine,
+        OCREngine,
+        exceptions=(ImportError,),
+    )
+    return _ocr_engine

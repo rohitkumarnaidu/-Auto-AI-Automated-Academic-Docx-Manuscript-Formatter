@@ -10,6 +10,7 @@ from app.pipeline.safety.circuit_breaker import circuit_breaker
 from app.pipeline.safety.llm_validator import guard_llm_output
 from pydantic import BaseModel, Field
 from app.config.settings import settings
+from app.utils.singleton import get_or_create
 
 logger = logging.getLogger(__name__)
 MAX_BLOCKS_PER_CALL = 30
@@ -769,6 +770,5 @@ _reasoning_engine = None
 
 def get_reasoning_engine() -> ReasoningEngine:
     global _reasoning_engine
-    if _reasoning_engine is None:
-        _reasoning_engine = ReasoningEngine()
+    _reasoning_engine = get_or_create(_reasoning_engine, ReasoningEngine)
     return _reasoning_engine

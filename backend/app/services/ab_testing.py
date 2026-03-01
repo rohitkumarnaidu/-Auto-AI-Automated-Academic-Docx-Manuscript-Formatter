@@ -8,6 +8,7 @@ import time
 import logging
 from typing import Dict, Any, List, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from app.utils.singleton import get_or_create
 
 logger = logging.getLogger(__name__)
 
@@ -247,9 +248,11 @@ class ABTestingFramework:
 
 
 # Global A/B testing instance
-_ab_testing = ABTestingFramework()
+_ab_testing: Optional[ABTestingFramework] = None
 
 
 def get_ab_testing() -> ABTestingFramework:
     """Get global A/B testing instance."""
+    global _ab_testing
+    _ab_testing = get_or_create(_ab_testing, ABTestingFramework)
     return _ab_testing

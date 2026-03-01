@@ -3,6 +3,7 @@ import json
 import logging
 from typing import Callable, Any, Dict
 from pydantic import BaseModel, ValidationError
+from app.utils.serialization import safe_model_dump
 
 logger = logging.getLogger(__name__)
 
@@ -26,13 +27,13 @@ def validate_output(
                         # Attempt to parse
                         try:
                             valid_obj = schema(**result)
-                            return valid_obj.model_dump()
+                            return safe_model_dump(valid_obj)
                         except ValidationError as ve:
                             logger.warning("Validator Guard: Schema mismatch in %s: %s", func.__name__, ve)
                             # Attempt to repair or fall back
                             return error_return_value or {}
                     elif isinstance(result, schema):
-                        return result.model_dump()
+                        return safe_model_dump(result)
                 
                 # Check specific keys if schema is a dict of types (simple mode)
                 if isinstance(schema, dict) and isinstance(result, dict):

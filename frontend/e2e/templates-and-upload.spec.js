@@ -8,9 +8,10 @@ test.describe('Template System', () => {
             page.getByRole('heading', { name: 'Journal Template Library' })
         ).toBeVisible();
 
-        await expect(page.getByText('IEEE')).toBeVisible();
-        await expect(page.getByText('Modern Red')).toBeVisible();
+        await expect(page.getByRole('heading', { name: /^IEEE$/ })).toBeVisible();
         await expect(page.getByRole('button', { name: '3' })).toBeVisible();
+        await page.getByRole('button', { name: '3' }).click();
+        await expect(page.getByRole('heading', { name: /^Modern Red$/ })).toBeVisible();
 
         await page.getByRole('button', { name: 'Preview Guidelines' }).first().click();
         await expect(page.getByRole('dialog')).toBeVisible();

@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 
 const TEMPLATE_OPTIONS = [
     { value: 'none', label: 'None (No formatting)' },
@@ -54,7 +54,7 @@ export default function TemplateSelector({
                     </div>
                 </div>
 
-                <Link className="text-sm font-medium text-primary hover:underline flex items-center gap-1 shrink-0" to="/templates">
+                <Link className="text-sm font-medium text-primary hover:underline flex items-center gap-1 shrink-0" href="/templates">
                     Browse Library <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
                 </Link>
             </div>

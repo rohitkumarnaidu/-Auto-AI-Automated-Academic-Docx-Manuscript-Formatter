@@ -21,6 +21,7 @@ from app.pipeline.generation.content_parser import ContentParser
 from app.pipeline.generation.prompt_builder import PromptBuilder
 from app.routers.stream import emit_event
 from app.services.document_service import DocumentService
+from app.utils.singleton import get_or_create
 
 logger = logging.getLogger(__name__)
 
@@ -453,6 +454,5 @@ _generator_singleton: DocumentGenerator | None = None
 
 def get_generator() -> DocumentGenerator:
     global _generator_singleton
-    if _generator_singleton is None:
-        _generator_singleton = DocumentGenerator()
+    _generator_singleton = get_or_create(_generator_singleton, DocumentGenerator)
     return _generator_singleton
