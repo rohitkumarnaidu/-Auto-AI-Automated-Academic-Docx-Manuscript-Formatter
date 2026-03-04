@@ -85,7 +85,9 @@ export default function Templates() {
                 }
             })
             .catch((err) => {
-                console.warn('Failed to fetch templates from API, using fallback:', err.message);
+                if (process.env.NODE_ENV === 'development') {
+                    console.info('Templates API unavailable, using local fallback list:', err.message);
+                }
             })
             .finally(() => {
                 if (!cancelled) setIsLoading(false);

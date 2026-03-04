@@ -72,7 +72,10 @@ function StepDocType({ selected, onSelect }) {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {DOC_TYPES.map((docType) => (
                     <button key={docType.id} id={`doc-type-${docType.id}`} onClick={() => onSelect(docType.id)}
-                        className={`relative group flex flex-col items-start gap-3 p-5 rounded-2xl border-2 transition-all duration-200 text-left min-h-[120px] ${selected === docType.id ? /'border-primary bg-primary\/10 shadow-lg shadow-primary\/20'/g : /'border-glass-border bg-white\/5 hover:border-glass-border\/50 hover:bg-white\/10'/g}`}>
+                        className={`relative group flex flex-col items-start gap-3 p-5 rounded-2xl border-2 transition-all duration-200 text-left min-h-[120px] ${selected === docType.id
+                            ? 'border-primary bg-primary/10 shadow-lg shadow-primary/20'
+                            : 'border-glass-border bg-white/5 hover:border-glass-border/50 hover:bg-white/10'
+                            }`}>
                         <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${docType.color} flex items-center justify-center`}>
                             <span className="material-symbols-outlined text-white text-xl">{docType.icon}</span>
                         </div>
@@ -117,7 +120,10 @@ function StepTemplate({ selected, onSelect }) {
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                 {visibleTemplates.map((t) => (
                     <button key={t.id} id={`template-${t.id}`} onClick={() => onSelect(t.id)}
-                        className={`flex flex-col items-start gap-1 p-4 rounded-xl border-2 text-left transition-all duration-150 min-h-[72px] ${selected === t.id ? /'border-primary bg-primary\/10'/g : /'border-glass-border bg-white\/5 hover:border-glass-border\/50 hover:bg-white\/8'/g}`}>
+                        className={`flex flex-col items-start gap-1 p-4 rounded-xl border-2 text-left transition-all duration-150 min-h-[72px] ${selected === t.id
+                            ? 'border-primary bg-primary/10'
+                            : 'border-glass-border bg-white/5 hover:border-glass-border/50 hover:bg-white/8'
+                            }`}>
                         <span className={`text-xs font-bold uppercase tracking-wider ${selected === t.id ? 'text-primary-light' : 'text-gray-500'}`}>{t.category}</span>
                         <span className="text-white font-semibold text-sm">{t.name}</span>
                         {selected === t.id && <span className="material-symbols-outlined text-primary-light text-sm mt-1">check_circle</span>}

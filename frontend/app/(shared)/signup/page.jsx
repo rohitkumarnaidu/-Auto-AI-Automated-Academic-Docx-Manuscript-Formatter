@@ -24,6 +24,8 @@ export default function Signup() {
     const [institution, setInstitution] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
     const [error, setError] = useState('');
     const [localLoading, setLocalLoading] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
@@ -95,184 +97,260 @@ export default function Signup() {
     };
 
     return (
-        <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-50 min-h-screen flex flex-col">
-            
-            {/* Main Content */}
-            <main className="flex-grow flex items-center justify-center py-12 px-4">
-                <div className="max-w-[540px] w-full bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 p-8 md:p-10">
-                    {/* Headline & Intro */}
-                    <div className="text-center mb-8">
-                        <h1 className="text-slate-900 dark:text-slate-50 tracking-tight text-[32px] font-bold leading-tight pb-2">Create your account</h1>
-                        <p className="text-slate-500 dark:text-slate-400 text-base font-normal">Join thousands of researchers formatting with ease.</p>
-                    </div>
+        <div className="min-h-[calc(100vh-72px)] flex font-display transition-colors duration-300 w-full relative overflow-hidden flex-col lg:flex-row bg-gradient-to-br from-violet-50 via-indigo-50 to-blue-50 dark:from-[#0a0714] dark:via-[#0c0d1e] dark:to-[#08111f]">
 
-                    {error && (
-                        <div className="mb-6 p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm">
-                            {error}
-                        </div>
-                    )}
+            {/* Page background blob decorations */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+                <div className="absolute top-[-10%] left-[-5%] w-[45%] h-[45%] bg-violet-400/25 dark:bg-violet-600/20 rounded-full blur-[120px]"></div>
+                <div className="absolute bottom-[-10%] right-[-5%] w-[40%] h-[40%] bg-blue-400/20 dark:bg-blue-600/15 rounded-full blur-[100px]"></div>
+                <div className="absolute top-[40%] right-[20%] w-[25%] h-[25%] bg-pink-400/15 dark:bg-pink-600/10 rounded-full blur-[80px]"></div>
+            </div>
 
-                    {successMessage && (
-                        <div className="mb-6 p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-600 dark:text-green-400 text-sm">
-                            {successMessage}
-                        </div>
-                    )}
-
-                    {/* Signup Form (REQUIRED FIRST) */}
-                    <form className="space-y-4" onSubmit={handleSignup}>
-                        {/* Full Name */}
-                        <div className="flex flex-col">
-                            <p className="text-slate-900 dark:text-slate-200 text-sm font-medium pb-2">Full Name</p>
-                            <div className="relative">
-                                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-[20px]">person</span>
-                                <input
-                                    className="form-input flex w-full rounded-lg text-slate-900 dark:text-slate-50 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 h-12 pl-12 pr-4 placeholder:text-slate-500 dark:placeholder:text-slate-500 focus:border-primary focus:ring-1 focus:ring-primary transition-all text-sm"
-                                    placeholder="e.g. Jane Doe"
-                                    required
-                                    type="text"
-                                    value={fullName}
-                                    onChange={(e) => setFullName(e.target.value)}
-                                />
-                            </div>
-                        </div>
-                        {/* Email */}
-                        <div className="flex flex-col">
-                            <p className="text-slate-900 dark:text-slate-200 text-sm font-medium pb-2">Institutional Email</p>
-                            <div className="relative">
-                                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-[20px]">alternate_email</span>
-                                <input
-                                    className="form-input flex w-full rounded-lg text-slate-900 dark:text-slate-50 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 h-12 pl-12 pr-4 placeholder:text-slate-500 dark:placeholder:text-slate-500 focus:border-primary focus:ring-1 focus:ring-primary transition-all text-sm"
-                                    placeholder="Enter your email address"
-                                    required
-                                    type="email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                />
-                            </div>
-                        </div>
-                        {/* Institution */}
-                        <div className="flex flex-col">
-                            <p className="text-slate-900 dark:text-slate-200 text-sm font-medium pb-2">Institution / University <span className="text-xs text-slate-500 font-normal ml-1">(Optional)</span></p>
-                            <div className="relative">
-                                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-[20px]">school</span>
-                                <input
-                                    className="form-input flex w-full rounded-lg text-slate-900 dark:text-slate-50 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 h-12 pl-12 pr-4 placeholder:text-slate-500 dark:placeholder:text-slate-500 focus:border-primary focus:ring-1 focus:ring-primary transition-all text-sm"
-                                    placeholder="Enter your institution name"
-                                    type="text"
-                                    value={institution}
-                                    onChange={(e) => setInstitution(e.target.value)}
-                                />
-                            </div>
-                        </div>
-                        {/* Password Group */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="flex flex-col">
-                                <p className="text-slate-900 dark:text-slate-200 text-sm font-medium pb-2">Password</p>
-                                <div className="relative">
-                                    <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-[20px]">lock</span>
-                                    <input
-                                        className="form-input flex w-full rounded-lg text-slate-900 dark:text-slate-50 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 h-12 pl-12 pr-4 placeholder:text-slate-500 dark:placeholder:text-slate-500 focus:border-primary focus:ring-1 focus:ring-primary transition-all text-sm"
-                                        placeholder="Enter your password"
-                                        required
-                                        type="password"
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                    />
-                                </div>
-                                {password && (
-                                    <div className="flex items-center gap-3 mt-3 px-1">
-                                        <div className="flex-1 flex gap-1 h-1.5">
-                                            {[1, 2, 3, 4].map(level => (
-                                                <div
-                                                    key={level}
-                                                    className={`h-full flex-1 rounded-full transition-colors duration-300 ${level <= strength.score ? strength.color : 'bg-slate-200 dark:bg-slate-700'}`}
-                                                />
-                                            ))}
-                                        </div>
-                                        <span className={`text-[10px] font-bold uppercase tracking-wide w-12 text-right ${strength.textColor}`}>
-                                            {strength.label}
-                                        </span>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="flex flex-col">
-                                <p className="text-slate-900 dark:text-slate-200 text-sm font-medium pb-2">Confirm Password</p>
-                                <div className="relative">
-                                    <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-[20px]">lock_reset</span>
-                                    <input
-                                        className="form-input flex w-full rounded-lg text-slate-900 dark:text-slate-50 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 h-12 pl-12 pr-4 placeholder:text-slate-500 dark:placeholder:text-slate-500 focus:border-primary focus:ring-1 focus:ring-primary transition-all text-sm"
-                                        placeholder="Enter your password again"
-                                        required
-                                        type="password"
-                                        value={confirmPassword}
-                                        onChange={(e) => setConfirmPassword(e.target.value)}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                        {/* Requirements hint */}
-                        <div className="flex items-center gap-2 px-1">
-                            <span className={`material-symbols-outlined text-[14px] ${isPasswordValid ? 'text-green-500' : 'text-slate-400'}`}>
-                                {isPasswordValid ? 'check_circle' : 'radio_button_unchecked'}
-                            </span>
-                            <span className="text-xs text-slate-500 dark:text-slate-400">At least 8 characters with a number</span>
-                        </div>
-                        {/* Terms */}
-                        <div className="flex items-start gap-2 pt-2 px-1">
-                            <input
-                                className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                                id="terms"
-                                required
-                                type="checkbox"
-                                checked={termsAccepted}
-                                onChange={(e) => setTermsAccepted(e.target.checked)}
-                            />
-                            <label className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed" htmlFor="terms">
-                                I agree to the <Link className="text-primary hover:underline" href="/terms">Terms of Service</Link> and <Link className="text-primary hover:underline" href="/privacy">Privacy Policy</Link>.
-                            </label>
-                        </div>
-                        {/* Submit Button */}
-                        <button
-                            className="flex w-full items-center justify-center rounded-lg h-14 bg-primary text-white text-base font-bold leading-normal tracking-[0.015em] hover:bg-primary/90 transition-all mt-4 shadow-lg shadow-primary/20 disabled:opacity-70 disabled:cursor-not-allowed"
-                            type="submit"
-                            disabled={localLoading}
-                        >
-                            {localLoading ? 'Creating Account...' : 'Create Account'}
-                        </button>
-                    </form>
-
-                    <div className="relative flex items-center my-6">
-                        <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
-                        <span className="flex-shrink mx-4 text-xs font-medium text-slate-500 dark:text-slate-500 uppercase tracking-wider">or sign up with</span>
-                        <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
-                    </div>
-
-                    {/* Social Signup (REQUIRED SECOND) */}
-                    <button
-                        type="button"
-                        onClick={handleGoogleSignup}
-                        className="flex w-full items-center justify-center gap-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 h-12 px-4 text-slate-900 dark:text-slate-50 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-all mb-6"
-                    >
-                        <svg className="h-5 w-5" viewBox="0 0 24 24">
-                            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"></path>
-                            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"></path>
-                            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"></path>
-                            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"></path>
-                        </svg>
-                        <span>Continue with Google</span>
-                    </button>
-
-                    {/* Footer Link */}
-                    <div className="mt-8 text-center">
-                        <p className="text-sm text-slate-500 dark:text-slate-400">
-                            Already have an account?
-                            <Link href="/login" className="text-primary font-bold hover:underline ml-1">Sign in</Link>
+            <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl flex flex-col lg:flex-row items-center justify-between lg:py-0 relative z-10 min-h-[calc(100vh-72px)] overflow-y-auto">
+                {/* Left Side: Content floating on gradient background */}
+                <div className="hidden lg:flex w-full lg:w-[50%] flex-col justify-center pr-8 xl:pr-16 relative h-full">
+                    <div className="relative z-10 max-w-lg animate-in fade-in slide-in-from-left-8 duration-1000">
+                        <h2 className="text-4xl xl:text-5xl font-extrabold text-slate-900 dark:text-white mb-5 leading-tight">
+                            Your research deserves <br />
+                            <span className="text-primary dark:text-violet-400">perfect formatting.</span>
+                        </h2>
+                        <p className="text-base text-slate-600 dark:text-slate-400 mb-10 leading-relaxed max-w-md">
+                            Join thousands of researchers worldwide who use ScholarForm AI to perfectly format their academic manuscripts for top-tier journals in seconds.
                         </p>
+
+                        <div className="flex items-center gap-4">
+                            <div className="flex -space-x-2">
+                                <div className="w-9 h-9 rounded-full border-2 border-white dark:border-slate-900 flex items-center justify-center shadow-md" style={{ background: 'linear-gradient(135deg, #a78bfa, #7c3aed)' }}>
+                                    <span className="material-symbols-outlined text-[15px] text-white">person</span>
+                                </div>
+                                <div className="w-9 h-9 rounded-full border-2 border-white dark:border-slate-900 flex items-center justify-center shadow-md" style={{ background: 'linear-gradient(135deg, #60a5fa, #4338ca)' }}>
+                                    <span className="material-symbols-outlined text-[15px] text-white">person</span>
+                                </div>
+                                <div className="w-9 h-9 rounded-full border-2 border-white dark:border-slate-900 flex items-center justify-center shadow-md" style={{ background: 'linear-gradient(135deg, #34d399, #0f766e)' }}>
+                                    <span className="material-symbols-outlined text-[15px] text-white">person</span>
+                                </div>
+                                <div className="w-9 h-9 rounded-full border-2 border-white dark:border-slate-900 flex items-center justify-center shadow-md" style={{ background: 'linear-gradient(135deg, #fb7185, #be185d)' }}>
+                                    <span className="material-symbols-outlined text-[15px] text-white">person</span>
+                                </div>
+                            </div>
+                            <div className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+                                Trusted by <span className="text-slate-900 dark:text-white font-black">25k+</span> researchers
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </main>
+
+                {/* Right Side: Glassmorphic Form Card */}
+                <div className="w-full lg:w-[50%] flex items-center justify-center py-10 lg:py-0 lg:h-full">
+                    <div className="w-full max-w-[460px] z-10 animate-in fade-in slide-in-from-right-8 duration-700">
+                        <div className="w-full bg-white/60 dark:bg-white/5 backdrop-blur-2xl shadow-2xl shadow-violet-500/10 dark:shadow-violet-900/30 border border-white/80 dark:border-white/10 rounded-3xl p-8 relative">
+
+                            <div className="mb-6">
+                                <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-1.5 tracking-tight">Create an account</h1>
+                                <p className="text-slate-500 dark:text-slate-400 text-sm">Join thousands of researchers formatting with ease.</p>
+                            </div>
+
+                            {error && (
+                                <div className="mb-6 p-4 rounded-2xl bg-red-50/80 dark:bg-red-500/10 backdrop-blur-sm border border-red-200/50 dark:border-red-500/20 flex items-start gap-3 shadow-sm">
+                                    <span className="material-symbols-outlined text-red-500 text-[20px] shrink-0 mt-0.5">error</span>
+                                    <p className="text-red-700 dark:text-red-400 text-sm leading-relaxed">{error}</p>
+                                </div>
+                            )}
+
+                            {successMessage && (
+                                <div className="mb-6 p-4 rounded-2xl bg-green-50/80 dark:bg-green-500/10 backdrop-blur-sm border border-green-200/50 dark:border-green-500/20 flex items-start gap-3 shadow-sm">
+                                    <span className="material-symbols-outlined text-green-500 text-[20px] shrink-0 mt-0.5">check_circle</span>
+                                    <p className="text-green-700 dark:text-green-400 text-sm leading-relaxed">{successMessage}</p>
+                                </div>
+                            )}
+
+                            <form className="flex flex-col gap-4" onSubmit={handleSignup}>
+                                {/* Full Name */}
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-sm font-semibold text-slate-900 dark:text-slate-200" htmlFor="fullName">Full Name</label>
+                                    <div className="relative w-full">
+                                        <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 transition-colors text-[20px] pointer-events-none">person</span>
+                                        <input
+                                            id="fullName"
+                                            className="w-full rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/30 border border-slate-200 dark:border-slate-600/60 bg-slate-50 dark:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-500 focus:border-primary dark:focus:border-primary h-12 pl-12 pr-4 text-sm font-medium transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
+                                            placeholder="e.g. Jane Doe"
+                                            type="text"
+                                            required
+                                            value={fullName}
+                                            onChange={(e) => setFullName(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Email */}
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-sm font-semibold text-slate-900 dark:text-slate-200" htmlFor="email">Institutional Email</label>
+                                    <div className="relative w-full">
+                                        <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 transition-colors text-[20px] pointer-events-none">alternate_email</span>
+                                        <input
+                                            id="email"
+                                            className="w-full rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/30 border border-slate-200 dark:border-slate-600/60 bg-slate-50 dark:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-500 focus:border-primary dark:focus:border-primary h-12 pl-12 pr-4 text-sm font-medium transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
+                                            placeholder="Enter your email address"
+                                            type="email"
+                                            required
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Institution */}
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-sm font-semibold text-slate-900 dark:text-slate-200" htmlFor="institution">
+                                        Institution <span className="text-xs text-slate-500 font-normal ml-1">(Optional)</span>
+                                    </label>
+                                    <div className="relative w-full">
+                                        <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 transition-colors text-[20px] pointer-events-none">school</span>
+                                        <input
+                                            id="institution"
+                                            className="w-full rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/30 border border-slate-200 dark:border-slate-600/60 bg-slate-50 dark:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-500 focus:border-primary dark:focus:border-primary h-12 pl-12 pr-4 text-sm font-medium transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
+                                            placeholder="Enter your university"
+                                            type="text"
+                                            value={institution}
+                                            onChange={(e) => setInstitution(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Passwords - stacked vertically */}
+                                <div className="grid grid-cols-1 gap-4">
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-sm font-semibold text-slate-900 dark:text-slate-200" htmlFor="password">Password</label>
+                                        <div className="relative w-full">
+                                            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 transition-colors text-[20px] pointer-events-none">lock</span>
+                                            <input
+                                                id="password"
+                                                className="w-full rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/30 border border-slate-200 dark:border-slate-600/60 bg-slate-50 dark:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-500 focus:border-primary dark:focus:border-primary h-12 pl-12 pr-12 text-sm font-medium transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
+                                                placeholder="Create a password"
+                                                type={showPassword ? 'text' : 'password'}
+                                                required
+                                                value={password}
+                                                onChange={(e) => setPassword(e.target.value)}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-0.5"
+                                            >
+                                                <span className="material-symbols-outlined text-[20px]">{showPassword ? 'visibility_off' : 'visibility'}</span>
+                                            </button>
+                                        </div>
+                                        {password && (
+                                            <div className="flex items-center gap-3 mt-1.5 px-1">
+                                                <div className="flex-1 flex gap-1 h-1">
+                                                    {[1, 2, 3, 4].map(level => (
+                                                        <div
+                                                            key={level}
+                                                            className={`h-full flex-1 rounded-full transition-colors duration-300 ${level <= strength.score ? strength.color : 'bg-slate-200 dark:bg-slate-800'}`}
+                                                        />
+                                                    ))}
+                                                </div>
+                                                <span className={`text-[10px] font-bold uppercase tracking-wide w-12 text-right ${strength.textColor}`}>
+                                                    {strength.label}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-sm font-semibold text-slate-900 dark:text-slate-200" htmlFor="confirmPassword">Confirm Password</label>
+                                        <div className="relative w-full">
+                                            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 transition-colors text-[20px] pointer-events-none">lock</span>
+                                            <input
+                                                id="confirmPassword"
+                                                className={`w-full rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 bg-slate-50 dark:bg-slate-800 h-12 pl-12 pr-12 text-sm font-medium transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm border ${confirmPassword && confirmPassword !== password
+                                                    ? 'border-red-300 dark:border-red-500/50 focus:border-red-500 focus:ring-red-500/20'
+                                                    : 'border-slate-200 dark:border-slate-600/60 hover:border-slate-300 dark:hover:border-slate-500 focus:border-primary dark:focus:border-primary focus:ring-primary/30'
+                                                    }`}
+                                                placeholder="Repeat your password"
+                                                type={showConfirm ? 'text' : 'password'}
+                                                required
+                                                value={confirmPassword}
+                                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowConfirm(!showConfirm)}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-0.5"
+                                            >
+                                                <span className="material-symbols-outlined text-[20px]">{showConfirm ? 'visibility_off' : 'visibility'}</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Requirements hint */}
+                                <div className="flex items-center gap-2 px-1 text-sm bg-slate-50/50 dark:bg-slate-800/20 backdrop-blur-sm p-3 rounded-xl border border-slate-100 dark:border-slate-800/30">
+                                    <span className={`material-symbols-outlined text-[18px] transition-colors ${isPasswordValid ? 'text-green-500' : 'text-slate-400 dark:text-slate-500'}`}>
+                                        {isPasswordValid ? 'check_circle' : 'info'}
+                                    </span>
+                                    <span className="text-slate-600 dark:text-slate-400 font-medium tracking-tight">Requires 8+ characters and a number.</span>
+                                </div>
+
+                                {/* Terms */}
+                                <div className="flex items-start gap-3 mt-2 px-1">
+                                    <input
+                                        className="mt-1 flex-shrink-0 h-4 w-4 rounded border-slate-300 dark:border-slate-700 text-primary focus:ring-primary transition-colors cursor-pointer bg-white/80 dark:bg-slate-900/50"
+                                        id="terms"
+                                        required
+                                        type="checkbox"
+                                        checked={termsAccepted}
+                                        onChange={(e) => setTermsAccepted(e.target.checked)}
+                                    />
+                                    <label className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed cursor-pointer" htmlFor="terms">
+                                        I agree to the <Link className="text-primary font-semibold hover:text-primary-hover transition-colors" href="/terms">Terms of Service</Link> and <Link className="text-primary font-semibold hover:text-primary-hover transition-colors" href="/privacy">Privacy Policy</Link>.
+                                    </label>
+                                </div>
+
+                                {/* Submit Button */}
+                                <div className="pt-2">
+                                    <button
+                                        className="flex w-full items-center justify-center rounded-xl h-12 px-5 bg-primary text-white text-sm font-bold tracking-wide hover:bg-primary-hover hover:-translate-y-0.5 active:translate-y-0 shadow-lg shadow-primary/25 transition-all disabled:opacity-70 disabled:cursor-not-allowed transform mt-2"
+                                        type="submit"
+                                        disabled={localLoading}
+                                    >
+                                        {localLoading ? (
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                                <span>Creating Account...</span>
+                                            </div>
+                                        ) : 'Create Account'}
+                                    </button>
+                                </div>
+                            </form>
+
+                            <div className="relative flex items-center py-8">
+                                <div className="flex-grow border-t border-slate-200 dark:border-slate-700/40"></div>
+                                <span className="flex-shrink mx-4 text-[13px] text-slate-400 font-medium">Or continue with</span>
+                                <div className="flex-grow border-t border-slate-200 dark:border-slate-700/40"></div>
+                            </div>
+
+                            {/* Social Signup */}
+                            <button
+                                type="button"
+                                onClick={handleGoogleSignup}
+                                className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700/40 bg-white dark:bg-slate-800/50 h-12 px-4 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800/80 hover:border-slate-300 dark:hover:border-slate-600 hover:-translate-y-0.5 active:translate-y-0 text-sm font-semibold text-slate-700 dark:text-slate-200 transition-all transform mb-2"
+                            >
+                                <svg className="h-5 w-5" viewBox="0 0 24 24">
+                                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"></path>
+                                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"></path>
+                                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"></path>
+                                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"></path>
+                                </svg>
+                                Google
+                            </button>
+
+                            <p className="text-center text-sm text-slate-500 dark:text-slate-400 mt-8 font-medium">
+                                Already have an account? <Link href="/login" className="text-primary font-bold hover:text-primary-hover transition-colors ml-1">Sign in</Link>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }
-
-

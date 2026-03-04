@@ -105,3 +105,10 @@ backend/backend/db/test_chroma/
 
 # AI Audit Artifacts
 FILE_BY_FILE_AUDIT.csv
+
+
+uploads/
+docs/audits/
+
+
+*.txt

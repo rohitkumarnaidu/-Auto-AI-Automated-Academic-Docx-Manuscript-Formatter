@@ -3,76 +3,85 @@ import Link from 'next/link';
 export default function Footer({ variant = 'app' }) {
     if (variant === 'landing') {
         return (
-            <footer className="bg-slate-50 dark:bg-background-dark border-t border-slate-200 dark:border-slate-800 pt-16 pb-8">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-10 mb-12">
-                        <div className="sm:col-span-2 md:col-span-1">
-                            <div className="flex items-center gap-2 mb-6">
-                                <div className="bg-primary text-white p-1 rounded-md flex items-center justify-center">
-                                    <span className="material-symbols-outlined text-sm">auto_stories</span>
+            <footer className="bg-white/60 dark:bg-slate-950/60 backdrop-blur-2xl pt-20 pb-10 relative overflow-hidden">
+                <div className="max-w-[1240px] mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-12 mb-16">
+                        <div className="md:col-span-4">
+                            <div className="flex items-center gap-2 sm:gap-3 mb-6">
+                                <div className="size-10 sm:size-12 flex items-center justify-center">
+                                    <span className="material-symbols-outlined text-[32px] sm:text-[38px] text-blue-700 dark:text-blue-400">auto_stories</span>
                                 </div>
-                                <span className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">ScholarForm AI</span>
+                                <span className="text-[22px] font-black tracking-tight text-slate-900 dark:text-white">ScholarForm AI</span>
                             </div>
-                            <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6">
-                                Providing specialized technical writing and formatting.
+                            <p className="text-[15px] text-slate-500 dark:text-slate-400 leading-[1.7] mb-8 pr-4">
+                                Providing specialized technical writing and formatting for academic researchers worldwide.
                             </p>
-                            <div className="flex gap-4">
-                                <a
-                                    href="https://twitter.com/intent/tweet?text=Check%20out%20ScholarForm%20AI"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-slate-400 hover:text-primary transition-colors"
-                                    aria-label="Share ScholarForm AI on X"
-                                >
-                                    <span className="material-symbols-outlined">share</span>
+                            <div className="flex items-center gap-4">
+                                <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="size-10 rounded-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary/30 hover:bg-primary/5 transition-all">
+                                    <span className="material-symbols-outlined text-lg">share</span>
                                 </a>
-                                <a
-                                    href="mailto:contact@scholarform.ai"
-                                    className="text-slate-400 hover:text-primary transition-colors"
-                                    aria-label="Email ScholarForm AI"
-                                >
-                                    <span className="material-symbols-outlined">mail</span>
+                                <a href="mailto:contact@scholarform.ai" className="size-10 rounded-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary/30 hover:bg-primary/5 transition-all">
+                                    <span className="material-symbols-outlined text-lg">mail</span>
                                 </a>
                             </div>
                         </div>
-                        <div>
-                            <h5 className="text-slate-900 dark:text-white font-bold text-sm mb-6 uppercase tracking-wider">Resources</h5>
-                            <ul className="flex flex-col gap-4">
-                                <li><Link href="/templates" className="text-sm text-slate-500 dark:text-slate-400 hover:text-primary transition-colors">Style Guides</Link></li>
-                                <li><span className="text-sm text-slate-400 cursor-default" title="Coming Soon">Documentation</span></li>
-                                <li><span className="text-sm text-slate-400 cursor-default" title="Coming Soon">Video Tutorials</span></li>
-                                <li><Link href="/templates" className="text-sm text-slate-500 dark:text-slate-400 hover:text-primary transition-colors">LaTeX Templates</Link></li>
-                            </ul>
-                        </div>
-                        <div>
-                            <h5 className="text-slate-900 dark:text-white font-bold text-sm mb-6 uppercase tracking-wider">Compliance</h5>
-                            <ul className="flex flex-col gap-4">
-                                <li><Link href="/privacy" className="text-sm text-slate-500 dark:text-slate-400 hover:text-primary transition-colors">Privacy Policy</Link></li>
-                                <li><span className="text-sm text-slate-400 cursor-default" title="Coming Soon">Academic Integrity</span></li>
-                                <li><Link href="/terms" className="text-sm text-slate-500 dark:text-slate-400 hover:text-primary transition-colors">Terms of Service</Link></li>
-                                <li><span className="text-sm text-slate-400 cursor-default" title="Coming Soon">Data Security</span></li>
-                            </ul>
-                        </div>
-                        <div>
-                            <h5 className="text-slate-900 dark:text-white font-bold text-sm mb-6 uppercase tracking-wider">Support</h5>
-                            <ul className="flex flex-col gap-4">
-                                <li><a href="mailto:support@scholarform.ai" className="text-sm text-slate-500 dark:text-slate-400 hover:text-primary transition-colors">Help Center</a></li>
-                                <li><span className="text-sm text-slate-400 cursor-default" title="Coming Soon">Institutional Access</span></li>
-                                <li><a href="mailto:support@scholarform.ai" className="text-sm text-slate-500 dark:text-slate-400 hover:text-primary transition-colors">Contact Expert</a></li>
-                                <li><Link href="/admin-dashboard" className="text-sm text-slate-500 dark:text-slate-400 hover:text-primary transition-colors">System Status</Link></li>
-                            </ul>
+                        <div className="md:col-span-8 grid grid-cols-2 md:grid-cols-3 gap-8">
+                            <div>
+                                <h5 className="text-slate-900 dark:text-white font-bold text-sm mb-6 uppercase tracking-wider">Product</h5>
+                                <ul className="flex flex-col gap-4">
+                                    <li><Link href="/templates" className="text-[15px] text-slate-500 dark:text-slate-400 hover:text-primary hover:translate-x-1 transition-all inline-block">Templates</Link></li>
+                                    <li><Link href="/#pricing" className="text-[15px] text-slate-500 dark:text-slate-400 hover:text-primary hover:translate-x-1 transition-all inline-block">Pricing</Link></li>
+                                    <li><Link href="/upload" className="text-[15px] text-slate-500 dark:text-slate-400 hover:text-primary hover:translate-x-1 transition-all inline-block">Formatter</Link></li>
+                                    <li><Link href="/#features" className="text-[15px] text-slate-500 dark:text-slate-400 hover:text-primary hover:translate-x-1 transition-all inline-block">Features</Link></li>
+                                </ul>
+                            </div>
+                            <div>
+                                <h5 className="text-slate-900 dark:text-white font-bold text-sm mb-6 uppercase tracking-wider">Resources</h5>
+                                <ul className="flex flex-col gap-4">
+                                    <li><Link href="/#about" className="text-[15px] text-slate-500 dark:text-slate-400 hover:text-primary hover:translate-x-1 transition-all inline-block">About Us</Link></li>
+                                    <li>
+                                        <div className="flex items-center">
+                                            <Link href="#" className="text-[15px] text-slate-500 dark:text-slate-400 hover:text-primary hover:translate-x-1 transition-all inline-block">Documentation</Link>
+                                            <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold border border-blue-200 dark:border-blue-500/30">Soon</span>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <div className="flex items-center">
+                                            <Link href="#" className="text-[15px] text-slate-500 dark:text-slate-400 hover:text-primary hover:translate-x-1 transition-all inline-block">Video Tutorials</Link>
+                                            <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold border border-blue-200 dark:border-blue-500/30">Soon</span>
+                                        </div>
+                                    </li>
+                                    <li><Link href="#" className="text-[15px] text-slate-500 dark:text-slate-400 hover:text-primary hover:translate-x-1 transition-all inline-block">System Status</Link></li>
+                                </ul>
+                            </div>
+                            <div className="col-span-2 md:col-span-1 pt-8 md:pt-0">
+                                <h5 className="text-slate-900 dark:text-white font-bold text-sm mb-4 uppercase tracking-wider">Stay Updated</h5>
+                                <p className="text-sm text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">Join our newsletter to get updates on new academic templates and formatting features.</p>
+                                <form className="flex gap-2">
+                                    <input type="email" placeholder="Email address" className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-slate-900 dark:text-white transition-all shadow-sm" />
+                                    <button type="button" className="bg-primary hover:bg-primary-hover text-white px-5 rounded-xl transition-all shadow-md shadow-primary/20 flex items-center justify-center hover:-translate-y-0.5 active:translate-y-0">
+                                        <span className="material-symbols-outlined text-[20px]">send</span>
+                                    </button>
+                                </form>
+                            </div>
                         </div>
                     </div>
-                    <div className="pt-8 border-t border-slate-200 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4 text-center md:text-left">
-                        <p className="text-xs text-slate-400">© {new Date().getFullYear()} ScholarForm AI. All rights reserved.</p>
-                        <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
-                            <div className="flex items-center gap-1 opacity-50 grayscale">
-                                <span className="material-symbols-outlined text-xs">shield</span>
-                                <span className="text-[10px] font-bold">GDPR COMPLIANT</span>
+
+                    <div className="pt-8 flex flex-col md:flex-row justify-between items-center gap-6">
+                        <div className="flex flex-wrap items-center justify-center md:justify-start gap-x-6 gap-y-2">
+                            <span className="text-[13px] text-slate-400">© {new Date().getFullYear()} ScholarForm AI. All rights reserved.</span>
+                            <div className="hidden sm:block h-3 w-px bg-slate-200 dark:bg-slate-700" />
+                            <Link href="/privacy" className="text-[13px] text-slate-500 hover:text-primary transition-colors">Privacy Policy</Link>
+                            <Link href="/terms" className="text-[13px] text-slate-500 hover:text-primary transition-colors">Terms of Service</Link>
+                        </div>
+                        <div className="flex items-center justify-center gap-6">
+                            <div className="flex items-center gap-1.5 text-slate-400 dark:text-slate-500 group">
+                                <span className="material-symbols-outlined text-[16px] group-hover:text-green-500 transition-colors">shield</span>
+                                <span className="text-[11px] font-bold tracking-widest uppercase">GDPR Ready</span>
                             </div>
-                            <div className="flex items-center gap-1 opacity-50 grayscale">
-                                <span className="material-symbols-outlined text-xs">verified</span>
-                                <span className="text-[10px] font-bold">PUBLISHER PARTNER</span>
+                            <div className="flex items-center gap-1.5 text-slate-400 dark:text-slate-500 group">
+                                <span className="material-symbols-outlined text-[16px] group-hover:text-blue-500 transition-colors">verified</span>
+                                <span className="text-[11px] font-bold tracking-widest uppercase">Publisher Partner</span>
                             </div>
                         </div>
                     </div>

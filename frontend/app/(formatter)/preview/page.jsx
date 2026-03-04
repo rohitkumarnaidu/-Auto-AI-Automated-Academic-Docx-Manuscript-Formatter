@@ -2,8 +2,7 @@
 import usePageTitle from '@/src/hooks/usePageTitle';
 import React from 'react';
 import { useRouter } from 'next/navigation';
-
-// import PreviewView from '@/src/components/PreviewView';
+import PreviewView from '@/src/components/Preview';
 import { useDocument } from '@/src/context/DocumentContext';
 
 export default function Preview() {
@@ -40,11 +39,11 @@ export default function Preview() {
     }
 
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-background-light dark:bg-background-dark">
-            <div className="text-center p-8 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 max-w-md">
-                <p>Preview viewer component is being built.</p>
-            </div>
-        </div>
+        <PreviewView
+            job={job}
+            onUpload={() => navigate('/upload')}
+            onDownload={() => navigate('/download')}
+        />
     );
 }
 

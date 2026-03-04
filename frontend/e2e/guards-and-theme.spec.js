@@ -17,6 +17,7 @@ test.describe('Guards and Theme', () => {
         await themeToggle.click();
 
         await expect(html).toHaveClass(/dark/);
-        await expect(page.getByLabel('Formatter Mode')).toHaveCount(0);
+        await expect(page.getByRole('link', { name: 'Login' })).toBeVisible();
+        await expect(page.getByRole('link', { name: 'Sign Up' })).toBeVisible();
     });
 });

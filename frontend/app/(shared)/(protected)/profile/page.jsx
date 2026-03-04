@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/context/AuthContext';
 import { useTheme } from '@/src/context/ThemeContext';
+import Footer from '@/src/components/Footer';
 import { supabase } from '@/src/lib/supabaseClient';
 
 export default function Profile() {
@@ -353,6 +354,7 @@ export default function Profile() {
                     </div>
                 </div>
             )}
+            <Footer variant="app" />
         </div>
     );
 }

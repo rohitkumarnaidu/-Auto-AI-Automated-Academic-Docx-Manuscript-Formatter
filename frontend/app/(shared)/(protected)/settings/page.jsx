@@ -2,6 +2,7 @@
 import usePageTitle from '@/src/hooks/usePageTitle';
 import { useEffect, useState } from 'react';
 import { useTheme } from '@/src/context/ThemeContext';
+import Footer from '@/src/components/Footer';
 
 const SETTINGS_KEY = 'scholarform_settings';
 
@@ -72,7 +73,7 @@ export default function SettingsPage() {
     );
 
     return (
-        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 animate-in fade-in duration-500">
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 animate-in fade-in duration-500 flex flex-col">
             <main className="max-w-3xl mx-auto px-4 py-8">
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
@@ -180,6 +181,7 @@ export default function SettingsPage() {
                     </button>
                 </div>
             </main>
+            <Footer />
         </div>
     );
 }

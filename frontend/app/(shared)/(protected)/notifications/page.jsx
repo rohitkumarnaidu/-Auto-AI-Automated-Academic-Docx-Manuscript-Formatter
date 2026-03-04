@@ -1,12 +1,8 @@
 'use client';
 import usePageTitle from '@/src/hooks/usePageTitle';
 import { useState, useEffect, useCallback, useRef } from 'react';
-
-const STORAGE_KEY = 'scholarform_notifications';
-const loadNotifications = () => {
-    if (typeof window === 'undefined') return [];
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; }
-};
+import Footer from '@/src/components/Footer';
+import { loadNotifications, saveNotifications } from '@/src/utils/notifications';
 
 export default function NotificationsPage() {
     usePageTitle('Notifications');
@@ -15,9 +11,7 @@ export default function NotificationsPage() {
     const undoTimeoutRef = useRef(null);
 
     useEffect(() => { setNotifications(loadNotifications()); }, []);
-    useEffect(() => {
-        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(notifications)); } catch { /* ignore */ }
-    }, [notifications]);
+    useEffect(() => { saveNotifications(notifications); }, [notifications]);
 
     const markAsRead = useCallback((id) => setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n)), []);
     const markAllRead = useCallback(() => {
@@ -53,7 +47,7 @@ export default function NotificationsPage() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 animate-in fade-in duration-500">
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 animate-in fade-in duration-500 flex flex-col">
             <main className="max-w-3xl mx-auto px-4 py-8">
                 <div className="flex items-center justify-between mb-8 gap-4">
                     <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
@@ -101,6 +95,7 @@ export default function NotificationsPage() {
                     </ul>
                 )}
             </main>
+            <Footer />
         </div>
     );
 }

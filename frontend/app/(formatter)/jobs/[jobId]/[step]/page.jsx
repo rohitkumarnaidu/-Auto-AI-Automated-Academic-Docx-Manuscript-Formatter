@@ -1,5 +1,4 @@
-'use client';
-import { notFound, useParams } from 'next/navigation';
+import { notFound } from 'next/navigation';
 
 // The job-step route renders the job-specific variant of each page.
 // Each sub-page is the same component as the top-level route,
@@ -10,9 +9,8 @@ import EditPage from '@/app/(formatter)/edit/page';
 import ValidationResultsPage from '@/app/(formatter)/results/page';
 import PreviewPage from '@/app/(formatter)/preview/page';
 
-export default function JobStepPage() {
-    const params = useParams();
-    const { step } = params;
+export default function JobStepPage({ params }) {
+    const step = String(params?.step || '');
 
     // Strict whitelist exactly as required by DoD
     const allowedSteps = ['download', 'compare', 'edit', 'results', 'preview'];

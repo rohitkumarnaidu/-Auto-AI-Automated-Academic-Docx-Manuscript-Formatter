@@ -98,87 +98,114 @@ export default function VerifyOTP() {
     };
 
     return (
-        <div className="bg-background-light dark:bg-background-dark min-h-screen flex flex-col font-display transition-colors duration-300">
-            
-            <main className="flex-1 flex items-center justify-center p-4">
-                <div className="layout-content-container flex flex-col w-full max-w-[480px] bg-white dark:bg-slate-900 shadow-xl rounded-xl p-8 border border-slate-100 dark:border-slate-800">
-                    <div className="flex flex-col items-center">
-                        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
-                            <span className="material-symbols-outlined !text-3xl">mark_email_read</span>
-                        </div>
-                        <h1 className="text-slate-900 dark:text-white tracking-tight text-[28px] md:text-[32px] font-bold leading-tight text-center pb-2">
-                            Verify your email
-                        </h1>
-                        <p className="text-slate-600 dark:text-slate-400 text-base font-normal leading-normal pb-6 text-center">
-                            Enter the 6-digit verification code sent to <span className="font-semibold text-primary">{email}</span>
+        <div className="flex-1 w-full flex flex-col font-display transition-colors duration-300 w-full relative bg-gradient-to-br from-violet-50 via-indigo-50 to-blue-50 dark:from-[#0a0714] dark:via-[#0c0d1e] dark:to-[#08111f]">
+
+            {/* Page background blob decorations */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+                <div className="absolute top-[-10%] left-[-5%] w-[45%] h-[45%] bg-violet-400/25 dark:bg-violet-600/20 rounded-full blur-[120px]"></div>
+                <div className="absolute bottom-[-10%] right-[-5%] w-[40%] h-[40%] bg-blue-400/20 dark:bg-blue-600/15 rounded-full blur-[100px]"></div>
+            </div>
+
+            <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl w-full flex-1 flex flex-col lg:flex-row items-center justify-center lg:justify-between py-12 lg:py-0 relative z-10">
+                {/* Left Side: Content floating on gradient background */}
+                <div className="hidden lg:flex w-full lg:w-[55%] flex-col justify-center pr-8 xl:pr-20 relative h-full">
+                    <div className="relative z-10 max-w-lg animate-in fade-in slide-in-from-left-8 duration-1000">
+                        <h2 className="text-4xl xl:text-5xl font-extrabold text-slate-900 dark:text-white mb-5 leading-tight">
+                            Verify your identity <br />
+                            <span className="text-primary dark:text-violet-400">to continue securely.</span>
+                        </h2>
+                        <p className="text-base text-slate-600 dark:text-slate-400 mb-10 leading-relaxed max-w-md">
+                            Enter the 6-digit confirmation code we sent to your email to verify your ownership of this account.
                         </p>
-                    </div>
 
-                    {error && (
-                        <div className="mb-6 p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm">
-                            {error}
-                        </div>
-                    )}
-
-                    <form onSubmit={handleVerify}>
-                        <div className="flex justify-center py-3">
-                            <fieldset className="relative flex gap-3 md:gap-4">
-                                {otp.map((digit, i) => (
-                                    <input
-                                        key={i}
-                                        ref={inputRefs[i]}
-                                        className="flex h-14 w-11 md:w-12 text-center [appearance:textfield] focus:outline-0 focus:ring-2 focus:ring-primary/50 focus:border-primary border-0 border-b-2 border-slate-200 dark:border-slate-700 bg-transparent text-xl font-bold leading-normal text-primary dark:text-white"
-                                        maxLength="6"
-                                        type="text"
-                                        value={digit}
-                                        onChange={(e) => handleChange(i, e.target.value)}
-                                        onKeyDown={(e) => handleKeyDown(i, e)}
-                                        required
-                                    />
+                        <div className="flex items-center gap-4">
+                            <div className="flex -space-x-3">
+                                {[1, 2, 3, 4].map((i) => (
+                                    <div key={i} className="w-10 h-10 rounded-full border-2 border-white dark:border-[#0c0d1e] bg-gradient-to-br from-violet-200 to-indigo-300 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center shadow-md">
+                                        <span className="material-symbols-outlined text-[16px] text-violet-600 dark:text-slate-400">person</span>
+                                    </div>
                                 ))}
-                            </fieldset>
+                            </div>
+                            <div className="text-sm font-semibold text-slate-600 dark:text-slate-400">
+                                Trusted by <span className="text-slate-900 dark:text-white font-black">25k+</span> researchers
+                            </div>
                         </div>
-
-                        <div className="flex flex-col gap-4 py-6">
-                            <button
-                                className="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-5 bg-primary text-white text-base font-bold leading-normal tracking-[0.015em] hover:bg-primary/90 shadow-md transition-all active:scale-[0.98] disabled:opacity-70"
-                                type="submit"
-                                disabled={loading}
-                            >
-                                <span className="truncate">{loading ? 'Verifying...' : 'Verify Code'}</span>
-                            </button>
-                        </div>
-                    </form>
-
-                    <div className="flex flex-col items-center gap-6">
-                        <p className="text-sm text-slate-500 dark:text-slate-400">
-                            Didn&apos;t receive the code?
-                            <button
-                                onClick={handleResend}
-                                disabled={resendLoading}
-                                className="text-primary font-bold hover:underline ml-1 bg-transparent border-none p-0 cursor-pointer disabled:opacity-50"
-                            >
-                                {resendLoading ? 'Sending...' : 'Resend OTP'}
-                            </button>
-                        </p>
-                        <div className="w-full h-[1px] bg-slate-100 dark:bg-slate-800"></div>
-                        <Link
-                            href="/login"
-                            className="flex items-center gap-2 text-slate-500 dark:text-slate-400 hover:text-primary dark:hover:text-primary transition-colors text-sm font-medium"
-                        >
-                            <span className="material-symbols-outlined text-sm">arrow_back</span>
-                            Back to Sign in
-                        </Link>
                     </div>
                 </div>
-            </main>
 
-            <div className="fixed top-0 left-0 -z-10 h-full w-full overflow-hidden pointer-events-none">
-                <div className="absolute top-[-10%] left-[-10%] h-[40%] w-[40%] rounded-full bg-primary/5 blur-[120px]"></div>
-                <div className="absolute bottom-[-10%] right-[-10%] h-[40%] w-[40%] rounded-full bg-primary/5 blur-[120px]"></div>
+                {/* Right Side: Glassmorphic Form Card */}
+                <div className="w-full lg:w-[45%] flex items-center justify-center lg:h-full">
+                    <div className="w-full max-w-[420px] z-10 animate-in fade-in slide-in-from-right-8 duration-700">
+                        <div className="w-full bg-white/60 dark:bg-slate-900/80 backdrop-blur-2xl shadow-2xl shadow-violet-500/10 dark:shadow-violet-900/30 border border-white/80 dark:border-slate-700/40 rounded-3xl p-8 relative">
+                            {/* Inline icon + heading */}
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary shrink-0">
+                                    <span className="material-symbols-outlined text-primary text-[22px]">mark_email_read</span>
+                                </div>
+                                <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Verify OTP</h1>
+                            </div>
+                            <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">Enter the 6-digit code sent to your email address.</p>
+
+                            {error && (
+                                <div className="mb-6 p-4 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 flex items-start gap-3">
+                                    <span className="material-symbols-outlined text-red-500 text-[20px] shrink-0 mt-0.5">error</span>
+                                    <p className="text-red-700 dark:text-red-400 text-sm leading-relaxed">{error}</p>
+                                </div>
+                            )}
+
+                            <form className="flex flex-col gap-6" onSubmit={handleVerify}>
+                                <div className="flex justify-center sm:justify-between gap-2 sm:gap-3 py-2 w-full">
+                                    {otp.map((digit, i) => (
+                                        <input
+                                            key={i}
+                                            ref={inputRefs[i]}
+                                            className="flex h-12 w-10 sm:h-14 sm:w-12 text-center [appearance:textfield] focus:outline-0 focus:ring-2 focus:ring-primary/40 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 hover:border-slate-300 dark:hover:border-slate-700 focus:border-primary dark:focus:border-primary rounded-xl text-xl font-bold leading-normal text-slate-900 dark:text-white transition-all shadow-sm"
+                                            maxLength="6" // Note: we allow > 1 in onChange for pasting
+                                            type="text"
+                                            value={digit}
+                                            onChange={(e) => handleChange(i, e.target.value)}
+                                            onKeyDown={(e) => handleKeyDown(i, e)}
+                                            required
+                                        />
+                                    ))}
+                                </div>
+
+                                <div className="pt-2">
+                                    <button
+                                        className="flex w-full items-center justify-center rounded-xl h-12 px-5 bg-primary text-white text-sm font-bold tracking-wide hover:bg-primary-hover hover:-translate-y-0.5 active:translate-y-0 shadow-lg shadow-primary/25 transition-all disabled:opacity-70 disabled:cursor-not-allowed transform"
+                                        type="submit"
+                                        disabled={loading}
+                                    >
+                                        {loading ? (
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                                <span>Verifying...</span>
+                                            </div>
+                                        ) : 'Verify Code'}
+                                    </button>
+                                </div>
+                            </form>
+
+                            <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-800 text-center sm:text-left">
+                                <p className="text-sm text-slate-500 dark:text-slate-400 mb-4 font-medium">
+                                    Didn&apos;t receive the code?
+                                    <button
+                                        onClick={handleResend}
+                                        disabled={resendLoading}
+                                        className="text-primary font-bold hover:underline ml-1 bg-transparent border-none p-0 cursor-pointer disabled:opacity-50 transition-all hover:text-primary-hover"
+                                    >
+                                        {resendLoading ? 'Sending...' : 'Resend OTP'}
+                                    </button>
+                                </p>
+                                <Link href="/login" className="inline-flex items-center gap-2 text-slate-500 dark:text-slate-400 hover:text-primary dark:hover:text-primary transition-colors text-sm font-semibold">
+                                    <span className="material-symbols-outlined text-[18px]">keyboard_backspace</span>
+                                    Back to Sign in
+                                </Link>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     );
 }
-
-

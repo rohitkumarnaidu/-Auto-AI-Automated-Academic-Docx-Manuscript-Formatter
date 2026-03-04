@@ -1,12 +1,13 @@
+ 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { useRouter as useNavigate } from 'next/navigation';
-import { loadNotifications, STORAGE_KEY } from '../pages/NotificationsPage';
+import { useRouter } from 'next/navigation';
+import { loadNotifications, STORAGE_KEY } from '@/src/utils/notifications';
 
 export default function NotificationBell() {
     const [isOpen, setIsOpen] = useState(false);
     const [notifications, setNotifications] = useState([]);
     const dropdownRef = useRef(null);
-    const navigate = useNavigate();
+    const router = useRouter();
 
     useEffect(() => {
         setNotifications(loadNotifications());
@@ -104,7 +105,7 @@ export default function NotificationBell() {
 
                     <div className="border-t border-slate-200 dark:border-slate-700 px-4 py-2">
                         <button
-                            onClick={() => { setIsOpen(false); navigate('/notifications'); }}
+                            onClick={() => { setIsOpen(false); router.push('/notifications'); }}
                             className="w-full text-center text-sm text-primary font-medium py-1 hover:underline"
                         >
                             View all notifications

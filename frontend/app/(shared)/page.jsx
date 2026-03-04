@@ -5,8 +5,6 @@ import { useState, useRef, useEffect } from 'react';
 import Footer from '@/src/components/Footer';
 import Link from 'next/link';
 
-import useScrollReveal from '@/src/hooks/useScrollReveal';
-
 // Lightweight count-up hook — requestAnimationFrame, disconnects on reveal
 function useCountUp(target, duration = 1500) {
     const [count, setCount] = useState(0);
@@ -61,11 +59,6 @@ export default function Landing() {
     const heroRef = useRef(null);
     const [animateHero, setAnimateHero] = useState(true);
     const [isScrolling, setIsScrolling] = useState(false);
-    const featuresRef = useScrollReveal();
-    const templatesRef = useScrollReveal();
-    const pricingRef = useScrollReveal();
-    const ctaRef = useScrollReveal();
-    const aboutRef = useScrollReveal();
     const researchers = useCountUp(25000, 1800);
     const templates = useCountUp(1000, 1500);
     const universities = useCountUp(50, 1200);
@@ -118,45 +111,46 @@ export default function Landing() {
 
 
             {/* Hero Section */}
-            <section ref={heroRef} className="relative overflow-hidden py-16 lg:py-24">
-                {/* Gradient depth blobs */}
+            <section ref={heroRef} className="relative overflow-hidden py-12 lg:py-18 w-full">
                 <div className="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
                     <div className="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full bg-primary/5 dark:bg-primary/10 blur-2xl" />
-                    <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] rounded-full bg-violet-500/5 dark:bg-violet-500/10 blur-2xl" />
+                    <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] rounded-full bg-blue-900/5 dark:bg-blue-900/15 blur-2xl" />
                 </div>
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-                        <div className="flex flex-col gap-8 fade-in-up">
+
+                <div className="max-w-[1200px] mx-auto px-4 sm:px-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-12 items-center">
+                        <div className="flex flex-col gap-6 fade-in-up">
                             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider w-fit">
-                                <span className="material-symbols-outlined text-sm">verified</span>
-                                AI-Powered Academic Standard
+                                <span className="material-symbols-outlined text-sm">auto_awesome</span>
+                                Two AI Modes - Formatter + Generator
                             </div>
+
                             <div className="flex flex-col gap-4">
                                 <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-slate-900 dark:text-white leading-[1.1] tracking-tight">
-                                    Write, validate, structure, and format academic papers <span className="text-primary">automatically.</span>
+                                    One workspace for <span className="text-primary">Formatter</span> and <span className="text-primary">Generator</span>.
                                 </h1>
-                                <p className="text-lg text-slate-600 dark:text-slate-400 max-w-xl leading-relaxed">
-                                    Save hours on manual bibliography and style adjustments. Our engine handles APA, IEEE, Springer, and more so you can focus on your research.
+                                <p className="text-lg text-slate-600 dark:text-slate-400 max-w-[38rem] leading-relaxed">
+                                    Upload your manuscript for formatting, validation, and export. Or switch to Generator mode to create a complete draft from scratch with your selected template.
                                 </p>
                             </div>
-                            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-                                <Link href="/upload" className="flex items-center gap-2 bg-primary text-white px-8 py-4 rounded-xl text-lg font-bold hover:bg-blue-600 shadow-lg shadow-primary/25 transition-all">
-                                    <span className="material-symbols-outlined">upload_file</span>
-                                    Upload Manuscript
+
+                            <div className="flex flex-col sm:flex-row gap-3">
+                                <Link href="/upload" className="group inline-flex h-12 sm:h-[52px] items-center justify-center gap-2.5 px-5 sm:px-6 rounded-xl bg-slate-900 hover:bg-black dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-[15px] sm:text-base font-bold shadow-lg shadow-slate-900/20 dark:shadow-white/10 hover:-translate-y-0.5 active:scale-[0.98] transition-all">
+                                    <span className="material-symbols-outlined text-[20px]">upload_file</span>
+                                    Formatter: Upload Manuscript
                                 </Link>
-                                <div className="flex flex-col px-2">
-                                    <span className="text-sm font-semibold text-slate-500">Supported formats:</span>
-                                    <span className="text-xs text-slate-400">.docx, .pdf, .tex</span>
-                                </div>
+                                <Link href="/generate" className="inline-flex h-12 sm:h-[52px] items-center justify-center gap-2 px-5 sm:px-6 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-transparent text-slate-700 dark:text-slate-300 text-[15px] sm:text-base font-bold hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:-translate-y-0.5 active:scale-[0.98] transition-all">
+                                    <span className="material-symbols-outlined">auto_awesome</span>
+                                    Generator: Create Draft
+                                </Link>
                             </div>
                         </div>
-                        <div className="relative fade-in-up" style={{ animationDelay: '200ms' }}>
+
+                        <div className="relative fade-in-up" style={{ animationDelay: '180ms' }}>
                             <div className="aspect-[4/3] rounded-2xl overflow-hidden bg-white dark:bg-slate-800 shadow-2xl border border-slate-200 dark:border-slate-700 relative" style={heroAnimation('hero-pulse-glow 3s ease-in-out infinite')}>
-                                {/* Animated scanning line */}
                                 <div className="absolute left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-primary to-transparent z-10 pointer-events-none" style={heroAnimation('hero-scan-line 6s ease-in-out infinite')} />
 
                                 <div className="absolute inset-0 flex flex-col">
-                                    {/* Title bar */}
                                     <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
                                         <div className="flex gap-1.5">
                                             <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
@@ -165,52 +159,46 @@ export default function Landing() {
                                         </div>
                                         <div className="flex-1 flex justify-center">
                                             <div className="px-3 py-0.5 bg-white dark:bg-slate-800 rounded text-[10px] font-medium text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-                                                research_paper.docx
+                                                uploaded_manuscript.docx
                                             </div>
                                         </div>
+                                        <span className="text-[10px] px-2 py-0.5 rounded bg-primary/10 text-primary font-bold">Formatter</span>
                                     </div>
 
-                                    {/* Document body with animated typing */}
                                     <div className="flex-1 flex">
                                         <div className="flex-1 p-5 flex flex-col gap-3">
-                                            {/* Heading */}
                                             <div className="h-5 bg-slate-800 dark:bg-white rounded-sm" style={{ ...heroAnimation('hero-line-type 6s ease-out infinite'), maxWidth: '65%' }} />
-                                            {/* Body lines typing in with stagger */}
                                             <div className="h-3 bg-slate-200 dark:bg-slate-600 rounded-sm" style={{ ...heroAnimation('hero-line-type 6s ease-out infinite', '0.3s'), maxWidth: '95%' }} />
                                             <div className="h-3 bg-slate-200 dark:bg-slate-600 rounded-sm" style={{ ...heroAnimation('hero-line-type 6s ease-out infinite', '0.5s'), maxWidth: '88%' }} />
                                             <div className="h-3 bg-slate-200 dark:bg-slate-600 rounded-sm" style={{ ...heroAnimation('hero-line-type 6s ease-out infinite', '0.7s'), maxWidth: '92%' }} />
                                             <div className="h-3 bg-slate-200 dark:bg-slate-600 rounded-sm" style={{ ...heroAnimation('hero-line-type 6s ease-out infinite', '0.9s'), maxWidth: '60%' }} />
-                                            {/* Spacer */}
                                             <div className="h-2" />
-                                            {/* Sub heading */}
                                             <div className="h-4 bg-slate-700 dark:bg-slate-200 rounded-sm" style={{ ...heroAnimation('hero-line-type 6s ease-out infinite', '1.2s'), maxWidth: '45%' }} />
                                             <div className="h-3 bg-slate-200 dark:bg-slate-600 rounded-sm" style={{ ...heroAnimation('hero-line-type 6s ease-out infinite', '1.4s'), maxWidth: '90%' }} />
                                             <div className="h-3 bg-slate-200 dark:bg-slate-600 rounded-sm" style={{ ...heroAnimation('hero-line-type 6s ease-out infinite', '1.6s'), maxWidth: '85%' }} />
                                         </div>
 
-                                        {/* Right sidebar — validation panel */}
                                         <div className="w-[35%] border-l border-slate-100 dark:border-slate-700 p-3 flex flex-col gap-2.5 bg-slate-50/50 dark:bg-slate-900/30">
-                                            <div className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Formatting</div>
-                                            {/* Progress bar */}
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Formatting</span>
+                                                <span className="text-[9px] font-bold text-green-600">Ready</span>
+                                            </div>
                                             <div className="h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
                                                 <div className="h-full rounded-full bg-primary" style={heroAnimation('hero-progress-fill 6s ease-out infinite')} />
                                             </div>
-                                            {/* Checklist items */}
-                                            {['Citations', 'Headings', 'Margins', 'Figures'].map((label, i) => (
+                                            {['Citations', 'Headings', 'Margins', 'References'].map((label, i) => (
                                                 <div key={label} className="flex items-center gap-1.5">
                                                     <span className="material-symbols-outlined text-green-500 text-xs" style={shouldAnimateHero ? { animation: 'hero-check-pop 6s ease-out infinite', animationDelay: `${2 + i * 0.5}s`, opacity: 0 } : { opacity: 1 }}>check_circle</span>
                                                     <span className="text-[9px] text-slate-500 dark:text-slate-400">{label}</span>
                                                 </div>
                                             ))}
-                                            {/* Template badge */}
                                             <div className="mt-auto px-2 py-1 rounded bg-primary/10 border border-primary/20 text-[9px] text-primary font-bold text-center" style={shouldAnimateHero ? { animation: 'hero-check-pop 6s ease-out infinite', animationDelay: '4s', opacity: 0 } : { opacity: 1 }}>
-                                                IEEE Formatted ✓
+                                                Uploaded manuscript for formatting
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                            {/* Stats badge */}
                             <div className="absolute -bottom-6 -left-6 bg-white dark:bg-slate-800 p-6 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 hidden md:block">
                                 <div className="flex items-center gap-4">
                                     <div className="bg-green-100 dark:bg-green-900/30 p-3 rounded-full">
@@ -219,18 +207,18 @@ export default function Landing() {
                                     <div>
                                         <p className="text-sm text-slate-500 dark:text-slate-400">~98% Precision*</p>
                                         <p className="text-xl font-bold text-slate-900 dark:text-white">Validation Rate</p>
-                                        <p className="text-[9px] text-slate-400 mt-0.5">*Based on internal benchmarks. Actual results may vary.</p>
+                                        <p className="text-[9px] text-slate-400 mt-0.5">Formatter + Generator workflow</p>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </section>
+            </section >
 
             {/* Feature Grid Section */}
-            <section className="py-20 bg-white dark:bg-background-dark/50 section-texture cv-auto" id="features">
-                <div ref={featuresRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 scroll-reveal">
+            < section className="py-20 w-full cv-auto scroll-mt-20 bg-gradient-to-b from-transparent via-primary/[0.04] to-transparent dark:via-primary/[0.08]" id="features" >
+                <div className="max-w-[1200px] mx-auto px-4 sm:px-6">
                     <div className="text-center max-w-3xl mx-auto mb-16">
                         <h2 className="text-primary font-bold text-sm tracking-widest uppercase mb-3">Powerful Capabilities</h2>
                         <h3 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-6 leading-tight">Designed to meet the rigorous standards of global academic publishing.</h3>
@@ -250,7 +238,7 @@ export default function Landing() {
                         <div className="group p-8 bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-violet-400/50 transition-all duration-300 hover:shadow-xl hover:shadow-violet-500/10 hover:-translate-y-1.5 hover:bg-violet-50/50 dark:hover:bg-violet-950/20 relative overflow-hidden">
                             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-violet-500 to-purple-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                             <div className="size-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 text-white flex items-center justify-center mb-6 group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-violet-500/30 transition-all">
-                                <span className="material-symbols-outlined">scan</span>
+                                <span className="material-symbols-outlined">document_scanner</span>
                             </div>
                             <h4 className="text-xl font-bold text-slate-900 dark:text-white mb-3">OCR support</h4>
                             <p className="text-slate-600 dark:text-slate-400 leading-relaxed">Advanced optical character recognition to convert scanned citations, handwritten notes, and image tables into perfectly editable text.</p>
@@ -293,11 +281,11 @@ export default function Landing() {
                         </div>
                     </div>
                 </div>
-            </section>
+            </section >
 
             {/* Templates Preview Section */}
-            <section className="py-20 bg-background-light dark:bg-slate-900/30 cv-auto" id="templates">
-                <div ref={templatesRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 scroll-reveal">
+            < section className="py-20 w-full cv-auto scroll-mt-20 bg-gradient-to-b from-slate-50/70 to-transparent dark:from-slate-900/35 dark:to-transparent" id="templates" >
+                <div className="max-w-[1200px] mx-auto px-4 sm:px-6">
                     <div className="text-center max-w-3xl mx-auto mb-16">
                         <h2 className="text-primary font-bold text-sm tracking-widest uppercase mb-3">Journal Library</h2>
                         <h3 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-6 leading-tight">One-click formatting for 1,000+ journals.</h3>
@@ -336,16 +324,16 @@ export default function Landing() {
                         </Link>
 
                         {/* Elsevier Preview Card */}
-                        <Link href="/templates" className="flex flex-col gap-4 p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:shadow-xl hover:shadow-violet-500/10 hover:border-violet-300 dark:hover:border-violet-500/40 transition-all duration-300 group relative overflow-hidden hover:-translate-y-1">
-                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-violet-500 to-purple-400 rounded-l-xl" />
+                        <Link href="/templates" className="flex flex-col gap-4 p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:shadow-xl hover:shadow-blue-900/20 hover:border-blue-800/45 dark:hover:border-blue-800/45 transition-all duration-300 group relative overflow-hidden hover:-translate-y-1">
+                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-blue-700 to-blue-900 rounded-l-xl" />
                             <div className="flex justify-between items-start">
-                                <div className="size-10 rounded-lg bg-violet-50 dark:bg-violet-900/20 flex items-center justify-center text-violet-600 dark:text-violet-400 border border-violet-100 dark:border-violet-800/30">
+                                <div className="size-10 rounded-lg bg-blue-50 dark:bg-blue-950/25 flex items-center justify-center text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-900/40">
                                     <span className="material-symbols-outlined text-[24px]">description</span>
                                 </div>
                                 <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Available</span>
                             </div>
                             <div className="flex flex-col gap-1">
-                                <h3 className="text-slate-900 dark:text-white text-lg font-bold group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">Elsevier Standard</h3>
+                                <h3 className="text-slate-900 dark:text-white text-lg font-bold group-hover:text-blue-800 dark:group-hover:text-blue-300 transition-colors">Elsevier Standard</h3>
                                 <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-2">Guidelines compatible with Elsevier&apos;s wide range of journals.</p>
                             </div>
                         </Link>
@@ -373,11 +361,11 @@ export default function Landing() {
                         </Link>
                     </div>
                 </div>
-            </section>
+            </section >
 
             {/* Pricing Section */}
-            <section className="py-20 bg-white dark:bg-background-dark/50 section-texture cv-auto" id="pricing">
-                <div ref={pricingRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 scroll-reveal">
+            < section className="py-20 w-full cv-auto scroll-mt-20 bg-gradient-to-b from-transparent via-indigo-50/60 to-transparent dark:via-slate-900/45" id="pricing" >
+                <div className="max-w-[1200px] mx-auto px-4 sm:px-6">
                     <div className="text-center max-w-3xl mx-auto mb-16">
                         <h2 className="text-primary font-bold text-sm tracking-widest uppercase mb-3">Pricing</h2>
                         <h3 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-6 leading-tight">Simple, transparent pricing for every researcher.</h3>
@@ -412,7 +400,7 @@ export default function Landing() {
                                     Community forum support
                                 </li>
                             </ul>
-                            <Link href="/signup" className="w-full text-center bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white py-3 px-6 rounded-xl font-bold text-sm hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
+                            <Link href="/signup" className="w-full text-center bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white py-3 px-6 rounded-xl font-bold text-sm hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors shadow-sm">
                                 Get Started Free
                             </Link>
                         </div>
@@ -488,20 +476,20 @@ export default function Landing() {
                                     Dedicated account manager
                                 </li>
                             </ul>
-                            <a href="mailto:sales@scholarform.ai" className="w-full text-center bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white py-3 px-6 rounded-xl font-bold text-sm hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
+                            <a href="mailto:sales@scholarform.ai" className="w-full text-center bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white py-3 px-6 rounded-xl font-bold text-sm hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors shadow-sm">
                                 Contact Sales
                             </a>
                         </div>
                     </div>
                 </div>
-            </section>
+            </section >
 
             {/* CTA Section */}
-            <section className="py-16 cv-auto">
-                <div ref={ctaRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 scroll-reveal">
+            < section className="py-16 w-full cv-auto" >
+                <div className="max-w-[1200px] mx-auto px-4 sm:px-6">
                     <div className="relative bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950 rounded-3xl p-8 md:p-16 overflow-hidden">
                         <div className="absolute -top-20 -right-20 w-80 h-80 bg-primary/20 rounded-full blur-3xl" />
-                        <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-violet-500/15 rounded-full blur-3xl" />
+                        <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-blue-900/20 rounded-full blur-3xl" />
                         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl" />
                         <div className="relative z-10 flex flex-col items-center text-center gap-8">
                             <h2 className="text-3xl md:text-5xl font-black text-white leading-tight max-w-2xl">
@@ -521,11 +509,11 @@ export default function Landing() {
                         </div>
                     </div>
                 </div>
-            </section>
+            </section >
 
             {/* About Section */}
-            <section id="about" className="py-20 bg-background-light dark:bg-slate-900/30 cv-auto">
-                <div ref={aboutRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 scroll-reveal">
+            < section id="about" className="py-20 w-full cv-auto bg-gradient-to-b from-slate-50/65 to-transparent dark:from-slate-900/30 dark:to-transparent" >
+                <div className="max-w-[1200px] mx-auto px-4 sm:px-6">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
                         <div className="flex flex-col gap-6">
                             <h2 className="text-primary font-bold text-sm tracking-widest uppercase">About ScholarForm AI</h2>
@@ -586,7 +574,7 @@ export default function Landing() {
                         </div>
                     </div>
                 </div>
-            </section>
+            </section >
 
             <Footer variant="landing" />
         </>

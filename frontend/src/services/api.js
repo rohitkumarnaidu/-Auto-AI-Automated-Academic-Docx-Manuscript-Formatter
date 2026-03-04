@@ -241,9 +241,10 @@ export const logFrontendError = async (errorInfo) => {
  * Generic helper to handle fetch requests and throw detailed errors.
  */
 const handleRequest = async (endpoint, options = {}) => {
+    const { suppressConsoleError = false, suppressMonitoring = false, ...requestOptions } = options;
     try {
-        const headers = await getAuthorizedHeaders(options.headers);
-        const { retryConfig, ...fetchOptions } = options;
+        const headers = await getAuthorizedHeaders(requestOptions.headers);
+        const { retryConfig, ...fetchOptions } = requestOptions;
 
         const finalOptions = {
             ...fetchOptions,
@@ -279,13 +280,17 @@ const handleRequest = async (endpoint, options = {}) => {
             endpoint,
         });
 
-        console.error(`API Error [${endpoint}]:`, finalMessage, error);
+        if (!suppressConsoleError) {
+            console.error(`API Error [${endpoint}]:`, finalMessage, error);
+        }
 
         // Log to monitoring service
-        logFrontendError({
-            message: `API Error [${endpoint}]: ${finalMessage}`,
-            stack: error.stack,
-        });
+        if (!suppressMonitoring) {
+            logFrontendError({
+                message: `API Error [${endpoint}]: ${finalMessage}`,
+                stack: error.stack,
+            });
+        }
 
         throw new Error(finalMessage);
     }
@@ -713,7 +718,11 @@ export const getJobSummary = async (jobId) => {
  * Fetches all available built-in templates (public).
  */
 export const getBuiltinTemplates = async () => {
-    return handleRequest('/api/templates/');
+    return handleRequest('/api/templates/', {
+        suppressConsoleError: true,
+        suppressMonitoring: true,
+        retryConfig: { maxRetries: 0 },
+    });
 };
 
 /**

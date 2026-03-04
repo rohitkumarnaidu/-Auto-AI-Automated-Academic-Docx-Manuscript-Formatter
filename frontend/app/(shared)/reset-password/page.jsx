@@ -67,117 +67,148 @@ export default function ResetPassword() {
     };
 
     return (
-        <div className="bg-background-light dark:bg-background-dark min-h-screen flex flex-col font-display transition-colors duration-300">
-            
-            {/* Main Content */}
-            <main className="flex-1 flex items-center justify-center p-4">
-                <div className="w-full max-w-[480px] bg-white dark:bg-slate-900 shadow-xl rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800">
-                    <div className="px-8 pt-10 pb-4">
-                        {/* HeadlineText */}
-                        <h1 className="text-slate-900 dark:text-slate-100 tracking-tight text-[28px] md:text-[32px] font-bold leading-tight text-center">Reset your password</h1>
-                        {/* BodyText */}
-                        <p className="text-slate-500 dark:text-slate-400 text-base font-normal leading-normal pt-2 text-center">
-                            Create a new password for your account.
+        <div className="flex-1 w-full flex flex-col font-display transition-colors duration-300 w-full relative bg-gradient-to-br from-violet-50 via-indigo-50 to-blue-50 dark:from-[#0a0714] dark:via-[#0c0d1e] dark:to-[#08111f]">
+
+            {/* Page background blob decorations */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+                <div className="absolute top-[-10%] left-[-5%] w-[45%] h-[45%] bg-violet-400/25 dark:bg-violet-600/20 rounded-full blur-[120px]"></div>
+                <div className="absolute bottom-[-10%] right-[-5%] w-[40%] h-[40%] bg-blue-400/20 dark:bg-blue-600/15 rounded-full blur-[100px]"></div>
+            </div>
+
+            <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl w-full flex-1 flex flex-col lg:flex-row items-center justify-center lg:justify-between py-12 lg:py-0 relative z-10">
+                {/* Left Side: Content floating on gradient background - NO symbols */}
+                <div className="hidden lg:flex w-full lg:w-[55%] flex-col justify-center pr-8 xl:pr-20 relative h-full">
+                    <div className="relative z-10 max-w-lg animate-in fade-in slide-in-from-left-8 duration-1000">
+                        <h2 className="text-4xl xl:text-5xl font-extrabold text-slate-900 dark:text-white mb-5 leading-tight">
+                            Secure your account <br />
+                            <span className="text-primary dark:text-violet-400">and resume your work.</span>
+                        </h2>
+                        <p className="text-base text-slate-600 dark:text-slate-400 mb-10 leading-relaxed max-w-md">
+                            Choose a strong, unique password to protect your formatted manuscripts and research data.
                         </p>
+
+                        <div className="flex items-center gap-4">
+                            <div className="flex -space-x-3">
+                                {[1, 2, 3, 4].map((i) => (
+                                    <div key={i} className="w-10 h-10 rounded-full border-2 border-white dark:border-[#0c0d1e] bg-gradient-to-br from-violet-200 to-indigo-300 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center shadow-md">
+                                        <span className="material-symbols-outlined text-[16px] text-violet-600 dark:text-slate-400">person</span>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="text-sm font-semibold text-slate-600 dark:text-slate-400">
+                                Trusted by <span className="text-slate-900 dark:text-white font-black">25k+</span> researchers
+                            </div>
+                        </div>
                     </div>
-
-                    {error && (
-                        <div className="mx-8 mb-4 p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm">
-                            {error}
-                        </div>
-                    )}
-
-                    {message && (
-                        <div className="mx-8 mb-4 p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-600 dark:text-green-400 text-sm">
-                            {message}
-                        </div>
-                    )}
-
-                    <form className="px-8 pb-10 space-y-5" onSubmit={handleReset}>
-                        {/* TextField: New Password */}
-                        <div className="flex flex-col gap-1.5">
-                            <label className="flex flex-col w-full">
-                                <p className="text-slate-900 dark:text-slate-200 text-sm font-medium leading-normal pb-1">New Password</p>
-                                <div className="flex w-full items-stretch rounded-lg shadow-sm">
-                                    <input
-                                        className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg rounded-r-none border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-0 focus:ring-1 focus:ring-primary focus:border-primary h-12 placeholder:text-[#94a3b8] p-[15px] border-r-0 text-base font-normal leading-normal"
-                                        placeholder="Enter your new password"
-                                        type={showPassword ? "text" : "password"}
-                                        required
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                    />
-                                    <div
-                                        className="text-slate-500 flex border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 items-center justify-center pr-[15px] rounded-r-lg border-l-0 cursor-pointer hover:text-primary transition-colors"
-                                        onClick={() => setShowPassword(!showPassword)}
-                                    >
-                                        <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>
-                                            {showPassword ? 'visibility_off' : 'visibility'}
-                                        </span>
-                                    </div>
-                                </div>
-                            </label>
-                            {/* MetaText */}
-                            <p className="text-slate-500 dark:text-slate-500 text-xs font-normal leading-normal">At least 8 characters with a number</p>
-                        </div>
-
-                        {/* TextField: Confirm Password */}
-                        <div className="flex flex-col gap-1.5">
-                            <label className="flex flex-col w-full">
-                                <p className="text-slate-900 dark:text-slate-200 text-sm font-medium leading-normal pb-1">Confirm Password</p>
-                                <div className="flex w-full items-stretch rounded-lg shadow-sm">
-                                    <input
-                                        className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg rounded-r-none border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-0 focus:ring-1 focus:ring-primary focus:border-primary h-12 placeholder:text-[#94a3b8] p-[15px] border-r-0 text-base font-normal leading-normal"
-                                        placeholder="Enter your new password again"
-                                        type={showConfirmPassword ? "text" : "password"}
-                                        required
-                                        value={confirmPassword}
-                                        onChange={(e) => setConfirmPassword(e.target.value)}
-                                    />
-                                    <div
-                                        className="text-slate-500 flex border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 items-center justify-center pr-[15px] rounded-r-lg border-l-0 cursor-pointer hover:text-primary transition-colors"
-                                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                    >
-                                        <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>
-                                            {showConfirmPassword ? 'visibility_off' : 'visibility'}
-                                        </span>
-                                    </div>
-                                </div>
-                            </label>
-                        </div>
-
-                        {/* Primary Action Button */}
-                        <div className="pt-4">
-                            <button
-                                className="w-full flex items-center justify-center rounded-lg h-12 bg-primary text-white text-base font-bold leading-normal tracking-wide hover:bg-primary/90 transition-all shadow-md active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
-                                type="submit"
-                                disabled={loading}
-                            >
-                                {loading ? 'Updating Password...' : 'Reset Password'}
-                            </button>
-                        </div>
-
-                        {/* Footer Link */}
-                        <div className="text-center pt-2">
-                            <Link
-                                href="/login"
-                                className="text-primary hover:text-primary/80 text-sm font-medium transition-colors inline-flex items-center gap-1"
-                            >
-                                <span className="material-symbols-outlined text-sm">arrow_back</span>
-                                Back to Sign in
-                            </Link>
-                        </div>
-                    </form>
                 </div>
-            </main>
 
-            {/* Visual Element Background (Optional/Aesthetic) */}
-            <div className="fixed inset-0 -z-10 h-full w-full bg-white dark:bg-background-dark pointer-events-none">
-                <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
-                <div className="absolute left-0 right-0 top-0 -z-10 m-auto h-[310px] w-[310px] rounded-full bg-primary opacity-5 blur-[100px]"></div>
+                {/* Right Side: Glassmorphic Form Card */}
+                <div className="w-full lg:w-[45%] flex items-center justify-center lg:h-full">
+                    <div className="w-full max-w-[420px] z-10 animate-in fade-in slide-in-from-right-8 duration-700">
+                        <div className="w-full bg-white/60 dark:bg-slate-900/80 backdrop-blur-2xl shadow-2xl shadow-violet-500/10 dark:shadow-violet-900/30 border border-white/80 dark:border-slate-700/40 rounded-3xl p-8 relative">
+
+                            <div className="mb-6">
+                                <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-1.5 tracking-tight">Reset password</h1>
+                                <p className="text-slate-500 dark:text-slate-400 text-sm">Create a new password for your account.</p>
+                            </div>
+
+                            {error && (
+                                <div className="mb-6 p-4 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 flex items-start gap-3">
+                                    <span className="material-symbols-outlined text-red-500 text-[20px] shrink-0 mt-0.5">error</span>
+                                    <p className="text-red-700 dark:text-red-400 text-sm leading-relaxed">{error}</p>
+                                </div>
+                            )}
+
+                            {message && (
+                                <div className="mb-6 p-4 rounded-xl bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20 flex items-start gap-3">
+                                    <span className="material-symbols-outlined text-green-500 text-[20px] shrink-0 mt-0.5">check_circle</span>
+                                    <p className="text-green-700 dark:text-green-400 text-sm leading-relaxed font-medium">{message}</p>
+                                </div>
+                            )}
+
+                            <form className="flex flex-col gap-5" onSubmit={handleReset}>
+                                {/* New Password */}
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-sm font-semibold text-slate-900 dark:text-slate-200" htmlFor="password">New Password</label>
+                                    <div className="relative flex items-center">
+                                        <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-[20px] pointer-events-none">lock</span>
+                                        <input
+                                            id="password"
+                                            className="form-input flex w-full rounded-xl text-slate-900 dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary/30 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 hover:border-slate-300 dark:hover:border-slate-700 focus:border-primary dark:focus:border-primary h-12 pl-12 pr-12 text-sm font-medium transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
+                                            placeholder="Enter your new password"
+                                            type={showPassword ? "text" : "password"}
+                                            required
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                        />
+                                        <button
+                                            type="button"
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary transition-colors flex items-center justify-center p-1"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            title={showPassword ? "Hide password" : "Show password"}
+                                        >
+                                            <span className="material-symbols-outlined text-[20px]">
+                                                {showPassword ? 'visibility_off' : 'visibility'}
+                                            </span>
+                                        </button>
+                                    </div>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 pl-1">At least 8 characters with a number</p>
+                                </div>
+
+                                {/* Confirm Password */}
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-sm font-semibold text-slate-900 dark:text-slate-200" htmlFor="confirmPassword">Confirm Password</label>
+                                    <div className="relative flex items-center">
+                                        <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-[20px] pointer-events-none">lock_reset</span>
+                                        <input
+                                            id="confirmPassword"
+                                            className="form-input flex w-full rounded-xl text-slate-900 dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary/30 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 hover:border-slate-300 dark:hover:border-slate-700 focus:border-primary dark:focus:border-primary h-12 pl-12 pr-12 text-sm font-medium transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
+                                            placeholder="Enter your new password again"
+                                            type={showConfirmPassword ? "text" : "password"}
+                                            required
+                                            value={confirmPassword}
+                                            onChange={(e) => setConfirmPassword(e.target.value)}
+                                        />
+                                        <button
+                                            type="button"
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary transition-colors flex items-center justify-center p-1"
+                                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                            title={showConfirmPassword ? "Hide password" : "Show password"}
+                                        >
+                                            <span className="material-symbols-outlined text-[20px]">
+                                                {showConfirmPassword ? 'visibility_off' : 'visibility'}
+                                            </span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Submit Button */}
+                                <div className="pt-4">
+                                    <button
+                                        className="flex w-full items-center justify-center rounded-xl h-12 px-5 bg-primary text-white text-sm font-bold tracking-wide hover:bg-primary-hover hover:-translate-y-0.5 active:translate-y-0 shadow-lg shadow-primary/25 transition-all disabled:opacity-70 disabled:cursor-not-allowed transform"
+                                        type="submit"
+                                        disabled={loading}
+                                    >
+                                        {loading ? (
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                                <span>Updating Password...</span>
+                                            </div>
+                                        ) : 'Reset Password'}
+                                    </button>
+                                </div>
+                            </form>
+
+                            <div className="mt-8 text-center sm:text-left border-slate-200 dark:border-slate-800 pt-6 border-t font-medium">
+                                <Link href="/login" className="inline-flex items-center gap-2 text-slate-500 dark:text-slate-400 hover:text-primary dark:hover:text-primary transition-colors text-sm font-semibold">
+                                    <span className="material-symbols-outlined text-[18px]">keyboard_backspace</span>
+                                    Back to Sign in
+                                </Link>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     );
 }
-
-

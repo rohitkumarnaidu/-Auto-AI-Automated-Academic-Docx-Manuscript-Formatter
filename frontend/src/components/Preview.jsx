@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import Navbar from './Navbar';
 import { isCompleted } from '../constants/status';
 import { getPreview } from '../services/api';
 
@@ -148,8 +147,6 @@ export default function Preview({
 
     return (
         <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-display">
-            <Navbar variant="app" />
-
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 px-4 sm:px-6 py-3 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 animate-in slide-in-from-top duration-300">
                 <div className="flex items-center gap-2 overflow-hidden min-w-0">
                     <button
