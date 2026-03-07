@@ -12,28 +12,27 @@ export default function AppShell({ children, section = 'shared' }) {
     const pathname = usePathname();
     const { user } = useAuth();
 
-    // Desktop sidebar state (default closed / icon-rail)
     const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(false);
-    // Mobile sidebar state (default closed)
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
-    // Exactly matches Header's logic to skip sidebar layout for Landing/Auth pages
     const isAuthRoute = AUTH_ROUTES.some((route) => pathname.startsWith(route));
     const isLandingRoute = pathname === '/' || pathname === '/terms' || pathname === '/privacy';
 
-    const showSidebarLayout = user || (!isLandingRoute && !isAuthRoute);
+    // Route-based: app routes (upload, dashboard, templates, etc.) get sidebar layout.
+    // Landing + auth pages get simple layout.
+    // Sidebar.jsx handles guest vs user links internally (APP_GUEST_LINKS vs USER_LINKS).
+    const showSidebarLayout = !isLandingRoute && !isAuthRoute;
 
     const toggleSidebar = () => {
-        // Different toggle logic based on screen size
         if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
-            setIsDesktopSidebarOpen(!isDesktopSidebarOpen);
+            setIsDesktopSidebarOpen((prev) => !prev);
         } else {
             setIsMobileSidebarOpen(true);
         }
     };
 
+    // Simple layout for landing + auth pages only
     if (!showSidebarLayout) {
-        // Legacy layout for Landing & Auth
         return (
             <div className="relative z-10 flex flex-col min-h-screen">
                 <Header section={section} />
@@ -44,17 +43,18 @@ export default function AppShell({ children, section = 'shared' }) {
         );
     }
 
-    // Sidebar Architecture — fixed header + fixed sidebar + scrolling main
+    // ── APP ROUTES: sidebar layout for both guests and logged-in users ──
+    // Sidebar.jsx shows guest links (Upload, Templates, Template Editor) or user links (Dashboard, etc.)
     const sidebarW = isDesktopSidebarOpen ? 240 : 72;
 
     return (
         <>
-            {/* ── BACKGROUND LAYER ── */}
+            {/* Background */}
             <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
                 <div className="absolute inset-0 bg-[#f6f6f8] dark:bg-gradient-to-br dark:from-slate-900 dark:via-[#0a0f1e] dark:to-indigo-950" />
             </div>
 
-            {/* ── HEADER ── fixed at top */}
+            {/* Fixed Header */}
             <div className="fixed top-0 left-0 right-0 z-50">
                 <Header
                     section={section}
@@ -63,7 +63,8 @@ export default function AppShell({ children, section = 'shared' }) {
                 />
             </div>
 
-            {/* ── SIDEBAR ── fixed, starts at top: 56px (header height) to bottom */}
+            {/* Sidebar — shows for all users on app routes */}
+            {/* Sidebar.jsx handles guest vs user links internally */}
             <div
                 className={`fixed left-0 hidden lg:flex flex-col justify-start z-40 transition-all duration-300 ease-in-out overflow-y-auto bg-white/60 dark:bg-slate-950/60 backdrop-blur-2xl border-r border-slate-200/50 dark:border-white/[0.06] ${isDesktopSidebarOpen ? 'w-[240px]' : 'w-[72px] items-center'}`}
                 style={{ top: '56px', bottom: 0 }}
@@ -73,7 +74,7 @@ export default function AppShell({ children, section = 'shared' }) {
                 </div>
             </div>
 
-            {/* Mobile Sidebar Overlay */}
+            {/* Mobile Sidebar — for all users on app routes */}
             {isMobileSidebarOpen && (
                 <div className="lg:hidden fixed inset-0 z-50 flex">
                     <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={() => setIsMobileSidebarOpen(false)} />
@@ -83,7 +84,7 @@ export default function AppShell({ children, section = 'shared' }) {
                 </div>
             )}
 
-            {/* ── MAIN ── scrolls up and BEHIND the fixed glass header */}
+            {/* Main content — sidebar padding only for logged-in users */}
             <main
                 className="appshell-main relative z-10 min-h-screen custom-scrollbar"
                 style={{

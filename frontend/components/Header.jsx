@@ -81,7 +81,9 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
         setIsMobileMenuOpen(false);
     }, [pathname]);
 
-    if (!user && (isLandingRoute || isAuthRoute)) {
+    // Landing page: handled by isLandingRoute (UNTOUCHED)
+    // Auth pages (login, signup, forgot-password, etc.): always show auth header
+    if (isLandingRoute || isAuthRoute) {
         return (
             <header className="sticky top-0 z-50 w-full bg-white/60 dark:bg-slate-950/60 backdrop-blur-2xl pt-2 pb-1">
                 <div className="mx-auto max-w-[1240px] px-4 sm:px-6">
@@ -96,7 +98,7 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
                         </Link>
 
                         {/* Desktop Navigation */}
-                        {!isAuthRoute && (
+                        {isLandingRoute && (
                             <nav className="hidden lg:flex items-center gap-8 absolute left-1/2 -translate-x-1/2">
                                 <Link href="/#features" className="text-[15px] font-semibold text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-primary transition-colors">
                                     Features
@@ -137,6 +139,8 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
         );
     }
 
+    // Sidebar layout header — for both guests and logged-in users on app routes.
+    // Shows Login/Sign Up for guests, avatar/bell for users (handled below).
     if (isSidebarLayout) {
         const sidebarHeaderClassName = isUploadRoute
             ? 'sticky top-0 z-50 w-full bg-white/60 dark:bg-slate-950/60 backdrop-blur-2xl pt-2 pb-1'
