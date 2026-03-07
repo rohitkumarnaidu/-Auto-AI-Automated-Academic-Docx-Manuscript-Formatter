@@ -91,9 +91,9 @@ export default function Sidebar({ section = 'shared', onClose, isCollapsed = fal
                 </div>
             )}
 
-            {/* Top: Vertical Mode Switcher (Perplexity Sidebar Style) */}
-            <div className={`mb-6 ${isCollapsed ? 'px-0' : 'px-1'}`}>
-                <div className={`flex flex-col gap-1 rounded-2xl bg-[#f0f1f3] dark:bg-[#202226] border border-slate-200/50 dark:border-white/5 ${isCollapsed ? 'p-1' : 'p-1.5'}`}>
+            {/* Mode Switcher */}
+            <div className={`mb-3 ${isCollapsed ? 'px-0' : 'px-1'}`}>
+                <div className={`flex flex-col gap-1 rounded-2xl bg-[#f0f1f3] dark:bg-white/5 border border-slate-200/50 dark:border-white/8 ${isCollapsed ? 'p-1' : 'p-1.5'}`}>
                     <button
                         onClick={() => handleModeChange('formatter')}
                         title={isCollapsed ? 'Formatter' : undefined}
@@ -121,7 +121,7 @@ export default function Sidebar({ section = 'shared', onClose, isCollapsed = fal
                 </div>
             </div>
 
-            {/* Navigation Links */}
+            {/* Navigation Links — flex-1 fills remaining space */}
             <nav className="flex-1 flex flex-col gap-1.5 overflow-y-auto overflow-x-hidden custom-scrollbar">
                 <div className={`px-2 mb-2 ${isCollapsed ? 'hidden' : 'block'}`}>
                     <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
@@ -153,8 +153,8 @@ export default function Sidebar({ section = 'shared', onClose, isCollapsed = fal
                 })}
             </nav>
 
-            {/* Bottom Action Button */}
-            <div className={`pt-4 border-t border-slate-200/90 dark:border-white/10 mt-auto ${isCollapsed ? 'flex justify-center' : ''}`}>
+            {/* Action Button — BOTTOM, pushed down by flex-1 nav above */}
+            <div className={`pt-4 border-t border-slate-200/60 dark:border-white/[0.08] ${isCollapsed ? 'flex justify-center' : ''}`}>
                 <button
                     onClick={() => handleNavigation(actionHref)}
                     title={isCollapsed ? actionLabel : undefined}
@@ -166,5 +166,7 @@ export default function Sidebar({ section = 'shared', onClose, isCollapsed = fal
                 </button>
             </div>
         </div>
+
     );
 }
+

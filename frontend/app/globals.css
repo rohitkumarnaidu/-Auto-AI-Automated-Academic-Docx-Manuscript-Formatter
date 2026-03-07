@@ -6456,105 +6456,105 @@ body:is(.dark *) {
 
 /* ============================================================
    GLASSMORPHISM — App Header & Sidebar (Light + Dark Mode)
-   Injected directly because globals.css is a pre-compiled
-   Tailwind output; new Tailwind classes in JSX won't compile
-   without a full rebuild. This matches the landing page style.
+   Exact match to the landing page navbar style.
+   AppShell is transparent — the body background & glow blobs
+   bleed through the frosted glass, just like the landing page.
    ============================================================ */
 
-/* APP HEADER — Light mode glassmorphism (matching landing navbar) */
+/* ── LIGHT MODE ── */
+
+/* APP HEADER — Light: matches landing page header exactly */
 .app-header {
-  background-color: rgba(255, 255, 255, 0.7) !important;
-  backdrop-filter: blur(20px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
-  border-bottom: 1px solid rgba(226, 232, 240, 0.8) !important;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02) !important;
+  background-color: rgba(255, 255, 255, 0.72) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.6) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02) !important;
 }
 
-/* APP HEADER — Dark mode glassmorphism — Exact match to premium feel */
-.dark .app-header {
-  background-color: rgba(2, 6, 23, 0.45) !important;
-  backdrop-filter: blur(40px) saturate(200%) !important;
-  -webkit-backdrop-filter: blur(40px) saturate(200%) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.03) !important;
-  box-shadow: none !important;
-}
-
-/* DESKTOP SIDEBAR — Light mode glassmorphism */
+/* DESKTOP SIDEBAR — Light: frosted panel identical to header */
 .sidebar-desktop {
-  background-color: rgba(255, 255, 255, 0.7) !important;
-  backdrop-filter: blur(20px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
-  border-right: 1px solid rgba(226, 232, 240, 0.8) !important;
+  background-color: rgba(255, 255, 255, 0.6) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border-right: 1px solid rgba(226, 232, 240, 0.5) !important;
   box-shadow: none !important;
 }
 
-/* DESKTOP SIDEBAR — Dark mode glassmorphism */
-.dark .sidebar-desktop {
-  background-color: rgba(2, 6, 23, 0.45) !important;
-  backdrop-filter: blur(40px) saturate(200%) !important;
-  -webkit-backdrop-filter: blur(40px) saturate(200%) !important;
-  border-right: 1px solid rgba(255, 255, 255, 0.03) !important;
-  box-shadow: none !important;
-}
-
-/* MOBILE SIDEBAR — Light mode */
+/* MOBILE SIDEBAR — Light */
 .sidebar-mobile {
   background-color: rgba(255, 255, 255, 0.92) !important;
-  backdrop-filter: blur(20px) !important;
-  -webkit-backdrop-filter: blur(20px) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
 }
 
-/* MOBILE SIDEBAR — Dark mode */
+/* ── DARK MODE ── */
+
+/* APP HEADER — Dark: exact match to landing page navbar in dark mode */
+.dark .app-header {
+  background-color: rgba(15, 23, 42, 0.6) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  box-shadow: none !important;
+}
+
+/* DESKTOP SIDEBAR — Dark: identical to header glass */
+.dark .sidebar-desktop {
+  background-color: rgba(15, 23, 42, 0.6) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.06) !important;
+  box-shadow: none !important;
+}
+
+/* MOBILE SIDEBAR — Dark */
 .dark .sidebar-mobile {
-  background-color: rgba(13, 17, 23, 0.95) !important;
-  backdrop-filter: blur(20px) !important;
-  -webkit-backdrop-filter: blur(20px) !important;
+  background-color: rgba(15, 23, 42, 0.92) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
 }
 
-/* APP SHELL ROOT — Light background */
+/* ── APP SHELL ROOT — transparent so body background shows through ── */
+/* Light: body is #f6f6f8 (bg-background-light) */
 .appshell-root {
-  background-color: #f6f6f8 !important;
+  background: transparent !important;
 }
 
-/* APP SHELL ROOT — Dark background — Premium Radial Gradient */
+/* Dark: body is #0f172a (bg-background-dark) — same as landing page */
 .dark .appshell-root {
-  background-color: #020617 !important;
-  background-image:
-    radial-gradient(at 0% 0%, rgba(37, 99, 235, 0.12) 0px, transparent 50%),
-    radial-gradient(at 100% 0%, rgba(99, 102, 241, 0.12) 0px, transparent 50%),
-    radial-gradient(at 50% 100%, rgba(79, 70, 229, 0.08) 0px, transparent 50%) !important;
-  background-attachment: fixed !important;
+  background: transparent !important;
 }
 
-/* SIDEBAR REFINEMENTS — High-end glass active states */
+/* ── SIDEBAR INTERACTIVE STATES ── */
+
+/* Mode switcher — active button in dark mode (glass highlight, not solid white) */
+.dark .active-mode-btn.bg-white {
+  background-color: rgba(255, 255, 255, 0.10) !important;
+  color: #ffffff !important;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
 .dark .active-mode-btn {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  transition: all 0.2s ease !important;
 }
 
 .dark .active-mode-btn:hover {
   background-color: rgba(255, 255, 255, 0.05) !important;
 }
 
-.dark .active-nav-link:hover {
-  background-color: rgba(255, 255, 255, 0.03) !important;
-}
-
-/* Ensure material icons in sidebar are consistent */
-.sidebar-desktop .material-symbols-outlined {
-  font-size: 20px !important;
-}
-
-/* SIDEBAR — Fix solid white mode switcher in dark mode */
-.dark .active-mode-btn.bg-white {
-  background-color: rgba(255, 255, 255, 0.12) !important;
-  color: #ffffff !important;
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.05) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-}
-
-/* SIDEBAR — High-end nav link active states */
+/* Nav link — active state */
 .dark .active-nav-link {
   background-color: rgba(37, 99, 235, 0.18) !important;
   border: 1px solid rgba(37, 99, 235, 0.12) !important;
-  box-shadow: inset 0 1px 1px rgba(37, 99, 235, 0.1) !important;
+}
+
+.dark .active-nav-link:hover {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+}
+
+/* Icons consistent sizing */
+.sidebar-desktop .material-symbols-outlined {
+  font-size: 20px !important;
 }

@@ -42,6 +42,7 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
 
     const isAuthRoute = AUTH_ROUTES.some((route) => pathname.startsWith(route));
     const isLandingRoute = pathname === '/';
+    const isUploadRoute = pathname === '/upload';
 
     const activeMode = section === 'generator'
         ? 'generator'
@@ -137,9 +138,13 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
     }
 
     if (isSidebarLayout) {
+        const sidebarHeaderClassName = isUploadRoute
+            ? 'sticky top-0 z-50 w-full bg-white/60 dark:bg-slate-950/60 backdrop-blur-2xl pt-2 pb-1'
+            : 'app-header sticky top-0 z-40 w-full bg-white/60 backdrop-blur-2xl border-b border-slate-200/50 shadow-sm dark:bg-slate-950/60 dark:border-white/[0.06]';
+
         return (
-            <header className="app-header sticky top-0 z-40 w-full bg-white/60 backdrop-blur-2xl border-b border-slate-200/50 shadow-sm">
-                <div className="flex xl:px-8 h-14 items-center px-4 gap-4 max-w-[1600px] mx-auto">
+            <header className={sidebarHeaderClassName}>
+                <div className={`flex xl:px-8 ${isUploadRoute ? 'h-[72px]' : 'h-14'} items-center px-4 gap-4 max-w-[1600px] mx-auto`}>
                     {/* Left: Hamburger & Logo */}
                     <div className="flex items-center gap-3">
                         <button
@@ -157,8 +162,6 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
                             </span>
                         </Link>
                     </div>
-
-                    <div className="flex-1" />
 
                     <div className="flex-1" />
 

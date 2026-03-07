@@ -44,47 +44,55 @@ export default function AppShell({ children, section = 'shared' }) {
         );
     }
 
-    // New Sidebar Architecture for App Routes
+    // Sidebar Architecture — fixed header + fixed sidebar + scrolling main
+    const sidebarW = isDesktopSidebarOpen ? 240 : 72;
+
     return (
-        <div className="appshell-root flex flex-col h-screen bg-slate-50 dark:bg-[#020617] overflow-hidden relative z-10 w-full transition-all duration-300">
-            {/* Background Glow Effects (App Shell Specific — Premium Feel) */}
-            <div className="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/20 rounded-full blur-[120px] pointer-events-none z-0 opacity-0 dark:opacity-100 transition-opacity duration-1000"></div>
-            <div className="fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-600/10 rounded-full blur-[120px] pointer-events-none z-0 opacity-0 dark:opacity-100 transition-opacity duration-1000"></div>
-            <div className="fixed top-[20%] right-[10%] w-[25%] h-[25%] bg-blue-400/5 rounded-full blur-[100px] pointer-events-none z-0 opacity-0 dark:opacity-70 transition-opacity duration-1000"></div>
+        <>
+            {/* ── BACKGROUND LAYER ── */}
+            <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+                <div className="absolute inset-0 bg-[#f6f6f8] dark:bg-gradient-to-br dark:from-slate-900 dark:via-[#0a0f1e] dark:to-indigo-950" />
+            </div>
 
-            {/* Full-Width Header */}
-            <Header
-                section={section}
-                isSidebarLayout={true}
-                onOpenMobileSidebar={toggleSidebar}
-            />
+            {/* ── HEADER ── fixed at top */}
+            <div className="fixed top-0 left-0 right-0 z-50">
+                <Header
+                    section={section}
+                    isSidebarLayout={true}
+                    onOpenMobileSidebar={toggleSidebar}
+                />
+            </div>
 
-            <div className="flex flex-1 overflow-hidden relative w-full h-full">
-                {/* Desktop Sidebar (Push/Collapse to Icon Rail) */}
-                <div
-                    className={`sidebar-desktop hidden lg:flex flex-col border-r border-slate-200/50 bg-white/60 backdrop-blur-2xl h-full shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-20 transition-all duration-300 ease-in-out ${isDesktopSidebarOpen ? 'w-[240px]' : 'w-[72px] items-center'
-                        }`}
-                >
-                    <div className="w-full h-full flex flex-col overflow-hidden">
-                        <Sidebar section={section} isCollapsed={!isDesktopSidebarOpen} />
+            {/* ── SIDEBAR ── fixed, starts at top: 56px (header height) to bottom */}
+            <div
+                className={`fixed left-0 hidden lg:flex flex-col justify-start z-40 transition-all duration-300 ease-in-out overflow-y-auto bg-white/60 dark:bg-slate-950/60 backdrop-blur-2xl border-r border-slate-200/50 dark:border-white/[0.06] ${isDesktopSidebarOpen ? 'w-[240px]' : 'w-[72px] items-center'}`}
+                style={{ top: '56px', bottom: 0 }}
+            >
+                <div className="w-full h-full flex flex-col">
+                    <Sidebar section={section} isCollapsed={!isDesktopSidebarOpen} />
+                </div>
+            </div>
+
+            {/* Mobile Sidebar Overlay */}
+            {isMobileSidebarOpen && (
+                <div className="lg:hidden fixed inset-0 z-50 flex">
+                    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={() => setIsMobileSidebarOpen(false)} />
+                    <div className="sidebar-mobile relative flex flex-col w-[260px] h-full shadow-2xl animate-in slide-in-from-left duration-300">
+                        <Sidebar section={section} onClose={() => setIsMobileSidebarOpen(false)} isCollapsed={false} />
                     </div>
                 </div>
+            )}
 
-                {/* Mobile Sidebar Overlay */}
-                {isMobileSidebarOpen && (
-                    <div className="lg:hidden fixed inset-0 z-50 flex">
-                        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={() => setIsMobileSidebarOpen(false)} />
-                        <div className="sidebar-mobile relative flex flex-col w-[260px] h-full bg-white shadow-2xl animate-in slide-in-from-left duration-300">
-                            <Sidebar section={section} onClose={() => setIsMobileSidebarOpen(false)} isCollapsed={false} />
-                        </div>
-                    </div>
-                )}
-
-                {/* Main Content Area */}
-                <main className="flex-1 overflow-y-auto w-full relative z-10 custom-scrollbar">
-                    {children}
-                </main>
-            </div>
-        </div>
+            {/* ── MAIN ── scrolls up and BEHIND the fixed glass header */}
+            <main
+                className="appshell-main relative z-10 min-h-screen custom-scrollbar"
+                style={{
+                    paddingTop: '56px',
+                    paddingLeft: `${sidebarW}px`,
+                }}
+            >
+                {children}
+            </main>
+        </>
     );
 }
