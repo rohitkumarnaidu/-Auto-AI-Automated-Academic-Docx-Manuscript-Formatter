@@ -1,6 +1,10 @@
 import Link from 'next/link';
 
 export default function Footer({ variant = 'app' }) {
+    const preventPlaceholderNav = (event) => {
+        event.preventDefault();
+    };
+
     if (variant === 'landing') {
         return (
             <footer className="bg-white/60 dark:bg-slate-950/60 backdrop-blur-2xl pt-20 pb-10 relative overflow-hidden">
@@ -41,17 +45,17 @@ export default function Footer({ variant = 'app' }) {
                                     <li><Link href="/#about" className="text-[15px] text-slate-500 dark:text-slate-400 hover:text-primary hover:translate-x-1 transition-all inline-block">About Us</Link></li>
                                     <li>
                                         <div className="flex items-center">
-                                            <Link href="#" className="text-[15px] text-slate-500 dark:text-slate-400 hover:text-primary hover:translate-x-1 transition-all inline-block">Documentation</Link>
+                                            <Link href="#" onClick={preventPlaceholderNav} className="text-[15px] text-slate-500 dark:text-slate-400 hover:text-primary hover:translate-x-1 transition-all inline-block">Documentation</Link>
                                             <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold border border-blue-200 dark:border-blue-500/30">Soon</span>
                                         </div>
                                     </li>
                                     <li>
                                         <div className="flex items-center">
-                                            <Link href="#" className="text-[15px] text-slate-500 dark:text-slate-400 hover:text-primary hover:translate-x-1 transition-all inline-block">Video Tutorials</Link>
+                                            <Link href="#" onClick={preventPlaceholderNav} className="text-[15px] text-slate-500 dark:text-slate-400 hover:text-primary hover:translate-x-1 transition-all inline-block">Video Tutorials</Link>
                                             <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold border border-blue-200 dark:border-blue-500/30">Soon</span>
                                         </div>
                                     </li>
-                                    <li><Link href="#" className="text-[15px] text-slate-500 dark:text-slate-400 hover:text-primary hover:translate-x-1 transition-all inline-block">System Status</Link></li>
+                                    <li><Link href="#" onClick={preventPlaceholderNav} className="text-[15px] text-slate-500 dark:text-slate-400 hover:text-primary hover:translate-x-1 transition-all inline-block">System Status</Link></li>
                                 </ul>
                             </div>
                             <div className="col-span-2 md:col-span-1 pt-8 md:pt-0">

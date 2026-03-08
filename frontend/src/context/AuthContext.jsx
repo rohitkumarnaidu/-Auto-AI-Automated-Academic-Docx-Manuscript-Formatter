@@ -1,5 +1,5 @@
 'use client';
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import {
     signup as apiSignup,
@@ -17,6 +17,11 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [loading, setLoading] = useState(true);
+
+    // Guard: prevents onAuthStateChange('SIGNED_OUT') from clearing state
+    // while signIn/signUp is in progress (setSession fires SIGNED_OUT before SIGNED_IN)
+    const signingInRef = useRef(false);
+
     const sanitizeRedirectPath = (path) => {
         if (typeof path !== 'string') return '/dashboard';
         if (!path.startsWith('/') || path.startsWith('//')) return '/dashboard';
@@ -86,10 +91,15 @@ export const AuthProvider = ({ children }) => {
         let subscription;
         if (supabase) {
             const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
-                // Only update state if we are NOT in the middle of initial loading
-                // (Actually, checking if mounted handles unmounts, but we just update reactive state)
+                console.log('[Auth] onAuthStateChange:', event, { hasSession: !!session, signingIn: signingInRef.current });
 
                 if (event === 'SIGNED_OUT') {
+                    // During signIn/signUp, setSession() can fire SIGNED_OUT before SIGNED_IN.
+                    // Skip this event to prevent clearing user state mid-login.
+                    if (signingInRef.current) {
+                        console.log('[Auth] Ignoring SIGNED_OUT during active sign-in');
+                        return;
+                    }
                     setUser(null);
                     setIsLoggedIn(false);
                     sessionStorage.clear();
@@ -117,6 +127,7 @@ export const AuthProvider = ({ children }) => {
     const signUp = async (signupData) => {
         try {
             setLoading(true);
+            signingInRef.current = true;
             const data = await apiSignup(signupData);
 
             if (data?.session && supabase) {
@@ -127,7 +138,6 @@ export const AuthProvider = ({ children }) => {
 
                 if (sessionError) {
                     console.error("Auth: setSession failed during signup", sessionError);
-                    // We don't fail the whole signup if session set fails, but we can't auto-login
                 } else {
                     const userToSet = data.user || data.session.user;
                     if (userToSet) {
@@ -140,24 +150,38 @@ export const AuthProvider = ({ children }) => {
         } catch (error) {
             return { data: null, error: error.message || String(error) };
         } finally {
+            signingInRef.current = false;
             setLoading(false);
         }
     };
 
     const signIn = async (email, password) => {
         try {
+            signingInRef.current = true;
             const data = await apiLogin({ email, password });
 
             if (data?.session && supabase) {
-                await supabase.auth.setSession({
+                const { error: sessionError } = await supabase.auth.setSession({
                     access_token: data.session.access_token,
                     refresh_token: data.session.refresh_token
                 });
+
+                if (!sessionError) {
+                    const userToSet = data.user || data.session.user;
+                    if (userToSet) {
+                        setUser(userToSet);
+                        setIsLoggedIn(true);
+                    }
+                }
             }
 
             return { data, error: null };
         } catch (error) {
             return { data: null, error: error.message };
+        } finally {
+            // Clear the guard AFTER a short delay so any pending
+            // SIGNED_OUT events from setSession() are safely ignored
+            setTimeout(() => { signingInRef.current = false; }, 1000);
         }
     };
 
@@ -172,7 +196,7 @@ export const AuthProvider = ({ children }) => {
         });
     };
 
-    const signOut = async () => {
+    const signOut = async ({ redirectToLogin = false } = {}) => {
         try {
             if (supabase) await supabase.auth.signOut();
         } catch (error) {
@@ -183,6 +207,10 @@ export const AuthProvider = ({ children }) => {
             setIsLoggedIn(false);
             sessionStorage.clear();
             sessionStorage.removeItem('scholarform_currentJob');
+
+            if (redirectToLogin && typeof window !== 'undefined') {
+                window.location.replace('/login');
+            }
         }
     };
 

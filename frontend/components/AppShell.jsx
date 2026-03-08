@@ -3,17 +3,16 @@
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import { usePathname } from 'next/navigation';
-import { useAuth } from '@/src/context/AuthContext';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const AUTH_ROUTES = ['/login', '/signup', '/forgot-password', '/verify-otp', '/reset-password', '/auth/callback'];
 
 export default function AppShell({ children, section = 'shared' }) {
     const pathname = usePathname();
-    const { user } = useAuth();
 
     const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(false);
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+    const [isDesktop, setIsDesktop] = useState(false);
 
     const isAuthRoute = AUTH_ROUTES.some((route) => pathname.startsWith(route));
     const isLandingRoute = pathname === '/' || pathname === '/terms' || pathname === '/privacy';
@@ -23,8 +22,32 @@ export default function AppShell({ children, section = 'shared' }) {
     // Sidebar.jsx handles guest vs user links internally (APP_GUEST_LINKS vs USER_LINKS).
     const showSidebarLayout = !isLandingRoute && !isAuthRoute;
 
+    useEffect(() => {
+        if (typeof window === 'undefined') {
+            return undefined;
+        }
+
+        const mediaQuery = window.matchMedia('(min-width: 1024px)');
+        const handleChange = (event) => {
+            setIsDesktop(event.matches);
+            if (!event.matches) {
+                setIsDesktopSidebarOpen(false);
+            }
+        };
+
+        setIsDesktop(mediaQuery.matches);
+
+        if (typeof mediaQuery.addEventListener === 'function') {
+            mediaQuery.addEventListener('change', handleChange);
+            return () => mediaQuery.removeEventListener('change', handleChange);
+        }
+
+        mediaQuery.addListener(handleChange);
+        return () => mediaQuery.removeListener(handleChange);
+    }, []);
+
     const toggleSidebar = () => {
-        if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+        if (isDesktop) {
             setIsDesktopSidebarOpen((prev) => !prev);
         } else {
             setIsMobileSidebarOpen(true);
@@ -89,7 +112,7 @@ export default function AppShell({ children, section = 'shared' }) {
                 className="appshell-main relative z-10 min-h-screen custom-scrollbar"
                 style={{
                     paddingTop: '56px',
-                    paddingLeft: `${sidebarW}px`,
+                    paddingLeft: isDesktop ? `${sidebarW}px` : '0px',
                 }}
             >
                 {children}

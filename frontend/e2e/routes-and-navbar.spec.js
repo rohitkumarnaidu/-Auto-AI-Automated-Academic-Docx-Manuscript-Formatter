@@ -1,13 +1,15 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('Routes and Navbar Parity', () => {
-    test('guest navbar on formatter pages shows expected app links', async ({ page }) => {
+    test('guest formatter app shell exposes sidebar navigation links', async ({ page }) => {
         await page.goto('/upload');
 
-        await expect(page.getByRole('link', { name: 'Home' })).toBeVisible();
-        await expect(page.getByRole('link', { name: 'Upload' })).toBeVisible();
-        await expect(page.getByRole('link', { name: 'Templates' })).toBeVisible();
-        await expect(page.getByRole('link', { name: 'Template Editor' })).toBeVisible();
+        const sidebarNavItem = (label) =>
+            page.locator(`nav button[title="${label}"], nav button:has-text("${label}")`).first();
+
+        await expect(sidebarNavItem('Upload')).toBeVisible();
+        await expect(sidebarNavItem('Templates')).toBeVisible();
+        await expect(sidebarNavItem('Template Editor')).toBeVisible();
     });
 
     test('protected generator and admin routes redirect guests to login with next', async ({ page }) => {

@@ -76,6 +76,9 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
             ? 'New Draft'
             : 'New Format'
         : 'Get Started';
+    const handleSignOut = async () => {
+        await signOut({ redirectToLogin: true });
+    };
 
     useEffect(() => {
         setIsMobileMenuOpen(false);
@@ -144,17 +147,38 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
     if (isSidebarLayout) {
         const sidebarHeaderClassName = isUploadRoute
             ? 'sticky top-0 z-50 w-full bg-white/60 dark:bg-slate-950/60 backdrop-blur-2xl pt-2 pb-1'
-            : 'app-header sticky top-0 z-40 w-full bg-white/60 backdrop-blur-2xl border-b border-slate-200/50 shadow-sm dark:bg-slate-950/60 dark:border-white/[0.06]';
+            : 'app-header sticky top-0 z-40 w-full px-2 sm:px-3 py-1';
+
+        const sidebarPanelClassName = isUploadRoute
+            ? ''
+            : 'relative overflow-hidden rounded-2xl border border-white/70 dark:border-white/[0.10] bg-white/55 dark:bg-slate-950/45 backdrop-blur-2xl shadow-[0_14px_34px_rgba(15,23,42,0.12)] dark:shadow-[0_22px_48px_rgba(2,6,23,0.45)]';
+
+        const sidebarRowClassName = isUploadRoute
+            ? 'flex xl:px-8 h-[72px] items-center px-4 gap-4 max-w-[1600px] mx-auto'
+            : 'relative flex h-12 items-center px-3 sm:px-4 xl:px-6 gap-4 max-w-[1600px] mx-auto';
+
+        const userControlRailClassName = isUploadRoute
+            ? 'flex items-center gap-2 sm:gap-3 shrink-0'
+            : 'flex items-center gap-1.5 rounded-2xl border border-white/70 dark:border-white/[0.10] bg-white/45 dark:bg-white/[0.03] px-1.5 py-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]';
+
+        const iconPillButtonClassName = isUploadRoute
+            ? 'h-10 w-10 inline-flex items-center justify-center rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-700 dark:text-slate-300 shrink-0'
+            : 'h-9 w-9 inline-flex items-center justify-center rounded-xl border border-white/65 dark:border-white/[0.10] bg-white/45 dark:bg-white/[0.03] text-slate-700 dark:text-slate-200 hover:bg-white/75 dark:hover:bg-white/[0.08] transition-colors shrink-0';
 
         return (
             <header className={sidebarHeaderClassName}>
-                <div className={`flex xl:px-8 ${isUploadRoute ? 'h-[72px]' : 'h-14'} items-center px-4 gap-4 max-w-[1600px] mx-auto`}>
+                <div className={sidebarPanelClassName}>
+                    {!isUploadRoute && (
+                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-violet-200/30 via-white/5 to-cyan-200/30 dark:from-violet-500/15 dark:via-white/[0.02] dark:to-cyan-400/15" />
+                    )}
+
+                    <div className={sidebarRowClassName}>
                     {/* Left: Hamburger & Logo */}
                     <div className="flex items-center gap-3">
                         <button
                             type="button"
                             onClick={onOpenMobileSidebar}
-                            className="h-10 w-10 inline-flex items-center justify-center rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-700 dark:text-slate-300 shrink-0"
+                            className={iconPillButtonClassName}
                             aria-label="Toggle Sidebar"
                         >
                             <span className="material-symbols-outlined text-[24px]">menu</span>
@@ -170,22 +194,29 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
                     <div className="flex-1" />
 
                     {/* Right: Controls */}
-                    <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                        <ThemeToggle />
                         {user ? (
-                            <>
+                            <div className={userControlRailClassName}>
+                                <ThemeToggle />
                                 <NotificationBell />
                                 <button
                                     onClick={() => router.push('/profile')}
-                                    className="h-9 w-9 rounded-full overflow-hidden border border-slate-300 dark:border-slate-700 hover:border-primary transition-colors"
+                                    className="h-9 w-9 rounded-full overflow-hidden border border-white/70 dark:border-white/[0.10] bg-white/45 dark:bg-white/[0.03] hover:bg-white/75 dark:hover:bg-white/[0.08] transition-colors"
+                                    aria-label="User Profile"
                                 >
-                                    <div className="w-full h-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-100 font-bold text-sm">
+                                    <div className="w-full h-full bg-gradient-to-br from-violet-100 to-indigo-100 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-100 font-bold text-sm">
                                         {user.email?.charAt(0).toUpperCase() || 'U'}
                                     </div>
                                 </button>
-                            </>
+                                <button
+                                    onClick={handleSignOut}
+                                    className="h-9 px-3 hidden sm:inline-flex items-center rounded-xl border border-white/70 dark:border-white/[0.10] bg-white/45 dark:bg-white/[0.03] text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-white/75 dark:hover:bg-white/[0.08] transition-colors"
+                                >
+                                    Sign Out
+                                </button>
+                            </div>
                         ) : (
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                                <ThemeToggle />
                                 <Link href="/" className="hidden sm:inline-flex h-9 px-3 items-center rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                                     Home
                                 </Link>
@@ -234,6 +265,12 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
                                     <div className="w-full h-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-100 font-bold text-sm">
                                         {user.email?.charAt(0).toUpperCase() || 'U'}
                                     </div>
+                                </button>
+                                <button
+                                    onClick={handleSignOut}
+                                    className="h-9 px-3 hidden sm:inline-flex items-center rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                >
+                                    Sign Out
                                 </button>
                             </>
                         ) : !isAuthRoute ? (
@@ -345,10 +382,7 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
                                         Profile
                                     </button>
                                     <button
-                                        onClick={async () => {
-                                            await signOut();
-                                            router.push('/');
-                                        }}
+                                        onClick={handleSignOut}
                                         className="h-10 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold transition-colors"
                                     >
                                         Sign Out

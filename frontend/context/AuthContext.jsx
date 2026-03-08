@@ -166,7 +166,7 @@ export const AuthProvider = ({ children }) => {
         });
     };
 
-    const signOut = async () => {
+    const signOut = async ({ redirectToLogin = false } = {}) => {
         try {
             if (supabase) await supabase.auth.signOut();
         } catch (error) {
@@ -177,6 +177,10 @@ export const AuthProvider = ({ children }) => {
             setIsLoggedIn(false);
             sessionStorage.clear();
             sessionStorage.removeItem('scholarform_currentJob');
+
+            if (redirectToLogin && typeof window !== 'undefined') {
+                window.location.replace('/login');
+            }
         }
     };
 

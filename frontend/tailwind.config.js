@@ -12,12 +12,6 @@ export default {
     darkMode: "class",
     theme: {
         extend: {
-            colors: {
-                "background-dark": "#0a0f1e",
-                "background-light": "#f6f6f8",
-                "primary": "#136dec",
-                "primary-hover": "#0f5bbd",
-            },
             fontFamily: {
                 "display": ['"Manrope"', "sans-serif"]
             },

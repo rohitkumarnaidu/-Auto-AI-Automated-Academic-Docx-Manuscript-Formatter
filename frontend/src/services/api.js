@@ -352,6 +352,34 @@ const normalizeQueryParams = (params = {}) => (
     )
 );
 
+const DOCUMENTS_LIMIT_MIN = 1;
+const DOCUMENTS_LIMIT_MAX = 100;
+
+const normalizeDocumentsParams = (params = {}) => {
+    const normalizedParams = normalizeQueryParams(params);
+
+    if ('limit' in normalizedParams) {
+        const parsedLimit = Number.parseInt(String(normalizedParams.limit), 10);
+        if (Number.isFinite(parsedLimit)) {
+            const clampedLimit = Math.min(DOCUMENTS_LIMIT_MAX, Math.max(DOCUMENTS_LIMIT_MIN, parsedLimit));
+            normalizedParams.limit = String(clampedLimit);
+        } else {
+            delete normalizedParams.limit;
+        }
+    }
+
+    if ('offset' in normalizedParams) {
+        const parsedOffset = Number.parseInt(String(normalizedParams.offset), 10);
+        if (Number.isFinite(parsedOffset)) {
+            normalizedParams.offset = String(Math.max(0, parsedOffset));
+        } else {
+            delete normalizedParams.offset;
+        }
+    }
+
+    return normalizedParams;
+};
+
 const mapDocumentRecord = (doc) => ({
     ...doc,
     originalFileName: doc?.filename,
@@ -371,14 +399,14 @@ const parseResponseJson = (responseText) => {
  * Fetches the list of documents for the current user.
  */
 export const getDocuments = async (params = {}) => {
-    const normalizedParams = normalizeQueryParams(params);
+    const normalizedParams = normalizeDocumentsParams(params);
     const query = new URLSearchParams(normalizedParams).toString();
     const endpoint = query ? `/api/documents?${query}` : '/api/documents';
     return handleRequest(endpoint);
 };
 
 export const useDocuments = (params = {}, queryOptions = {}) => {
-    const normalizedParams = normalizeQueryParams(params);
+    const normalizedParams = normalizeDocumentsParams(params);
 
     return useQuery({
         queryKey: ['documents', normalizedParams],

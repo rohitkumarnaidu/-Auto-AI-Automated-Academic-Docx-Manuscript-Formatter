@@ -268,7 +268,7 @@ export default function Profile() {
                             </div>
                             <span className="material-symbols-outlined text-slate-400 group-hover:text-primary transition-colors">chevron_right</span>
                         </button>
-                        <button onClick={async () => { await signOut(); router.push('/'); }}
+                        <button onClick={async () => { await signOut({ redirectToLogin: true }); }}
                             className="flex items-center justify-between p-5 bg-white dark:bg-slate-900 border border-red-100 dark:border-red-900/20 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/10 transition-all group text-left min-h-[64px]">
                             <div className="flex items-center gap-4">
                                 <div className="p-2.5 bg-red-100 dark:bg-red-900/20 rounded-xl text-red-600 group-hover:bg-red-600 group-hover:text-white transition-colors">

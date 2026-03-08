@@ -67,8 +67,8 @@ const toUiStatus = (status) => {
 function StepDocType({ selected, onSelect }) {
     return (
         <div>
-            <h2 className="text-2xl font-bold text-white mb-2">Choose Document Type</h2>
-            <p className="text-gray-400 mb-8">Select the type of document you want to generate.</p>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">Choose Document Type</h2>
+            <p className="text-slate-500 dark:text-gray-400 mb-8">Select the type of document you want to generate.</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {DOC_TYPES.map((docType) => (
                     <button key={docType.id} id={`doc-type-${docType.id}`} onClick={() => onSelect(docType.id)}
@@ -80,8 +80,8 @@ function StepDocType({ selected, onSelect }) {
                             <span className="material-symbols-outlined text-white text-xl">{docType.icon}</span>
                         </div>
                         <div>
-                            <p className="font-semibold text-white text-sm">{docType.label}</p>
-                            <p className="text-gray-400 text-xs mt-1 leading-relaxed">{docType.description}</p>
+                            <p className="font-semibold text-slate-900 dark:text-slate-100 text-sm">{docType.label}</p>
+                            <p className="text-slate-500 dark:text-gray-400 text-xs mt-1 leading-relaxed">{docType.description}</p>
                         </div>
                         {selected === docType.id && <span className="absolute top-3 right-3 material-symbols-outlined text-primary-light text-base">check_circle</span>}
                     </button>
@@ -103,15 +103,15 @@ function StepTemplate({ selected, onSelect }) {
 
     return (
         <div>
-            <h2 className="text-2xl font-bold text-white mb-2">Choose a Template</h2>
-            <p className="text-gray-400 mb-6">Pick the journal or style template for your document.</p>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">Choose a Template</h2>
+            <p className="text-slate-500 dark:text-gray-400 mb-6">Pick the journal or style template for your document.</p>
             <div className="flex flex-col sm:flex-row gap-3 mb-6">
                 <input id="template-search" type="text" placeholder="Search templates..." value={filter} onChange={(e) => setFilter(e.target.value)}
-                    className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-primary transition" />
+                    className="flex-1 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2.5 text-slate-900 dark:text-slate-100 placeholder-slate-500 dark:placeholder-gray-500 text-sm focus:outline-none focus:border-primary transition" />
                 <div className="flex gap-2 flex-wrap">
                     {categories.map((cat) => (
                         <button key={cat} onClick={() => setActiveCategory(cat)}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition min-h-[36px] ${activeCategory === cat ? 'bg-blue-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'}`}>
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition min-h-[36px] ${activeCategory === cat ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-gray-400 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white'}`}>
                             {cat}
                         </button>
                     ))}
@@ -125,7 +125,7 @@ function StepTemplate({ selected, onSelect }) {
                             : 'border-glass-border bg-white/5 hover:border-glass-border/50 hover:bg-white/8'
                             }`}>
                         <span className={`text-xs font-bold uppercase tracking-wider ${selected === t.id ? 'text-primary-light' : 'text-gray-500'}`}>{t.category}</span>
-                        <span className="text-white font-semibold text-sm">{t.name}</span>
+                        <span className="text-slate-900 dark:text-slate-100 font-semibold text-sm">{t.name}</span>
                         {selected === t.id && <span className="material-symbols-outlined text-primary-light text-sm mt-1">check_circle</span>}
                     </button>
                 ))}
@@ -153,15 +153,15 @@ function StepMetadata({ docType, metadata, onChange }) {
         onChange({ ...metadata, [key]: list.length ? list : [key === 'education' ? { institution: '', degree: '', year: '' } : { company: '', role: '', duration: '', bullets_raw: '' }] });
     };
 
-    const inputCls = "w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-600 text-sm focus:outline-none focus:border-primary transition";
+    const inputCls = "w-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-slate-900 dark:text-slate-100 placeholder-slate-500 dark:placeholder-gray-600 text-sm focus:outline-none focus:border-primary transition";
 
     if (docType === 'academic_paper' || docType === 'thesis') {
         const sections = metadata.sections || DEFAULT_PAPER_SECTIONS;
         return (
             <div className="space-y-6">
                 <div>
-                    <h2 className="text-2xl font-bold text-white mb-1">Document Details</h2>
-                    <p className="text-gray-400 text-sm">Fill in the details for your {docType === 'thesis' ? 'thesis chapter' : 'academic paper'}.</p>
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-1">Document Details</h2>
+                    <p className="text-slate-500 dark:text-gray-400 text-sm">Fill in the details for your {docType === 'thesis' ? 'thesis chapter' : 'academic paper'}.</p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="md:col-span-2">
@@ -188,7 +188,7 @@ function StepMetadata({ docType, metadata, onChange }) {
                         <label className="text-gray-300 text-sm font-medium mb-1.5 block">Language</label>
                         <select id="meta-language" value={metadata.language || 'english'} onChange={(e) => setValue('language', e.target.value)} className={inputCls}>
                             {['english', 'spanish', 'french', 'german', 'portuguese', 'arabic'].map((l) => (
-                                <option key={l} value={l} className="bg-gray-900">{l.charAt(0).toUpperCase() + l.slice(1)}</option>
+                                <option key={l} value={l} className="bg-background-light dark:bg-gray-900 text-slate-900 dark:text-slate-100">{l.charAt(0).toUpperCase() + l.slice(1)}</option>
                             ))}
                         </select>
                     </div>
@@ -208,7 +208,7 @@ function StepMetadata({ docType, metadata, onChange }) {
                 <div className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/10">
                     <input id="option-placeholder" type="checkbox" checked={metadata.include_placeholder !== false} onChange={(e) => setValue('include_placeholder', e.target.checked)} className="w-4 h-4 accent-primary" />
                     <div>
-                        <p className="text-white text-sm font-medium">Include placeholder content</p>
+                        <p className="text-slate-900 dark:text-slate-100 text-sm font-medium">Include placeholder content</p>
                         <p className="text-gray-500 text-xs">AI will write full paragraphs for each section (recommended)</p>
                     </div>
                 </div>
@@ -219,12 +219,12 @@ function StepMetadata({ docType, metadata, onChange }) {
     if (docType === 'resume') {
         const education = metadata.education || [...DEFAULT_RESUME_EDUCATION];
         const experience = metadata.experience || [...DEFAULT_RESUME_EXPERIENCE];
-        const resumeInputCls = "bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500 transition w-full";
+        const resumeInputCls = "bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:border-emerald-500 transition w-full";
         return (
             <div className="space-y-6">
                 <div>
-                    <h2 className="text-2xl font-bold text-white mb-1">Your Details</h2>
-                    <p className="text-gray-400 text-sm">Fill in your information for the AI to generate your professional CV.</p>
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-1">Your Details</h2>
+                    <p className="text-slate-500 dark:text-gray-400 text-sm">Fill in your information for the AI to generate your professional CV.</p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {[
@@ -236,30 +236,30 @@ function StepMetadata({ docType, metadata, onChange }) {
                         <div key={field.key}>
                             <label className="text-gray-300 text-sm font-medium mb-1.5 block">{field.label}</label>
                             <input id={field.id} type="text" placeholder={field.placeholder} value={metadata[field.key] || ''} onChange={(e) => setValue(field.key, e.target.value)}
-                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-600 text-sm focus:outline-none focus:border-emerald-500 transition" />
+                                className="w-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-slate-900 dark:text-slate-100 placeholder-slate-500 dark:placeholder-gray-600 text-sm focus:outline-none focus:border-emerald-500 transition" />
                         </div>
                     ))}
                     <div className="md:col-span-2">
                         <label className="text-gray-300 text-sm font-medium mb-1.5 block">Professional Summary</label>
                         <textarea id="meta-summary" rows={3} placeholder="Brief professional summary or career objective..." value={metadata.summary || ''} onChange={(e) => setValue('summary', e.target.value)}
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-600 text-sm focus:outline-none focus:border-emerald-500 transition resize-none" />
+                            className="w-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-slate-900 dark:text-slate-100 placeholder-slate-500 dark:placeholder-gray-600 text-sm focus:outline-none focus:border-emerald-500 transition resize-none" />
                     </div>
                     <div className="md:col-span-2">
                         <label className="text-gray-300 text-sm font-medium mb-1.5 block">Skills</label>
                         <input id="meta-skills" type="text" placeholder="e.g. Python, Machine Learning, React" value={metadata.skills_raw || ''} onChange={(e) => setValue('skills_raw', e.target.value)}
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-600 text-sm focus:outline-none focus:border-emerald-500 transition" />
+                            className="w-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-slate-900 dark:text-slate-100 placeholder-slate-500 dark:placeholder-gray-600 text-sm focus:outline-none focus:border-emerald-500 transition" />
                     </div>
                     <div className="md:col-span-2">
                         <label className="text-gray-300 text-sm font-medium mb-1.5 block">Certifications</label>
                         <input id="meta-certifications" type="text" placeholder="e.g. AWS Certified Developer, PMP" value={metadata.certifications_raw || ''} onChange={(e) => setValue('certifications_raw', e.target.value)}
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-600 text-sm focus:outline-none focus:border-emerald-500 transition" />
+                            className="w-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-slate-900 dark:text-slate-100 placeholder-slate-500 dark:placeholder-gray-600 text-sm focus:outline-none focus:border-emerald-500 transition" />
                     </div>
                 </div>
                 <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                        <h3 className="text-base font-semibold text-white">Education</h3>
+                        <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Education</h3>
                         <button type="button" id="btn-add-education" onClick={() => addArrayItem('education', { institution: '', degree: '', year: '' })}
-                            className="text-xs px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition min-h-[36px]">Add Education</button>
+                            className="text-xs px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 text-slate-700 dark:text-white transition min-h-[36px]">Add Education</button>
                     </div>
                     {education.map((item, i) => (
                         <div key={`education-${i}`} className="grid grid-cols-1 md:grid-cols-3 gap-2 bg-white/5 border border-white/10 rounded-xl p-3">
@@ -278,9 +278,9 @@ function StepMetadata({ docType, metadata, onChange }) {
                 </div>
                 <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                        <h3 className="text-base font-semibold text-white">Experience</h3>
+                        <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Experience</h3>
                         <button type="button" id="btn-add-experience" onClick={() => addArrayItem('experience', { company: '', role: '', duration: '', bullets_raw: '' })}
-                            className="text-xs px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition min-h-[36px]">Add Experience</button>
+                            className="text-xs px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 text-slate-700 dark:text-white transition min-h-[36px]">Add Experience</button>
                     </div>
                     {experience.map((item, i) => (
                         <div key={`experience-${i}`} className="grid grid-cols-1 md:grid-cols-2 gap-2 bg-white/5 border border-white/10 rounded-xl p-3">
@@ -305,8 +305,8 @@ function StepMetadata({ docType, metadata, onChange }) {
     return (
         <div className="space-y-6">
             <div>
-                <h2 className="text-2xl font-bold text-white mb-1">Document Details</h2>
-                <p className="text-gray-400 text-sm">Provide details for your {docType.replace('_', ' ')}.</p>
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-1">Document Details</h2>
+                <p className="text-slate-500 dark:text-gray-400 text-sm">Provide details for your {docType.replace('_', ' ')}.</p>
             </div>
             <div className="grid grid-cols-1 gap-4">
                 <div>
@@ -339,10 +339,10 @@ function StepGenerate({ status, progress, stage, message, error, outline, onDown
     return (
         <div className="space-y-8">
             <div>
-                <h2 className="text-2xl font-bold text-white mb-1">
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-1">
                     {status === 'done' ? 'Document Ready!' : status === 'failed' ? 'Generation Failed' : 'Generating Your Document...'}
                 </h2>
-                <p className="text-gray-400 text-sm">{message || 'AI is working on your document...'}</p>
+                <p className="text-slate-500 dark:text-gray-400 text-sm">{message || 'AI is working on your document...'}</p>
             </div>
 
             {status !== 'failed' && (
@@ -375,7 +375,7 @@ function StepGenerate({ status, progress, stage, message, error, outline, onDown
 
             {outline?.length > 0 && (
                 <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-                    <h3 className="text-sm font-semibold text-white mb-3">Generated Structure Preview</h3>
+                    <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3">Generated Structure Preview</h3>
                     <ul className="space-y-1.5 text-sm text-gray-300 max-h-56 overflow-y-auto pr-2">
                         {outline.map((item, i) => (
                             <li key={`${item}-${i}`} className="flex gap-2">
@@ -402,12 +402,12 @@ function StepGenerate({ status, progress, stage, message, error, outline, onDown
                         Download DOCX
                     </button>
                     <button id="btn-download-pdf" onClick={() => onDownload('pdf')}
-                        className="flex items-center gap-2 px-6 py-3 bg-white/10 text-white rounded-xl font-semibold text-sm hover:bg-white/20 transition active:scale-95">
+                        className="flex items-center gap-2 px-6 py-3 bg-slate-100 dark:bg-white/10 text-slate-800 dark:text-white rounded-xl font-semibold text-sm hover:bg-slate-200 dark:hover:bg-white/20 transition active:scale-95">
                         <span className="material-symbols-outlined text-base">picture_as_pdf</span>
                         Download PDF
                     </button>
                     <button id="btn-generate-another" onClick={onReset}
-                        className="flex items-center gap-2 px-6 py-3 bg-white/10 text-white rounded-xl font-semibold text-sm hover:bg-white/20 transition active:scale-95">
+                        className="flex items-center gap-2 px-6 py-3 bg-slate-100 dark:bg-white/10 text-slate-800 dark:text-white rounded-xl font-semibold text-sm hover:bg-slate-200 dark:hover:bg-white/20 transition active:scale-95">
                         <span className="material-symbols-outlined text-base">add</span>
                         Generate Another
                     </button>
@@ -416,7 +416,7 @@ function StepGenerate({ status, progress, stage, message, error, outline, onDown
 
             {status === 'failed' && (
                 <button id="btn-try-again" onClick={onReset}
-                    className="flex items-center gap-2 px-6 py-3 bg-white/10 text-white rounded-xl font-semibold text-sm hover:bg-white/20 transition active:scale-95">
+                    className="flex items-center gap-2 px-6 py-3 bg-slate-100 dark:bg-white/10 text-slate-800 dark:text-white rounded-xl font-semibold text-sm hover:bg-slate-200 dark:hover:bg-white/20 transition active:scale-95">
                     <span className="material-symbols-outlined text-base">refresh</span>
                     Try Again
                 </button>
@@ -559,14 +559,14 @@ export default function DocumentGenerator() {
     ];
 
     return (
-        <div className="min-h-screen bg-gray-950 text-white">
+        <div className="min-h-screen bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100">
             <div className="max-w-4xl mx-auto px-4 py-10">
                 <div className="text-center mb-10">
                     <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary-light text-xs font-medium mb-4">
                         <span className="material-symbols-outlined text-sm">auto_awesome</span>
                         AI Document Generator
                     </div>
-                    <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent mb-2">Generate from Scratch</h1>
+                    <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-slate-900 to-slate-500 dark:from-white dark:to-gray-400 bg-clip-text text-transparent mb-2">Generate from Scratch</h1>
                     <p className="text-gray-500 text-sm">No file upload needed - describe your document, the AI writes it.</p>
                 </div>
 
@@ -581,7 +581,7 @@ export default function DocumentGenerator() {
                                     <span className="material-symbols-outlined text-sm">{isDone ? 'check_circle' : stepItem.icon}</span>
                                     <span className="hidden sm:inline">{stepItem.label}</span>
                                 </div>
-                                {index < STEPS.length - 1 && <div className={`w-8 h-px mx-1 ${isDone ? 'bg-green-500/40' : 'bg-white/10'}`} />}
+                                {index < STEPS.length - 1 && <div className={`w-8 h-px mx-1 ${isDone ? 'bg-green-500/40' : 'bg-slate-300 dark:bg-white/10'}`} />}
                             </div>
                         );
                     })}
@@ -594,9 +594,9 @@ export default function DocumentGenerator() {
                     {step === 4 && <StepGenerate {...jobStatus} onDownload={handleDownload} onReset={handleReset} />}
 
                     {step < 4 && (
-                        <div className="flex justify-between mt-10 pt-6 border-t border-white/10">
+                        <div className="flex justify-between mt-10 pt-6 border-t border-slate-200 dark:border-white/10">
                             <button id="btn-back" onClick={() => setStep((c) => Math.max(1, c - 1))} disabled={step === 1}
-                                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/5 text-gray-300 text-sm font-medium hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition min-h-[44px]">
+                                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-gray-300 text-sm font-medium hover:bg-slate-200 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition min-h-[44px]">
                                 <span className="material-symbols-outlined text-base">arrow_back</span>
                                 Back
                             </button>

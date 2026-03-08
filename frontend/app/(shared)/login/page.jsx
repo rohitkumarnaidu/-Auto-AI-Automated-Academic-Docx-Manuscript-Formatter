@@ -8,16 +8,9 @@ import { useAuth } from '@/src/context/AuthContext';
 
 export default function Login() {
     usePageTitle('Sign In');
-    const { signIn, signInWithGoogle } = useAuth();
+    const { signIn, signInWithGoogle, isLoggedIn } = useAuth();
     const router = useRouter();
     const searchParams = useSearchParams();
-    const navigate = (href, options = {}) => {
-        if (options?.replace) {
-            router.replace(href);
-            return;
-        }
-        router.push(href);
-    };
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -35,10 +28,13 @@ export default function Login() {
         const { error: signInError } = await signIn(email, password);
         if (signInError) {
             console.error(signInError);
-            setError(signInError); // Already a string from AuthContext/api.js
+            setError(signInError);
             setLocalLoading(false);
         } else {
-            navigate(redirectPath, { replace: true });
+            // Use window.location for a full page load instead of client-side nav.
+            // This ensures initializeAuth() runs fresh on the dashboard page
+            // and reads the Supabase session from localStorage correctly.
+            window.location.href = redirectPath;
         }
     };
 

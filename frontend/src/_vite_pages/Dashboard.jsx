@@ -17,7 +17,7 @@ export default function Dashboard() {
         isLoading: loadingHistory,
         isFetching: fetchingHistory,
         refetch: refreshHistory,
-    } = useDocuments({ limit: 300 });
+    } = useDocuments({ limit: 100 });
 
     const history = documentsPayload?.documents || [];
     const activityJobs = useMemo(() => history.slice(0, 300), [history]);

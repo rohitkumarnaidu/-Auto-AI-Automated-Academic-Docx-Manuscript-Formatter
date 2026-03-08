@@ -401,11 +401,11 @@ export default function Compare() {
                             <iframe
                                 title="Authoritative backend diff"
                                 srcDoc={htmlDiffDocument}
-                                className="w-full min-h-[620px] h-full border-0 bg-white dark:bg-slate-900"
+                                className="w-full min-h-[420px] sm:min-h-[620px] h-full border-0 bg-white dark:bg-slate-900"
                             />
                         </div>
                     ) : (
-                        <div className="flex-1 flex flex-col lg:flex-row gap-4 min-h-[600px]">
+                        <div className="flex-1 flex flex-col lg:flex-row gap-4 min-h-[420px] sm:min-h-[520px] lg:min-h-[600px]">
                             {/* Left Panel: Original */}
                             <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
                                 <div className="px-6 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 flex justify-between items-center">
@@ -415,7 +415,7 @@ export default function Compare() {
                                     </h3>
                                     <span className="text-[10px] text-slate-400">Source: {job.originalFileName}</span>
                                 </div>
-                                <div className={`flex-1 p-8 overflow-y-auto custom-scrollbar leading-relaxed text-slate-800 dark:text-slate-300 font-serif text-[15px] ${scrollSync ? 'scroll-sync-left' : ''}`}>
+                                <div className={`flex-1 p-4 sm:p-8 overflow-y-auto custom-scrollbar leading-relaxed text-slate-800 dark:text-slate-300 font-serif text-[15px] ${scrollSync ? 'scroll-sync-left' : ''}`}>
                                     <div className="max-w-2xl mx-auto space-y-1">
                                         {diffs.left.map((line, i) => (
                                             <div key={i} className={`min-h-[24px] ${effectiveHighlights && line.type === 'removed'
@@ -453,7 +453,7 @@ export default function Compare() {
                                         </span>
                                     </div>
                                 </div>
-                                <div className={`flex-1 p-8 overflow-y-auto custom-scrollbar bg-white dark:bg-slate-900 ${scrollSync ? 'scroll-sync-right' : ''}`}>
+                                <div className={`flex-1 p-4 sm:p-8 overflow-y-auto custom-scrollbar bg-white dark:bg-slate-900 ${scrollSync ? 'scroll-sync-right' : ''}`}>
                                     <div className="max-w-2xl mx-auto space-y-1">
                                         {diffs.right.map((line, i) => (
                                             <div key={i}

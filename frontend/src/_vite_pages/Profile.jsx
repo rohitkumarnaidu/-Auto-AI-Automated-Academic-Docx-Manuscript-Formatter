@@ -324,8 +324,7 @@ export default function Profile() {
                         </button>
                         <button
                             onClick={async () => {
-                                await signOut();
-                                navigate('/');
+                                await signOut({ redirectToLogin: true });
                             }}
                             className="flex items-center justify-between p-5 bg-white dark:bg-slate-900 border border-red-100 dark:border-red-900/20 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/10 transition-all group text-left"
                         >

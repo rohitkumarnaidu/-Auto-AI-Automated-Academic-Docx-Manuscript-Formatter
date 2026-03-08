@@ -19,7 +19,7 @@ export default function DashboardPage() {
         isLoading: loadingHistory,
         isFetching: fetchingHistory,
         refetch: refreshHistory,
-    } = useDocuments({ limit: 300 });
+    } = useDocuments({ limit: 100 });
 
     const history = useMemo(() => documentsPayload?.documents || [], [documentsPayload]);
     const activityJobs = useMemo(() => history.slice(0, 300), [history]);
@@ -197,84 +197,86 @@ export default function DashboardPage() {
                                     </div>
                                 </div>
                             ) : (
-                                <div role="table" aria-label="Recent manuscript activity" className="w-full">
-                                    <div
-                                        role="rowgroup"
-                                        className="grid grid-cols-[minmax(220px,2fr)_minmax(140px,1fr)_minmax(180px,1fr)_110px] bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"
-                                    >
-                                        <div role="columnheader">Manuscript Title</div>
-                                        <div role="columnheader">Status</div>
-                                        <div role="columnheader">Last Modified</div>
-                                        <div role="columnheader" className="text-right">Actions</div>
-                                    </div>
-
-                                    <div
-                                        ref={activityParentRef}
-                                        className="max-h-[520px] overflow-auto"
-                                        role="rowgroup"
-                                        aria-label="Virtualized manuscript rows"
-                                    >
+                                <div className="w-full overflow-x-auto [-webkit-overflow-scrolling:touch]">
+                                    <div role="table" aria-label="Recent manuscript activity" className="w-full min-w-[650px]">
                                         <div
-                                            style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: 'relative' }}
+                                            role="rowgroup"
+                                            className="grid grid-cols-[minmax(220px,2fr)_minmax(140px,1fr)_minmax(180px,1fr)_110px] bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"
                                         >
-                                            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                                                const job = activityJobs[virtualRow.index];
-                                                const completed = isCompleted(job?.status);
-                                                const processing = isProcessing(job?.status);
-                                                const timestamp = job?.timestamp || job?.created_at || new Date().toISOString();
+                                            <div role="columnheader">Manuscript Title</div>
+                                            <div role="columnheader">Status</div>
+                                            <div role="columnheader">Last Modified</div>
+                                            <div role="columnheader" className="text-right">Actions</div>
+                                        </div>
 
-                                                return (
-                                                    <div
-                                                        key={job?.id || virtualRow.key}
-                                                        role="row"
-                                                        className="grid grid-cols-[minmax(220px,2fr)_minmax(140px,1fr)_minmax(180px,1fr)_110px] items-center px-6 py-5 border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors"
-                                                        style={{
-                                                            position: 'absolute',
-                                                            top: 0,
-                                                            left: 0,
-                                                            width: '100%',
-                                                            transform: `translateY(${virtualRow.start}px)`,
-                                                        }}
-                                                    >
-                                                        <div role="cell" className="flex items-center gap-3 min-w-0 pr-3">
-                                                            <span className="material-symbols-outlined text-slate-400">article</span>
-                                                            <span className="text-slate-900 dark:text-white font-medium truncate">{job?.originalFileName || job?.filename || 'Untitled'}</span>
+                                        <div
+                                            ref={activityParentRef}
+                                            className="max-h-[520px] overflow-y-auto overflow-x-hidden"
+                                            role="rowgroup"
+                                            aria-label="Virtualized manuscript rows"
+                                        >
+                                            <div
+                                                style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: 'relative' }}
+                                            >
+                                                {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                                                    const job = activityJobs[virtualRow.index];
+                                                    const completed = isCompleted(job?.status);
+                                                    const processing = isProcessing(job?.status);
+                                                    const timestamp = job?.timestamp || job?.created_at || new Date().toISOString();
+
+                                                    return (
+                                                        <div
+                                                            key={job?.id || virtualRow.key}
+                                                            role="row"
+                                                            className="grid grid-cols-[minmax(220px,2fr)_minmax(140px,1fr)_minmax(180px,1fr)_110px] items-center px-6 py-5 border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors"
+                                                            style={{
+                                                                position: 'absolute',
+                                                                top: 0,
+                                                                left: 0,
+                                                                width: '100%',
+                                                                transform: `translateY(${virtualRow.start}px)`,
+                                                            }}
+                                                        >
+                                                            <div role="cell" className="flex items-center gap-3 min-w-0 pr-3">
+                                                                <span className="material-symbols-outlined text-slate-400">article</span>
+                                                                <span className="text-slate-900 dark:text-white font-medium truncate">{job?.originalFileName || job?.filename || 'Untitled'}</span>
+                                                            </div>
+                                                            <div role="cell" className="pr-3">
+                                                                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${completed
+                                                                    ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                                                                    : processing
+                                                                        ? 'bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary'
+                                                                        : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
+                                                                    }`}>
+                                                                    <span className={`w-1.5 h-1.5 rounded-full mr-2 ${completed ? 'bg-green-600 dark:bg-green-400' : 'bg-primary animate-pulse'}`}></span>
+                                                                    {completed ? 'Validated' : processing ? 'In Progress' : 'Pending'}
+                                                                </span>
+                                                            </div>
+                                                            <div role="cell" className="text-slate-500 dark:text-slate-400 text-sm pr-3">
+                                                                {new Date(timestamp).toLocaleString('en-US', {
+                                                                    month: 'short',
+                                                                    day: 'numeric',
+                                                                    year: 'numeric',
+                                                                    hour: '2-digit',
+                                                                    minute: '2-digit',
+                                                                })}
+                                                            </div>
+                                                            <div role="cell" className="text-right">
+                                                                {completed ? (
+                                                                    <Link
+                                                                        href={job?.id ? `/jobs/${encodeURIComponent(job.id)}/download` : '/download'}
+                                                                        className="text-primary hover:text-primary/80 font-bold text-sm transition-colors"
+                                                                    >
+                                                                        Download
+                                                                    </Link>
+                                                                ) : (
+                                                                    <Link href="/upload" className="text-primary hover:text-primary/80 font-bold text-sm transition-colors">Continue</Link>
+                                                                )}
+                                                            </div>
                                                         </div>
-                                                        <div role="cell" className="pr-3">
-                                                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${completed
-                                                                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                                                                : processing
-                                                                    ? 'bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary'
-                                                                    : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
-                                                                }`}>
-                                                                <span className={`w-1.5 h-1.5 rounded-full mr-2 ${completed ? 'bg-green-600 dark:bg-green-400' : 'bg-primary animate-pulse'}`}></span>
-                                                                {completed ? 'Validated' : processing ? 'In Progress' : 'Pending'}
-                                                            </span>
-                                                        </div>
-                                                        <div role="cell" className="text-slate-500 dark:text-slate-400 text-sm pr-3">
-                                                            {new Date(timestamp).toLocaleString('en-US', {
-                                                                month: 'short',
-                                                                day: 'numeric',
-                                                                year: 'numeric',
-                                                                hour: '2-digit',
-                                                                minute: '2-digit',
-                                                            })}
-                                                        </div>
-                                                        <div role="cell" className="text-right">
-                                                            {completed ? (
-                                                                <Link
-                                                                    href={job?.id ? `/jobs/${encodeURIComponent(job.id)}/download` : '/download'}
-                                                                    className="text-primary hover:text-primary/80 font-bold text-sm transition-colors"
-                                                                >
-                                                                    Download
-                                                                </Link>
-                                                            ) : (
-                                                                <Link href="/upload" className="text-primary hover:text-primary/80 font-bold text-sm transition-colors">Continue</Link>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

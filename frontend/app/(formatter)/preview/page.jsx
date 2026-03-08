@@ -3,7 +3,8 @@ import usePageTitle from '@/src/hooks/usePageTitle';
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import PreviewView from '@/src/components/Preview';
-import { useDocument } from '@/src/context/DocumentContext';
+import useJobFromUrl from '@/src/hooks/useJobFromUrl';
+import Footer from '@/src/components/Footer';
 
 export default function Preview() {
     usePageTitle('Preview');
@@ -15,8 +16,37 @@ export default function Preview() {
         }
         router.push(href);
     };
-    const { job } = useDocument();
+    const { job, isLoading: isJobLoading, error: jobLoadError } = useJobFromUrl();
 
+    // Gate: loading job from URL
+    if (isJobLoading && !job) {
+        return (
+            <div className="min-h-screen flex flex-col bg-background-light dark:bg-background-dark">
+                <main className="flex-1 flex flex-col items-center justify-center">
+                    <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+                    <p className="text-slate-500 dark:text-slate-400">Loading preview...</p>
+                </main>
+                <Footer variant="app" />
+            </div>
+        );
+    }
+
+    // Gate: error loading job from URL
+    if (jobLoadError && !job) {
+        return (
+            <div className="min-h-screen flex flex-col bg-background-light dark:bg-background-dark">
+                <main className="flex-1 flex flex-col items-center justify-center px-4 text-center">
+                    <p className="text-red-600 dark:text-red-400 mb-3">{jobLoadError}</p>
+                    <button onClick={() => navigate('/history')} className="text-primary font-bold hover:underline">
+                        Return to History
+                    </button>
+                </main>
+                <Footer variant="app" />
+            </div>
+        );
+    }
+
+    // Gate: no job in context or URL
     if (!job) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-background-light dark:bg-background-dark">

@@ -8,6 +8,7 @@ import Footer from '@/src/components/Footer';
 import ValidationCard from '@/src/components/ValidationCard';
 import { useDocument } from '@/src/context/DocumentContext';
 import { getPreview } from '@/src/services/api';
+import useJobFromUrl from '@/src/hooks/useJobFromUrl';
 
 function ValidationResults() {
     const router = useRouter();
@@ -18,7 +19,8 @@ function ValidationResults() {
         }
         router.push(href);
     };
-    const { job, setJob } = useDocument();
+    const { setJob } = useDocument();
+    const { job, isLoading: isJobLoading, error: jobLoadError } = useJobFromUrl();
     const [activeTab, setActiveTab] = useState('all');
     const [resolvedResult, setResolvedResult] = useState(job?.result || null);
     const [isLoadingResult, setIsLoadingResult] = useState(false);
@@ -92,10 +94,39 @@ function ValidationResults() {
         };
     }, [job, job?.id, job?.result, setJob]);
 
+    // Gate: loading job from URL
+    if (isJobLoading && !job) {
+        return (
+            <div className="min-h-screen flex flex-col bg-background-light dark:bg-background-dark">
+                <main className="flex-1 flex flex-col items-center justify-center">
+                    <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+                    <p className="text-slate-500 dark:text-slate-400">Loading document details...</p>
+                </main>
+                <Footer variant="app" />
+            </div>
+        );
+    }
+
+    // Gate: error loading job from URL
+    if (jobLoadError && !job) {
+        return (
+            <div className="min-h-screen flex flex-col bg-background-light dark:bg-background-dark">
+                <main className="flex-1 flex flex-col items-center justify-center px-4 text-center">
+                    <p className="text-red-600 dark:text-red-400 mb-3">{jobLoadError}</p>
+                    <button onClick={() => navigate('/history')} className="text-primary font-bold hover:underline">
+                        Return to History
+                    </button>
+                </main>
+                <Footer variant="app" />
+            </div>
+        );
+    }
+
+    // Gate: no job in context or URL
     if (!job) {
         return (
             <div className="min-h-screen flex flex-col bg-background-light dark:bg-background-dark">
-                                <main className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+                <main className="flex-1 flex flex-col items-center justify-center p-6 text-center">
                     <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
                         <span className="material-symbols-outlined text-slate-400 text-3xl">find_in_page</span>
                     </div>
@@ -110,7 +141,7 @@ function ValidationResults() {
     if (isLoadingResult && !resolvedResult) {
         return (
             <div className="min-h-screen flex flex-col bg-background-light dark:bg-background-dark">
-                                <main className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+                <main className="flex-1 flex flex-col items-center justify-center p-6 text-center">
                     <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
                     <p className="text-slate-500 dark:text-slate-400">Loading validation results...</p>
                 </main>
@@ -122,7 +153,7 @@ function ValidationResults() {
     if (!resolvedResult) {
         return (
             <div className="min-h-screen flex flex-col bg-background-light dark:bg-background-dark">
-                                <main className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+                <main className="flex-1 flex flex-col items-center justify-center p-6 text-center">
                     <div className="w-16 h-16 bg-red-50 dark:bg-red-900/20 text-red-500 rounded-full flex items-center justify-center mb-4">
                         <span className="material-symbols-outlined text-3xl">error</span>
                     </div>
@@ -185,7 +216,7 @@ function ValidationResults() {
 
     return (
         <>
-            
+
             <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <nav className="flex flex-wrap items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400">
                     <Link href="/history" className="hover:text-primary transition-colors">My Files</Link>
