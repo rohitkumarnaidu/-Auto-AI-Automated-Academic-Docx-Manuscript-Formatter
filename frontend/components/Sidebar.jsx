@@ -29,7 +29,7 @@ const isInternalPath = (value) => value.startsWith('/') && !value.startsWith('//
 export default function Sidebar({ section = 'shared', onClose, isCollapsed = false }) {
     const pathname = usePathname();
     const router = useRouter();
-    const { user } = useAuth();
+    const { user, signOut } = useAuth();
 
     const activeMode = section === 'generator'
         ? 'generator'
@@ -76,6 +76,11 @@ export default function Sidebar({ section = 'shared', onClose, isCollapsed = fal
             router.push('/upload');
         }
 
+        if (onClose) onClose();
+    };
+
+    const handleSignOut = async () => {
+        await signOut({ redirectToLogin: true });
         if (onClose) onClose();
     };
 
@@ -153,7 +158,7 @@ export default function Sidebar({ section = 'shared', onClose, isCollapsed = fal
             </nav>
 
             {/* Action Button — BOTTOM, pushed down by flex-1 nav above */}
-            <div className={`pt-4 border-t border-slate-200/60 dark:border-white/[0.08] ${isCollapsed ? 'flex justify-center' : ''}`}>
+            <div className={`pt-4 border-t border-slate-200/60 dark:border-white/[0.08] flex flex-col gap-2 ${isCollapsed ? 'items-center' : ''}`}>
                 <button
                     onClick={() => handleNavigation(actionHref)}
                     title={isCollapsed ? actionLabel : undefined}
@@ -163,6 +168,16 @@ export default function Sidebar({ section = 'shared', onClose, isCollapsed = fal
                     <span className="material-symbols-outlined shrink-0 text-[20px]">{actionIcon}</span>
                     {!isCollapsed && <span className="truncate">{actionLabel}</span>}
                 </button>
+                {user && (
+                    <button
+                        onClick={handleSignOut}
+                        title={isCollapsed ? 'Sign Out' : undefined}
+                        className={`h-10 flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ${isCollapsed ? 'w-11 px-0' : 'w-full px-4'}`}
+                    >
+                        <span className="material-symbols-outlined shrink-0 text-[20px]">logout</span>
+                        {!isCollapsed && <span className="truncate font-semibold">Sign Out</span>}
+                    </button>
+                )}
             </div>
         </div>
 

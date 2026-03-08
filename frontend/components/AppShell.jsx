@@ -89,7 +89,7 @@ export default function AppShell({ children, section = 'shared' }) {
             {/* Sidebar — shows for all users on app routes */}
             {/* Sidebar.jsx handles guest vs user links internally */}
             <div
-                className={`fixed left-0 hidden lg:flex flex-col justify-start z-40 transition-all duration-300 ease-in-out overflow-y-auto bg-white/60 dark:bg-slate-950/60 backdrop-blur-2xl border-r border-slate-200/50 dark:border-white/[0.06] ${isDesktopSidebarOpen ? 'w-[240px]' : 'w-[72px] items-center'}`}
+                className={`fixed left-0 hidden lg:flex flex-col justify-start z-40 transition-all duration-300 ease-in-out overflow-y-auto sidebar-desktop ${isDesktopSidebarOpen ? 'w-[240px]' : 'w-[72px] items-center'}`}
                 style={{ top: '56px', bottom: 0 }}
             >
                 <div className="w-full h-full flex flex-col">

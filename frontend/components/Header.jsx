@@ -37,7 +37,7 @@ const isInternalPath = (value) => value.startsWith('/') && !value.startsWith('//
 export default function Header({ section = 'shared', isSidebarLayout = false, onOpenMobileSidebar }) {
     const pathname = usePathname();
     const router = useRouter();
-    const { user, signOut } = useAuth();
+    const { user } = useAuth();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     const isAuthRoute = AUTH_ROUTES.some((route) => pathname.startsWith(route));
@@ -76,9 +76,6 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
             ? 'New Draft'
             : 'New Format'
         : 'Get Started';
-    const handleSignOut = async () => {
-        await signOut({ redirectToLogin: true });
-    };
 
     useEffect(() => {
         setIsMobileMenuOpen(false);
@@ -145,33 +142,23 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
     // Sidebar layout header — for both guests and logged-in users on app routes.
     // Shows Login/Sign Up for guests, avatar/bell for users (handled below).
     if (isSidebarLayout) {
-        const sidebarHeaderClassName = isUploadRoute
-            ? 'sticky top-0 z-50 w-full bg-white/60 dark:bg-slate-950/60 backdrop-blur-2xl pt-2 pb-1'
-            : 'app-header sticky top-0 z-40 w-full px-2 sm:px-3 py-1';
+        const sidebarHeaderClassName = 'sticky top-0 z-50 w-full bg-white/60 dark:bg-slate-950/60 backdrop-blur-2xl pt-2 pb-1';
 
-        const sidebarPanelClassName = isUploadRoute
-            ? ''
-            : 'relative overflow-hidden rounded-2xl border border-white/70 dark:border-white/[0.10] bg-white/55 dark:bg-slate-950/45 backdrop-blur-2xl shadow-[0_14px_34px_rgba(15,23,42,0.12)] dark:shadow-[0_22px_48px_rgba(2,6,23,0.45)]';
+        const sidebarContainerClassName = isUploadRoute
+            ? 'mx-auto max-w-[1600px] px-4 xl:px-8'
+            : 'mx-auto max-w-[1240px] px-4 sm:px-6';
 
         const sidebarRowClassName = isUploadRoute
-            ? 'flex xl:px-8 h-[72px] items-center px-4 gap-4 max-w-[1600px] mx-auto'
-            : 'relative flex h-12 items-center px-3 sm:px-4 xl:px-6 gap-4 max-w-[1600px] mx-auto';
+            ? 'flex h-[72px] items-center justify-between gap-4'
+            : 'flex h-14 items-center justify-between gap-4';
 
-        const userControlRailClassName = isUploadRoute
-            ? 'flex items-center gap-2 sm:gap-3 shrink-0'
-            : 'flex items-center gap-1.5 rounded-2xl border border-white/70 dark:border-white/[0.10] bg-white/45 dark:bg-white/[0.03] px-1.5 py-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]';
+        const userControlRailClassName = 'flex items-center gap-2 sm:gap-3 shrink-0';
 
-        const iconPillButtonClassName = isUploadRoute
-            ? 'h-10 w-10 inline-flex items-center justify-center rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-700 dark:text-slate-300 shrink-0'
-            : 'h-9 w-9 inline-flex items-center justify-center rounded-xl border border-white/65 dark:border-white/[0.10] bg-white/45 dark:bg-white/[0.03] text-slate-700 dark:text-slate-200 hover:bg-white/75 dark:hover:bg-white/[0.08] transition-colors shrink-0';
+        const iconPillButtonClassName = 'h-10 w-10 inline-flex items-center justify-center rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-700 dark:text-slate-300 shrink-0';
 
         return (
             <header className={sidebarHeaderClassName}>
-                <div className={sidebarPanelClassName}>
-                    {!isUploadRoute && (
-                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-violet-200/30 via-white/5 to-cyan-200/30 dark:from-violet-500/15 dark:via-white/[0.02] dark:to-cyan-400/15" />
-                    )}
-
+                <div className={sidebarContainerClassName}>
                     <div className={sidebarRowClassName}>
                     {/* Left: Hamburger & Logo */}
                     <div className="flex items-center gap-3">
@@ -200,18 +187,13 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
                                 <NotificationBell />
                                 <button
                                     onClick={() => router.push('/profile')}
-                                    className="h-9 w-9 rounded-full overflow-hidden border border-white/70 dark:border-white/[0.10] bg-white/45 dark:bg-white/[0.03] hover:bg-white/75 dark:hover:bg-white/[0.08] transition-colors"
+                                    className="h-10 w-10 rounded-full border border-white/70 dark:border-white/[0.10] bg-white/45 dark:bg-white/[0.03] hover:bg-white/75 dark:hover:bg-white/[0.08] transition-colors p-0.5"
                                     aria-label="User Profile"
+                                    title="Profile"
                                 >
-                                    <div className="w-full h-full bg-gradient-to-br from-violet-100 to-indigo-100 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-100 font-bold text-sm">
-                                        {user.email?.charAt(0).toUpperCase() || 'U'}
+                                    <div className="w-full h-full rounded-full bg-gradient-to-br from-violet-100 to-indigo-100 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-100">
+                                        <span className="material-symbols-outlined text-[20px] leading-none">account_circle</span>
                                     </div>
-                                </button>
-                                <button
-                                    onClick={handleSignOut}
-                                    className="h-9 px-3 hidden sm:inline-flex items-center rounded-xl border border-white/70 dark:border-white/[0.10] bg-white/45 dark:bg-white/[0.03] text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-white/75 dark:hover:bg-white/[0.08] transition-colors"
-                                >
-                                    Sign Out
                                 </button>
                             </div>
                         ) : (
@@ -261,16 +243,11 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
                                     onClick={() => router.push('/profile')}
                                     className="h-9 w-9 rounded-full overflow-hidden border border-slate-300 dark:border-slate-700 hover:border-primary transition-colors"
                                     aria-label="User Profile"
+                                    title="Profile"
                                 >
                                     <div className="w-full h-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-100 font-bold text-sm">
-                                        {user.email?.charAt(0).toUpperCase() || 'U'}
+                                        <span className="material-symbols-outlined text-[18px]">person</span>
                                     </div>
-                                </button>
-                                <button
-                                    onClick={handleSignOut}
-                                    className="h-9 px-3 hidden sm:inline-flex items-center rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                                >
-                                    Sign Out
                                 </button>
                             </>
                         ) : !isAuthRoute ? (
@@ -380,12 +357,6 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
                                         className="h-10 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                                     >
                                         Profile
-                                    </button>
-                                    <button
-                                        onClick={handleSignOut}
-                                        className="h-10 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold transition-colors"
-                                    >
-                                        Sign Out
                                     </button>
                                 </>
                             ) : isAuthRoute ? (
