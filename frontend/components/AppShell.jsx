@@ -89,7 +89,7 @@ export default function AppShell({ children, section = 'shared' }) {
             {/* Sidebar — shows for all users on app routes */}
             {/* Sidebar.jsx handles guest vs user links internally */}
             <div
-                className={`fixed left-0 hidden lg:flex flex-col justify-start z-40 transition-all duration-300 ease-in-out overflow-y-auto sidebar-desktop ${isDesktopSidebarOpen ? 'w-[240px]' : 'w-[72px] items-center'}`}
+                className={`fixed left-0 hidden lg:flex flex-col justify-start z-40 transition-all duration-300 ease-in-out overflow-y-auto sidebar-desktop bg-white/60 dark:bg-slate-950/60 backdrop-blur-2xl ${isDesktopSidebarOpen ? 'w-[240px]' : 'w-[72px] items-center'}`}
                 style={{ top: '56px', bottom: 0 }}
             >
                 <div className="w-full h-full flex flex-col">
@@ -101,7 +101,7 @@ export default function AppShell({ children, section = 'shared' }) {
             {isMobileSidebarOpen && (
                 <div className="lg:hidden fixed inset-0 z-50 flex">
                     <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={() => setIsMobileSidebarOpen(false)} />
-                    <div className="sidebar-mobile relative flex flex-col w-[260px] h-full shadow-2xl animate-in slide-in-from-left duration-300">
+                    <div className="sidebar-mobile relative flex flex-col w-[260px] h-full shadow-2xl animate-in slide-in-from-left duration-300 bg-white/60 dark:bg-slate-950/60 backdrop-blur-2xl">
                         <Sidebar section={section} onClose={() => setIsMobileSidebarOpen(false)} isCollapsed={false} />
                     </div>
                 </div>

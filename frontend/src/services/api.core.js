@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabaseClient';
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+export const API_BASE = API_BASE_URL;
 
 const SUPPORTED_EXPORT_FORMATS = ['docx', 'pdf'];
 const RETRYABLE_STATUS_CODES = [408, 429, 500, 502, 503, 504];
@@ -66,7 +67,7 @@ const sanitizeValue = (value, path = '') => {
 
 export const sanitizePayload = (payload) => sanitizeValue(payload);
 
-const isNetworkError = (error) => {
+export const isNetworkError = (error) => {
     if (!error) return false;
 
     const message = String(error.message || error).toLowerCase();
@@ -147,6 +148,7 @@ export const getFriendlyErrorMessage = ({
 
     return 'Something went wrong. Please try again.';
 };
+export const friendlyErrorMessage = getFriendlyErrorMessage;
 
 const shouldRetryRequest = ({ method = 'GET', status, error, attempt, maxRetries }) => {
     if (attempt >= maxRetries) {
@@ -223,6 +225,7 @@ const withAuthHeader = async (initialHeaders = {}) => {
 };
 
 export const getAuthorizedHeaders = withAuthHeader;
+export const getAuthHeaders = getAuthorizedHeaders;
 
 const parseResponseData = async (response) => {
     if (!response || response.status === 204) {

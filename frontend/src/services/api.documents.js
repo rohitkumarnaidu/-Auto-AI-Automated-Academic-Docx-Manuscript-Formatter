@@ -1,5 +1,3 @@
-import { useQuery } from '@tanstack/react-query';
-
 import {
     API_BASE_URL,
     CHUNK_SIZE_BYTES,
@@ -71,7 +69,7 @@ const normalizeQueryParams = (params = {}) => (
 const DOCUMENTS_LIMIT_MIN = 1;
 const DOCUMENTS_LIMIT_MAX = 100;
 
-const normalizeDocumentsParams = (params = {}) => {
+export const normalizeDocumentsParams = (params = {}) => {
     const normalizedParams = normalizeQueryParams(params);
 
     if ('limit' in normalizedParams) {
@@ -96,7 +94,7 @@ const normalizeDocumentsParams = (params = {}) => {
     return normalizedParams;
 };
 
-const mapDocumentRecord = (doc) => ({
+export const mapDocumentRecord = (doc) => ({
     ...doc,
     originalFileName: doc?.filename,
     timestamp: doc?.created_at,
@@ -125,22 +123,6 @@ export const getDocuments = async (params = {}) => {
     const query = new URLSearchParams(normalizedParams).toString();
     const endpoint = query ? `/api/documents?${query}` : '/api/documents';
     return fetchWithAuth(endpoint);
-};
-
-export const useDocuments = (params = {}, queryOptions = {}) => {
-    const normalizedParams = normalizeDocumentsParams(params);
-
-    return useQuery({
-        queryKey: ['documents', normalizedParams],
-        queryFn: () => getDocuments(normalizedParams),
-        select: (data) => ({
-            ...data,
-            documents: Array.isArray(data?.documents)
-                ? data.documents.map(mapDocumentRecord)
-                : [],
-        }),
-        ...queryOptions,
-    });
 };
 
 export const uploadDocument = async (file, template, options = {}, signal = null) => {
@@ -319,15 +301,6 @@ export const uploadChunked = async (file, options = {}) => {
 
 export const getJobStatus = async (jobId) => (
     fetchWithAuth(`/api/documents/${encodeURIComponent(jobId)}/status`)
-);
-
-export const useDocumentStatus = (jobId, queryOptions = {}) => (
-    useQuery({
-        queryKey: ['document-status', jobId],
-        queryFn: () => getJobStatus(jobId),
-        ...queryOptions,
-        enabled: Boolean(jobId) && (queryOptions.enabled ?? true),
-    })
 );
 
 export const getPreview = async (jobId, options = {}) => (

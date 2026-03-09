@@ -46,5 +46,6 @@ index.html
 build_*.txt
 build_out.txt
 build_err.txt
+build*.log
 devserver.*.log
 *.tsbuildinfo
