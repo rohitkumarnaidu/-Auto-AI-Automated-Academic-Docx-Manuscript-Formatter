@@ -26,7 +26,7 @@ export const useDocuments = (params = {}, queryOptions = {}) => {
 export const useDocumentStatus = (jobId, queryOptions = {}) => (
     useQuery({
         queryKey: ['document-status', jobId],
-        queryFn: () => getJobStatus(jobId),
+        queryFn: ({ signal }) => getJobStatus(jobId, { signal }),
         ...queryOptions,
         enabled: Boolean(jobId) && (queryOptions.enabled ?? true),
     })

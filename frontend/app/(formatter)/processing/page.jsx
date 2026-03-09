@@ -2,6 +2,7 @@
 import usePageTitle from '@/src/hooks/usePageTitle';
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 
 import Footer from '@/src/components/Footer';
 import Stepper from '@/src/components/Stepper';
@@ -53,6 +54,7 @@ export default function Processing() {
         router.push(href);
     }, [router]);
     const { job, setJob } = useDocument();
+    const queryClient = useQueryClient();
     const [progress, setProgress] = useState(0);
     const [phase, setPhase] = useState('Initializing...');
     const [activeStep, setActiveStep] = useState(0);
@@ -148,6 +150,12 @@ export default function Processing() {
         }
         console.error('Polling error:', statusError);
     }, [job, statusError]);
+
+    useEffect(() => () => {
+        if (job?.id) {
+            queryClient.cancelQueries({ queryKey: ['document-status', job.id] });
+        }
+    }, [job?.id, queryClient]);
 
     const handleCancelProcessing = () => {
         setIsCancelling(true);

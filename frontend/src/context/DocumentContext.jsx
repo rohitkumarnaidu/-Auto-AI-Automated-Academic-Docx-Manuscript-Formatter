@@ -8,6 +8,12 @@ const DocumentContext = createContext();
 
 export const useDocument = () => useContext(DocumentContext);
 
+const toFileMetadata = (file) => ({
+    originalFileName: file?.name || '',
+    originalFileSize: file?.size || 0,
+    originalFileType: file?.type || '',
+});
+
 export const DocumentProvider = ({ children }) => {
     const { user } = useAuth();
     const [job, setJob] = useState(null); // Current active job
@@ -82,11 +88,8 @@ export const DocumentProvider = ({ children }) => {
     }, [job]);
 
     const addToHistory = (newJob) => {
-        // Optimistic update
-        const updatedHistory = [newJob, ...history];
-        setHistory(updatedHistory);
-        // We also trigger a refresh to get the official backend state (id might be temp vs real)
-        refreshHistory();
+        // Optimistic update only; network refetch is handled by regular query refresh flow.
+        setHistory((prev) => [newJob, ...prev]);
     };
 
     const startProcessing = () => {
@@ -96,12 +99,12 @@ export const DocumentProvider = ({ children }) => {
 
     const finishProcessing = (result, file, template, options) => {
         setProcessing(false);
+        const fileMetadata = toFileMetadata(file);
         const newJob = {
             id: result.job_id || Date.now().toString(),
             timestamp: new Date().toISOString(),
             status: 'completed',
-            originalFile: file, // Note: This is an object and won't serialize well to LS
-            originalFileName: file.name,
+            ...fileMetadata,
             template: template,
             options: options,
             result: result.validation_result,
@@ -109,10 +112,7 @@ export const DocumentProvider = ({ children }) => {
             flags: result.flags
         };
         setJob(newJob);
-        // We sanitize for history to avoid storing large file objects in LS
-        const historyItem = { ...newJob };
-        delete historyItem.originalFile;
-        addToHistory(historyItem);
+        addToHistory(newJob);
     };
 
     const failProcessing = (error) => {

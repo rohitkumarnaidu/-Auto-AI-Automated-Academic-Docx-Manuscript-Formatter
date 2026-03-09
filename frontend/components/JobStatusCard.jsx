@@ -1,7 +1,7 @@
 'use client';
-import React from 'react';
+import React, { memo } from 'react';
 
-export default function JobStatusCard({ job }) {
+function JobStatusCard({ job }) {
     // Default mock data if job is undefined
     const data = job || {
         filename: 'Thesis_Final_Draft_v2.docx',
@@ -137,3 +137,5 @@ export default function JobStatusCard({ job }) {
         </div>
     );
 }
+
+export default memo(JobStatusCard);

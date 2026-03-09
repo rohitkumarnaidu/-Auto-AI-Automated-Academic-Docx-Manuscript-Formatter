@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 /**
  * Lightweight scroll-reveal hook using IntersectionObserver.
@@ -7,6 +7,10 @@ import { useEffect, useRef } from 'react';
  */
 export default function useScrollReveal(options = {}) {
     const ref = useRef(null);
+    const observerOptions = useMemo(
+        () => ({ threshold: 0.15, ...options }),
+        [options.root, options.rootMargin, options.threshold]
+    );
 
     useEffect(() => {
         const el = ref.current;
@@ -34,13 +38,12 @@ export default function useScrollReveal(options = {}) {
                     observer.disconnect();
                 }
             },
-            { threshold: 0.15, ...options }
+            observerOptions
         );
 
         observer.observe(el);
         return () => observer.disconnect();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [options.root, options.rootMargin, options.threshold]);
+    }, [observerOptions]);
 
     return ref;
 }

@@ -1,4 +1,6 @@
-export default function ValidationCard({ type = "error", title, description, badge, onAction, onIgnore }) {
+import React, { memo } from 'react';
+
+function ValidationCard({ type = "error", title, description, badge, onAction, onIgnore }) {
     // Styles based on type
     const styles = {
         error: {
@@ -58,3 +60,5 @@ export default function ValidationCard({ type = "error", title, description, bad
         </div>
     );
 }
+
+export default memo(ValidationCard);

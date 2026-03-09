@@ -1,3 +1,5 @@
+import React, { memo } from 'react';
+
 const STATUS_META = {
     PROCESSING: {
         label: 'Processing',
@@ -31,7 +33,7 @@ const STATUS_META = {
 
 const normalizeStatus = (status) => String(status || 'STANDBY').trim().toUpperCase();
 
-export default function StatusBadge({ status = 'STANDBY' }) {
+function StatusBadge({ status = 'STANDBY' }) {
     const normalized = normalizeStatus(status);
     const config = STATUS_META[normalized] || STATUS_META.STANDBY;
 
@@ -41,3 +43,5 @@ export default function StatusBadge({ status = 'STANDBY' }) {
         </span>
     );
 }
+
+export default memo(StatusBadge);

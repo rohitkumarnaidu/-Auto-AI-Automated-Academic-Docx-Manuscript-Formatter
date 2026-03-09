@@ -164,6 +164,12 @@ export function useGeneratorState() {
     // ── Generate ─────────────────────────────────────────────────────
     const handleGenerate = useCallback(async () => {
         if (isSubmitting) return;
+
+        if (abortRef.current) {
+            abortRef.current();
+            abortRef.current = null;
+        }
+
         setIsSubmitting(true);
         setStep(4);
         setJobStatus({ status: 'generating', progress: 0, stage: 'generating', message: 'Starting generation…', error: '', outline: [] });
@@ -200,6 +206,10 @@ export function useGeneratorState() {
                             jobId,
                         }));
                         clearDraft();
+                        if (abortRef.current) {
+                            abortRef.current();
+                            abortRef.current = null;
+                        }
                     }
                     if (event === 'error' || data?.status === 'failed') {
                         setJobStatus((prev) => ({
@@ -207,6 +217,10 @@ export function useGeneratorState() {
                             status: 'failed',
                             error: data?.error || data?.message || 'Generation failed.',
                         }));
+                        if (abortRef.current) {
+                            abortRef.current();
+                            abortRef.current = null;
+                        }
                     }
                 },
                 (error) => {
@@ -215,6 +229,10 @@ export function useGeneratorState() {
                         status: 'failed',
                         error: error?.message || 'Stream connection lost.',
                     }));
+                    if (abortRef.current) {
+                        abortRef.current();
+                        abortRef.current = null;
+                    }
                 }
             );
         } catch (error) {
@@ -231,10 +249,16 @@ export function useGeneratorState() {
 
     // ── Download ─────────────────────────────────────────────────────
     const handleDownload = useCallback(async (format = 'docx') => {
+        let cleanup = null;
         try {
             const jobId = jobStatus.jobId;
             if (!jobId) throw new Error('No job ID available for download');
-            const url = await downloadGeneratedDocument(jobId, format);
+            const download = await downloadGeneratedDocument(jobId, format);
+            const { url, cleanup: downloadCleanup } = download || {};
+            if (!url || typeof downloadCleanup !== 'function') {
+                throw new Error('Download link unavailable');
+            }
+            cleanup = downloadCleanup;
             const a = document.createElement('a');
             a.href = url;
             a.download = `generated_document.${format}`;
@@ -244,6 +268,10 @@ export function useGeneratorState() {
             addToast('Download started!', 'success');
         } catch (error) {
             addToast('Download failed: ' + (error?.message || 'Unknown error'), 'error');
+        } finally {
+            if (cleanup) {
+                setTimeout(cleanup, 0);
+            }
         }
     }, [jobStatus.jobId, addToast]);
 

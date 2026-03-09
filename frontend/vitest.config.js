@@ -4,10 +4,14 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
     resolve: {
         alias: {
+            '@': fileURLToPath(new URL('./', import.meta.url)),
             '@testing-library/react': fileURLToPath(new URL('./node_modules/@testing-library/react', import.meta.url)),
             '@testing-library/user-event': fileURLToPath(new URL('./node_modules/@testing-library/user-event', import.meta.url)),
             'next/navigation': fileURLToPath(new URL('./__mocks__/next/navigation.js', import.meta.url)),
         },
+    },
+    esbuild: {
+        jsx: 'automatic',
     },
     test: {
         globals: true,

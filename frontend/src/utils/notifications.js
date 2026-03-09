@@ -1,7 +1,14 @@
 export const STORAGE_KEY = 'scholarform_notifications';
 
+const createId = () => {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID();
+    }
+    return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+};
+
 export const createNotification = (type, message, meta = {}) => ({
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    id: createId(),
     type,
     message,
     read: false,

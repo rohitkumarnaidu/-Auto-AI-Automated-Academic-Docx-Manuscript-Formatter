@@ -299,8 +299,8 @@ export const uploadChunked = async (file, options = {}) => {
     return { file_id: fileId, total_chunks: totalChunks, status: 'complete' };
 };
 
-export const getJobStatus = async (jobId) => (
-    fetchWithAuth(`/api/documents/${encodeURIComponent(jobId)}/status`)
+export const getJobStatus = async (jobId, options = {}) => (
+    fetchWithAuth(`/api/documents/${encodeURIComponent(jobId)}/status`, options)
 );
 
 export const getPreview = async (jobId, options = {}) => (
@@ -354,8 +354,10 @@ export const downloadFile = async (jobId, format = 'docx') => {
 
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
-        setTimeout(() => window.URL.revokeObjectURL(url), 300000);
-        return url;
+        return {
+            url,
+            cleanup: () => window.URL.revokeObjectURL(url),
+        };
     } catch (error) {
         const message = getFriendlyErrorMessage({
             error,
@@ -386,7 +388,11 @@ export const downloadJATS = async (jobId) => {
     }
 
     const blob = await response.blob();
-    return window.URL.createObjectURL(blob);
+    const url = window.URL.createObjectURL(blob);
+    return {
+        url,
+        cleanup: () => window.URL.revokeObjectURL(url),
+    };
 };
 
 export const deleteDocument = async (jobId) => (

@@ -13,7 +13,7 @@ export const metadata = {
     title: 'ScholarForm AI',
     description: 'AI-powered academic manuscript formatting for IEEE, APA, Springer, Nature, and 1000+ journals. Upload your paper, get publication-ready output in seconds.',
     openGraph: {
-        title: 'ScholarForm AI — Automated Academic Manuscript Formatter',
+        title: 'ScholarForm AI - Automated Academic Manuscript Formatter',
         description: 'Format your research paper for any journal in seconds. Supports IEEE, APA, Springer, Nature, Elsevier, and 1000+ templates.',
         type: 'website',
         url: 'https://scholarform.ai',
@@ -31,22 +31,42 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
     return (
-        <html lang="en" className={`${manrope.variable} light`} suppressHydrationWarning>
+        <html lang="en" className={manrope.variable} suppressHydrationWarning>
             <head>
+                <script
+                    dangerouslySetInnerHTML={{
+                        __html: `
+                            (function () {
+                                try {
+                                    var theme = localStorage.getItem('theme');
+                                    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                                    if (theme === 'dark' || (!theme && prefersDark)) {
+                                        document.documentElement.classList.add('dark');
+                                    } else {
+                                        document.documentElement.classList.add('light');
+                                    }
+                                } catch (e) {
+                                    document.documentElement.classList.add('light');
+                                }
+                            })();
+                        `,
+                    }}
+                />
                 <link
                     href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
                     rel="stylesheet"
                 />
             </head>
             <body className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen relative overflow-x-hidden selection:bg-primary selection:text-white">
-                <style dangerouslySetInnerHTML={{
-                    __html: `
-                        .material-symbols-outlined {
-                            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-                        }
-                    `
-                }} />
-
+                <style
+                    dangerouslySetInnerHTML={{
+                        __html: `
+                            .material-symbols-outlined {
+                                font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+                            }
+                        `,
+                    }}
+                />
                 <a
                     href="#main-content"
                     className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:bg-primary focus:text-white focus:px-4 focus:py-2 focus:rounded-lg focus:text-sm focus:font-bold focus:shadow-lg"

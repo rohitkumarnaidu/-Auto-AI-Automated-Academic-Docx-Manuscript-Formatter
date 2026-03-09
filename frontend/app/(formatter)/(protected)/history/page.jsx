@@ -1,6 +1,6 @@
 'use client';
 import usePageTitle from '@/src/hooks/usePageTitle';
-import React, { useMemo, useState } from 'react';
+import React, { memo, useCallback, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -93,6 +93,97 @@ const buildVersionedHistory = (records) => {
     });
 };
 
+const HistoryRow = memo(function HistoryRow({
+    item,
+    isSelected,
+    onToggleSelection,
+    onRestore,
+    onDownload,
+    onRequestDelete,
+}) {
+    return (
+        <tr className={`transition-colors group ${isSelected ? 'bg-primary/5 dark:bg-primary/10' : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'}`}>
+            <td className="px-6 py-5 whitespace-nowrap text-center">
+                <Checkbox
+                    checked={isSelected}
+                    onChange={() => item.id && onToggleSelection(item.id)}
+                    disabled={!item.id}
+                    label={`Select ${resolveFilename(item)}`}
+                />
+            </td>
+            <td className="px-6 py-5 whitespace-nowrap">
+                <span className="text-slate-600 dark:text-slate-400 text-sm">
+                    {new Date(item.timestamp).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                </span>
+            </td>
+            <td className="px-6 py-5">
+                <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-slate-400 group-hover:text-primary transition-colors">description</span>
+                    <span className="text-slate-900 dark:text-white font-bold text-sm truncate max-w-[200px]">{resolveFilename(item)}</span>
+                </div>
+            </td>
+            <td className="px-6 py-5">
+                <div className="flex flex-col gap-1">
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                        v{item.versionNumber} / {item.totalVersions}
+                    </span>
+                    <div className="flex flex-wrap gap-1">
+                        {item.diffIndicators.map((indicator) => (
+                            <span
+                                key={`${item.key}-${indicator}`}
+                                className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                            >
+                                {indicator}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+            </td>
+            <td className="px-6 py-5">
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 uppercase">
+                    {item.template}
+                </span>
+            </td>
+            <td className="px-6 py-5">
+                {isCompleted(item.status) ? (
+                    <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full w-fit ${item.result?.errors?.length > 0 ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
+                        <span className="material-symbols-outlined !text-sm">{item.result?.errors?.length > 0 ? 'error' : 'check_circle'}</span>
+                        <span className="text-xs font-bold">{item.result?.errors?.length > 0 ? 'Issue Detect' : 'Passed'}</span>
+                    </div>
+                ) : (
+                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 w-fit">
+                        <span className="material-symbols-outlined !text-sm">cancel</span>
+                        <span className="text-xs font-bold">Failed</span>
+                    </div>
+                )}
+            </td>
+            <td className="px-6 py-5">
+                <div className="flex justify-end items-center gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => onRestore(item)} className="bg-primary/10 text-primary text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-primary hover:text-white transition-all">
+                        Open Corrected
+                    </button>
+                    <button
+                        onClick={() => onDownload(item)}
+                        className="p-1.5 text-slate-400 hover:text-primary transition-colors"
+                        title="Download"
+                        aria-label={`Download ${resolveFilename(item)}`}
+                    >
+                        <span className="material-symbols-outlined" aria-hidden="true">download</span>
+                    </button>
+                    <button
+                        onClick={() => onRequestDelete(item)}
+                        className="p-1.5 text-slate-400 hover:text-red-600 transition-colors"
+                        title="Delete"
+                        aria-label={`Delete ${resolveFilename(item)}`}
+                    >
+                        <span className="material-symbols-outlined" aria-hidden="true">delete</span>
+                    </button>
+                </div>
+            </td>
+        </tr>
+    );
+});
+
 export default function History() {
     usePageTitle('Document History');
     const router = useRouter();
@@ -121,20 +212,20 @@ export default function History() {
         item?.id ? `/jobs/${encodeURIComponent(item.id)}/${suffix}` : fallback
     );
 
-    const handleRestore = (item) => {
+    const handleRestore = useCallback((item) => {
         setJob(item);
         navigate(getJobRoute(item, 'results', '/results'));
-    };
+    }, [navigate, setJob]);
 
-    const handleDownload = (item) => {
+    const handleDownload = useCallback((item) => {
         setJob(item);
         navigate(getJobRoute(item, 'download', '/download'));
-    };
+    }, [navigate, setJob]);
 
-    const requestDelete = (item) => {
+    const requestDelete = useCallback((item) => {
         setDeleteError('');
         setDocumentToDelete(item);
-    };
+    }, []);
 
     const handleDeleteConfirm = async () => {
         if (!documentToDelete?.id || isDeleting) {
@@ -164,7 +255,7 @@ export default function History() {
         }
     };
 
-    const toggleSelection = (id) => {
+    const toggleSelection = useCallback((id) => {
         setSelectedIds(prev => {
             const next = new Set(prev);
             if (next.has(id)) {
@@ -174,7 +265,7 @@ export default function History() {
             }
             return next;
         });
-    };
+    }, []);
 
     const toggleAll = () => {
         if (selectedIds.size === versionedHistory.length) {
@@ -302,85 +393,15 @@ export default function History() {
                                             </tr>
                                         ) : (
                                             versionedHistory.map((item) => (
-                                                <tr key={item.key} className={`transition-colors group ${selectedIds.has(item.id) ? 'bg-primary/5 dark:bg-primary/10' : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'}`}>
-                                                    <td className="px-6 py-5 whitespace-nowrap text-center">
-                                                        <Checkbox
-                                                            checked={selectedIds.has(item.id)}
-                                                            onChange={() => item.id && toggleSelection(item.id)}
-                                                            disabled={!item.id}
-                                                            label={`Select ${resolveFilename(item)}`}
-                                                        />
-                                                    </td>
-                                                    <td className="px-6 py-5 whitespace-nowrap">
-                                                        <span className="text-slate-600 dark:text-slate-400 text-sm">
-                                                            {new Date(item.timestamp).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-6 py-5">
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="material-symbols-outlined text-slate-400 group-hover:text-primary transition-colors">description</span>
-                                                            <span className="text-slate-900 dark:text-white font-bold text-sm truncate max-w-[200px]">{resolveFilename(item)}</span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-5">
-                                                        <div className="flex flex-col gap-1">
-                                                            <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
-                                                                v{item.versionNumber} / {item.totalVersions}
-                                                            </span>
-                                                            <div className="flex flex-wrap gap-1">
-                                                                {item.diffIndicators.map((indicator) => (
-                                                                    <span
-                                                                        key={`${item.key}-${indicator}`}
-                                                                        className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
-                                                                    >
-                                                                        {indicator}
-                                                                    </span>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-5">
-                                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 uppercase">
-                                                            {item.template}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-6 py-5">
-                                                        {isCompleted(item.status) ? (
-                                                            <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full w-fit ${item.result?.errors?.length > 0 ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
-                                                                <span className="material-symbols-outlined !text-sm">{item.result?.errors?.length > 0 ? 'error' : 'check_circle'}</span>
-                                                                <span className="text-xs font-bold">{item.result?.errors?.length > 0 ? 'Issue Detect' : 'Passed'}</span>
-                                                            </div>
-                                                        ) : (
-                                                            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 w-fit">
-                                                                <span className="material-symbols-outlined !text-sm">cancel</span>
-                                                                <span className="text-xs font-bold">Failed</span>
-                                                            </div>
-                                                        )}
-                                                    </td>
-                                                    <td className="px-6 py-5">
-                                                        <div className="flex justify-end items-center gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                                                            <button onClick={() => handleRestore(item)} className="bg-primary/10 text-primary text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-primary hover:text-white transition-all">
-                                                                Open Corrected
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleDownload(item)}
-                                                                className="p-1.5 text-slate-400 hover:text-primary transition-colors"
-                                                                title="Download"
-                                                                aria-label={`Download ${resolveFilename(item)}`}
-                                                            >
-                                                                <span className="material-symbols-outlined" aria-hidden="true">download</span>
-                                                            </button>
-                                                            <button
-                                                                onClick={() => requestDelete(item)}
-                                                                className="p-1.5 text-slate-400 hover:text-red-600 transition-colors"
-                                                                title="Delete"
-                                                                aria-label={`Delete ${resolveFilename(item)}`}
-                                                            >
-                                                                <span className="material-symbols-outlined" aria-hidden="true">delete</span>
-                                                            </button>
-                                                        </div>
-                                                    </td>
-                                                </tr>
+                                                <HistoryRow
+                                                    key={item.key}
+                                                    item={item}
+                                                    isSelected={selectedIds.has(item.id)}
+                                                    onToggleSelection={toggleSelection}
+                                                    onRestore={handleRestore}
+                                                    onDownload={handleDownload}
+                                                    onRequestDelete={requestDelete}
+                                                />
                                             ))
                                         )}
                                     </tbody>

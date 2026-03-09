@@ -1,39 +1,21 @@
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { MemoryRouter } from 'react-router-dom';
 import Footer from '../components/Footer';
 
-const ROUTER_FUTURE_FLAGS = {
-    v7_startTransition: true,
-    v7_relativeSplatPath: true,
-};
+describe('Footer', () => {
+    it('renders app footer with policy and support links', () => {
+        render(<Footer variant="app" />);
 
-const renderFooter = (variant) => render(
-    <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
-        <Footer variant={variant} />
-    </MemoryRouter>
-);
-
-describe('Footer links', () => {
-    it('contains no href="#" placeholder links', () => {
-        const { container } = renderFooter('landing');
-        const anchors = Array.from(container.querySelectorAll('a'));
-
-        expect(anchors.length).toBeGreaterThan(0);
-        anchors.forEach((anchor) => {
-            expect(anchor.getAttribute('href')).not.toBe('#');
-        });
+        expect(screen.getByRole('link', { name: /terms of service/i })).toHaveAttribute('href', '/terms');
+        expect(screen.getByRole('link', { name: /privacy policy/i })).toHaveAttribute('href', '/privacy');
+        expect(screen.getByRole('link', { name: /support/i })).toHaveAttribute('href', 'mailto:support@scholarform.ai');
     });
 
-    it('ensures all link destinations are valid', () => {
-        const { container } = renderFooter('app');
-        const anchors = Array.from(container.querySelectorAll('a'));
+    it('renders landing footer core navigation links', () => {
+        render(<Footer variant="landing" />);
 
-        expect(anchors.length).toBeGreaterThan(0);
-        anchors.forEach((anchor) => {
-            const href = anchor.getAttribute('href');
-            expect(href).toBeTruthy();
-            expect(href.trim()).not.toBe('');
-        });
+        expect(screen.getByRole('link', { name: /^templates$/i })).toHaveAttribute('href', '/templates');
+        expect(screen.getByRole('link', { name: /^pricing$/i })).toHaveAttribute('href', '/#pricing');
+        expect(screen.getByRole('link', { name: /privacy policy/i })).toHaveAttribute('href', '/privacy');
     });
 });

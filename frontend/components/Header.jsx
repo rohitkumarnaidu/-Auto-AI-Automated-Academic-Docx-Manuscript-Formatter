@@ -148,9 +148,7 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
             ? 'mx-auto max-w-[1600px] px-4 xl:px-8'
             : 'mx-auto max-w-[1240px] px-4 sm:px-6';
 
-        const sidebarRowClassName = isUploadRoute
-            ? 'flex h-[72px] items-center justify-between gap-4'
-            : 'flex h-14 items-center justify-between gap-4';
+        const sidebarRowClassName = 'flex h-14 items-center justify-between gap-4';
 
         const userControlRailClassName = 'flex items-center gap-2 sm:gap-3 shrink-0';
 

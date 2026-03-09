@@ -21,12 +21,21 @@ export const getGenerationStatus = async (jobId) => (
     fetchWithAuth(`/api/generate/status/${encodeURIComponent(jobId)}`)
 );
 
-export const streamGenerationStatus = async (jobId, onEvent, onError) => {
+export const streamGenerationStatus = (jobId, onEvent, onError) => {
     const abortController = new AbortController();
-    const headers = await getAuthorizedHeaders({ Accept: 'text/event-stream' });
+    let closed = false;
+
+    const closeStream = () => {
+        if (closed) return;
+        closed = true;
+        abortController.abort();
+    };
 
     (async () => {
         try {
+            const headers = await getAuthorizedHeaders({ Accept: 'text/event-stream' });
+            if (abortController.signal.aborted) return;
+
             const response = await fetch(`${API_BASE_URL}/api/stream/${encodeURIComponent(jobId)}`, {
                 method: 'GET',
                 headers,
@@ -88,7 +97,7 @@ export const streamGenerationStatus = async (jobId, onEvent, onError) => {
         }
     })();
 
-    return () => abortController.abort();
+    return closeStream;
 };
 
 export const downloadGeneratedDocument = async (jobId, format = 'docx') => {
@@ -112,6 +121,8 @@ export const downloadGeneratedDocument = async (jobId, format = 'docx') => {
 
     const blob = await response.blob();
     const url = window.URL.createObjectURL(blob);
-    setTimeout(() => window.URL.revokeObjectURL(url), 300000);
-    return url;
+    return {
+        url,
+        cleanup: () => window.URL.revokeObjectURL(url),
+    };
 };

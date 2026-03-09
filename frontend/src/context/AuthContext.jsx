@@ -21,6 +21,18 @@ export const AuthProvider = ({ children }) => {
     // Guard: prevents onAuthStateChange('SIGNED_OUT') from clearing state
     // while signIn/signUp is in progress (setSession fires SIGNED_OUT before SIGNED_IN)
     const signingInRef = useRef(false);
+    const clearAppSessionStorage = () => {
+        [
+            'scholarform_currentJob',
+            'scholarform_job',
+            'scholarform_active_job',
+        ].forEach((key) => sessionStorage.removeItem(key));
+    };
+    const debugAuthLog = (...args) => {
+        if (process.env.NODE_ENV !== 'production') {
+            console.log(...args);
+        }
+    };
 
     const sanitizeRedirectPath = (path) => {
         if (typeof path !== 'string') return '/dashboard';
@@ -61,8 +73,7 @@ export const AuthProvider = ({ children }) => {
                     // Token invalid/expired/revoked -> aggressive cleanup
                     console.warn("Auth: Invalid session detected, signing out.");
                     await supabase.auth.signOut();
-                    sessionStorage.clear();
-                    sessionStorage.removeItem('scholarform_currentJob');
+                    clearAppSessionStorage();
                     if (mounted) {
                         setUser(null);
                         setIsLoggedIn(false);
@@ -91,19 +102,18 @@ export const AuthProvider = ({ children }) => {
         let subscription;
         if (supabase) {
             const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
-                console.log('[Auth] onAuthStateChange:', event, { hasSession: !!session, signingIn: signingInRef.current });
+                debugAuthLog('[Auth] onAuthStateChange:', event, { hasSession: !!session, signingIn: signingInRef.current });
 
                 if (event === 'SIGNED_OUT') {
                     // During signIn/signUp, setSession() can fire SIGNED_OUT before SIGNED_IN.
                     // Skip this event to prevent clearing user state mid-login.
                     if (signingInRef.current) {
-                        console.log('[Auth] Ignoring SIGNED_OUT during active sign-in');
+                        debugAuthLog('[Auth] Ignoring SIGNED_OUT during active sign-in');
                         return;
                     }
                     setUser(null);
                     setIsLoggedIn(false);
-                    sessionStorage.clear();
-                    sessionStorage.removeItem('scholarform_currentJob');
+                    clearAppSessionStorage();
                 } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
                     // For sign-in/refresh, we trust the session but access_token must exist
                     if (session?.user && session?.access_token) {
@@ -113,6 +123,7 @@ export const AuthProvider = ({ children }) => {
                         setUser(null);
                         setIsLoggedIn(false);
                     }
+                    signingInRef.current = false;
                 }
             });
             subscription = data.subscription;
@@ -148,9 +159,9 @@ export const AuthProvider = ({ children }) => {
             }
             return { data, error: null };
         } catch (error) {
+            signingInRef.current = false;
             return { data: null, error: error.message || String(error) };
         } finally {
-            signingInRef.current = false;
             setLoading(false);
         }
     };
@@ -160,7 +171,9 @@ export const AuthProvider = ({ children }) => {
             signingInRef.current = true;
             const data = await apiLogin({ email, password });
 
-            if (data?.session && supabase) {
+            if (!data?.session || !supabase) {
+                signingInRef.current = false;
+            } else {
                 const { error: sessionError } = await supabase.auth.setSession({
                     access_token: data.session.access_token,
                     refresh_token: data.session.refresh_token
@@ -172,16 +185,15 @@ export const AuthProvider = ({ children }) => {
                         setUser(userToSet);
                         setIsLoggedIn(true);
                     }
+                } else {
+                    signingInRef.current = false;
                 }
             }
 
             return { data, error: null };
         } catch (error) {
+            signingInRef.current = false;
             return { data: null, error: error.message };
-        } finally {
-            // Clear the guard AFTER a short delay so any pending
-            // SIGNED_OUT events from setSession() are safely ignored
-            setTimeout(() => { signingInRef.current = false; }, 1000);
         }
     };
 
@@ -205,8 +217,7 @@ export const AuthProvider = ({ children }) => {
             // Force local cleanup regardless of server response
             setUser(null);
             setIsLoggedIn(false);
-            sessionStorage.clear();
-            sessionStorage.removeItem('scholarform_currentJob');
+            clearAppSessionStorage();
 
             if (redirectToLogin && typeof window !== 'undefined') {
                 window.location.replace('/login');

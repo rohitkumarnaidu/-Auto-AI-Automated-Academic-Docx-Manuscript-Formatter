@@ -13,7 +13,7 @@ export default {
     theme: {
         extend: {
             fontFamily: {
-                "display": ['"Manrope"', "sans-serif"]
+                "display": ['var(--font-manrope)', '"Manrope"', "sans-serif"]
             },
             borderRadius: {
                 "DEFAULT": "0.5rem",

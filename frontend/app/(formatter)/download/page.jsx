@@ -132,7 +132,7 @@ export default function Download() {
         try {
             // Use real backend API with job ID
             const normalizedFormat = String(format || 'docx').toLowerCase();
-            const url = await downloadExport(job.id, normalizedFormat);
+            const { url, cleanup } = await downloadExport(job.id, normalizedFormat);
 
             const link = document.createElement('a');
             link.href = url;
@@ -148,7 +148,7 @@ export default function Download() {
             document.body.appendChild(link);
             link.click();
             link.parentNode.removeChild(link);
-            setTimeout(() => window.URL.revokeObjectURL(url), 0);
+            setTimeout(cleanup, 0);
             setShowExportDialog(false);
         } catch (error) {
             console.error("Download failed:", error);
@@ -257,7 +257,7 @@ export default function Download() {
                                             setIsJatsDownloading(true);
                                             setDownloadError(null);
                                             try {
-                                                const url = await downloadJATS(job.id);
+                                                const { url, cleanup } = await downloadJATS(job.id);
                                                 const link = document.createElement('a');
                                                 link.href = url;
                                                 const baseName = job.originalFileName
@@ -267,7 +267,7 @@ export default function Download() {
                                                 document.body.appendChild(link);
                                                 link.click();
                                                 link.parentNode.removeChild(link);
-                                                setTimeout(() => window.URL.revokeObjectURL(url), 0);
+                                                setTimeout(cleanup, 0);
                                             } catch {
                                                 setDownloadError('JATS download failed. The server may not support this format yet.');
                                             } finally {
