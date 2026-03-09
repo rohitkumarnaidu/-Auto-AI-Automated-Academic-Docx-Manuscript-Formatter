@@ -1,10 +1,12 @@
 'use client';
+'use client';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '@/src/context/ThemeContext';
 import { AuthProvider } from '@/src/context/AuthContext';
 import { ToastProvider } from '@/src/context/ToastContext';
 import { DocumentProvider } from '@/src/context/DocumentContext';
+import FocusManager from '@/components/FocusManager';
 import { useState } from 'react';
 
 export default function ClientProviders({ children }) {
@@ -24,6 +26,7 @@ export default function ClientProviders({ children }) {
                 <ToastProvider>
                     <AuthProvider>
                         <DocumentProvider>
+                            <FocusManager />
                             {children}
                         </DocumentProvider>
                     </AuthProvider>

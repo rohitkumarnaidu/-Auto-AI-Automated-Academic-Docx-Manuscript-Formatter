@@ -185,18 +185,20 @@ export default function Preview({
                             onClick={() => setZoomLevel(prev => Math.max(0.5, prev - 0.1))}
                             className="p-1 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition"
                             title="Zoom Out"
+                            aria-label="Zoom Out"
                         >
-                            <span className="material-symbols-outlined text-[16px]">zoom_out</span>
+                            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">zoom_out</span>
                         </button>
                         <span className="text-xs font-semibold w-10 text-center text-slate-700 dark:text-slate-300">
                             {Math.round(zoomLevel * 100)}%
                         </span>
                         <button
-                            onClick={() => setZoomLevel(prev => Math.min(2.5, prev + 0.1))}
+                            onClick={() => setZoomLevel(prev => Math.min(2.5, prev - 0.1))}
                             className="p-1 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition"
                             title="Zoom In"
+                            aria-label="Zoom In"
                         >
-                            <span className="material-symbols-outlined text-[16px]">zoom_in</span>
+                            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">zoom_in</span>
                         </button>
                     </div>
 

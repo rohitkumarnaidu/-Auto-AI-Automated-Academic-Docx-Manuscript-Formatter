@@ -3,6 +3,7 @@ import usePageTitle from '@/src/hooks/usePageTitle';
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/context/AuthContext';
+import { useToast } from '@/src/context/ToastContext';
 import { useTheme } from '@/src/context/ThemeContext';
 import Footer from '@/src/components/Footer';
 import { supabase } from '@/src/lib/supabaseClient';
@@ -29,6 +30,7 @@ export default function Profile() {
     const canvasRef = useRef(null);
     const fileInputRef = useRef(null);
     const { user, signOut, refreshSession } = useAuth();
+    const { addToast } = useToast();
     const router = useRouter();
 
     const handleAvatarClick = () => {
@@ -79,7 +81,7 @@ export default function Profile() {
                 await refreshSession();
             } catch (error) {
                 console.error('Error uploading avatar:', error);
-                alert('Error uploading avatar: ' + error.message);
+                addToast('Error uploading avatar: ' + error.message, 'error');
             } finally {
                 setUploading(false);
             }

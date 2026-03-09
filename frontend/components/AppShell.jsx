@@ -59,7 +59,7 @@ export default function AppShell({ children, section = 'shared' }) {
         return (
             <div className="relative z-10 flex flex-col min-h-screen">
                 <Header section={section} />
-                <main className="flex-grow flex flex-col items-center w-full relative z-10">
+                <main id="main-content" tabIndex="-1" className="flex-grow flex flex-col items-center w-full relative z-10 focus:outline-none">
                     {children}
                 </main>
             </div>
@@ -109,7 +109,9 @@ export default function AppShell({ children, section = 'shared' }) {
 
             {/* Main content — sidebar padding only for logged-in users */}
             <main
-                className="appshell-main relative z-10 min-h-screen custom-scrollbar"
+                id="main-content"
+                tabIndex="-1"
+                className="appshell-main relative z-10 min-h-screen custom-scrollbar focus:outline-none"
                 style={{
                     paddingTop: '56px',
                     paddingLeft: isDesktop ? `${sidebarW}px` : '0px',

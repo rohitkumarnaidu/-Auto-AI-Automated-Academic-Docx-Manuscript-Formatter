@@ -11,7 +11,7 @@ import TemplateSelector from '@/src/components/upload/TemplateSelector';
 import FormattingOptions from '@/src/components/upload/FormattingOptions';
 import ProcessingStepper from '@/src/components/upload/ProcessingStepper';
 import FastModeToggle from '@/src/components/FastModeToggle';
-import { isCompleted, isFailed, isProcessing as isStatusProcessing } from '@/constants/status';
+import { isCompleted, isFailed, isProcessing as isStatusProcessing } from '@/src/constants/status';
 import {
     CHUNK_UPLOAD_THRESHOLD_BYTES,
     uploadChunked,
@@ -547,20 +547,27 @@ export default function Upload() {
                                     </div>
                                 </div>
                                 <input
+                                    id="file-upload"
                                     type="file"
                                     ref={fileInputRef}
-                                    className="hidden"
+                                    className="sr-only"
                                     onChange={handleFileChange}
                                     accept={ACCEPTED_FORMATS}
                                     disabled={isProcessing}
                                 />
-                                <button
-                                    onClick={() => fileInputRef.current.click()}
-                                    disabled={isProcessing}
-                                    className={`flex w-full sm:w-auto min-w-[140px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-11 px-6 bg-primary text-white text-sm font-bold tracking-wide shadow-md hover:bg-blue-700 transition-all ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                <label
+                                    htmlFor="file-upload"
+                                    tabIndex={isProcessing ? -1 : 0}
+                                    onKeyDown={(e) => {
+                                        if (!isProcessing && (e.key === 'Enter' || e.key === ' ')) {
+                                            e.preventDefault();
+                                            fileInputRef.current?.click();
+                                        }
+                                    }}
+                                    className={`flex w-full sm:w-auto min-w-[140px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-11 px-6 bg-primary text-white text-sm font-bold tracking-wide shadow-md hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 >
                                     {file ? 'Change File' : 'Browse Files'}
-                                </button>
+                                </label>
                             </div>
                         </div>
 
@@ -655,6 +662,7 @@ export default function Upload() {
         </div>
     );
 }
+
 
 
 

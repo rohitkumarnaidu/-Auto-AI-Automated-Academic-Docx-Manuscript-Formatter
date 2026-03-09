@@ -1,10 +1,12 @@
 'use client';
 import usePageTitle from '@/src/hooks/usePageTitle';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { useDocument } from '@/src/context/DocumentContext';
-import { isCompleted } from '@/constants/status';
+import { useToast } from '@/src/context/ToastContext';
+import { useUnsavedChanges } from '@/src/hooks/useUnsavedChanges';
+import { isCompleted } from '@/src/constants/status';
 import { submitEdit, getPreview } from '@/src/services/api';
 import useJobFromUrl from '@/src/hooks/useJobFromUrl';
 
@@ -43,12 +45,16 @@ export default function Edit() {
         router.push(href);
     }, [router]);
     const { setJob } = useDocument();
+    const { addToast } = useToast();
     const { job, isLoading: isJobLoading, error: jobLoadError } = useJobFromUrl();
     const [content, setContent] = useState('');
     const [title, setTitle] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [lastSaved, setLastSaved] = useState('Just now');
     const [validationMessage, setValidationMessage] = useState(null);
+    const initialContentRef = useRef('');
+    const isDirty = content !== initialContentRef.current;
+    useUnsavedChanges(isDirty);
 
     useEffect(() => {
         let isMounted = true;
@@ -60,13 +66,19 @@ export default function Edit() {
 
             const processedText = typeof job.processedText === 'string' ? job.processedText.trim() : '';
             if (processedText) {
-                if (isMounted) setContent(job.processedText);
+                if (isMounted) {
+                    setContent(job.processedText);
+                    initialContentRef.current = job.processedText;
+                }
                 return;
             }
 
             const reconstructedFromJob = getContentFromSections(job.result?.structured_data?.sections);
             if (reconstructedFromJob) {
-                if (isMounted) setContent(reconstructedFromJob);
+                if (isMounted) {
+                    setContent(reconstructedFromJob);
+                    initialContentRef.current = reconstructedFromJob;
+                }
                 return;
             }
 
@@ -78,7 +90,11 @@ export default function Edit() {
             try {
                 const previewData = await getPreview(job.id, { debounceMs: 0 });
                 const reconstructedFromPreview = getContentFromSections(previewData?.structured_data?.sections);
-                if (isMounted) setContent(reconstructedFromPreview || '');
+                if (isMounted) {
+                    const val = reconstructedFromPreview || '';
+                    setContent(val);
+                    initialContentRef.current = val;
+                }
             } catch (error) {
                 console.error('Failed to load preview content:', error);
                 if (isMounted) setContent('');
@@ -118,7 +134,7 @@ export default function Edit() {
 
         } catch (error) {
             console.error("Save failed:", error);
-            alert("Failed to save edit.");
+            addToast('Failed to save edit. Please try again.', 'error');
         } finally {
             setIsSaving(false);
         }
@@ -201,20 +217,21 @@ export default function Edit() {
                     </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                    <button onClick={handleSave} className="flex items-center gap-1.5 px-3 py-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
-                        <span className="material-symbols-outlined text-[18px]">save</span>
+                    <button onClick={handleSave} className="flex items-center gap-1.5 px-3 py-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors" aria-label="Save">
+                        <span className="material-symbols-outlined text-[18px]" aria-hidden="true">save</span>
                         <span className="text-sm font-medium hidden sm:inline">Save</span>
                     </button>
-                    <button onClick={handleRevalidate} className="flex items-center gap-1.5 px-3 py-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
-                        <span className="material-symbols-outlined text-[18px]">refresh</span>
+                    <button onClick={handleRevalidate} className="flex items-center gap-1.5 px-3 py-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors" aria-label="Local Validate">
+                        <span className="material-symbols-outlined text-[18px]" aria-hidden="true">refresh</span>
                         <span className="text-sm font-medium hidden sm:inline">Local Validate</span>
                     </button>
                     <button
                         onClick={() => navigate('/download')}
                         disabled={!isCompleted(job?.status)}
                         className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 bg-primary text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-400"
+                        aria-label="Export"
                     >
-                        <span className="material-symbols-outlined text-[18px]">description</span>
+                        <span className="material-symbols-outlined text-[18px]" aria-hidden="true">description</span>
                         <span className="text-sm font-bold hidden sm:inline">Export</span>
                     </button>
                 </div>
@@ -316,5 +333,7 @@ export default function Edit() {
         </div>
     );
 }
+
+
 
 

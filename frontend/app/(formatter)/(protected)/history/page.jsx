@@ -6,17 +6,21 @@ import Link from 'next/link';
 
 import { useDocument } from '@/src/context/DocumentContext';
 import Footer from '@/src/components/Footer';
-import { isCompleted, isFailed } from '@/constants/status';
+import { isCompleted, isFailed } from '@/src/constants/status';
 import DeleteConfirmDialog from '@/src/components/DeleteConfirmDialog';
 import { deleteDocument, useDocuments } from '@/src/services/api';
 
-const Checkbox = ({ checked, onChange, disabled }) => (
-    <div
-        className={`w-5 h-5 rounded flex items-center justify-center border transition-colors cursor-pointer ${disabled ? 'opacity-50 cursor-not-allowed border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900' : checked ? 'bg-primary border-primary' : 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 hover:border-primary'}`}
-        onClick={() => !disabled && onChange(!checked)}
-    >
-        {checked && <span className="material-symbols-outlined text-[14px] text-white font-bold">check</span>}
-    </div>
+const Checkbox = ({ checked, onChange, disabled, label }) => (
+    <label className="inline-flex items-center justify-center cursor-pointer">
+        <input
+            type="checkbox"
+            checked={checked}
+            onChange={(e) => !disabled && onChange(e.target.checked)}
+            disabled={disabled}
+            className={`w-5 h-5 rounded border transition-colors cursor-pointer accent-primary focus:ring-2 focus:ring-primary/50 focus:ring-offset-1 ${disabled ? 'opacity-50 cursor-not-allowed border-slate-200 dark:border-slate-800' : checked ? 'bg-primary border-primary text-white' : 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700'}`}
+            aria-label={label || 'Select item'}
+        />
+    </label>
 );
 
 const toTimestamp = (value) => new Date(value || 0).getTime();
@@ -205,7 +209,7 @@ export default function History() {
 
     return (
         <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen flex flex-col">
-            
+
             {/* Page Content */}
             <main className="flex flex-1 justify-center py-6 sm:py-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="layout-content-container flex flex-col w-full max-w-[1280px] px-4 sm:px-6 md:px-10">
@@ -266,6 +270,7 @@ export default function History() {
                                                     checked={versionedHistory.length > 0 && selectedIds.size === versionedHistory.length}
                                                     onChange={toggleAll}
                                                     disabled={isLoading || versionedHistory.length === 0}
+                                                    label="Select all documents"
                                                 />
                                             </th>
                                             <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-800">Date / Time</th>
@@ -303,6 +308,7 @@ export default function History() {
                                                             checked={selectedIds.has(item.id)}
                                                             onChange={() => item.id && toggleSelection(item.id)}
                                                             disabled={!item.id}
+                                                            label={`Select ${resolveFilename(item)}`}
                                                         />
                                                     </td>
                                                     <td className="px-6 py-5 whitespace-nowrap">
@@ -426,5 +432,6 @@ export default function History() {
         </div>
     );
 }
+
 
 

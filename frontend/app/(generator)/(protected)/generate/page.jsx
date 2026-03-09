@@ -1,6 +1,8 @@
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import usePageTitle from '@/src/hooks/usePageTitle';
+import { useToast } from '@/src/context/ToastContext';
+import { useUnsavedChanges } from '@/src/hooks/useUnsavedChanges';
 import {
     downloadGeneratedDocument,
     generateDocument,
@@ -427,6 +429,7 @@ function StepGenerate({ status, progress, stage, message, error, outline, onDown
 
 export default function DocumentGenerator() {
     usePageTitle('Generate Document - ScholarForm AI');
+    const { addToast } = useToast();
 
     const [step, setStep] = useState(1);
     const [docType, setDocType] = useState('');
@@ -435,6 +438,10 @@ export default function DocumentGenerator() {
     const [jobId, setJobId] = useState(null);
     const [jobStatus, setJobStatus] = useState({ status: 'pending', progress: 0, stage: 'queued', message: '', error: null, outline: [] });
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Warn user about unsaved form data when navigating away mid-form
+    const isDirty = step > 1 && step < 4 && (!!docType || !!template);
+    useUnsavedChanges(isDirty);
 
     const streamStopRef = useRef(null);
     const pollingRef = useRef(null);
@@ -513,7 +520,7 @@ export default function DocumentGenerator() {
             setJobStatus({ status: 'pending', progress: 0, stage: 'queued', message: response.message || 'Job queued...', error: null, outline: [] });
             setStep(4);
         } catch (error) {
-            alert(`Failed to start generation: ${error.message}`);
+            addToast(`Failed to start generation: ${error.message}`, 'error');
         } finally {
             setIsSubmitting(false);
         }
@@ -528,7 +535,7 @@ export default function DocumentGenerator() {
             link.download = `generated_document.${format}`;
             link.click();
         } catch (error) {
-            alert(`Download failed: ${error.message}`);
+            addToast(`Download failed: ${error.message}`, 'error');
         }
     }, [jobId]);
 

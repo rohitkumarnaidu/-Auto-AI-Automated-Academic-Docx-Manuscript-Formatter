@@ -40,3 +40,10 @@ index.html
 
 # Editor
 .vscode/settings.json
+
+# Local build/dev artifacts
+build_*.txt
+build_out.txt
+build_err.txt
+devserver.*.log
+

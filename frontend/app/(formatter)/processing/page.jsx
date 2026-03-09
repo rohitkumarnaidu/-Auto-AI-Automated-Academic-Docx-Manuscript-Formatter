@@ -8,7 +8,7 @@ import Stepper from '@/src/components/Stepper';
 import StatusBadge from '@/src/components/StatusBadge';
 import { useDocument } from '@/src/context/DocumentContext';
 import { useDocumentStatus } from '@/src/services/api';
-import { isCompleted, isFailed } from '@/constants/status';
+import { isCompleted, isFailed } from '@/src/constants/status';
 
 const PHASE_MAPPING = {
     UPLOADED: 0,
@@ -228,4 +228,5 @@ export default function Processing() {
         </div>
     );
 }
+
 

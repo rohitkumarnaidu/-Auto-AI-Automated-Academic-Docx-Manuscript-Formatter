@@ -137,8 +137,9 @@ export default function BatchUploadPanel({ files, onFilesSelected, onRemove, onR
                                             disabled={disabled}
                                             className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-50"
                                             title="Remove File"
+                                            aria-label="Remove File"
                                         >
-                                            <span className="material-symbols-outlined text-lg">close</span>
+                                            <span className="material-symbols-outlined text-lg" aria-hidden="true">close</span>
                                         </button>
                                     )}
                                     {entry.status === 'error' && onRetry && (

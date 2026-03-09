@@ -14,13 +14,10 @@ export default defineConfig({
         environment: 'jsdom',
         setupFiles: './src/test/setup.js',
         include: [
-            'src/services/**/*.{test,spec}.{js,jsx,ts,tsx}',
-            'src/components/**/*.{test,spec}.{js,jsx,ts,tsx}',
+            'src/**/*.{test,spec}.{js,jsx,ts,tsx}',
         ],
         exclude: [
-            'src/test/**',
-            '../tests/frontend/**',
-            'src/_vite_pages/**',
+            '_legacy_vite_archive/**',
         ],
     },
     server: {
@@ -29,3 +26,4 @@ export default defineConfig({
         },
     },
 });
+

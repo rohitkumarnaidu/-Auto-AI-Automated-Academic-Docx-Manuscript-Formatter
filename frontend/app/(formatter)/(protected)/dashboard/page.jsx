@@ -7,7 +7,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import usePageTitle from '@/src/hooks/usePageTitle';
 import { useAuth } from '@/src/context/AuthContext';
 import Footer from '@/src/components/Footer';
-import { isCompleted, isProcessing } from '@/constants/status';
+import { isCompleted, isProcessing } from '@/src/constants/status';
 import { useDocuments } from '@/src/services/api';
 
 export default function DashboardPage() {
@@ -289,3 +289,4 @@ export default function DashboardPage() {
         </div>
     );
 }
+

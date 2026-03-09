@@ -8,7 +8,7 @@ import ExportDialog from '@/src/components/ExportDialog';
 import { useDocument } from '@/src/context/DocumentContext';
 import { useAuth } from '@/src/context/AuthContext';
 import { downloadExport, downloadJATS } from '@/src/services/api'; // B-FIX-23: downloadJATS added
-import { isCompleted, isFailed, isProcessing } from '@/constants/status';
+import { isCompleted, isFailed, isProcessing } from '@/src/constants/status';
 import useJobFromUrl from '@/src/hooks/useJobFromUrl';
 
 export default function Download() {
@@ -385,5 +385,6 @@ export default function Download() {
         </div>
     );
 }
+
 
 
