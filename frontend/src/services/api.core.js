@@ -22,8 +22,21 @@ const removeControlChars = (input) => (
         .join('')
 );
 
+const decodeHtmlEntities = (text) => (
+    String(text)
+        .replace(/&#60;/g, '<')
+        .replace(/&#62;/g, '>')
+        .replace(/&#38;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&')
+        .replace(/&quot;/g, '"')
+        .replace(/&#x27;/g, "'")
+        .replace(/&#039;/g, "'")
+);
+
 export const sanitizeText = (value) => (
-    removeControlChars(value)
+    removeControlChars(decodeHtmlEntities(value))
         .replace(/[<>]/g, '')
         .trim()
 );

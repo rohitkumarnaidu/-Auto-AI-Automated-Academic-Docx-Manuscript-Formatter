@@ -366,15 +366,17 @@ export default function History() {
                                                                 onClick={() => handleDownload(item)}
                                                                 className="p-1.5 text-slate-400 hover:text-primary transition-colors"
                                                                 title="Download"
+                                                                aria-label={`Download ${resolveFilename(item)}`}
                                                             >
-                                                                <span className="material-symbols-outlined">download</span>
+                                                                <span className="material-symbols-outlined" aria-hidden="true">download</span>
                                                             </button>
                                                             <button
                                                                 onClick={() => requestDelete(item)}
                                                                 className="p-1.5 text-slate-400 hover:text-red-600 transition-colors"
                                                                 title="Delete"
+                                                                aria-label={`Delete ${resolveFilename(item)}`}
                                                             >
-                                                                <span className="material-symbols-outlined">delete</span>
+                                                                <span className="material-symbols-outlined" aria-hidden="true">delete</span>
                                                             </button>
                                                         </div>
                                                     </td>
