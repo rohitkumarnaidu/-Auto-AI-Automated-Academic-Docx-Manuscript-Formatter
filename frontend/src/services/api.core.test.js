@@ -20,7 +20,7 @@ describe('api.core', () => {
             title: '<b>Paper</b>\u0000',
             nested: {
                 summary: '&lt;safe&gt;',
-                password: '  p@ss  ',
+                password: '  sample-password-value  ',
             },
             list: ['<i>A</i>', 'B'],
         };
@@ -31,7 +31,7 @@ describe('api.core', () => {
             title: 'bPaper/b',
             nested: {
                 summary: 'safe',
-                password: 'p@ss',
+                password: 'sample-password-value',
             },
             list: ['iA/i', 'B'],
         });
