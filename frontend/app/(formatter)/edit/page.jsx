@@ -138,7 +138,7 @@ export default function Edit() {
         } finally {
             setIsSaving(false);
         }
-    }, [content, isSaving, job, navigate, setJob]);
+    }, [addToast, content, isSaving, job, navigate, setJob]);
 
     const handleCancel = useCallback(() => {
         navigate('/history');

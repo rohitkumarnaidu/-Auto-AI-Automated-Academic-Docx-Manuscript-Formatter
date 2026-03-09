@@ -9,7 +9,7 @@ export default function useScrollReveal(options = {}) {
     const ref = useRef(null);
     const observerOptions = useMemo(
         () => ({ threshold: 0.15, ...options }),
-        [options.root, options.rootMargin, options.threshold]
+        [options]
     );
 
     useEffect(() => {

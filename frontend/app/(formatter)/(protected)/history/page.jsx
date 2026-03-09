@@ -187,13 +187,13 @@ const HistoryRow = memo(function HistoryRow({
 export default function History() {
     usePageTitle('Document History');
     const router = useRouter();
-    const navigate = (href, options = {}) => {
+    const navigate = useCallback((href, options = {}) => {
         if (options?.replace) {
             router.replace(href);
             return;
         }
         router.push(href);
-    };
+    }, [router]);
     const { setJob } = useDocument();
     const { data: documentsPayload, isLoading, refetch: refreshDocuments } = useDocuments({ limit: 50 });
     const [documentToDelete, setDocumentToDelete] = useState(null);

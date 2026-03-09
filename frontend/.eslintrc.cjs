@@ -7,6 +7,8 @@ module.exports = {
         'playwright-report/**',
         'test-results/**',
         'src/_vite_pages/**',
+        '_legacy_vite_archive/**',
+        'coverage/**',
     ],
     env: { browser: true, es2020: true },
     globals: {

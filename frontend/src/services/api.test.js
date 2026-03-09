@@ -20,7 +20,9 @@ describe('API Service', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         localStorage.clear();
-        sessionStorage.clear();
+        ['scholarform_currentJob', 'scholarform_job', 'scholarform_active_job'].forEach((key) => {
+            sessionStorage.removeItem(key);
+        });
         consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
 
         // Default mock for successful session

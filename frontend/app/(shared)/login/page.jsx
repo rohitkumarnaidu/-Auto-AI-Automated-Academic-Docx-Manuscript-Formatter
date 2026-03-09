@@ -1,15 +1,14 @@
 'use client';
 import usePageTitle from '@/src/hooks/usePageTitle';
 import { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 import { useAuth } from '@/src/context/AuthContext';
 
 export default function Login() {
     usePageTitle('Sign In');
-    const { signIn, signInWithGoogle, isLoggedIn } = useAuth();
-    const router = useRouter();
+    const { signIn, signInWithGoogle } = useAuth();
     const searchParams = useSearchParams();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
