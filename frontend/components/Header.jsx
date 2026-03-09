@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import ModeSwitcher from '@/components/header/ModeSwitcher';
 import ThemeToggle from '@/components/header/ThemeToggle';
@@ -36,9 +36,13 @@ const isInternalPath = (value) => value.startsWith('/') && !value.startsWith('//
 
 export default function Header({ section = 'shared', isSidebarLayout = false, onOpenMobileSidebar }) {
     const pathname = usePathname();
+    const searchParams = useSearchParams();
     const router = useRouter();
     const { user } = useAuth();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const forceGuestMode = searchParams?.get('guest') === '1';
+    const uiUser = forceGuestMode ? null : user;
+    const guestParam = forceGuestMode ? '?guest=1' : '';
 
     const isAuthRoute = AUTH_ROUTES.some((route) => pathname.startsWith(route));
     const isLandingRoute = pathname === '/';
@@ -52,9 +56,9 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
                 ? 'generator'
                 : 'formatter';
 
-    const navLinks = user ? USER_LINKS_BY_MODE[activeMode] : APP_GUEST_LINKS;
+    const navLinks = uiUser ? USER_LINKS_BY_MODE[activeMode] : APP_GUEST_LINKS;
     const showModeSwitch = !isAuthRoute;
-    const logoHref = user ? '/dashboard' : '/';
+    const logoHref = uiUser ? '/dashboard' : '/';
 
     const toggleMode = (mode) => {
         if (mode === activeMode) return;
@@ -62,16 +66,16 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
             router.push('/generate');
             return;
         }
-        router.push(user ? '/dashboard' : '/upload');
+        router.push(uiUser ? '/dashboard' : '/upload');
     };
 
-    const actionHref = user
+    const actionHref = uiUser
         ? activeMode === 'generator'
             ? '/generate'
             : '/upload'
         : '/signup';
 
-    const actionLabel = user
+    const actionLabel = uiUser
         ? activeMode === 'generator'
             ? 'New Draft'
             : 'New Format'
@@ -179,7 +183,7 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
                     <div className="flex-1" />
 
                     {/* Right: Controls */}
-                        {user ? (
+                        {uiUser ? (
                             <div className={userControlRailClassName}>
                                 <ThemeToggle />
                                 <NotificationBell />
@@ -200,10 +204,10 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
                                 <Link href="/" className="hidden sm:inline-flex h-9 px-3 items-center rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                                     Home
                                 </Link>
-                                <Link href="/login" className="h-9 px-3 inline-flex items-center rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                                <Link href={`/login${guestParam}`} className="h-9 px-3 inline-flex items-center rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                                     Login
                                 </Link>
-                                <Link href="/signup" className="h-9 px-4 inline-flex items-center rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-bold transition-opacity">
+                                <Link href={`/signup${guestParam}`} className="h-9 px-4 inline-flex items-center rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-bold transition-opacity">
                                     Sign Up
                                 </Link>
                             </div>
@@ -234,7 +238,7 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
                     <div className="ml-auto flex items-center gap-2 sm:gap-3 shrink-0">
                         <ThemeToggle />
 
-                        {user ? (
+                        {uiUser ? (
                             <>
                                 <NotificationBell />
                                 <button
@@ -308,7 +312,7 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
                                     })}
                                 </nav>
 
-                                {user ? (
+                                {uiUser ? (
                                     <button
                                         onClick={() => router.push(actionHref)}
                                         className="h-9 px-4 inline-flex items-center rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold active:scale-[0.98] transition-all shadow-lg shadow-primary/20"
@@ -348,7 +352,7 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
                         )}
 
                         <div className="mt-3 flex flex-col gap-2">
-                            {user ? (
+                            {uiUser ? (
                                 <>
                                     <button
                                         onClick={() => router.push('/profile')}
@@ -363,10 +367,10 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
                                 </Link>
                             ) : (
                                 <>
-                                    <Link href="/login" className="h-10 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-700 dark:text-slate-200 inline-flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                                    <Link href={`/login${guestParam}`} className="h-10 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-700 dark:text-slate-200 inline-flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                                         Login
                                     </Link>
-                                    <Link href="/signup" className="h-10 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold inline-flex items-center justify-center transition-colors">
+                                    <Link href={`/signup${guestParam}`} className="h-10 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold inline-flex items-center justify-center transition-colors">
                                         Sign Up
                                     </Link>
                                 </>

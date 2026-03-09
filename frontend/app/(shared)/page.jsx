@@ -135,7 +135,7 @@ export default function Landing() {
                             </div>
 
                             <div className="flex flex-col sm:flex-row gap-3">
-                                <Link href="/upload" className="group inline-flex h-12 sm:h-[52px] items-center justify-center gap-2.5 px-5 sm:px-6 rounded-xl bg-slate-900 hover:bg-black dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-[15px] sm:text-base font-bold shadow-lg shadow-slate-900/20 dark:shadow-white/10 hover:-translate-y-0.5 active:scale-[0.98] transition-all">
+                                <Link href="/upload?guest=1" className="group inline-flex h-12 sm:h-[52px] items-center justify-center gap-2.5 px-5 sm:px-6 rounded-xl bg-slate-900 hover:bg-black dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-[15px] sm:text-base font-bold shadow-lg shadow-slate-900/20 dark:shadow-white/10 hover:-translate-y-0.5 active:scale-[0.98] transition-all">
                                     <span className="material-symbols-outlined text-[20px]">upload_file</span>
                                     Formatter: Upload Manuscript
                                 </Link>

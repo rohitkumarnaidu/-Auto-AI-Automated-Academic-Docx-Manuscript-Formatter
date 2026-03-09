@@ -84,6 +84,35 @@ if _PS:
             "extra": "ignore",
         }
 
+        @staticmethod
+        def _parse_boolish(value, field_name: str):
+            """Accept common deployment strings (e.g. DEBUG=release)."""
+            if isinstance(value, bool):
+                return value
+            if value is None:
+                return value
+
+            normalized = str(value).strip().lower()
+            truthy = {"1", "true", "yes", "on", "debug", "development", "dev", "local"}
+            falsy = {"0", "false", "no", "off", "release", "prod", "production"}
+
+            if normalized in truthy:
+                return True
+            if normalized in falsy:
+                return False
+
+            logger.warning(
+                "Unexpected boolean value for %s=%r. Falling back to default parser.",
+                field_name,
+                value,
+            )
+            return value
+
+        @field_validator("DEBUG", "FORCE_HTTPS", mode="before")
+        @classmethod
+        def parse_bool_fields(cls, value, info):
+            return cls._parse_boolish(value, info.field_name)
+
         @field_validator(
             "HEADING_STYLE_THRESHOLD", "HEADING_FALLBACK_CONFIDENCE",
             "HEURISTIC_CONFIDENCE_HIGH", "HEURISTIC_CONFIDENCE_MEDIUM",

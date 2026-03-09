@@ -1,6 +1,6 @@
 'use client';
 
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/src/context/AuthContext';
 
 const APP_GUEST_LINKS = [
@@ -50,13 +50,16 @@ const isLinkActive = (pathname, href) => {
 
 export default function Sidebar({ section = 'shared', onClose, isCollapsed = false }) {
     const pathname = usePathname();
+    const searchParams = useSearchParams();
     const router = useRouter();
     const { user, signOut } = useAuth();
+    const forceGuestMode = searchParams?.get('guest') === '1';
+    const uiUser = forceGuestMode ? null : user;
     const isAdminUser = Boolean(
-        user?.is_admin
-        || user?.app_metadata?.role === 'admin'
-        || user?.user_metadata?.role === 'admin'
-        || user?.role === 'admin'
+        uiUser?.is_admin
+        || uiUser?.app_metadata?.role === 'admin'
+        || uiUser?.user_metadata?.role === 'admin'
+        || uiUser?.role === 'admin'
     );
 
     const activeMode = section === 'generator'
@@ -67,27 +70,27 @@ export default function Sidebar({ section = 'shared', onClose, isCollapsed = fal
                 ? 'generator'
                 : 'formatter';
 
-    const mainNavLinks = user ? USER_MAIN_LINKS_BY_MODE[activeMode] : APP_GUEST_LINKS;
-    const secondaryNavLinks = user
+    const mainNavLinks = uiUser ? USER_MAIN_LINKS_BY_MODE[activeMode] : APP_GUEST_LINKS;
+    const secondaryNavLinks = uiUser
         ? [
             ...USER_SECONDARY_LINKS,
             ...(isAdminUser ? [{ href: '/admin-dashboard', label: 'Admin Dashboard', icon: 'admin_panel_settings' }] : []),
         ]
         : [];
 
-    const actionHref = user
+    const actionHref = uiUser
         ? activeMode === 'generator'
             ? '/generate'
             : '/upload'
         : '/signup';
 
-    const actionLabel = user
+    const actionLabel = uiUser
         ? activeMode === 'generator'
             ? 'New Draft'
             : 'New Format'
         : 'Get Started';
 
-    const actionIcon = user
+    const actionIcon = uiUser
         ? activeMode === 'generator'
             ? 'edit_square'
             : 'add_circle'
@@ -99,7 +102,7 @@ export default function Sidebar({ section = 'shared', onClose, isCollapsed = fal
     };
 
     const handleModeChange = (newMode) => {
-        if (!user) {
+        if (!uiUser) {
             router.push('/signup');
             return;
         }
@@ -221,7 +224,7 @@ export default function Sidebar({ section = 'shared', onClose, isCollapsed = fal
                     <span className="material-symbols-outlined shrink-0 text-[20px]">{actionIcon}</span>
                     {!isCollapsed && <span className="truncate">{actionLabel}</span>}
                 </button>
-                {user && (
+                {uiUser && (
                     <button
                         onClick={handleSignOut}
                         title={isCollapsed ? 'Sign Out' : undefined}

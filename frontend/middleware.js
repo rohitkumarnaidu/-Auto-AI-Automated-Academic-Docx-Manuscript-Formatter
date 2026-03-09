@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
-const isSafeInternalPath = (value) => typeof value === 'string' && value.startsWith('/') && !value.startsWith('//');
-
 export async function middleware(request) {
     let supabaseResponse = NextResponse.next({
         request: {
@@ -74,12 +72,6 @@ export async function middleware(request) {
         }
     } else {
         // Logged in
-        if (pathname === '/login' || pathname === '/signup') {
-            const requestedNext = url.searchParams.get('next');
-            const nextPath = isSafeInternalPath(requestedNext) ? requestedNext : '/dashboard';
-            return NextResponse.redirect(new URL(nextPath, request.url), 307);
-        }
-
         if (isAdminRoute) {
             const role = user?.user_metadata?.role;
             if (role !== 'admin') {
