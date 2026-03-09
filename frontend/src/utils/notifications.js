@@ -1,10 +1,19 @@
 export const STORAGE_KEY = 'scholarform_notifications';
 
 const createId = () => {
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-        return crypto.randomUUID();
+    if (typeof crypto !== 'undefined') {
+        if (typeof crypto.randomUUID === 'function') {
+            return crypto.randomUUID();
+        }
+
+        if (typeof crypto.getRandomValues === 'function') {
+            const bytes = new Uint8Array(16);
+            crypto.getRandomValues(bytes);
+            return Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('');
+        }
     }
-    return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+    return `notif-${Date.now()}`;
 };
 
 export const createNotification = (type, message, meta = {}) => ({

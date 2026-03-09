@@ -52,10 +52,30 @@ export default function RootLayout({ children }) {
                         `,
                     }}
                 />
-                <link
-                    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-                    rel="stylesheet"
+                <script
+                    dangerouslySetInnerHTML={{
+                        __html: `
+                            (function () {
+                                try {
+                                    var link = document.createElement('link');
+                                    link.rel = 'stylesheet';
+                                    link.href = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap';
+                                    link.media = 'print';
+                                    link.onload = function () { this.media = 'all'; };
+                                    document.head.appendChild(link);
+                                } catch (e) {
+                                    // ignore
+                                }
+                            })();
+                        `,
+                    }}
                 />
+                <noscript>
+                    <link
+                        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+                        rel="stylesheet"
+                    />
+                </noscript>
             </head>
             <body className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen relative overflow-x-hidden selection:bg-primary selection:text-white">
                 <style
