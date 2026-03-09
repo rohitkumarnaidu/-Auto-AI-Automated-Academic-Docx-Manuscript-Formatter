@@ -144,7 +144,7 @@ class AuthService:
                     "password": password,
                 }
             )
-            return response
+            return response.model_dump() if hasattr(response, "model_dump") else response.dict() if hasattr(response, "dict") else response
         except HTTPException:
             raise
         except Exception as exc:

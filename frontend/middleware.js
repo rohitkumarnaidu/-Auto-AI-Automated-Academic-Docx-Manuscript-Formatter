@@ -3,17 +3,31 @@ import { createServerClient } from '@supabase/ssr';
 
 const isSafeInternalPath = (value) => typeof value === 'string' && value.startsWith('/') && !value.startsWith('//');
 
-export async function proxy(request) {
+export async function middleware(request) {
     let supabaseResponse = NextResponse.next({
         request: {
             headers: request.headers,
         },
     });
 
+    // SECURITY HEADERS from Phase B4
+    supabaseResponse.headers.set('Content-Security-Policy', [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "font-src 'self' https://fonts.gstatic.com",
+        "img-src 'self' data: blob: https://*.supabase.co",
+        "connect-src 'self' https://*.supabase.co wss://*.supabase.co " + (process.env.NEXT_PUBLIC_API_BASE_URL || ''),
+    ].join('; '));
+
+    supabaseResponse.headers.set('X-Frame-Options', 'DENY');
+    supabaseResponse.headers.set('X-Content-Type-Options', 'nosniff');
+    supabaseResponse.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+    supabaseResponse.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-    // Gracefully handle missing envs (allow pass-through so local UI testing doesn't break)
     if (!supabaseUrl || !supabaseAnonKey) {
         return supabaseResponse;
     }
@@ -67,9 +81,6 @@ export async function proxy(request) {
         }
 
         if (isAdminRoute) {
-            // Verify admin role via user_metadata or custom claim
-            // Based on previous implementation, let's assume user.user_metadata.role === 'admin'
-            // or we just check if it's admin (we fall back to standard if not explicitly 'admin')
             const role = user?.user_metadata?.role;
             if (role !== 'admin') {
                 return NextResponse.redirect(new URL('/dashboard', request.url), 307);

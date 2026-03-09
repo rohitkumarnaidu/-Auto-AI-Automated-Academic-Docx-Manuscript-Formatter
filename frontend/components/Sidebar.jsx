@@ -123,8 +123,8 @@ export default function Sidebar({ section = 'shared', onClose, isCollapsed = fal
             {/* Top Close Button for Mobile Overlay */}
             {onClose && (
                 <div className="flex justify-end mb-4 pr-1">
-                    <button onClick={onClose} className="lg:hidden p-1 text-slate-500 hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">
-                        <span className="material-symbols-outlined">close</span>
+                    <button onClick={onClose} className="lg:hidden p-1 text-slate-500 hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Close Sidebar">
+                        <span className="material-symbols-outlined" aria-hidden="true">close</span>
                     </button>
                 </div>
             )}
@@ -161,7 +161,7 @@ export default function Sidebar({ section = 'shared', onClose, isCollapsed = fal
 
             {/* Navigation Links — flex-1 fills remaining space */}
             <nav className="flex-1 flex flex-col gap-1.5 overflow-y-auto overflow-x-hidden custom-scrollbar">
-{mainNavLinks.map(({ href, label, icon }) => {
+                {mainNavLinks.map(({ href, label, icon }) => {
                     const active = isLinkActive(pathname, href);
 
                     return (
@@ -185,7 +185,7 @@ export default function Sidebar({ section = 'shared', onClose, isCollapsed = fal
 
                 {secondaryNavLinks.length > 0 && (
                     <>
-{secondaryNavLinks.map(({ href, label, icon }) => {
+                        {secondaryNavLinks.map(({ href, label, icon }) => {
                             const active = isLinkActive(pathname, href);
 
                             return (

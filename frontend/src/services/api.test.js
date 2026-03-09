@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import * as api from './api';
+import * as api from './api.js';
 import { supabase } from '../lib/supabaseClient';
 
 // Mock global fetch
@@ -117,3 +117,4 @@ describe('API Service', () => {
         );
     });
 });
+

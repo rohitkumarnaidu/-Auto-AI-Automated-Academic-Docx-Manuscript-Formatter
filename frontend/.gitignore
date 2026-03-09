@@ -37,6 +37,7 @@ lint_output.txt
 # Vite legacy
 dist/
 index.html
+!_legacy_vite_archive/index.html
 
 # Editor
 .vscode/settings.json
@@ -46,4 +47,4 @@ build_*.txt
 build_out.txt
 build_err.txt
 devserver.*.log
-
+*.tsbuildinfo

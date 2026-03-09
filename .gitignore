@@ -69,6 +69,11 @@ htmlcov/
 .pytest_cache/
 frontend/playwright-report/
 frontend/test-results/
+frontend/build_*.txt
+frontend/build_out.txt
+frontend/build_err.txt
+frontend/devserver.*.log
+frontend/lint_output.txt
 
 
 # Local logs and test artifacts

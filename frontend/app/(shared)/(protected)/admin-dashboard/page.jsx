@@ -169,10 +169,22 @@ export default function AdminDashboard() {
                 )}
 
                 {loading && !dbMetrics && !healthData && (
-                    <div className="flex items-center justify-center py-16">
-                        <div className="text-center space-y-3">
-                            <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-                            <p className="text-slate-500 dark:text-slate-400">Loading metrics...</p>
+                    <div className="animate-in fade-in duration-500">
+                        <div className="mb-8">
+                            <div className="h-6 w-40 bg-slate-200 dark:bg-slate-800 rounded mb-4 animate-pulse"></div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                {[1, 2, 3].map(i => (
+                                    <div key={i} className="h-24 bg-slate-100 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-800 animate-pulse"></div>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="mb-8">
+                            <div className="h-6 w-32 bg-slate-200 dark:bg-slate-800 rounded mb-4 animate-pulse"></div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                {[1, 2, 3, 4].map(i => (
+                                    <div key={i} className="h-32 bg-slate-100 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-800 animate-pulse"></div>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 )}
