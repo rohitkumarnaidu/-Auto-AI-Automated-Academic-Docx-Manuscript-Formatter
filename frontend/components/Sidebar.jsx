@@ -9,7 +9,7 @@ const APP_GUEST_LINKS = [
     { href: '/template-editor', label: 'Template Editor', icon: 'edit_document' },
 ];
 
-const USER_LINKS_BY_MODE = {
+const USER_MAIN_LINKS_BY_MODE = {
     formatter: [
         { href: '/dashboard', label: 'Dashboard', icon: 'space_dashboard' },
         { href: '/upload', label: 'Upload', icon: 'upload_file' },
@@ -24,12 +24,40 @@ const USER_LINKS_BY_MODE = {
     ],
 };
 
+const USER_SECONDARY_LINKS = [
+    { href: '/batch-upload', label: 'Batch Upload', icon: 'upload' },
+    { href: '/template-editor', label: 'Template Editor', icon: 'edit_document' },
+    { href: '/results', label: 'Validation Results', icon: 'fact_check' },
+    { href: '/feedback', label: 'Feedback', icon: 'chat' },
+];
+
 const isInternalPath = (value) => value.startsWith('/') && !value.startsWith('//');
+const RESULTS_ALIAS_PREFIXES = ['/compare', '/preview', '/edit', '/download'];
+
+const isLinkActive = (pathname, href) => {
+    if (!isInternalPath(href)) {
+        return false;
+    }
+
+    if (href === '/results') {
+        return pathname === '/results'
+            || pathname.startsWith('/results/')
+            || RESULTS_ALIAS_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+    }
+
+    return pathname === href || pathname.startsWith(`${href}/`);
+};
 
 export default function Sidebar({ section = 'shared', onClose, isCollapsed = false }) {
     const pathname = usePathname();
     const router = useRouter();
     const { user, signOut } = useAuth();
+    const isAdminUser = Boolean(
+        user?.is_admin
+        || user?.app_metadata?.role === 'admin'
+        || user?.user_metadata?.role === 'admin'
+        || user?.role === 'admin'
+    );
 
     const activeMode = section === 'generator'
         ? 'generator'
@@ -39,7 +67,13 @@ export default function Sidebar({ section = 'shared', onClose, isCollapsed = fal
                 ? 'generator'
                 : 'formatter';
 
-    const navLinks = user ? USER_LINKS_BY_MODE[activeMode] : APP_GUEST_LINKS;
+    const mainNavLinks = user ? USER_MAIN_LINKS_BY_MODE[activeMode] : APP_GUEST_LINKS;
+    const secondaryNavLinks = user
+        ? [
+            ...USER_SECONDARY_LINKS,
+            ...(isAdminUser ? [{ href: '/admin-dashboard', label: 'Admin Dashboard', icon: 'admin_panel_settings' }] : []),
+        ]
+        : [];
 
     const actionHref = user
         ? activeMode === 'generator'
@@ -127,15 +161,8 @@ export default function Sidebar({ section = 'shared', onClose, isCollapsed = fal
 
             {/* Navigation Links — flex-1 fills remaining space */}
             <nav className="flex-1 flex flex-col gap-1.5 overflow-y-auto overflow-x-hidden custom-scrollbar">
-                <div className={`px-2 mb-2 ${isCollapsed ? 'hidden' : 'block'}`}>
-                    <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                        Main
-                    </p>
-                </div>
-                {navLinks.map(({ href, label, icon }) => {
-                    const active = isInternalPath(href)
-                        ? pathname === href || pathname.startsWith(`${href}/`)
-                        : false;
+{mainNavLinks.map(({ href, label, icon }) => {
+                    const active = isLinkActive(pathname, href);
 
                     return (
                         <button
@@ -155,10 +182,36 @@ export default function Sidebar({ section = 'shared', onClose, isCollapsed = fal
                         </button>
                     );
                 })}
+
+                {secondaryNavLinks.length > 0 && (
+                    <>
+{secondaryNavLinks.map(({ href, label, icon }) => {
+                            const active = isLinkActive(pathname, href);
+
+                            return (
+                                <button
+                                    key={href}
+                                    onClick={() => handleNavigation(href)}
+                                    title={isCollapsed ? label : undefined}
+                                    className={`active-nav-link flex items-center gap-3 py-2.5 rounded-xl text-[15px] font-semibold transition-all ${isCollapsed ? 'px-0 justify-center w-11 h-11 mx-auto' : 'px-3 w-full'
+                                        } ${active
+                                            ? 'bg-primary/10 text-primary dark:bg-primary/25 dark:text-blue-400 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]'
+                                            : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white'
+                                        }`}
+                                >
+                                    <span className={`material-symbols-outlined shrink-0 text-[20px] ${active ? 'fill-current' : ''}`}>
+                                        {icon}
+                                    </span>
+                                    {!isCollapsed && <span className="truncate">{label}</span>}
+                                </button>
+                            );
+                        })}
+                    </>
+                )}
             </nav>
 
             {/* Action Button — BOTTOM, pushed down by flex-1 nav above */}
-            <div className={`pt-4 border-t border-slate-200/60 dark:border-white/[0.08] flex flex-col gap-2 ${isCollapsed ? 'items-center' : ''}`}>
+            <div className={`pt-4 flex flex-col gap-2 ${isCollapsed ? 'items-center' : ''}`}>
                 <button
                     onClick={() => handleNavigation(actionHref)}
                     title={isCollapsed ? actionLabel : undefined}
@@ -183,4 +236,5 @@ export default function Sidebar({ section = 'shared', onClose, isCollapsed = fal
 
     );
 }
+
 
