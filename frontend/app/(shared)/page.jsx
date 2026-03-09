@@ -113,8 +113,8 @@ export default function Landing() {
             {/* Hero Section */}
             <section ref={heroRef} className="relative overflow-hidden py-12 lg:py-18 w-full">
                 <div className="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
-                    <div className="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full bg-primary/5 dark:bg-primary/10 blur-2xl" />
-                    <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] rounded-full bg-blue-900/5 dark:bg-blue-900/15 blur-2xl" />
+                    <div className="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full bg-primary/5 dark:bg-primary/10 blur-2xl hidden sm:block" />
+                    <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] rounded-full bg-blue-900/5 dark:bg-blue-900/15 blur-2xl hidden sm:block" />
                 </div>
 
                 <div className="max-w-[1200px] mx-auto px-4 sm:px-6">
@@ -488,9 +488,9 @@ export default function Landing() {
             < section className="py-16 w-full cv-auto" >
                 <div className="max-w-[1200px] mx-auto px-4 sm:px-6">
                     <div className="relative bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950 rounded-3xl p-8 md:p-16 overflow-hidden">
-                        <div className="absolute -top-20 -right-20 w-80 h-80 bg-primary/20 rounded-full blur-3xl" />
-                        <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-blue-900/20 rounded-full blur-3xl" />
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl" />
+                        <div className="absolute -top-20 -right-20 w-80 h-80 bg-primary/20 rounded-full blur-3xl hidden sm:block" />
+                        <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-blue-900/20 rounded-full blur-3xl hidden sm:block" />
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl hidden sm:block" />
                         <div className="relative z-10 flex flex-col items-center text-center gap-8">
                             <h2 className="text-3xl md:text-5xl font-black text-white leading-tight max-w-2xl">
                                 Ready to format your paper for publication?

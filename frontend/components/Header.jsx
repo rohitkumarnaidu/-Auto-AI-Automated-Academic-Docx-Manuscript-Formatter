@@ -127,7 +127,7 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
                                 </Link>
                             )}
                             {pathname !== '/login' && (
-                                <Link href="/login" className="h-10 px-3 inline-flex items-center text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-primary transition-colors">
+                                <Link href="/login" className="h-10 px-3 hidden sm:inline-flex items-center text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-primary transition-colors">
                                     Login
                                 </Link>
                             )}
