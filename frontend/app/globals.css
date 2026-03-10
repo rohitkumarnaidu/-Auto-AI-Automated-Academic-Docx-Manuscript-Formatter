@@ -178,6 +178,18 @@ body {
   /* 2 */
 }
 
+/* FOUC Prevention */
+html {
+    background-color: #f6f6f8;
+}
+html.dark {
+    background-color: #0a0f1e;
+    color-scheme: dark;
+}
+body {
+    background-color: transparent;
+}
+
 /*
 1. Add the correct height in Firefox.
 2. Correct the inheritance of border color in Firefox. (https://bugzilla.mozilla.org/show_bug.cgi?id=190655)

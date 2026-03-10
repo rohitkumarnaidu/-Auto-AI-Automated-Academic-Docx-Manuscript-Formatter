@@ -1,13 +1,16 @@
- 'use client';
+'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { loadNotifications, STORAGE_KEY } from '@/src/utils/notifications';
+import { loadNotifications, saveNotifications, STORAGE_KEY } from '@/src/utils/notifications';
+import { supabase } from '@/src/lib/supabaseClient';
+import { useAuth } from '@/src/context/AuthContext';
 
 export default function NotificationBell() {
     const [isOpen, setIsOpen] = useState(false);
     const [notifications, setNotifications] = useState([]);
     const dropdownRef = useRef(null);
     const router = useRouter();
+    const { user } = useAuth();
 
     useEffect(() => {
         setNotifications(loadNotifications());
@@ -19,15 +22,50 @@ export default function NotificationBell() {
         };
         window.addEventListener('storage', handleStorage);
 
-        const interval = setInterval(() => {
+        const checkInterval = setInterval(() => {
             setNotifications(loadNotifications());
-        }, 5000);
+        }, 30000);
 
         return () => {
             window.removeEventListener('storage', handleStorage);
-            clearInterval(interval);
+            clearInterval(checkInterval);
         };
     }, []);
+
+    useEffect(() => {
+        if (!user?.id || !supabase) return;
+
+        const channel = supabase
+            .channel(`public:notifications:${user.id}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'notifications',
+                    filter: `user_id=eq.${user.id}`,
+                },
+                (payload) => {
+                    const newNotification = {
+                        id: payload.new.id || String(Date.now()),
+                        type: payload.new.type || 'info',
+                        message: payload.new.message,
+                        read: payload.new.read || false,
+                        timestamp: payload.new.created_at || new Date().toISOString(),
+                    };
+                    setNotifications((prev) => {
+                        const updated = [newNotification, ...prev].slice(0, 50);
+                        saveNotifications(updated);
+                        return updated;
+                    });
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [user?.id]);
 
     useEffect(() => {
         const handleClick = (e) => {

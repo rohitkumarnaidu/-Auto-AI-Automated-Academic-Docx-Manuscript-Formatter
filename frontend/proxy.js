@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
-export async function middleware(request) {
+export async function proxy(request) {
     let supabaseResponse = NextResponse.next({
         request: {
             headers: request.headers,
@@ -40,8 +40,15 @@ export async function middleware(request) {
                 },
                 setAll(cookiesToSet) {
                     cookiesToSet.forEach(({ name, value, options }) => {
+                        // Enforce secure cookie options for tokens
+                        const secureOptions = {
+                            ...options,
+                            httpOnly: true,
+                            sameSite: 'lax',
+                            secure: process.env.NODE_ENV === 'production'
+                        };
                         request.cookies.set(name, value);
-                        supabaseResponse.cookies.set(name, value, options);
+                        supabaseResponse.cookies.set(name, value, secureOptions);
                     });
                 },
             },
@@ -49,8 +56,10 @@ export async function middleware(request) {
     );
 
     const {
-        data: { user },
-    } = await supabase.auth.getUser();
+        data: { session },
+    } = await supabase.auth.getSession();
+
+    const user = session?.user;
 
     const url = request.nextUrl.clone();
     const pathname = url.pathname;

@@ -10,13 +10,48 @@ export default function DeleteConfirmDialog({ isOpen, onConfirm, onCancel, docum
     }, [isOpen]);
 
     useEffect(() => {
-        const handleEsc = (e) => {
-            if (e.key === 'Escape' && isOpen && !isDeleting) {
-                onCancel();
+        if (!isOpen) return;
+        const dialogNode = dialogRef.current;
+        if (!dialogNode) return;
+
+        const handleKeydown = (e) => {
+            if (e.key === 'Escape' && !isDeleting) {
+                onCancel?.();
+                return;
+            }
+            if (e.key !== 'Tab') return;
+
+            const focusableElements = dialogNode.querySelectorAll(
+                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+            );
+            if (focusableElements.length === 0) return;
+
+            const firstElement = focusableElements[0];
+            const lastElement = focusableElements[focusableElements.length - 1];
+
+            if (e.shiftKey) {
+                if (document.activeElement === firstElement || !dialogNode.contains(document.activeElement)) {
+                    lastElement.focus();
+                    e.preventDefault();
+                }
+            } else {
+                if (document.activeElement === lastElement || !dialogNode.contains(document.activeElement)) {
+                    firstElement.focus();
+                    e.preventDefault();
+                }
             }
         };
-        document.addEventListener('keydown', handleEsc);
-        return () => document.removeEventListener('keydown', handleEsc);
+
+        document.addEventListener('keydown', handleKeydown);
+
+        const focusableElements = dialogNode.querySelectorAll(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        setTimeout(() => focusableElements[0]?.focus(), 50);
+
+        return () => {
+            document.removeEventListener('keydown', handleKeydown);
+        };
     }, [isOpen, isDeleting, onCancel]);
 
     if (!isOpen) return null;

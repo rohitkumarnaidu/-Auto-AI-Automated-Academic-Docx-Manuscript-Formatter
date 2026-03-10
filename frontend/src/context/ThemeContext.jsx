@@ -1,40 +1,66 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect } from 'react';
+import { ThemeProvider as NextThemeProvider, useTheme as useNextTheme } from 'next-themes';
+import { supabase } from '../lib/supabaseClient';
 
 const ThemeContext = createContext();
 
-export function ThemeProvider({ children }) {
-    const [theme, setThemeState] = useState(() => {
-        if (typeof window !== 'undefined') {
-            const savedTheme = localStorage.getItem('theme');
-            if (savedTheme) {
-                return savedTheme;
-            }
-            if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                return 'dark';
-            }
-        }
-        return 'light';
-    });
+function ThemeSyncWrapper({ children }) {
+    const { theme, setTheme: setNextTheme } = useNextTheme();
 
     useEffect(() => {
-        const root = window.document.documentElement;
-        root.classList.remove('light', 'dark');
-        root.classList.add(theme);
-        localStorage.setItem('theme', theme);
-    }, [theme]);
+        const fetchRemoteTheme = async () => {
+            if (!supabase) return;
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user?.user_metadata?.theme) {
+                const remoteTheme = session.user.user_metadata.theme;
+                if (remoteTheme !== theme) {
+                    setNextTheme(remoteTheme);
+                }
+            }
+        };
+        fetchRemoteTheme();
+    }, [setNextTheme, theme]);
+
+    const syncThemeToSupabase = async (newTheme) => {
+        if (!supabase) return;
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+                await supabase.auth.updateUser({
+                    data: { theme: newTheme }
+                });
+            }
+        } catch (err) {
+            console.error('Failed to sync theme to Supabase', err);
+        }
+    };
 
     const toggleTheme = () => {
-        setThemeState(prev => prev === 'dark' ? 'light' : 'dark');
+        const next = theme === 'dark' ? 'light' : 'dark';
+        setNextTheme(next);
+        syncThemeToSupabase(next);
     };
 
     const setTheme = (nextTheme) => {
-        setThemeState(nextTheme === 'dark' ? 'dark' : 'light');
+        const parsed = nextTheme === 'dark' ? 'dark' : 'light';
+        setNextTheme(parsed);
+        syncThemeToSupabase(parsed);
     };
 
     return (
         <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
             {children}
         </ThemeContext.Provider>
+    );
+}
+
+export function ThemeProvider({ children }) {
+    return (
+        <NextThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+            <ThemeSyncWrapper>
+                {children}
+            </ThemeSyncWrapper>
+        </NextThemeProvider>
     );
 }
 

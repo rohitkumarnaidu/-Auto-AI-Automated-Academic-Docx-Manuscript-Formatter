@@ -3,8 +3,10 @@ import usePageTitle from '@/src/hooks/usePageTitle';
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import PreviewView from '@/src/components/Preview';
+import ErrorBoundary from '@/src/components/ErrorBoundary';
 import useJobFromUrl from '@/src/hooks/useJobFromUrl';
 import Footer from '@/src/components/Footer';
+import Skeleton from '@/src/components/ui/Skeleton';
 
 export default function Preview() {
     usePageTitle('Preview');
@@ -21,10 +23,18 @@ export default function Preview() {
     // Gate: loading job from URL
     if (isJobLoading && !job) {
         return (
-            <div className="min-h-screen flex flex-col bg-background-light dark:bg-background-dark">
-                <main className="flex-1 flex flex-col items-center justify-center">
-                    <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
-                    <p className="text-slate-500 dark:text-slate-400">Loading preview...</p>
+            <div className="min-h-screen flex flex-col bg-background-light dark:bg-background-dark animate-in fade-in duration-300">
+                <main className="flex-1 flex flex-col p-8 items-center">
+                    <div className="max-w-4xl w-full flex-1 bg-white dark:bg-slate-900 shadow-xl border border-slate-200 dark:border-slate-800 p-8 sm:p-12 mb-8 flex flex-col gap-6">
+                        <Skeleton className="h-10 w-3/4 mx-auto" />
+                        <Skeleton className="h-6 w-1/4 mx-auto" />
+                        <div className="h-4" />
+                        <Skeleton className="h-4 w-full" />
+                        <Skeleton className="h-4 w-5/6" />
+                        <Skeleton className="h-4 w-[90%]" />
+                        <div className="h-4" />
+                        <Skeleton className="h-[200px] w-full" />
+                    </div>
                 </main>
                 <Footer variant="app" />
             </div>
@@ -69,11 +79,13 @@ export default function Preview() {
     }
 
     return (
-        <PreviewView
-            job={job}
-            onUpload={() => navigate('/upload')}
-            onDownload={() => navigate('/download')}
-        />
+        <ErrorBoundary>
+            <PreviewView
+                job={job}
+                onUpload={() => navigate('/upload')}
+                onDownload={() => navigate('/download')}
+            />
+        </ErrorBoundary>
     );
 }
 

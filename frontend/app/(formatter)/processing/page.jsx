@@ -140,7 +140,7 @@ export default function Processing() {
                 error: statusData.message,
                 phase: nextPhase,
             }));
-            navigate('/error');
+            // Do not navigate away; handle inline predictable error feedback
         }
     }, [job, navigate, notifyCompletion, setJob, statusData]);
 
@@ -164,9 +164,83 @@ export default function Processing() {
         navigate('/upload');
     };
 
+    const isJobFailed = isFailed(job?.status || statusData?.status);
+    const normalizedPhase = String(statusData?.phase || statusData?.current_phase || 'UPLOADED').toUpperCase();
+
+    const getContextualMessage = (phaseLevel) => {
+        if (isJobFailed) return 'Processing encountered an error. Please see the details below and try to recover or retry the job.';
+        switch (phaseLevel) {
+            case 'UPLOADED':
+            case 'UPLOAD':
+                return 'Preparing your files for processing. Next up: document parsing and structure analysis.';
+            case 'PARSING':
+            case 'EXTRACTION':
+                return 'Reading document contents. Next up: AI-powered section classification and intelligence.';
+            case 'CLASSIFICATION':
+            case 'INTELLIGENCE':
+            case 'NLP_ANALYSIS':
+                return 'AI is actively analyzing content and citations. Next up: strict format validation and styling.';
+            case 'VALIDATION':
+            case 'FORMATTING':
+            case 'EXPORT':
+            case 'PERSISTENCE':
+                return 'Applying target template styles and finalizing exports. Almost ready to download!';
+            case 'COMPLETED':
+                return 'Processing finished successfully! Redirecting you to download the formatted outputs.';
+            case 'FAILED':
+                return 'Processing encountered an error. Please see the details below and try to recover or retry.';
+            default:
+                return 'Our AI is analyzing your document structure, verifying references, and applying the target template.';
+        }
+    };
+
+    if (isJobFailed) {
+        return (
+            <div className="min-h-screen flex flex-col bg-background-light dark:bg-background-dark">
+                <main className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6">
+                    <div className="max-w-2xl w-full bg-white dark:bg-slate-900 rounded-2xl border border-red-200 dark:border-red-900/50 shadow-xl overflow-hidden animate-in fade-in zoom-in duration-500">
+                        <div className="p-6 sm:p-8 border-b border-slate-100 dark:border-slate-800 text-center">
+                            <div className="inline-flex items-center justify-center size-20 rounded-full bg-red-50 dark:bg-red-900/20 text-red-500 mb-6">
+                                <span className="material-symbols-outlined text-5xl">warning</span>
+                            </div>
+                            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mb-2 tracking-tight">Processing Failed</h1>
+                            <p className="text-slate-500 dark:text-slate-400">We encountered an issue while processing your document.</p>
+                        </div>
+                        <div className="p-6 bg-red-50 dark:bg-red-900/10 border-b border-red-100 dark:border-red-900/20">
+                            <p className="text-red-700 dark:text-red-400 text-sm font-medium">{job?.error || statusData?.message || 'Unknown error occurred during processing. Please try again or verify your source files.'}</p>
+                        </div>
+                        <div className="p-6 bg-slate-50 dark:bg-slate-800/30">
+                            <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-3">Recovery Options</h3>
+                            <div className="flex flex-col sm:flex-row gap-3">
+                                <button
+                                    onClick={() => {
+                                        setJob({ ...job, status: 'UPLOADED', error: null, progress: 0, phase: 'UPLOADED' });
+                                        queryClient.refetchQueries({ queryKey: ['document-status', job?.id] });
+                                    }}
+                                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary-hover transition-all active:scale-[0.98]"
+                                >
+                                    <span className="material-symbols-outlined text-lg">refresh</span>
+                                    Retry Processing
+                                </button>
+                                <button
+                                    onClick={() => navigate(job?.type === 'generator' ? '/generate' : '/upload')}
+                                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-all active:scale-[0.98]"
+                                >
+                                    <span className="material-symbols-outlined text-lg">settings_backup_restore</span>
+                                    Restore Draft & Edit
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+                <Footer variant="app" />
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen flex flex-col bg-background-light dark:bg-background-dark">
-            
+
             <main className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6">
                 <div className="max-w-2xl w-full bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden animate-in fade-in zoom-in duration-500">
                     <div className="p-6 sm:p-8 border-b border-slate-100 dark:border-slate-800 text-center">
@@ -174,7 +248,7 @@ export default function Processing() {
                             <span className="material-symbols-outlined text-5xl">sync</span>
                         </div>
                         <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mb-2 tracking-tight">Processing Manuscript</h1>
-                        <p className="text-slate-500 dark:text-slate-400">Our AI is analyzing your document structure, verifying references, and applying the target template.</p>
+                        <p className="text-slate-500 dark:text-slate-400">{getContextualMessage(normalizedPhase)}</p>
                     </div>
 
                     <div className="p-6 sm:p-8 space-y-8">

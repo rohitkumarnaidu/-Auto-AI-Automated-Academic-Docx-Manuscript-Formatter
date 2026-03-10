@@ -7,6 +7,11 @@ import {
     normalizeDocumentsParams,
 } from './api.documents';
 
+import {
+    getMetricsHealth,
+    getMetricsDashboard,
+} from './api.metrics';
+
 export const useDocuments = (params = {}, queryOptions = {}) => {
     const normalizedParams = normalizeDocumentsParams(params);
 
@@ -29,5 +34,21 @@ export const useDocumentStatus = (jobId, queryOptions = {}) => (
         queryFn: ({ signal }) => getJobStatus(jobId, { signal }),
         ...queryOptions,
         enabled: Boolean(jobId) && (queryOptions.enabled ?? true),
+    })
+);
+
+export const useMetricsHealth = (queryOptions = {}) => (
+    useQuery({
+        queryKey: ['metrics-health'],
+        queryFn: () => getMetricsHealth(),
+        ...queryOptions,
+    })
+);
+
+export const useMetricsDashboard = (queryOptions = {}) => (
+    useQuery({
+        queryKey: ['metrics-dashboard'],
+        queryFn: () => getMetricsDashboard(),
+        ...queryOptions,
     })
 );

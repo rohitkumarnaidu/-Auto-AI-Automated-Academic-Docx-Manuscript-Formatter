@@ -38,25 +38,6 @@ export default function RootLayout({ children }) {
                         __html: `
                             (function () {
                                 try {
-                                    var theme = localStorage.getItem('theme');
-                                    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                                    if (theme === 'dark' || (!theme && prefersDark)) {
-                                        document.documentElement.classList.add('dark');
-                                    } else {
-                                        document.documentElement.classList.add('light');
-                                    }
-                                } catch (e) {
-                                    document.documentElement.classList.add('light');
-                                }
-                            })();
-                        `,
-                    }}
-                />
-                <script
-                    dangerouslySetInnerHTML={{
-                        __html: `
-                            (function () {
-                                try {
                                     var link = document.createElement('link');
                                     link.rel = 'stylesheet';
                                     link.href = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap';

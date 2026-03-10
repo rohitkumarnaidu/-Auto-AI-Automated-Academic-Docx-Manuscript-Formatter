@@ -1,6 +1,7 @@
 'use client';
 import usePageTitle from '@/src/hooks/usePageTitle';
 import { useState, useRef, useEffect } from 'react';
+import { useMetricsDashboard } from '@/src/services/api';
 
 import Footer from '@/src/components/Footer';
 import Link from 'next/link';
@@ -59,9 +60,18 @@ export default function Landing() {
     const heroRef = useRef(null);
     const [animateHero, setAnimateHero] = useState(true);
     const [isScrolling, setIsScrolling] = useState(false);
-    const researchers = useCountUp(25000, 1800);
-    const templates = useCountUp(1000, 1500);
-    const universities = useCountUp(50, 1200);
+    const { data: metrics } = useMetricsDashboard({
+        staleTime: 60000,
+        retry: false,
+    });
+
+    const researchersCount = metrics?.total_users || 25000;
+    const templatesCount = metrics?.total_templates || 1000;
+    const universitiesCount = metrics?.active_institutions || 50;
+
+    const researchers = useCountUp(researchersCount, 1800);
+    const templates = useCountUp(templatesCount, 1500);
+    const universities = useCountUp(universitiesCount, 1200);
 
     useEffect(() => {
         const section = heroRef.current;

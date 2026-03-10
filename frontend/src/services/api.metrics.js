@@ -1,4 +1,4 @@
-import { fetchWithAuth, sanitizePayload, sendFrontendErrorLog } from './api.core';
+import { fetchWithAuth, sanitizePayload, sendFrontendErrorLog, API_BASE_URL } from './api.core';
 
 export const logFrontendError = async (errorInfo) => {
     await sendFrontendErrorLog(errorInfo);
@@ -22,11 +22,15 @@ export const getMetricsDb = async () => {
 };
 
 export const getMetricsHealth = async () => {
-    return fetchWithAuth('/api/metrics/health');
+    const res = await fetch(`${API_BASE_URL}/api/metrics/health`);
+    if (!res.ok) return null;
+    return res.json();
 };
 
 export const getMetricsDashboard = async () => {
-    return fetchWithAuth('/api/metrics/dashboard');
+    const res = await fetch(`${API_BASE_URL}/api/metrics/dashboard`);
+    if (!res.ok) return null;
+    return res.json();
 };
 
 export const getMetricsEnhancements = async () => {

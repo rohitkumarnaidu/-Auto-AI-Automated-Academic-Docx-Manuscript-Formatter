@@ -1,6 +1,9 @@
 import Link from 'next/link';
+import { useMetricsHealth } from '@/src/services/api';
 
 export default function Footer({ variant = 'app' }) {
+    const { data: health } = useMetricsHealth({ staleTime: 60000, retry: false });
+
     const preventPlaceholderNav = (event) => {
         event.preventDefault();
     };
@@ -55,7 +58,14 @@ export default function Footer({ variant = 'app' }) {
                                             <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold border border-blue-200 dark:border-blue-500/30">Soon</span>
                                         </div>
                                     </li>
-                                    <li><Link href="#" onClick={preventPlaceholderNav} className="text-[15px] text-slate-500 dark:text-slate-400 hover:text-primary hover:translate-x-1 transition-all inline-block">System Status</Link></li>
+                                    <li>
+                                        <div className="flex items-center gap-2">
+                                            <div className={`size-2 rounded-full ${health ? (health?.status === 'healthy' || health?.status === 'ok' ? 'bg-green-500' : 'bg-amber-500') : 'bg-slate-300'} animate-pulse`} />
+                                            <Link href="#" onClick={preventPlaceholderNav} className="text-[15px] text-slate-500 dark:text-slate-400 hover:text-primary hover:translate-x-1 transition-all inline-block">
+                                                {health ? (health?.status === 'healthy' || health?.status === 'ok' ? 'All Systems Operational' : 'Degraded Performance') : 'Checking System Status...'}
+                                            </Link>
+                                        </div>
+                                    </li>
                                 </ul>
                             </div>
                             <div className="col-span-2 md:col-span-1 pt-8 md:pt-0">
@@ -79,12 +89,12 @@ export default function Footer({ variant = 'app' }) {
                             <Link href="/terms" className="text-[13px] text-slate-500 hover:text-primary transition-colors">Terms of Service</Link>
                         </div>
                         <div className="flex items-center justify-center gap-6">
-                            <div className="flex items-center gap-1.5 text-slate-400 dark:text-slate-500 group">
-                                <span className="material-symbols-outlined text-[16px] group-hover:text-green-500 transition-colors">shield</span>
+                            <div className="flex items-center gap-1.5 text-slate-400 dark:text-slate-500 group" title={health?.version ? `Backend Ver: ${health.version}` : 'GDPR Compliant'}>
+                                <span className={`material-symbols-outlined text-[16px] transition-colors ${health?.status ? 'text-green-500' : 'group-hover:text-green-500'}`}>shield</span>
                                 <span className="text-[11px] font-bold tracking-widest uppercase">GDPR Ready</span>
                             </div>
                             <div className="flex items-center gap-1.5 text-slate-400 dark:text-slate-500 group">
-                                <span className="material-symbols-outlined text-[16px] group-hover:text-blue-500 transition-colors">verified</span>
+                                <span className={`material-symbols-outlined text-[16px] transition-colors ${health?.status ? 'text-blue-500' : 'group-hover:text-blue-500'}`}>verified</span>
                                 <span className="text-[11px] font-bold tracking-widest uppercase">Publisher Partner</span>
                             </div>
                         </div>

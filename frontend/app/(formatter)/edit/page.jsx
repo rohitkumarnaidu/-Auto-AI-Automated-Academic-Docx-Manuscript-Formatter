@@ -2,9 +2,12 @@
 import usePageTitle from '@/src/hooks/usePageTitle';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import ErrorBoundary from '@/src/components/ErrorBoundary';
 
 import { useDocument } from '@/src/context/DocumentContext';
 import { useToast } from '@/src/context/ToastContext';
+import Skeleton from '@/src/components/ui/Skeleton';
+import Minimap from '@/src/components/ui/Minimap';
 import { useUnsavedChanges } from '@/src/hooks/useUnsavedChanges';
 import { isCompleted } from '@/src/constants/status';
 import { submitEdit, getPreview } from '@/src/services/api';
@@ -53,6 +56,7 @@ export default function Edit() {
     const [lastSaved, setLastSaved] = useState('Just now');
     const [validationMessage, setValidationMessage] = useState(null);
     const initialContentRef = useRef('');
+    const editorScrollRef = useRef(null);
     const isDirty = content !== initialContentRef.current;
     useUnsavedChanges(isDirty);
 
@@ -174,9 +178,18 @@ export default function Edit() {
     // Gate: loading job from URL
     if (isJobLoading && !job) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-background-light dark:bg-background-dark">
-                <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
-                <p className="text-slate-500 dark:text-slate-400">Loading document for editing...</p>
+            <div className="min-h-screen flex flex-col bg-background-light dark:bg-background-dark animate-in fade-in duration-300">
+                <div className="px-6 py-3 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
+                    <Skeleton className="h-6 w-1/3 max-w-[200px]" rounded="rounded" />
+                    <Skeleton className="h-8 w-24" />
+                </div>
+                <main className="flex-1 p-8 flex justify-center">
+                    <div className="w-full max-w-[850px] space-y-4">
+                        <Skeleton className="h-[200px] w-full" rounded="rounded-xl" />
+                        <Skeleton className="h-[100px] w-full" rounded="rounded-xl" />
+                        <Skeleton className="h-[300px] w-full" rounded="rounded-xl" />
+                    </div>
+                </main>
             </div>
         );
     }
@@ -204,133 +217,137 @@ export default function Edit() {
     }
 
     return (
-        <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-display animate-in zoom-in-95 duration-300">
+        <ErrorBoundary>
+            <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-display animate-in zoom-in-95 duration-300">
 
-            {/* Sub-Header / Breadcrumbs & Quick Actions */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 px-4 sm:px-6 py-2 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 animate-in slide-in-from-top duration-300">
-                <div className="flex items-center gap-2 overflow-hidden min-w-0">
-                    <button onClick={() => navigate('/history')} className="text-slate-500 dark:text-slate-400 text-sm font-medium hover:text-primary whitespace-nowrap">My Manuscripts</button>
-                    <span className="text-slate-400">/</span>
-                    <span className="text-slate-900 dark:text-white text-sm font-semibold truncate">{title}</span>
-                    <span className={`ml-2 px-2 py-0.5 ${isSaving ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'} dark:bg-green-900/30 dark:text-green-400 text-[10px] font-bold uppercase rounded`}>
-                        {isSaving ? 'Saving...' : 'Saved'}
-                    </span>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                    <button onClick={handleSave} className="flex items-center gap-1.5 px-3 py-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors" aria-label="Save">
-                        <span className="material-symbols-outlined text-[18px]" aria-hidden="true">save</span>
-                        <span className="text-sm font-medium hidden sm:inline">Save</span>
-                    </button>
-                    <button onClick={handleRevalidate} className="flex items-center gap-1.5 px-3 py-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors" aria-label="Local Validate">
-                        <span className="material-symbols-outlined text-[18px]" aria-hidden="true">refresh</span>
-                        <span className="text-sm font-medium hidden sm:inline">Local Validate</span>
-                    </button>
-                    <button
-                        onClick={() => navigate('/download')}
-                        disabled={!isCompleted(job?.status)}
-                        className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 bg-primary text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-400"
-                        aria-label="Export"
-                    >
-                        <span className="material-symbols-outlined text-[18px]" aria-hidden="true">description</span>
-                        <span className="text-sm font-bold hidden sm:inline">Export</span>
-                    </button>
-                </div>
-            </div>
-
-            {/* Main Layout */}
-            <div className="flex flex-1 flex-col xl:flex-row overflow-hidden">
-                {/* Editor View */}
-                <main className="flex-1 overflow-y-auto bg-background-light dark:bg-background-dark p-4 sm:p-6 lg:p-8 flex justify-center">
-                    <div className="w-full max-w-[850px]">
-                        {/* Validation Message Banner */}
-                        {validationMessage && (
-                            <div className={`mb-6 p-4 rounded-xl border animate-in fade-in slide-in-from-top duration-300 ${validationMessage.type === 'success'
-                                ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/30'
-                                : 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-900/30'
-                                }`}>
-                                <div className="flex items-center gap-2">
-                                    <span className={`material-symbols-outlined text-sm ${validationMessage.type === 'success' ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'
-                                        }`}>
-                                        {validationMessage.type === 'success' ? 'check_circle' : 'warning'}
-                                    </span>
-                                    <p className={`text-sm font-medium ${validationMessage.type === 'success' ? 'text-green-900 dark:text-green-300' : 'text-amber-900 dark:text-amber-300'
-                                        }`}>
-                                        {validationMessage.text}
-                                    </p>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Manuscript Paper Area */}
-                        <article className="manuscript-paper bg-white dark:bg-slate-900 min-h-[700px] lg:min-h-[1100px] p-5 sm:p-8 lg:p-16 rounded-sm border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
-                            <h1
-                                className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white mb-6 sm:mb-8 focus:outline-none"
-                                contentEditable
-                                suppressContentEditableWarning
-                                spellCheck={false}
-                            >
-                                {title.replace(/_/g, ' ')}
-                            </h1>
-                            <textarea
-                                className="w-full min-h-[520px] sm:min-h-[700px] bg-transparent resize-none border-none focus:ring-0 p-0 text-base sm:text-lg leading-relaxed text-slate-700 dark:text-slate-300 font-serif"
-                                value={content}
-                                onChange={(e) => setContent(e.target.value)}
-                                placeholder="Start typing your manuscript..."
-                                spellCheck={false}
-                            />
-                        </article>
-                    </div>
-                </main>
-
-                {/* Right Sidebar: Validation Feedback */}
-                <aside className="w-full xl:w-80 border-t xl:border-t-0 xl:border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col max-h-[360px] xl:max-h-none">
-                    <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-                        <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                            <span className="material-symbols-outlined text-primary">analytics</span>
-                            Live Report
-                        </h3>
-                        <span className="text-xs font-semibold bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded text-slate-600 dark:text-slate-400">
-                            {(job.result?.errors?.length || 0) + (job.result?.warnings?.length || 0)} Issues
+                {/* Sub-Header / Breadcrumbs & Quick Actions */}
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 px-4 sm:px-6 py-2 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 animate-in slide-in-from-top duration-300">
+                    <div className="flex items-center gap-2 overflow-hidden min-w-0">
+                        <button onClick={() => navigate('/history')} className="text-slate-500 dark:text-slate-400 text-sm font-medium hover:text-primary whitespace-nowrap">My Manuscripts</button>
+                        <span className="text-slate-400">/</span>
+                        <span className="text-slate-900 dark:text-white text-sm font-semibold truncate">{title}</span>
+                        <span className={`ml-2 px-2 py-0.5 ${isSaving ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'} dark:bg-green-900/30 dark:text-green-400 text-[10px] font-bold uppercase rounded`}>
+                            {isSaving ? 'Saving...' : 'Saved'}
                         </span>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                        {job.result?.errors?.map((err, i) => (
-                            <div key={i} className="p-4 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded-xl">
-                                <div className="flex gap-2">
-                                    <span className="material-symbols-outlined text-red-500 text-sm">error</span>
-                                    <h4 className="text-sm font-bold text-red-900 dark:text-red-400">{err.issue || "Formatting Error"}</h4>
-                                </div>
-                                <p className="text-xs text-red-700 dark:text-red-300 mt-1">{err.message || err}</p>
-                            </div>
-                        ))}
-                        {job.result?.warnings?.map((warn, i) => (
-                            <div key={i} className="p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-xl">
-                                <div className="flex gap-2">
-                                    <span className="material-symbols-outlined text-amber-500 text-sm">warning</span>
-                                    <h4 className="text-sm font-bold text-amber-900 dark:text-amber-400">Suggestion</h4>
-                                </div>
-                                <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">{warn.message || warn}</p>
-                            </div>
-                        ))}
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                        <button onClick={handleSave} className="flex items-center gap-1.5 px-3 py-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors" aria-label="Save">
+                            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">save</span>
+                            <span className="text-sm font-medium hidden sm:inline">Save</span>
+                        </button>
+                        <button onClick={handleRevalidate} className="flex items-center gap-1.5 px-3 py-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors" aria-label="Local Validate">
+                            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">refresh</span>
+                            <span className="text-sm font-medium hidden sm:inline">Local Validate</span>
+                        </button>
+                        <button
+                            onClick={() => navigate('/download')}
+                            disabled={!isCompleted(job?.status)}
+                            className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 bg-primary text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-400"
+                            aria-label="Export"
+                        >
+                            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">description</span>
+                            <span className="text-sm font-bold hidden sm:inline">Export</span>
+                        </button>
                     </div>
-                </aside>
-            </div>
+                </div>
 
-            {/* Bottom Status Bar */}
-            <footer className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 px-4 sm:px-6 py-2 text-[10px] font-medium text-slate-500 dark:text-slate-400">
-                <div className="flex flex-wrap items-center gap-4">
-                    <span>Words: {content.split(/\s+/).filter(Boolean).length}</span>
-                    <span>Status: {isSaving ? 'Syncing...' : 'Up to date'}</span>
+                {/* Main Layout */}
+                <div className="flex flex-1 flex-col xl:flex-row overflow-hidden">
+                    {/* Editor View */}
+                    <main ref={editorScrollRef} className="flex-1 overflow-y-auto bg-background-light dark:bg-background-dark p-4 sm:p-6 lg:p-8 flex justify-center scroll-smooth">
+                        <div className="w-full max-w-[850px]">
+                            {/* Validation Message Banner */}
+                            {validationMessage && (
+                                <div className={`mb-6 p-4 rounded-xl border animate-in fade-in slide-in-from-top duration-300 ${validationMessage.type === 'success'
+                                    ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/30'
+                                    : 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-900/30'
+                                    }`}>
+                                    <div className="flex items-center gap-2">
+                                        <span className={`material-symbols-outlined text-sm ${validationMessage.type === 'success' ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'
+                                            }`}>
+                                            {validationMessage.type === 'success' ? 'check_circle' : 'warning'}
+                                        </span>
+                                        <p className={`text-sm font-medium ${validationMessage.type === 'success' ? 'text-green-900 dark:text-green-300' : 'text-amber-900 dark:text-amber-300'
+                                            }`}>
+                                            {validationMessage.text}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Manuscript Paper Area */}
+                            <article className="manuscript-paper bg-white dark:bg-slate-900 min-h-[700px] lg:min-h-[1100px] p-5 sm:p-8 lg:p-16 rounded-sm border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
+                                <h1
+                                    className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white mb-6 sm:mb-8 focus:outline-none"
+                                    contentEditable
+                                    suppressContentEditableWarning
+                                    spellCheck={false}
+                                >
+                                    {title.replace(/_/g, ' ')}
+                                </h1>
+                                <textarea
+                                    className="w-full min-h-[520px] sm:min-h-[700px] bg-transparent resize-none border-none focus:ring-0 p-0 text-base sm:text-lg leading-relaxed text-slate-700 dark:text-slate-300 font-serif"
+                                    value={content}
+                                    onChange={(e) => setContent(e.target.value)}
+                                    placeholder="Start typing your manuscript..."
+                                    spellCheck={false}
+                                />
+                            </article>
+                        </div>
+                    </main>
+
+                    <Minimap content={content} targetRef={editorScrollRef} />
+
+                    {/* Right Sidebar: Validation Feedback */}
+                    <aside className="w-full xl:w-80 border-t xl:border-t-0 xl:border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col max-h-[360px] xl:max-h-none">
+                        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                            <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                <span className="material-symbols-outlined text-primary">analytics</span>
+                                Live Report
+                            </h3>
+                            <span className="text-xs font-semibold bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded text-slate-600 dark:text-slate-400">
+                                {(job.result?.errors?.length || 0) + (job.result?.warnings?.length || 0)} Issues
+                            </span>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                            {job.result?.errors?.map((err, i) => (
+                                <div key={i} className="p-4 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded-xl">
+                                    <div className="flex gap-2">
+                                        <span className="material-symbols-outlined text-red-500 text-sm">error</span>
+                                        <h4 className="text-sm font-bold text-red-900 dark:text-red-400">{err.issue || "Formatting Error"}</h4>
+                                    </div>
+                                    <p className="text-xs text-red-700 dark:text-red-300 mt-1">{err.message || err}</p>
+                                </div>
+                            ))}
+                            {job.result?.warnings?.map((warn, i) => (
+                                <div key={i} className="p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-xl">
+                                    <div className="flex gap-2">
+                                        <span className="material-symbols-outlined text-amber-500 text-sm">warning</span>
+                                        <h4 className="text-sm font-bold text-amber-900 dark:text-amber-400">Suggestion</h4>
+                                    </div>
+                                    <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">{warn.message || warn}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </aside>
                 </div>
-                <div className="flex flex-wrap items-center gap-4">
-                    <div className="flex items-center gap-1.5">
-                        <span className="material-symbols-outlined text-[12px]">schedule</span>
-                        <span>Last saved: {lastSaved}</span>
+
+                {/* Bottom Status Bar */}
+                <footer className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 px-4 sm:px-6 py-2 text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                    <div className="flex flex-wrap items-center gap-4">
+                        <span>Words: {content.split(/\s+/).filter(Boolean).length}</span>
+                        <span>Status: {isSaving ? 'Syncing...' : 'Up to date'}</span>
                     </div>
-                    <span className="break-all">ID: {job.id}</span>
-                </div>
-            </footer>
-        </div>
+                    <div className="flex flex-wrap items-center gap-4">
+                        <div className="flex items-center gap-1.5">
+                            <span className="material-symbols-outlined text-[12px]">schedule</span>
+                            <span>Last saved: {lastSaved}</span>
+                        </div>
+                        <span className="break-all">ID: {job.id}</span>
+                    </div>
+                </footer>
+            </div>
+        </ErrorBoundary>
     );
 }
 

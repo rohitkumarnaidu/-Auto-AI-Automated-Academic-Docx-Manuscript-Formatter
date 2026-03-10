@@ -134,11 +134,11 @@ export default function Sidebar({ section = 'shared', onClose, isCollapsed = fal
 
             {/* Mode Switcher */}
             <div className={`mb-3 ${isCollapsed ? 'px-0' : 'px-1'}`}>
-                <div className={`flex flex-col gap-1 rounded-2xl bg-[#f0f1f3] dark:bg-white/5 border border-slate-200/50 dark:border-white/8 ${isCollapsed ? 'p-1' : 'p-1.5'}`}>
+                <div className={`flex flex-col gap-1 rounded-2xl bg-[#f0f1f3] dark:bg-white/5 ring-1 ring-black/5 dark:ring-white/10 ${isCollapsed ? 'p-1' : 'p-1.5'}`}>
                     <button
                         onClick={() => handleModeChange('formatter')}
                         title={isCollapsed ? 'Formatter' : undefined}
-                        className={`active-mode-btn flex items-center gap-3 py-2 rounded-xl text-[15px] transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${isCollapsed ? 'px-0 justify-center w-10 h-10 mx-auto' : 'px-3 w-full'
+                        className={`active-mode-btn flex items-center gap-3 py-2 rounded-xl text-[15px] active:scale-[0.98] transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${isCollapsed ? 'px-0 justify-center w-10 h-10 mx-auto' : 'px-3 w-full'
                             } ${activeMode === 'formatter'
                                 ? 'bg-white dark:bg-white/10 shadow-sm text-slate-900 dark:text-white font-bold ring-1 ring-slate-900/5 dark:ring-white/10'
                                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-medium hover:bg-slate-200/50 dark:hover:bg-white/5'
@@ -150,7 +150,7 @@ export default function Sidebar({ section = 'shared', onClose, isCollapsed = fal
                     <button
                         onClick={() => handleModeChange('generator')}
                         title={isCollapsed ? 'Generator' : undefined}
-                        className={`active-mode-btn flex items-center gap-3 py-2 rounded-xl text-[15px] transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${isCollapsed ? 'px-0 justify-center w-10 h-10 mx-auto' : 'px-3 w-full'
+                        className={`active-mode-btn flex items-center gap-3 py-2 rounded-xl text-[15px] active:scale-[0.98] transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${isCollapsed ? 'px-0 justify-center w-10 h-10 mx-auto' : 'px-3 w-full'
                             } ${activeMode === 'generator'
                                 ? 'bg-white dark:bg-white/10 shadow-sm text-slate-900 dark:text-white font-bold ring-1 ring-slate-900/5 dark:ring-white/10'
                                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-medium hover:bg-slate-200/50 dark:hover:bg-white/5'
@@ -172,7 +172,7 @@ export default function Sidebar({ section = 'shared', onClose, isCollapsed = fal
                             key={href}
                             onClick={() => handleNavigation(href)}
                             title={isCollapsed ? label : undefined}
-                            className={`active-nav-link flex items-center gap-3 py-2.5 rounded-xl text-[15px] font-semibold transition-all ${isCollapsed ? 'px-0 justify-center w-11 h-11 mx-auto' : 'px-3 w-full'
+                            className={`active-nav-link flex items-center gap-3 py-2.5 rounded-xl text-[15px] font-semibold active:scale-[0.98] transition-all ${isCollapsed ? 'px-0 justify-center w-11 h-11 mx-auto' : 'px-3 w-full'
                                 } ${active
                                     ? 'bg-primary/10 text-primary dark:bg-primary/25 dark:text-blue-400 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]'
                                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white'
@@ -196,7 +196,7 @@ export default function Sidebar({ section = 'shared', onClose, isCollapsed = fal
                                     key={href}
                                     onClick={() => handleNavigation(href)}
                                     title={isCollapsed ? label : undefined}
-                                    className={`active-nav-link flex items-center gap-3 py-2.5 rounded-xl text-[15px] font-semibold transition-all ${isCollapsed ? 'px-0 justify-center w-11 h-11 mx-auto' : 'px-3 w-full'
+                                    className={`active-nav-link flex items-center gap-3 py-2.5 rounded-xl text-[15px] font-semibold active:scale-[0.98] transition-all ${isCollapsed ? 'px-0 justify-center w-11 h-11 mx-auto' : 'px-3 w-full'
                                         } ${active
                                             ? 'bg-primary/10 text-primary dark:bg-primary/25 dark:text-blue-400 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]'
                                             : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white'
@@ -228,7 +228,7 @@ export default function Sidebar({ section = 'shared', onClose, isCollapsed = fal
                     <button
                         onClick={handleSignOut}
                         title={isCollapsed ? 'Sign Out' : undefined}
-                        className={`h-10 flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ${isCollapsed ? 'w-11 px-0' : 'w-full px-4'}`}
+                        className={`h-10 flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-[0.98] transition-all ${isCollapsed ? 'w-11 px-0' : 'w-full px-4'}`}
                     >
                         <span className="material-symbols-outlined shrink-0 text-[20px]">logout</span>
                         {!isCollapsed && <span className="truncate font-semibold">Sign Out</span>}
@@ -236,8 +236,5 @@ export default function Sidebar({ section = 'shared', onClose, isCollapsed = fal
                 )}
             </div>
         </div>
-
     );
 }
-
-

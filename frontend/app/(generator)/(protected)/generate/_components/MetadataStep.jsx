@@ -47,27 +47,27 @@ export default function MetadataStep({ docType, metadata, onChange }) {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="md:col-span-2">
-                        <label className="text-gray-300 text-sm font-medium mb-1.5 block">Paper Title *</label>
+                        <label className="text-slate-900 dark:text-slate-100 text-sm font-medium mb-1.5 block">Paper Title *</label>
                         <input id="meta-title" type="text" placeholder="e.g. Deep Learning for Academic Document Formatting" value={metadata.title || ''} onChange={(event) => setValue('title', event.target.value)} className={inputCls} />
                     </div>
                     <div>
-                        <label className="text-gray-300 text-sm font-medium mb-1.5 block">Authors</label>
+                        <label className="text-slate-900 dark:text-slate-100 text-sm font-medium mb-1.5 block">Authors</label>
                         <input id="meta-authors" type="text" placeholder="e.g. John Doe, Jane Smith" value={metadata.authors_raw || ''} onChange={(event) => setValue('authors_raw', event.target.value)} className={inputCls} />
                     </div>
                     <div>
-                        <label className="text-gray-300 text-sm font-medium mb-1.5 block">Affiliation</label>
+                        <label className="text-slate-900 dark:text-slate-100 text-sm font-medium mb-1.5 block">Affiliation</label>
                         <input id="meta-affiliation" type="text" placeholder="e.g. MIT, Cambridge University" value={metadata.affiliation || ''} onChange={(event) => setValue('affiliation', event.target.value)} className={inputCls} />
                     </div>
                     <div className="md:col-span-2">
-                        <label className="text-gray-300 text-sm font-medium mb-1.5 block">Abstract</label>
+                        <label className="text-slate-900 dark:text-slate-100 text-sm font-medium mb-1.5 block">Abstract</label>
                         <textarea id="meta-abstract" rows={4} placeholder="Brief description of your paper's aim, methods, and findings..." value={metadata.abstract || ''} onChange={(event) => setValue('abstract', event.target.value)} className={`${inputCls} resize-none`} />
                     </div>
                     <div>
-                        <label className="text-gray-300 text-sm font-medium mb-1.5 block">Keywords</label>
+                        <label className="text-slate-900 dark:text-slate-100 text-sm font-medium mb-1.5 block">Keywords</label>
                         <input id="meta-keywords" type="text" placeholder="e.g. machine learning, NLP, formatting" value={metadata.keywords_raw || ''} onChange={(event) => setValue('keywords_raw', event.target.value)} className={inputCls} />
                     </div>
                     <div>
-                        <label className="text-gray-300 text-sm font-medium mb-1.5 block">Language</label>
+                        <label className="text-slate-900 dark:text-slate-100 text-sm font-medium mb-1.5 block">Language</label>
                         <select id="meta-language" value={metadata.language || 'english'} onChange={(event) => setValue('language', event.target.value)} className={inputCls}>
                             {['english', 'spanish', 'french', 'german', 'portuguese', 'arabic'].map((language) => (
                                 <option key={language} value={language} className="bg-background-light dark:bg-gray-900 text-slate-900 dark:text-slate-100">
@@ -78,7 +78,7 @@ export default function MetadataStep({ docType, metadata, onChange }) {
                     </div>
                 </div>
                 <div>
-                    <label className="text-gray-300 text-sm font-medium mb-3 block">Sections to Include</label>
+                    <label className="text-slate-700 dark:text-slate-300 text-sm font-medium mb-3 block">Sections to Include</label>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                         {sections.map((section, index) => (
                             <button
@@ -123,7 +123,7 @@ export default function MetadataStep({ docType, metadata, onChange }) {
                         { key: 'linkedin', label: 'LinkedIn URL', placeholder: 'linkedin.com/in/johndoe', id: 'meta-linkedin' },
                     ].map((field) => (
                         <div key={field.key}>
-                            <label className="text-gray-300 text-sm font-medium mb-1.5 block">{field.label}</label>
+                            <label className="text-slate-900 dark:text-slate-100 text-sm font-medium mb-1.5 block">{field.label}</label>
                             <input
                                 id={field.id}
                                 type="text"
@@ -135,7 +135,7 @@ export default function MetadataStep({ docType, metadata, onChange }) {
                         </div>
                     ))}
                     <div className="md:col-span-2">
-                        <label className="text-gray-300 text-sm font-medium mb-1.5 block">Professional Summary</label>
+                        <label className="text-slate-900 dark:text-slate-100 text-sm font-medium mb-1.5 block">Professional Summary</label>
                         <textarea
                             id="meta-summary"
                             rows={3}
@@ -146,7 +146,7 @@ export default function MetadataStep({ docType, metadata, onChange }) {
                         />
                     </div>
                     <div className="md:col-span-2">
-                        <label className="text-gray-300 text-sm font-medium mb-1.5 block">Skills</label>
+                        <label className="text-slate-900 dark:text-slate-100 text-sm font-medium mb-1.5 block">Skills</label>
                         <input
                             id="meta-skills"
                             type="text"
@@ -157,7 +157,7 @@ export default function MetadataStep({ docType, metadata, onChange }) {
                         />
                     </div>
                     <div className="md:col-span-2">
-                        <label className="text-gray-300 text-sm font-medium mb-1.5 block">Certifications</label>
+                        <label className="text-slate-900 dark:text-slate-100 text-sm font-medium mb-1.5 block">Certifications</label>
                         <input
                             id="meta-certifications"
                             type="text"
@@ -221,15 +221,15 @@ export default function MetadataStep({ docType, metadata, onChange }) {
             </div>
             <div className="grid grid-cols-1 gap-4">
                 <div>
-                    <label className="text-gray-300 text-sm font-medium mb-1.5 block">Title *</label>
+                    <label className="text-slate-900 dark:text-slate-100 text-sm font-medium mb-1.5 block">Title *</label>
                     <input id="meta-title-generic" type="text" placeholder="Document title" value={metadata.title || ''} onChange={(event) => setValue('title', event.target.value)} className={inputCls} />
                 </div>
                 <div>
-                    <label className="text-gray-300 text-sm font-medium mb-1.5 block">Author / Name</label>
+                    <label className="text-slate-900 dark:text-slate-100 text-sm font-medium mb-1.5 block">Author / Name</label>
                     <input id="meta-name-generic" type="text" placeholder="Your name or organization" value={metadata.name || ''} onChange={(event) => setValue('name', event.target.value)} className={inputCls} />
                 </div>
                 <div>
-                    <label className="text-gray-300 text-sm font-medium mb-1.5 block">Description / Abstract</label>
+                    <label className="text-slate-900 dark:text-slate-100 text-sm font-medium mb-1.5 block">Description / Abstract</label>
                     <textarea id="meta-abstract-generic" rows={4} placeholder="Brief description of the document's purpose and content..." value={metadata.abstract || ''} onChange={(event) => setValue('abstract', event.target.value)} className={`${inputCls} resize-none`} />
                 </div>
             </div>

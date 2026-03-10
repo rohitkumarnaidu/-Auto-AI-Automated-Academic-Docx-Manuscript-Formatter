@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import MetricsCard from '@/src/components/MetricsCard';
 import HealthStatusIndicator from '@/src/components/HealthStatusIndicator';
 import Footer from '@/src/components/Footer';
+import Skeleton from '@/src/components/ui/Skeleton';
 import { getMetricsDb, getMetricsHealth, getMetricsDashboard } from '@/src/services/api';
 import { useAuth } from '@/src/context/AuthContext';
 
@@ -170,22 +171,22 @@ export default function AdminDashboard() {
 
                 {loading && !dbMetrics && !healthData && (
                     <div className="animate-in fade-in duration-500">
-                        <div className="mb-8">
-                            <div className="h-6 w-40 bg-slate-200 dark:bg-slate-800 rounded mb-4 animate-pulse"></div>
+                        <section className="mb-8">
+                            <Skeleton className="h-6 w-40 mb-4" />
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 {[1, 2, 3].map(i => (
-                                    <div key={i} className="h-24 bg-slate-100 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-800 animate-pulse"></div>
+                                    <Skeleton key={i} className="h-24 w-full" rounded="rounded-xl" />
                                 ))}
                             </div>
-                        </div>
-                        <div className="mb-8">
-                            <div className="h-6 w-32 bg-slate-200 dark:bg-slate-800 rounded mb-4 animate-pulse"></div>
+                        </section>
+                        <section className="mb-8">
+                            <Skeleton className="h-6 w-32 mb-4" />
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                 {[1, 2, 3, 4].map(i => (
-                                    <div key={i} className="h-32 bg-slate-100 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-800 animate-pulse"></div>
+                                    <Skeleton key={i} className="h-32 w-full" rounded="rounded-xl" />
                                 ))}
                             </div>
-                        </div>
+                        </section>
                     </div>
                 )}
             </main>

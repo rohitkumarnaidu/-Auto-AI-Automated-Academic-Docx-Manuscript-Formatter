@@ -156,40 +156,40 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
 
         const userControlRailClassName = 'flex items-center gap-2 sm:gap-3 shrink-0';
 
-        const iconPillButtonClassName = 'h-10 w-10 inline-flex items-center justify-center rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-700 dark:text-slate-300 shrink-0';
+        const iconPillButtonClassName = 'h-10 w-10 inline-flex items-center justify-center rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-[0.98] transition-all text-slate-700 dark:text-slate-300 shrink-0';
 
         return (
             <header className={sidebarHeaderClassName}>
                 <div className={sidebarContainerClassName}>
                     <div className={sidebarRowClassName}>
-                    {/* Left: Hamburger & Logo */}
-                    <div className="flex items-center gap-3">
-                        <button
-                            type="button"
-                            onClick={onOpenMobileSidebar}
-                            className={iconPillButtonClassName}
-                            aria-label="Toggle Sidebar"
-                        >
-                            <span className="material-symbols-outlined text-[24px]">menu</span>
-                        </button>
-                        <Link href={logoHref} className="flex items-center gap-2 group">
-                            <span className="material-symbols-outlined text-[28px] text-primary">auto_stories</span>
-                            <span className="font-bold text-slate-900 dark:text-white group-hover:text-primary transition-colors text-[17px]">
-                                ScholarForm AI
-                            </span>
-                        </Link>
-                    </div>
+                        {/* Left: Hamburger & Logo */}
+                        <div className="flex items-center gap-3">
+                            <button
+                                type="button"
+                                onClick={onOpenMobileSidebar}
+                                className={iconPillButtonClassName}
+                                aria-label="Toggle Sidebar"
+                            >
+                                <span className="material-symbols-outlined text-[24px]">menu</span>
+                            </button>
+                            <Link href={logoHref} className="flex items-center gap-2 group">
+                                <span className="material-symbols-outlined text-[28px] text-primary">auto_stories</span>
+                                <span className="font-bold text-slate-900 dark:text-white group-hover:text-primary transition-colors text-[17px]">
+                                    ScholarForm AI
+                                </span>
+                            </Link>
+                        </div>
 
-                    <div className="flex-1" />
+                        <div className="flex-1" />
 
-                    {/* Right: Controls */}
+                        {/* Right: Controls */}
                         {uiUser ? (
                             <div className={userControlRailClassName}>
                                 <ThemeToggle />
                                 <NotificationBell />
                                 <button
                                     onClick={() => router.push('/profile')}
-                                    className="h-10 w-10 rounded-full border border-white/70 dark:border-white/[0.10] bg-white/45 dark:bg-white/[0.03] hover:bg-white/75 dark:hover:bg-white/[0.08] transition-colors p-0.5"
+                                    className="h-10 w-10 rounded-full border border-white/70 dark:border-white/[0.10] bg-white/45 dark:bg-white/[0.03] hover:bg-white/75 dark:hover:bg-white/[0.08] active:scale-[0.98] transition-all p-0.5"
                                     aria-label="User Profile"
                                     title="Profile"
                                 >
@@ -220,7 +220,7 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
 
     return (
         <header className="sticky top-0 z-50 w-full px-3 sm:px-4 pt-3">
-            <div className="mx-auto max-w-[1240px] rounded-2xl border border-slate-200/90 dark:border-white/10 bg-white/90 dark:bg-[#101114]/90 backdrop-blur-xl shadow-[0_14px_40px_rgba(0,0,0,0.06)] dark:shadow-[0_22px_56px_rgba(0,0,0,0.45)]">
+            <div className="mx-auto max-w-[1240px] rounded-2xl ring-1 ring-black/5 dark:ring-white/10 bg-white/90 dark:bg-[#0a0f1e]/80 backdrop-blur-md shadow-[0_14px_40px_rgba(0,0,0,0.06)] dark:shadow-[0_22px_56px_rgba(0,0,0,0.45)]">
                 <div className="flex h-[68px] items-center gap-3 px-3 sm:px-4">
                     <Link href={logoHref} className="flex items-center gap-2 shrink-0 group">
                         <div className="flex items-center justify-center size-10">
@@ -243,7 +243,7 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
                                 <NotificationBell />
                                 <button
                                     onClick={() => router.push('/profile')}
-                                    className="h-9 w-9 rounded-full overflow-hidden border border-slate-300 dark:border-slate-700 hover:border-primary transition-colors"
+                                    className="h-9 w-9 rounded-full overflow-hidden border border-slate-300 dark:border-slate-700 hover:border-primary active:scale-[0.98] transition-all"
                                     aria-label="User Profile"
                                     title="Profile"
                                 >
@@ -270,7 +270,7 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
                         <button
                             type="button"
                             onClick={() => setIsMobileMenuOpen((current) => !current)}
-                            className="md:hidden h-9 w-9 inline-flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                            className="md:hidden h-9 w-9 inline-flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-[0.98] transition-all"
                             aria-label="Toggle menu"
                             aria-expanded={isMobileMenuOpen}
                         >
