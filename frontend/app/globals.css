@@ -180,14 +180,16 @@ body {
 
 /* FOUC Prevention */
 html {
-    background-color: #f6f6f8;
+  background-color: #f6f6f8;
 }
+
 html.dark {
-    background-color: #0a0f1e;
-    color-scheme: dark;
+  background-color: #0a0f1e;
+  color-scheme: dark;
 }
+
 body {
-    background-color: transparent;
+  background-color: transparent;
 }
 
 /*
@@ -361,6 +363,7 @@ button,
 input:where([type='button']),
 input:where([type='reset']),
 input:where([type='submit']) {
+  appearance: button;
   -webkit-appearance: button;
   /* 1 */
   background-color: transparent;
@@ -408,6 +411,7 @@ Correct the cursor style of increment and decrement buttons in Safari.
 */
 
 [type='search'] {
+  appearance: textfield;
   -webkit-appearance: textfield;
   /* 1 */
   outline-offset: -2px;
@@ -419,6 +423,7 @@ Remove the inner padding in Chrome and Safari on macOS.
 */
 
 ::-webkit-search-decoration {
+  appearance: none;
   -webkit-appearance: none;
 }
 
@@ -549,8 +554,6 @@ embed,
 object {
   display: block;
   /* 1 */
-  vertical-align: middle;
-  /* 2 */
 }
 
 /*
@@ -1335,6 +1338,7 @@ input:where([type='file']):focus {
   overflow: hidden;
   display: -webkit-box;
   -webkit-box-orient: vertical;
+  line-clamp: 2;
   -webkit-line-clamp: 2;
 }
 
@@ -3968,6 +3972,14 @@ input:where([type='file']):focus {
 .placeholder-slate-500::placeholder {
   --tw-placeholder-opacity: 1;
   color: rgb(100 116 139 / var(--tw-placeholder-opacity, 1));
+}
+
+.placeholder\:text-slate-500\/60::-moz-placeholder {
+  color: rgb(100 116 139 / 0.6);
+}
+
+.placeholder\:text-slate-500\/60::placeholder {
+  color: rgb(100 116 139 / 0.6);
 }
 
 .accent-blue-500 {
