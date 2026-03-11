@@ -41,6 +41,9 @@ export const useMetricsHealth = (queryOptions = {}) => (
     useQuery({
         queryKey: ['metrics-health'],
         queryFn: () => getMetricsHealth(),
+        retry: false,
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
         ...queryOptions,
     })
 );
@@ -49,6 +52,9 @@ export const useMetricsDashboard = (queryOptions = {}) => (
     useQuery({
         queryKey: ['metrics-dashboard'],
         queryFn: () => getMetricsDashboard(),
+        retry: false,
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
         ...queryOptions,
     })
 );

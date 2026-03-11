@@ -101,10 +101,10 @@ async def log_frontend_error(error_data: dict, current_user=Depends(get_optional
         return {"status": "error", "message": str(e)}
 
 @router.get("/health")
-async def health_check(admin_user=Depends(require_admin)):
+async def health_check():
     """
     Comprehensive health check endpoint.
-    Requires authentication.
+    Publicly accessible.
     
     Returns:
         - status: overall health status

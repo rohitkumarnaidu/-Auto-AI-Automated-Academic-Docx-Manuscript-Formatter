@@ -1,8 +1,7 @@
 'use client';
 import usePageTitle from '@/src/hooks/usePageTitle';
 import { useState, useRef, useEffect } from 'react';
-import { useMetricsDashboard } from '@/src/services/api';
-
+import { ArrowRight, CheckCircle2, FileText, Zap, Shield, Sparkles, BookOpen, Quote, Download, Users, Briefcase, GraduationCap } from 'lucide-react';
 import Footer from '@/src/components/Footer';
 import Link from 'next/link';
 
@@ -60,14 +59,10 @@ export default function Landing() {
     const heroRef = useRef(null);
     const [animateHero, setAnimateHero] = useState(true);
     const [isScrolling, setIsScrolling] = useState(false);
-    const { data: metrics } = useMetricsDashboard({
-        staleTime: 60000,
-        retry: false,
-    });
 
-    const researchersCount = metrics?.total_users || 25000;
-    const templatesCount = metrics?.total_templates || 1000;
-    const universitiesCount = metrics?.active_institutions || 50;
+    const researchersCount = 25000;
+    const templatesCount = 1000;
+    const universitiesCount = 50;
 
     const researchers = useCountUp(researchersCount, 1800);
     const templates = useCountUp(templatesCount, 1500);
