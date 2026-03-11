@@ -6,16 +6,16 @@ export default function ProcessingStepper({
     steps,
 }) {
     return (
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm lg:sticky lg:top-24">
-            <div className="p-6 border-b border-slate-100 dark:border-slate-800">
+        <div className="bg-white surface-ladder-06 rounded-xl border border-slate-200 dark:border-slate-700/70 surface-ladder-border-10 shadow-sm lg:sticky lg:top-24 hover:shadow-md dark:hover:shadow-none transition-shadow">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-700/60 surface-ladder-border-10">
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-lg font-bold text-slate-900 dark:text-white">Processing Status</h2>
-                    <span className={`text-xs font-bold uppercase tracking-widest px-2 py-1 rounded transition-colors ${isProcessing ? 'bg-primary/10 text-primary animate-pulse' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                    <span className={`text-xs font-bold uppercase tracking-widest px-2 py-1 rounded transition-colors ${isProcessing ? 'bg-primary/10 text-primary animate-pulse' : 'bg-slate-100 surface-ladder-10 text-slate-500'
                         }`}>
                         {isProcessing ? 'Processing' : 'Standby'}
                     </span>
                 </div>
-                <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
+                <div className="w-full bg-slate-100 surface-ladder-10 rounded-full h-2 overflow-hidden">
                     <div
                         className="bg-primary h-full transition-all duration-500 ease-out"
                         style={{ width: `${progress}%` }}
@@ -40,7 +40,7 @@ export default function ProcessingStepper({
                             <div className="flex flex-col items-center">
                                 <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border-2 transition-all ${isStepCompleted ? 'bg-green-100 border-green-100 text-green-600' :
                                     isStepActive ? 'bg-primary/20 border-primary text-primary' :
-                                        'bg-slate-100 dark:bg-slate-800 border-transparent text-slate-400'
+                                        'bg-slate-100 surface-ladder-10 border-transparent text-slate-400'
                                     }`}>
                                     {isStepCompleted ? (
                                         <span className="material-symbols-outlined text-sm font-bold">check</span>
@@ -51,7 +51,7 @@ export default function ProcessingStepper({
                                     )}
                                 </div>
                                 {step.id < steps.length && (
-                                    <div className={`w-0.5 h-8 mt-2 transition-colors duration-500 ${isStepCompleted ? 'bg-green-200 dark:bg-green-900' : 'bg-slate-200 dark:bg-slate-800'}`}></div>
+                                    <div className={`w-0.5 h-8 mt-2 transition-colors duration-500 ${isStepCompleted ? 'bg-green-200 dark:bg-green-900' : 'bg-slate-200 dark:bg-white/10'}`}></div>
                                 )}
                             </div>
                             <div className="pt-1">
@@ -67,7 +67,7 @@ export default function ProcessingStepper({
                 })}
             </div>
 
-            <div className="p-6 bg-slate-50 dark:bg-slate-800/30 rounded-b-xl flex justify-center">
+            <div className="p-6 bg-slate-50 surface-ladder-10 rounded-b-xl flex justify-center">
                 <p className="text-xs text-slate-400 flex items-center gap-1 italic">
                     <span className="material-symbols-outlined text-[14px]">
                         {isProcessing ? 'sync' : 'info'}

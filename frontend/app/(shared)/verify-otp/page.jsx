@@ -98,12 +98,12 @@ export default function VerifyOTP() {
     };
 
     return (
-        <div className="flex-1 w-full flex flex-col font-display transition-colors duration-300 w-full relative bg-gradient-to-br from-violet-50 via-indigo-50 to-blue-50 dark:from-[#0a0714] dark:via-[#0c0d1e] dark:to-[#08111f]">
+        <div className="flex-1 w-full flex flex-col font-display transition-colors duration-300 w-full relative bg-gradient-to-br from-violet-50 via-indigo-50 to-blue-50 theme-dark-base">
 
             {/* Page background blob decorations */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-                <div className="absolute top-[-10%] left-[-5%] w-[45%] h-[45%] bg-violet-400/25 dark:bg-violet-600/20 rounded-full blur-[120px]"></div>
-                <div className="absolute bottom-[-10%] right-[-5%] w-[40%] h-[40%] bg-blue-400/20 dark:bg-blue-600/15 rounded-full blur-[100px]"></div>
+                <div className="absolute top-[-10%] left-[-5%] w-[45%] h-[45%] bg-violet-400/25 surface-ladder-10 rounded-full blur-[120px]"></div>
+                <div className="absolute bottom-[-10%] right-[-5%] w-[40%] h-[40%] bg-blue-400/20 dark:bg-white/10 surface-ladder-06 rounded-full blur-[100px]"></div>
             </div>
 
             <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl w-full flex-1 flex flex-col lg:flex-row items-center justify-center lg:justify-between py-12 lg:py-0 relative z-10">
@@ -112,7 +112,7 @@ export default function VerifyOTP() {
                     <div className="relative z-10 max-w-lg animate-in fade-in slide-in-from-left-8 duration-1000">
                         <h2 className="text-4xl xl:text-5xl font-extrabold text-slate-900 dark:text-white mb-5 leading-tight">
                             Verify your identity <br />
-                            <span className="text-primary dark:text-violet-400">to continue securely.</span>
+                            <span className="text-primary dark:text-primary">to continue securely.</span>
                         </h2>
                         <p className="text-base text-slate-600 dark:text-slate-400 mb-10 leading-relaxed max-w-md">
                             Enter the 6-digit confirmation code we sent to your email to verify your ownership of this account.
@@ -121,7 +121,7 @@ export default function VerifyOTP() {
                         <div className="flex items-center gap-4">
                             <div className="flex -space-x-3">
                                 {[1, 2, 3, 4].map((i) => (
-                                    <div key={i} className="w-10 h-10 rounded-full border-2 border-white dark:border-[#0c0d1e] bg-gradient-to-br from-violet-200 to-indigo-300 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center shadow-md">
+                                    <div key={i} className="w-10 h-10 rounded-full border-2 border-white dark:border-background-dark bg-gradient-to-br from-violet-200 to-indigo-300 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center shadow-md">
                                         <span className="material-symbols-outlined text-[16px] text-violet-600 dark:text-slate-400">person</span>
                                     </div>
                                 ))}
@@ -136,7 +136,7 @@ export default function VerifyOTP() {
                 {/* Right Side: Glassmorphic Form Card */}
                 <div className="w-full lg:w-[45%] flex items-center justify-center lg:h-full">
                     <div className="w-full max-w-[420px] z-10 animate-in fade-in slide-in-from-right-8 duration-700">
-                        <div className="w-full bg-white/60 dark:bg-slate-900/80 backdrop-blur-2xl shadow-2xl shadow-violet-500/10 dark:shadow-violet-900/30 border border-white/80 dark:border-slate-700/40 rounded-3xl p-8 relative">
+                        <div className="w-full bg-white/60 dark:bg-slate-900/80 surface-ladder-10 backdrop-blur-2xl shadow-2xl shadow-violet-500/10 dark:shadow-black/40 border border-white/80 dark:border-slate-700/40 surface-ladder-border-14 rounded-3xl p-8 relative">
                             {/* Inline icon + heading */}
                             <div className="flex items-center gap-3 mb-2">
                                 <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary shrink-0">
@@ -159,7 +159,7 @@ export default function VerifyOTP() {
                                         <input
                                             key={i}
                                             ref={inputRefs[i]}
-                                            className="flex h-12 w-10 sm:h-14 sm:w-12 text-center [appearance:textfield] focus:outline-0 focus:ring-2 focus:ring-primary/40 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 hover:border-slate-300 dark:hover:border-slate-700 focus:border-primary dark:focus:border-primary rounded-xl text-xl font-bold leading-normal text-slate-900 dark:text-white transition-all shadow-sm"
+                                            className="flex h-12 w-10 sm:h-14 sm:w-12 text-center [appearance:textfield] focus:outline-0 focus:ring-2 focus:ring-primary/40 border border-slate-200 dark:border-slate-800 surface-ladder-border-14 bg-white dark:bg-slate-900/50 surface-ladder-06 hover:border-slate-300 dark:hover:border-slate-700 focus:border-primary dark:focus:border-primary rounded-xl text-xl font-bold leading-normal text-slate-900 dark:text-white transition-all shadow-sm"
                                             maxLength="6" // Note: we allow > 1 in onChange for pasting
                                             type="text"
                                             value={digit}

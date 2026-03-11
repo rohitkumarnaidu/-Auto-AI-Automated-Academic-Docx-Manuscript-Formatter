@@ -119,7 +119,7 @@ export default function Landing() {
             <section ref={heroRef} className="relative overflow-hidden py-12 lg:py-18 w-full">
                 <div className="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
                     <div className="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full bg-primary/5 dark:bg-primary/10 blur-2xl hidden sm:block" />
-                    <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] rounded-full bg-blue-900/5 dark:bg-blue-900/15 blur-2xl hidden sm:block" />
+                    <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] rounded-full bg-blue-900/5 surface-ladder-10 blur-2xl hidden sm:block" />
                 </div>
 
                 <div className="max-w-[1200px] mx-auto px-4 sm:px-6">
@@ -152,18 +152,18 @@ export default function Landing() {
                         </div>
 
                         <div className="relative fade-in-up" style={{ animationDelay: '180ms' }}>
-                            <div className="aspect-[4/3] rounded-2xl overflow-hidden bg-white dark:bg-slate-800 shadow-2xl border border-slate-200 dark:border-slate-700 relative" style={heroAnimation('hero-pulse-glow 3s ease-in-out infinite')}>
+                            <div className="aspect-[4/3] rounded-2xl overflow-hidden bg-white dark:bg-slate-800 surface-ladder-10 shadow-2xl border border-slate-200 dark:border-slate-700 surface-ladder-border-14 relative" style={heroAnimation('hero-pulse-glow 3s ease-in-out infinite')}>
                                 <div className="absolute left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-primary to-transparent z-10 pointer-events-none" style={heroAnimation('hero-scan-line 6s ease-in-out infinite')} />
 
                                 <div className="absolute inset-0 flex flex-col">
-                                    <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+                                    <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-100 dark:border-slate-700 surface-ladder-border-10 bg-slate-50 dark:bg-slate-900/50 surface-ladder-06">
                                         <div className="flex gap-1.5">
                                             <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
                                             <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
                                             <div className="w-2.5 h-2.5 rounded-full bg-green-400" />
                                         </div>
                                         <div className="flex-1 flex justify-center">
-                                            <div className="px-3 py-0.5 bg-white dark:bg-slate-800 rounded text-[10px] font-medium text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                                            <div className="px-3 py-0.5 bg-white dark:bg-slate-800 surface-ladder-06 rounded text-[10px] font-medium text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 surface-ladder-border-10">
                                                 uploaded_manuscript.docx
                                             </div>
                                         </div>
@@ -183,7 +183,7 @@ export default function Landing() {
                                             <div className="h-3 bg-slate-200 dark:bg-slate-600 rounded-sm" style={{ ...heroAnimation('hero-line-type 6s ease-out infinite', '1.6s'), maxWidth: '85%' }} />
                                         </div>
 
-                                        <div className="w-[35%] border-l border-slate-100 dark:border-slate-700 p-3 flex flex-col gap-2.5 bg-slate-50/50 dark:bg-slate-900/30">
+                                        <div className="w-[35%] border-l border-slate-100 dark:border-slate-700 surface-ladder-border-10 p-3 flex flex-col gap-2.5 bg-slate-50/50 dark:bg-slate-900/30 surface-ladder-06">
                                             <div className="flex items-center justify-between">
                                                 <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Formatting</span>
                                                 <span className="text-[9px] font-bold text-green-600">Ready</span>
@@ -204,7 +204,7 @@ export default function Landing() {
                                     </div>
                                 </div>
                             </div>
-                            <div className="absolute -bottom-6 -left-6 bg-white dark:bg-slate-800 p-6 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 hidden md:block">
+                            <div className="absolute -bottom-6 -left-6 bg-white dark:bg-slate-800 surface-ladder-10 p-6 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 surface-ladder-border-14 hidden md:block">
                                 <div className="flex items-center gap-4">
                                     <div className="bg-green-100 dark:bg-green-900/30 p-3 rounded-full">
                                         <span className="material-symbols-outlined text-green-600">check_circle</span>
@@ -222,7 +222,7 @@ export default function Landing() {
             </section >
 
             {/* Feature Grid Section */}
-            < section className="py-20 w-full cv-auto scroll-mt-20 bg-gradient-to-b from-transparent via-primary/[0.04] to-transparent dark:via-primary/[0.08]" id="features" >
+            < section className="py-20 w-full cv-auto scroll-mt-20 bg-gradient-to-b from-transparent via-primary/[0.04] to-transparent theme-dark-neutral" id="features" >
                 <div className="max-w-[1200px] mx-auto px-4 sm:px-6">
                     <div className="text-center max-w-3xl mx-auto mb-16">
                         <h2 className="text-primary font-bold text-sm tracking-widest uppercase mb-3">Powerful Capabilities</h2>
@@ -231,7 +231,7 @@ export default function Landing() {
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {/* Feature 1 — Blue */}
-                        <div className="group p-8 bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-blue-400/50 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/10 hover:-translate-y-1.5 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 relative overflow-hidden">
+                        <div className="group p-8 bg-white dark:bg-slate-800/50 surface-ladder-06 rounded-2xl border border-slate-200 dark:border-slate-700 surface-ladder-border-10 hover:border-blue-400/50 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/10 hover:-translate-y-1.5 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 surface-ladder-hover-10 relative overflow-hidden">
                             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-cyan-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                             <div className="size-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center mb-6 group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-blue-500/30 transition-all">
                                 <span className="material-symbols-outlined">file_open</span>
@@ -240,7 +240,7 @@ export default function Landing() {
                             <p className="text-slate-600 dark:text-slate-400 leading-relaxed">Export seamlessly to high-fidelity PDF, clean LaTeX source code, and fully editable Word formats for further collaboration.</p>
                         </div>
                         {/* Feature 2 — Violet */}
-                        <div className="group p-8 bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-violet-400/50 transition-all duration-300 hover:shadow-xl hover:shadow-violet-500/10 hover:-translate-y-1.5 hover:bg-violet-50/50 dark:hover:bg-violet-950/20 relative overflow-hidden">
+                        <div className="group p-8 bg-white dark:bg-slate-800/50 surface-ladder-06 rounded-2xl border border-slate-200 dark:border-slate-700 surface-ladder-border-10 hover:border-violet-400/50 transition-all duration-300 hover:shadow-xl hover:shadow-violet-500/10 hover:-translate-y-1.5 hover:bg-violet-50/50 dark:hover:bg-violet-950/20 surface-ladder-hover-10 relative overflow-hidden">
                             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-violet-500 to-purple-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                             <div className="size-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 text-white flex items-center justify-center mb-6 group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-violet-500/30 transition-all">
                                 <span className="material-symbols-outlined">document_scanner</span>
@@ -249,7 +249,7 @@ export default function Landing() {
                             <p className="text-slate-600 dark:text-slate-400 leading-relaxed">Advanced optical character recognition to convert scanned citations, handwritten notes, and image tables into perfectly editable text.</p>
                         </div>
                         {/* Feature 3 — Emerald */}
-                        <div className="group p-8 bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-emerald-400/50 transition-all duration-300 hover:shadow-xl hover:shadow-emerald-500/10 hover:-translate-y-1.5 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20 relative overflow-hidden">
+                        <div className="group p-8 bg-white dark:bg-slate-800/50 surface-ladder-06 rounded-2xl border border-slate-200 dark:border-slate-700 surface-ladder-border-10 hover:border-emerald-400/50 transition-all duration-300 hover:shadow-xl hover:shadow-emerald-500/10 hover:-translate-y-1.5 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20 surface-ladder-hover-10 relative overflow-hidden">
                             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                             <div className="size-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center mb-6 group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-emerald-500/30 transition-all">
                                 <span className="material-symbols-outlined">verified_user</span>
@@ -258,7 +258,7 @@ export default function Landing() {
                             <p className="text-slate-600 dark:text-slate-400 leading-relaxed">Automated checks against specific journal-specific requirements including word counts, figure positioning, and reference density.</p>
                         </div>
                         {/* Feature 4 — Amber */}
-                        <div className="group p-8 bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-amber-400/50 transition-all duration-300 hover:shadow-xl hover:shadow-amber-500/10 hover:-translate-y-1.5 hover:bg-amber-50/50 dark:hover:bg-amber-950/20 relative overflow-hidden">
+                        <div className="group p-8 bg-white dark:bg-slate-800/50 surface-ladder-06 rounded-2xl border border-slate-200 dark:border-slate-700 surface-ladder-border-10 hover:border-amber-400/50 transition-all duration-300 hover:shadow-xl hover:shadow-amber-500/10 hover:-translate-y-1.5 hover:bg-amber-50/50 dark:hover:bg-amber-950/20 surface-ladder-hover-10 relative overflow-hidden">
                             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 to-orange-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                             <div className="size-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 text-white flex items-center justify-center mb-6 group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-amber-500/30 transition-all">
                                 <span className="material-symbols-outlined">format_list_bulleted</span>
@@ -267,7 +267,7 @@ export default function Landing() {
                             <p className="text-slate-600 dark:text-slate-400 leading-relaxed">Apply 1000+ citation styles with one click. We maintain up-to-date templates for major publishers and international conferences.</p>
                         </div>
                         {/* Feature 5 — Rose */}
-                        <div className="group p-8 bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-rose-400/50 transition-all duration-300 hover:shadow-xl hover:shadow-rose-500/10 hover:-translate-y-1.5 hover:bg-rose-50/50 dark:hover:bg-rose-950/20 relative overflow-hidden">
+                        <div className="group p-8 bg-white dark:bg-slate-800/50 surface-ladder-06 rounded-2xl border border-slate-200 dark:border-slate-700 surface-ladder-border-10 hover:border-rose-400/50 transition-all duration-300 hover:shadow-xl hover:shadow-rose-500/10 hover:-translate-y-1.5 hover:bg-rose-50/50 dark:hover:bg-rose-950/20 surface-ladder-hover-10 relative overflow-hidden">
                             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-rose-500 to-pink-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                             <div className="size-12 rounded-xl bg-gradient-to-br from-rose-500 to-pink-600 text-white flex items-center justify-center mb-6 group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-rose-500/30 transition-all">
                                 <span className="material-symbols-outlined">auto_awesome</span>
@@ -276,7 +276,7 @@ export default function Landing() {
                             <p className="text-slate-600 dark:text-slate-400 leading-relaxed">Structural feedback on document flow and writing clarity. Identify passive voice, repetitive phrases, and weak transitions instantly.</p>
                         </div>
                         {/* Feature 6 — Cyan */}
-                        <div className="group p-8 bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-cyan-400/50 transition-all duration-300 hover:shadow-xl hover:shadow-cyan-500/10 hover:-translate-y-1.5 hover:bg-cyan-50/50 dark:hover:bg-cyan-950/20 relative overflow-hidden">
+                        <div className="group p-8 bg-white dark:bg-slate-800/50 surface-ladder-06 rounded-2xl border border-slate-200 dark:border-slate-700 surface-ladder-border-10 hover:border-cyan-400/50 transition-all duration-300 hover:shadow-xl hover:shadow-cyan-500/10 hover:-translate-y-1.5 hover:bg-cyan-50/50 dark:hover:bg-cyan-950/20 surface-ladder-hover-10 relative overflow-hidden">
                             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-cyan-500 to-sky-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                             <div className="size-12 rounded-xl bg-gradient-to-br from-cyan-500 to-sky-600 text-white flex items-center justify-center mb-6 group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-cyan-500/30 transition-all">
                                 <span className="material-symbols-outlined">lock</span>
@@ -289,7 +289,7 @@ export default function Landing() {
             </section >
 
             {/* Templates Preview Section */}
-            < section className="py-20 w-full cv-auto scroll-mt-20 bg-gradient-to-b from-slate-50/70 to-transparent dark:from-slate-900/35 dark:to-transparent" id="templates" >
+            < section className="py-20 w-full cv-auto scroll-mt-20 bg-gradient-to-b from-slate-50/70 to-transparent theme-dark-neutral" id="templates" >
                 <div className="max-w-[1200px] mx-auto px-4 sm:px-6">
                     <div className="text-center max-w-3xl mx-auto mb-16">
                         <h2 className="text-primary font-bold text-sm tracking-widest uppercase mb-3">Journal Library</h2>
@@ -299,7 +299,7 @@ export default function Landing() {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
                         {/* IEEE Preview Card */}
-                        <Link href="/templates" className="flex flex-col gap-4 p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:shadow-xl hover:shadow-blue-500/10 hover:border-blue-300 dark:hover:border-blue-500/40 transition-all duration-300 group relative overflow-hidden hover:-translate-y-1">
+                        <Link href="/templates" className="flex flex-col gap-4 p-5 rounded-xl bg-white dark:bg-slate-900 surface-ladder-06 border border-slate-200 dark:border-slate-800 surface-ladder-border-10 hover:shadow-xl hover:shadow-blue-500/10 hover:border-blue-300 dark:hover:border-blue-500/40 transition-all duration-300 group relative overflow-hidden hover:-translate-y-1">
                             <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-blue-500 to-cyan-400 rounded-l-xl" />
                             <div className="flex justify-between items-start">
                                 <div className="size-10 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800/30">
@@ -314,7 +314,7 @@ export default function Landing() {
                         </Link>
 
                         {/* Nature Preview Card */}
-                        <Link href="/templates" className="flex flex-col gap-4 p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:shadow-xl hover:shadow-emerald-500/10 hover:border-emerald-300 dark:hover:border-emerald-500/40 transition-all duration-300 group relative overflow-hidden hover:-translate-y-1">
+                        <Link href="/templates" className="flex flex-col gap-4 p-5 rounded-xl bg-white dark:bg-slate-900 surface-ladder-06 border border-slate-200 dark:border-slate-800 surface-ladder-border-10 hover:shadow-xl hover:shadow-emerald-500/10 hover:border-emerald-300 dark:hover:border-emerald-500/40 transition-all duration-300 group relative overflow-hidden hover:-translate-y-1">
                             <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-emerald-500 to-teal-400 rounded-l-xl" />
                             <div className="flex justify-between items-start">
                                 <div className="size-10 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800/30">
@@ -329,7 +329,7 @@ export default function Landing() {
                         </Link>
 
                         {/* Elsevier Preview Card */}
-                        <Link href="/templates" className="flex flex-col gap-4 p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:shadow-xl hover:shadow-blue-900/20 hover:border-blue-800/45 dark:hover:border-blue-800/45 transition-all duration-300 group relative overflow-hidden hover:-translate-y-1">
+                        <Link href="/templates" className="flex flex-col gap-4 p-5 rounded-xl bg-white dark:bg-slate-900 surface-ladder-06 border border-slate-200 dark:border-slate-800 surface-ladder-border-10 hover:shadow-xl hover:shadow-blue-900/20 hover:border-blue-800/45 dark:hover:border-blue-800/45 transition-all duration-300 group relative overflow-hidden hover:-translate-y-1">
                             <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-blue-700 to-blue-900 rounded-l-xl" />
                             <div className="flex justify-between items-start">
                                 <div className="size-10 rounded-lg bg-blue-50 dark:bg-blue-950/25 flex items-center justify-center text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-900/40">
@@ -344,7 +344,7 @@ export default function Landing() {
                         </Link>
 
                         {/* APA Preview Card */}
-                        <Link href="/templates" className="flex flex-col gap-4 p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:shadow-xl hover:shadow-amber-500/10 hover:border-amber-300 dark:hover:border-amber-500/40 transition-all duration-300 group relative overflow-hidden hover:-translate-y-1">
+                        <Link href="/templates" className="flex flex-col gap-4 p-5 rounded-xl bg-white dark:bg-slate-900 surface-ladder-06 border border-slate-200 dark:border-slate-800 surface-ladder-border-10 hover:shadow-xl hover:shadow-amber-500/10 hover:border-amber-300 dark:hover:border-amber-500/40 transition-all duration-300 group relative overflow-hidden hover:-translate-y-1">
                             <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-500 to-orange-400 rounded-l-xl" />
                             <div className="flex justify-between items-start">
                                 <div className="size-10 rounded-lg bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-800/30">
@@ -369,7 +369,7 @@ export default function Landing() {
             </section >
 
             {/* Pricing Section */}
-            < section className="py-20 w-full cv-auto scroll-mt-20 bg-gradient-to-b from-transparent via-indigo-50/60 to-transparent dark:via-slate-900/45" id="pricing" >
+            < section className="py-20 w-full cv-auto scroll-mt-20 bg-gradient-to-b from-transparent via-indigo-50/60 to-transparent theme-dark-neutral" id="pricing" >
                 <div className="max-w-[1200px] mx-auto px-4 sm:px-6">
                     <div className="text-center max-w-3xl mx-auto mb-16">
                         <h2 className="text-primary font-bold text-sm tracking-widest uppercase mb-3">Pricing</h2>
@@ -379,7 +379,7 @@ export default function Landing() {
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
                         {/* Free Tier */}
-                        <div className="flex flex-col p-8 bg-background-light dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 hover:shadow-lg transition-all">
+                        <div className="flex flex-col p-8 bg-background-light dark:bg-slate-800/50 surface-ladder-06 rounded-2xl border border-slate-200 dark:border-slate-700 surface-ladder-border-10 hover:shadow-lg transition-all">
                             <div className="mb-6">
                                 <h4 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Starter</h4>
                                 <p className="text-sm text-slate-500 dark:text-slate-400">For individual researchers</p>
@@ -411,7 +411,7 @@ export default function Landing() {
                         </div>
 
                         {/* Pro Tier */}
-                        <div className="flex flex-col p-8 bg-white dark:bg-slate-900 rounded-2xl border-2 border-primary shadow-xl shadow-primary/10 relative scale-[1.03]">
+                        <div className="flex flex-col p-8 bg-white dark:bg-slate-900 surface-ladder-10 rounded-2xl border-2 border-primary shadow-xl shadow-primary/10 relative scale-[1.03]">
                             <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-white text-xs font-bold px-4 py-1 rounded-full uppercase tracking-wider">
                                 Most Popular
                             </div>
@@ -451,7 +451,7 @@ export default function Landing() {
                         </div>
 
                         {/* Institution Tier */}
-                        <div className="flex flex-col p-8 bg-background-light dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 hover:shadow-lg transition-all">
+                        <div className="flex flex-col p-8 bg-background-light dark:bg-slate-800/50 surface-ladder-06 rounded-2xl border border-slate-200 dark:border-slate-700 surface-ladder-border-10 hover:shadow-lg transition-all">
                             <div className="mb-6">
                                 <h4 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Institution</h4>
                                 <p className="text-sm text-slate-500 dark:text-slate-400">For labs &amp; departments</p>
@@ -492,10 +492,10 @@ export default function Landing() {
             {/* CTA Section */}
             < section className="py-16 w-full cv-auto" >
                 <div className="max-w-[1200px] mx-auto px-4 sm:px-6">
-                    <div className="relative bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950 rounded-3xl p-8 md:p-16 overflow-hidden">
+                    <div className="relative bg-gradient-to-br from-slate-900 via-slate-950 to-black theme-dark-cta rounded-3xl p-8 md:p-16 overflow-hidden">
                         <div className="absolute -top-20 -right-20 w-80 h-80 bg-primary/20 rounded-full blur-3xl hidden sm:block" />
-                        <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-blue-900/20 rounded-full blur-3xl hidden sm:block" />
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl hidden sm:block" />
+                        <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-blue-900/20 dark:bg-white/10 surface-ladder-10 rounded-full blur-3xl hidden sm:block" />
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-500/10 surface-ladder-06 rounded-full blur-3xl hidden sm:block" />
                         <div className="relative z-10 flex flex-col items-center text-center gap-8">
                             <h2 className="text-3xl md:text-5xl font-black text-white leading-tight max-w-2xl">
                                 Ready to format your paper for publication?
@@ -517,7 +517,7 @@ export default function Landing() {
             </section >
 
             {/* About Section */}
-            < section id="about" className="py-20 w-full cv-auto bg-gradient-to-b from-slate-50/65 to-transparent dark:from-slate-900/30 dark:to-transparent" >
+            < section id="about" className="py-20 w-full cv-auto bg-gradient-to-b from-slate-50/65 to-transparent theme-dark-neutral" >
                 <div className="max-w-[1200px] mx-auto px-4 sm:px-6">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
                         <div className="flex flex-col gap-6">
@@ -546,7 +546,7 @@ export default function Landing() {
                                 </div>
                             </div>
                         </div>
-                        <div className="bg-white dark:bg-slate-800 rounded-2xl p-8 border border-slate-200 dark:border-slate-700 shadow-lg">
+                        <div className="bg-white dark:bg-slate-800 surface-ladder-06 rounded-2xl p-8 border border-slate-200 dark:border-slate-700 surface-ladder-border-10 shadow-lg">
                             <div className="flex flex-col gap-6">
                                 <div className="flex items-start gap-4">
                                     <div className="size-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">

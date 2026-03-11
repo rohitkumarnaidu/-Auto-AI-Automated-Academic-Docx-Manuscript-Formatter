@@ -126,7 +126,7 @@ export default function Sidebar({ section = 'shared', onClose, isCollapsed = fal
             {/* Top Close Button for Mobile Overlay */}
             {onClose && (
                 <div className="flex justify-end mb-4 pr-1">
-                    <button onClick={onClose} className="lg:hidden p-1 text-slate-500 hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Close Sidebar">
+                    <button onClick={onClose} className="lg:hidden p-1 text-slate-500 hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 surface-ladder-hover-10" aria-label="Close Sidebar">
                         <span className="material-symbols-outlined" aria-hidden="true">close</span>
                     </button>
                 </div>
@@ -134,7 +134,7 @@ export default function Sidebar({ section = 'shared', onClose, isCollapsed = fal
 
             {/* Mode Switcher */}
             <div className={`mb-3 ${isCollapsed ? 'px-0' : 'px-1'}`}>
-                <div className={`flex flex-col gap-1 rounded-2xl bg-[#f0f1f3] dark:bg-white/5 ring-1 ring-black/5 dark:ring-white/10 ${isCollapsed ? 'p-1' : 'p-1.5'}`}>
+                <div className={`flex flex-col gap-1 rounded-xl bg-[#f0f1f3] dark:bg-white/5 surface-ladder-06 ring-1 ring-black/5 dark:ring-white/10 surface-ladder-border-10 ${isCollapsed ? 'p-1' : 'p-1.5'}`}>
                     <button
                         onClick={() => handleModeChange('formatter')}
                         title={isCollapsed ? 'Formatter' : undefined}
@@ -228,7 +228,7 @@ export default function Sidebar({ section = 'shared', onClose, isCollapsed = fal
                     <button
                         onClick={handleSignOut}
                         title={isCollapsed ? 'Sign Out' : undefined}
-                        className={`h-10 flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-[0.98] transition-all ${isCollapsed ? 'w-11 px-0' : 'w-full px-4'}`}
+                        className={`h-10 flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-white/10 surface-ladder-border-10 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 surface-ladder-hover-10 active:scale-[0.98] transition-all ${isCollapsed ? 'w-11 px-0' : 'w-full px-4'}`}
                     >
                         <span className="material-symbols-outlined shrink-0 text-[20px]">logout</span>
                         {!isCollapsed && <span className="truncate font-semibold">Sign Out</span>}

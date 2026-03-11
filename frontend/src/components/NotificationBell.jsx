@@ -96,7 +96,7 @@ export default function NotificationBell() {
         <div className="relative" ref={dropdownRef}>
             <button
                 onClick={() => setIsOpen((open) => !open)}
-                className="relative p-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="relative h-10 w-10 inline-flex items-center justify-center rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/10 surface-ladder-hover-10 transition-colors"
                 aria-label="Notifications"
                 aria-expanded={isOpen}
                 aria-haspopup="menu"
@@ -110,8 +110,8 @@ export default function NotificationBell() {
             </button>
 
             {isOpen && (
-                <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xl z-50 overflow-hidden" role="menu" aria-label="Notifications menu">
-                    <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+                <div className="absolute right-0 top-full mt-2 w-80 bg-white surface-ladder-06 rounded-xl border border-slate-200 dark:border-white/10 surface-ladder-border-10 shadow-2xl z-50 overflow-hidden" role="menu" aria-label="Notifications menu">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/10 surface-ladder-border-10">
                         <p className="text-sm font-semibold text-slate-900 dark:text-white">Notifications</p>
                         {unreadCount > 0 && (
                             <span className="text-xs px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full">
@@ -126,13 +126,13 @@ export default function NotificationBell() {
                             <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">No notifications</p>
                         </div>
                     ) : (
-                        <ul className="max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
+                        <ul className="max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-white/10">
                             {recentItems.map((n) => (
                                 <li
                                     key={n.id}
-                                    className={`px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${!n.read ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
+                                    className={`px-4 py-3 hover:bg-slate-50 dark:hover:bg-white/10 surface-ladder-hover-10 transition-colors ${!n.read ? 'bg-blue-50/50 dark:bg-white/5 surface-ladder-06' : ''}`}
                                 >
-                                    <p className={`text-sm ${n.read ? 'text-slate-500' : 'text-slate-900 dark:text-white font-medium'} line-clamp-2`}>
+                                    <p className={`text-sm ${n.read ? 'text-slate-500' : 'text-slate-900 dark:text-blue-300 font-medium'} line-clamp-2`}>
                                         {n.message}
                                     </p>
                                     <p className="text-xs text-slate-400 mt-1">{formatTime(n.timestamp)}</p>
@@ -141,7 +141,7 @@ export default function NotificationBell() {
                         </ul>
                     )}
 
-                    <div className="border-t border-slate-200 dark:border-slate-700 px-4 py-2">
+                    <div className="border-t border-slate-200 dark:border-white/10 surface-ladder-border-10 px-4 py-2">
                         <button
                             onClick={() => { setIsOpen(false); router.push('/notifications'); }}
                             className="w-full text-center text-sm text-primary font-medium py-1 hover:underline"

@@ -89,7 +89,7 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
     // Auth pages (login, signup, forgot-password, etc.): always show auth header
     if (isLandingRoute || isAuthRoute) {
         return (
-            <header className="app-header sticky top-0 z-50 w-full bg-white/60 dark:bg-slate-950/60 backdrop-blur-2xl pt-2 pb-1">
+            <header className="app-header sticky top-0 z-50 w-full">
                 <div className="mx-auto max-w-[1240px] px-4 sm:px-6">
                     <div className="flex h-[72px] items-center justify-between gap-4">
                         <Link href="/" className="flex items-center gap-2 sm:gap-3 shrink-0 group">
@@ -146,17 +146,17 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
     // Sidebar layout header — for both guests and logged-in users on app routes.
     // Shows Login/Sign Up for guests, avatar/bell for users (handled below).
     if (isSidebarLayout) {
-        const sidebarHeaderClassName = 'app-header sticky top-0 z-50 w-full bg-white/60 dark:bg-slate-950/60 backdrop-blur-2xl pt-2 pb-1';
+        const sidebarHeaderClassName = 'app-header sticky top-0 z-50 w-full';
 
         const sidebarContainerClassName = isUploadRoute
             ? 'mx-auto max-w-[1600px] px-4 xl:px-8'
             : 'mx-auto max-w-[1240px] px-4 sm:px-6';
 
-        const sidebarRowClassName = 'flex h-14 items-center justify-between gap-4';
+        const sidebarRowClassName = 'flex h-12 items-center justify-between gap-3';
 
         const userControlRailClassName = 'flex items-center gap-2 sm:gap-3 shrink-0';
 
-        const iconPillButtonClassName = 'h-10 w-10 inline-flex items-center justify-center rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-[0.98] transition-all text-slate-700 dark:text-slate-300 shrink-0';
+        const iconPillButtonClassName = 'h-10 w-10 inline-flex items-center justify-center rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 surface-ladder-hover-10 active:scale-[0.98] transition-all text-slate-700 dark:text-slate-300 shrink-0';
 
         return (
             <header className={sidebarHeaderClassName}>
@@ -189,11 +189,11 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
                                 <NotificationBell />
                                 <button
                                     onClick={() => router.push('/profile')}
-                                    className="h-10 w-10 rounded-full border border-white/70 dark:border-white/[0.10] bg-white/45 dark:bg-white/[0.03] hover:bg-white/75 dark:hover:bg-white/[0.08] active:scale-[0.98] transition-all p-0.5"
+                                    className="h-10 w-10 rounded-full border border-white/70 dark:border-white/[0.12] surface-ladder-border-10 bg-white/45 dark:bg-white/[0.04] hover:bg-white/75 dark:hover:bg-white/[0.10] active:scale-[0.98] transition-all p-0.5"
                                     aria-label="User Profile"
                                     title="Profile"
                                 >
-                                    <div className="w-full h-full rounded-full bg-gradient-to-br from-violet-100 to-indigo-100 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-100">
+                                    <div className="w-full h-full rounded-full bg-gradient-to-br from-violet-100 to-indigo-100 dark:from-white/10 dark:to-white/10 dark:bg-white/10 surface-ladder-10 flex items-center justify-center text-slate-700 dark:text-slate-100">
                                         <span className="material-symbols-outlined text-[20px] leading-none">account_circle</span>
                                     </div>
                                 </button>
@@ -201,10 +201,10 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
                         ) : (
                             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                                 <ThemeToggle />
-                                <Link href="/" className="hidden sm:inline-flex h-9 px-3 items-center rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                                <Link href="/" className="hidden sm:inline-flex h-9 px-3 items-center rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 surface-ladder-hover-10 transition-colors">
                                     Home
                                 </Link>
-                                <Link href={`/login${guestParam}`} className="h-9 px-3 inline-flex items-center rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                                <Link href={`/login${guestParam}`} className="h-9 px-3 inline-flex items-center rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 surface-ladder-hover-10 transition-colors">
                                     Login
                                 </Link>
                                 <Link href={`/signup${guestParam}`} className="h-9 px-4 inline-flex items-center rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-bold transition-opacity">
@@ -219,9 +219,9 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
     }
 
     return (
-        <header className="sticky top-0 z-50 w-full px-3 sm:px-4 pt-3">
-            <div className="mx-auto max-w-[1240px] rounded-2xl ring-1 ring-black/5 dark:ring-white/10 bg-white/90 dark:bg-background-dark/50 backdrop-blur-md shadow-[0_14px_40px_rgba(0,0,0,0.06)] dark:shadow-[0_22px_56px_rgba(0,0,0,0.45)]">
-                <div className="flex h-[68px] items-center gap-3 px-3 sm:px-4">
+        <header className="app-header sticky top-0 z-50 w-full">
+            <div className="mx-auto max-w-[1240px] px-3 sm:px-4">
+                <div className="flex h-[68px] items-center gap-3">
                     <Link href={logoHref} className="flex items-center gap-2 shrink-0 group">
                         <div className="flex items-center justify-center size-10">
                             <span className="material-symbols-outlined text-[32px] text-primary">auto_stories</span>
@@ -243,18 +243,18 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
                                 <NotificationBell />
                                 <button
                                     onClick={() => router.push('/profile')}
-                                    className="h-9 w-9 rounded-full overflow-hidden border border-slate-300 dark:border-slate-700 hover:border-primary active:scale-[0.98] transition-all"
+                                    className="h-9 w-9 rounded-full overflow-hidden border border-slate-300 dark:border-white/10 surface-ladder-border-10 hover:border-primary active:scale-[0.98] transition-all"
                                     aria-label="User Profile"
                                     title="Profile"
                                 >
-                                    <div className="w-full h-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-100 font-bold text-sm">
+                                    <div className="w-full h-full bg-slate-200 dark:bg-white/10 surface-ladder-10 flex items-center justify-center text-slate-700 dark:text-slate-100 font-bold text-sm">
                                         <span className="material-symbols-outlined text-[18px]">person</span>
                                     </div>
                                 </button>
                             </>
                         ) : !isAuthRoute ? (
                             <div className="hidden sm:flex items-center gap-2">
-                                <Link href="/login" className="h-9 px-3 inline-flex items-center rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                                <Link href="/login" className="h-9 px-3 inline-flex items-center rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 surface-ladder-hover-10 transition-colors">
                                     Login
                                 </Link>
                                 <Link href="/signup" className="h-9 px-4 inline-flex items-center rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-bold transition-opacity">
@@ -262,7 +262,7 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
                                 </Link>
                             </div>
                         ) : (
-                            <Link href="/" className="hidden sm:inline-flex h-9 px-3 items-center rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                            <Link href="/" className="hidden sm:inline-flex h-9 px-3 items-center rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 surface-ladder-hover-10 transition-colors">
                                 Home
                             </Link>
                         )}
@@ -270,7 +270,7 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
                         <button
                             type="button"
                             onClick={() => setIsMobileMenuOpen((current) => !current)}
-                            className="md:hidden h-9 w-9 inline-flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-[0.98] transition-all"
+                            className="md:hidden h-9 w-9 inline-flex items-center justify-center rounded-lg border border-slate-200 dark:border-white/10 surface-ladder-border-10 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 surface-ladder-hover-10 active:scale-[0.98] transition-all"
                             aria-label="Toggle menu"
                             aria-expanded={isMobileMenuOpen}
                         >
@@ -302,8 +302,8 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
                                                 key={href}
                                                 href={href}
                                                 className={`px-3 py-1.5 rounded-lg text-sm whitespace-nowrap transition-colors ${active
-                                                    ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-semibold'
-                                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 hover:bg-slate-100 dark:hover:text-white dark:hover:bg-slate-800'
+                                                    ? 'bg-slate-900 text-white surface-ladder-14 dark:text-white font-semibold'
+                                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 hover:bg-slate-100 dark:hover:text-white dark:hover:bg-white/10 surface-ladder-hover-10'
                                                     }`}
                                             >
                                                 {label}
@@ -340,8 +340,8 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
                                             key={href}
                                             href={href}
                                             className={`px-3 py-2 rounded-lg text-sm transition-colors ${active
-                                                ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-semibold'
-                                                : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                                                ? 'bg-slate-900 text-white surface-ladder-14 dark:text-white font-semibold'
+                                                : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 surface-ladder-hover-10'
                                                 }`}
                                         >
                                             {label}
@@ -356,7 +356,7 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
                                 <>
                                     <button
                                         onClick={() => router.push('/profile')}
-                                        className="h-10 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                        className="h-10 rounded-lg border border-slate-200 dark:border-white/10 surface-ladder-border-10 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 surface-ladder-hover-10 transition-colors"
                                     >
                                         Profile
                                     </button>
@@ -367,7 +367,7 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
                                 </Link>
                             ) : (
                                 <>
-                                    <Link href={`/login${guestParam}`} className="h-10 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-700 dark:text-slate-200 inline-flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                                    <Link href={`/login${guestParam}`} className="h-10 rounded-lg border border-slate-200 dark:border-white/10 surface-ladder-border-10 text-sm font-semibold text-slate-700 dark:text-slate-200 inline-flex items-center justify-center hover:bg-slate-100 dark:hover:bg-white/10 surface-ladder-hover-10 transition-colors">
                                         Login
                                     </Link>
                                     <Link href={`/signup${guestParam}`} className="h-10 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold inline-flex items-center justify-center transition-colors">

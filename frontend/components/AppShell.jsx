@@ -68,6 +68,7 @@ export default function AppShell({ children, section = 'shared' }) {
 
     // ── APP ROUTES: sidebar layout for both guests and logged-in users ──
     // Sidebar.jsx shows guest links (Upload, Templates, Template Editor) or user links (Dashboard, etc.)
+    const appHeaderHeightPx = 48;
     const sidebarW = isDesktopSidebarOpen ? 240 : 72;
 
     return (
@@ -89,8 +90,8 @@ export default function AppShell({ children, section = 'shared' }) {
             {/* Sidebar — shows for all users on app routes */}
             {/* Sidebar.jsx handles guest vs user links internally */}
             <div
-                className={`fixed left-0 hidden lg:flex flex-col justify-start z-40 transition-all duration-300 ease-in-out overflow-y-auto sidebar-desktop bg-white/60 dark:bg-background-dark/50 backdrop-blur-2xl ${isDesktopSidebarOpen ? 'w-[240px]' : 'w-[72px] items-center'}`}
-                style={{ top: '56px', bottom: 0 }}
+                className={`fixed left-0 hidden lg:flex flex-col justify-start z-40 transition-all duration-300 ease-in-out overflow-y-auto sidebar-desktop bg-background-light dark:bg-background-dark ${isDesktopSidebarOpen ? 'w-[240px]' : 'w-[72px] items-center'}`}
+                style={{ top: `${appHeaderHeightPx}px`, bottom: 0 }}
             >
                 <div className="w-full h-full flex flex-col">
                     <Sidebar section={section} isCollapsed={!isDesktopSidebarOpen} />
@@ -101,7 +102,7 @@ export default function AppShell({ children, section = 'shared' }) {
             {isMobileSidebarOpen && (
                 <div className="lg:hidden fixed inset-0 z-50 flex">
                     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsMobileSidebarOpen(false)} />
-                    <div className="sidebar-mobile relative flex flex-col w-[260px] h-full shadow-2xl animate-in slide-in-from-left duration-300 bg-white/60 dark:bg-background-dark/50 backdrop-blur-2xl">
+                    <div className="sidebar-mobile relative flex flex-col w-[260px] h-full shadow-2xl animate-in slide-in-from-left duration-300 bg-background-light dark:bg-background-dark">
                         <Sidebar section={section} onClose={() => setIsMobileSidebarOpen(false)} isCollapsed={false} />
                     </div>
                 </div>
@@ -113,7 +114,7 @@ export default function AppShell({ children, section = 'shared' }) {
                 tabIndex="-1"
                 className="appshell-main relative z-10 min-h-screen custom-scrollbar focus:outline-none"
                 style={{
-                    paddingTop: '56px',
+                    paddingTop: `${appHeaderHeightPx}px`,
                     paddingLeft: isDesktop ? `${sidebarW}px` : '0px',
                 }}
             >

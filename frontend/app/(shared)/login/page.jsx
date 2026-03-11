@@ -47,13 +47,13 @@ export default function Login() {
     };
 
     return (
-        <div className="min-h-[calc(100vh-72px)] flex font-display transition-colors duration-300 w-full relative overflow-hidden flex-col lg:flex-row bg-gradient-to-br from-violet-50 via-indigo-50 to-blue-50 dark:from-[#0a0714] dark:via-[#0c0d1e] dark:to-[#08111f]">
+        <div className="min-h-[calc(100vh-72px)] flex font-display transition-colors duration-300 w-full relative overflow-hidden flex-col lg:flex-row bg-gradient-to-br from-violet-50 via-indigo-50 to-blue-50 theme-dark-base">
 
             {/* Page background blob decorations */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-                <div className="absolute top-[-10%] left-[-5%] w-[45%] h-[45%] bg-violet-400/25 dark:bg-violet-600/20 rounded-full blur-[120px]"></div>
-                <div className="absolute bottom-[-10%] right-[-5%] w-[40%] h-[40%] bg-blue-400/20 dark:bg-blue-600/15 rounded-full blur-[100px]"></div>
-                <div className="absolute top-[40%] right-[20%] w-[25%] h-[25%] bg-pink-400/15 dark:bg-pink-600/10 rounded-full blur-[80px]"></div>
+                <div className="absolute top-[-10%] left-[-5%] w-[45%] h-[45%] bg-violet-400/25 surface-ladder-10 rounded-full blur-[120px]"></div>
+                <div className="absolute bottom-[-10%] right-[-5%] w-[40%] h-[40%] bg-blue-400/20 dark:bg-white/10 surface-ladder-06 rounded-full blur-[100px]"></div>
+                <div className="absolute top-[40%] right-[20%] w-[25%] h-[25%] bg-pink-400/15 surface-ladder-06 rounded-full blur-[80px]"></div>
             </div>
 
             <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl flex flex-col lg:flex-row items-center justify-between lg:py-0 relative z-10 min-h-[calc(100vh-72px)] overflow-y-auto">
@@ -62,7 +62,7 @@ export default function Login() {
                     <div className="relative z-10 max-w-lg animate-in fade-in slide-in-from-left-8 duration-1000">
                         <h2 className="text-4xl xl:text-5xl font-extrabold text-slate-900 dark:text-white mb-5 leading-tight">
                             Focus on your research. <br />
-                            <span className="text-primary dark:text-violet-400">We handle the formatting.</span>
+                            <span className="text-primary dark:text-primary">We handle the formatting.</span>
                         </h2>
                         <p className="text-base text-slate-600 dark:text-slate-400 mb-10 leading-relaxed max-w-md">
                             Join thousands of researchers worldwide who use ScholarForm AI to perfectly format their academic manuscripts for top-tier journals in seconds.
@@ -93,7 +93,7 @@ export default function Login() {
                 {/* Right Side: Glassmorphic Form Card */}
                 <div className="w-full lg:w-[45%] flex items-center justify-center py-10 lg:py-0 lg:h-full">
                     <div className="w-full max-w-[420px] z-10 animate-in fade-in slide-in-from-right-8 duration-700">
-                        <div className="w-full bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl shadow-2xl shadow-violet-500/10 dark:shadow-violet-900/40 border border-white/90 dark:border-slate-700/40 rounded-3xl p-8 relative">
+                        <div className="w-full bg-white/80 dark:bg-slate-900/80 surface-ladder-10 backdrop-blur-2xl shadow-2xl shadow-violet-500/10 dark:shadow-black/40 border border-white/90 dark:border-slate-700/40 surface-ladder-border-14 rounded-3xl p-8 relative">
 
                             <div className="mb-6">
                                 <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-1.5 tracking-tight">Welcome back</h1>
@@ -115,7 +115,7 @@ export default function Login() {
                                         <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 group-focus-within:text-primary transition-colors text-[20px] pointer-events-none">mail</span>
                                         <input
                                             id="email"
-                                            className="w-full rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/30 border border-slate-200 dark:border-slate-600/60 bg-slate-50 dark:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-500 focus:border-primary dark:focus:border-primary h-12 pl-12 pr-4 text-sm font-medium transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
+                                            className="w-full rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/30 border border-slate-200 dark:border-slate-600/60 surface-ladder-border-14 bg-slate-50 dark:bg-slate-800 surface-ladder-06 hover:border-slate-300 dark:hover:border-slate-500 focus:border-primary dark:focus:border-primary h-12 pl-12 pr-4 text-sm font-medium transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
                                             placeholder="your@email.com"
                                             type="email"
                                             required
@@ -132,7 +132,7 @@ export default function Login() {
                                         <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 group-focus-within:text-primary transition-colors text-[20px] pointer-events-none">lock</span>
                                         <input
                                             id="password"
-                                            className="w-full rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/30 border border-slate-200 dark:border-slate-600/60 bg-slate-50 dark:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-500 focus:border-primary dark:focus:border-primary h-12 pl-12 pr-11 text-sm font-medium transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
+                                            className="w-full rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/30 border border-slate-200 dark:border-slate-600/60 surface-ladder-border-14 bg-slate-50 dark:bg-slate-800 surface-ladder-06 hover:border-slate-300 dark:hover:border-slate-500 focus:border-primary dark:focus:border-primary h-12 pl-12 pr-11 text-sm font-medium transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
                                             placeholder="Enter your password"
                                             type={showPassword ? 'text' : 'password'}
                                             required
@@ -170,16 +170,16 @@ export default function Login() {
                             </form>
 
                             <div className="relative flex items-center py-5">
-                                <div className="flex-grow border-t border-slate-200 dark:border-slate-700/50"></div>
+                                <div className="flex-grow border-t border-slate-200 dark:border-slate-700/50 surface-ladder-border-10"></div>
                                 <span className="flex-shrink mx-4 text-[13px] text-slate-400 font-medium">Or continue with</span>
-                                <div className="flex-grow border-t border-slate-200 dark:border-slate-700/50"></div>
+                                <div className="flex-grow border-t border-slate-200 dark:border-slate-700/50 surface-ladder-border-10"></div>
                             </div>
 
                             {/* Social Login */}
                             <button
                                 type="button"
                                 onClick={handleGoogleLogin}
-                                className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700/50 bg-white dark:bg-slate-800/50 h-12 px-4 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800/80 hover:border-slate-300 dark:hover:border-slate-600 hover:-translate-y-0.5 active:translate-y-0 text-sm font-semibold text-slate-700 dark:text-slate-200 transition-all transform"
+                                className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700/50 surface-ladder-border-10 bg-white dark:bg-slate-800/50 surface-ladder-06 h-12 px-4 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800/80 surface-ladder-hover-10 hover:border-slate-300 dark:hover:border-slate-600 hover:-translate-y-0.5 active:translate-y-0 text-sm font-semibold text-slate-700 dark:text-slate-200 transition-all transform"
                             >
                                 <svg className="h-5 w-5" viewBox="0 0 24 24">
                                     <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"></path>

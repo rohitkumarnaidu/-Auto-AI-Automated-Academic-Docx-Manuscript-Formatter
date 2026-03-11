@@ -10,7 +10,7 @@ export default function Footer({ variant = 'app' }) {
 
     if (variant === 'landing') {
         return (
-            <footer className="bg-white/60 dark:bg-slate-950/60 backdrop-blur-2xl pt-20 pb-10 relative overflow-hidden">
+            <footer className="app-footer pt-20 pb-10 relative overflow-hidden">
                 <div className="max-w-[1240px] mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-12 mb-16">
                         <div className="md:col-span-4">
@@ -24,10 +24,10 @@ export default function Footer({ variant = 'app' }) {
                                 Providing specialized technical writing and formatting for academic researchers worldwide.
                             </p>
                             <div className="flex items-center gap-4">
-                                <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="size-10 rounded-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary/30 hover:bg-primary/5 transition-all">
+                                <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="size-10 rounded-full bg-slate-50 dark:bg-slate-800/50 surface-ladder-06 border border-slate-200 dark:border-slate-700 surface-ladder-border-10 flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary/30 hover:bg-primary/5 transition-all">
                                     <span className="material-symbols-outlined text-lg">share</span>
                                 </a>
-                                <a href="mailto:contact@scholarform.ai" className="size-10 rounded-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary/30 hover:bg-primary/5 transition-all">
+                                <a href="mailto:contact@scholarform.ai" className="size-10 rounded-full bg-slate-50 dark:bg-slate-800/50 surface-ladder-06 border border-slate-200 dark:border-slate-700 surface-ladder-border-10 flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary/30 hover:bg-primary/5 transition-all">
                                     <span className="material-symbols-outlined text-lg">mail</span>
                                 </a>
                             </div>
@@ -72,7 +72,7 @@ export default function Footer({ variant = 'app' }) {
                                 <h5 className="text-slate-900 dark:text-white font-bold text-sm mb-4 uppercase tracking-wider">Stay Updated</h5>
                                 <p className="text-sm text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">Join our newsletter to get updates on new academic templates and formatting features.</p>
                                 <form className="flex gap-2">
-                                    <input type="email" placeholder="Email address" className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-slate-900 dark:text-white transition-all shadow-sm" />
+                                    <input type="email" placeholder="Email address" className="w-full bg-slate-50 dark:bg-slate-800/50 surface-ladder-06 border border-slate-200 dark:border-slate-700/50 surface-ladder-border-10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-slate-900 dark:text-white transition-all shadow-sm" />
                                     <button type="button" className="bg-primary hover:bg-primary-hover text-white px-5 rounded-xl transition-all shadow-md shadow-primary/20 flex items-center justify-center hover:-translate-y-0.5 active:translate-y-0">
                                         <span className="material-symbols-outlined text-[20px]">send</span>
                                     </button>
@@ -105,7 +105,7 @@ export default function Footer({ variant = 'app' }) {
     }
 
     return (
-        <footer className="max-w-[1280px] mx-auto px-4 sm:px-6 py-8 sm:py-10 mt-10 sm:mt-12 border-t border-slate-200 dark:border-slate-800">
+        <footer className="app-footer max-w-[1280px] mx-auto px-4 sm:px-6 py-8 sm:py-10 mt-10 sm:mt-12">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4 sm:gap-6">
                 <div className="flex items-center gap-2 text-slate-400">
                     <span className="material-symbols-outlined text-xl">auto_stories</span>

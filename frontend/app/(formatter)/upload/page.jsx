@@ -513,13 +513,13 @@ export default function Upload() {
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                     <div className="lg:col-span-7 flex flex-col gap-6">
                         {/* 1. Document Source */}
-                        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+                        <div className="bg-white surface-ladder-06 rounded-xl border border-slate-200 dark:border-slate-700/70 surface-ladder-border-10 p-6 shadow-sm hover:shadow-md dark:hover:shadow-none transition-shadow">
                             <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
                                 <span className="material-symbols-outlined text-primary">upload_file</span>
                                 1. Document Source
                             </h2>
                             <div
-                                className={`flex flex-col items-center gap-6 rounded-xl border-2 border-dashed px-6 py-12 transition-all duration-300 ${isDragging || file ? 'border-primary bg-primary/5' : 'border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50'
+                                className={`flex flex-col items-center gap-6 rounded-xl border-2 border-dashed px-6 py-12 transition-all duration-300 ${isDragging || file ? 'border-primary bg-primary/5' : 'border-slate-300 dark:border-slate-700 surface-ladder-border-10 bg-slate-50/50 surface-ladder-10'
                                     } hover:border-primary`}
                                 onDragOver={handleDragOver}
                                 onDragLeave={handleDragLeave}
@@ -590,7 +590,7 @@ export default function Upload() {
                         />
 
                         {/* Fast Mode Toggle */}
-                        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+                        <div className="bg-white surface-ladder-06 rounded-xl border border-slate-200 dark:border-slate-700/70 surface-ladder-border-10 p-6 shadow-sm hover:shadow-md dark:hover:shadow-none transition-shadow">
                             <FastModeToggle
                                 fastMode={fastMode}
                                 setFastMode={setFastMode}
@@ -610,7 +610,7 @@ export default function Upload() {
 
                         {/* Post-Processing Actions */}
                         {isJobCompleted && (
-                            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <div className="bg-white surface-ladder-06 rounded-xl border border-slate-200 dark:border-slate-700/70 surface-ladder-border-10 p-6 shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-500 hover:shadow-md dark:hover:shadow-none transition-shadow">
                                 <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
                                     <span className="material-symbols-outlined text-primary">analytics</span>
                                     Next Steps
@@ -619,7 +619,7 @@ export default function Upload() {
                                     <button
                                         onClick={() => handleReviewClick('/compare')}
                                         disabled={isProcessing}
-                                        className={`flex flex-col items-center justify-center gap-2 p-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 transition-all group ${isProcessing ? 'opacity-50 cursor-not-allowed text-slate-500' : 'hover:border-primary hover:bg-primary/5 text-slate-900 dark:text-white'}`}
+                                        className={`flex flex-col items-center justify-center gap-2 p-6 rounded-xl border border-slate-200 dark:border-slate-700/70 surface-ladder-border-10 bg-slate-50 surface-ladder-10 transition-all group ${isProcessing ? 'opacity-50 cursor-not-allowed text-slate-500' : 'hover:border-primary hover:bg-primary/5 hover:shadow-sm dark:hover:shadow-none text-slate-900 dark:text-white'}`}
                                     >
                                         <span className={`material-symbols-outlined text-2xl ${isProcessing ? 'text-slate-400' : 'text-primary'}`}>difference</span>
                                         <span className="text-sm font-bold">Compare Results</span>
@@ -627,7 +627,7 @@ export default function Upload() {
                                     <button
                                         onClick={() => navigate('/preview')}
                                         disabled={isProcessing}
-                                        className={`flex flex-col items-center justify-center gap-2 p-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 transition-all group ${isProcessing ? 'opacity-50 cursor-not-allowed text-slate-500' : 'hover:border-primary hover:bg-primary/5 text-slate-900 dark:text-white'}`}
+                                        className={`flex flex-col items-center justify-center gap-2 p-6 rounded-xl border border-slate-200 dark:border-slate-700/70 surface-ladder-border-10 bg-slate-50 surface-ladder-10 transition-all group ${isProcessing ? 'opacity-50 cursor-not-allowed text-slate-500' : 'hover:border-primary hover:bg-primary/5 hover:shadow-sm dark:hover:shadow-none text-slate-900 dark:text-white'}`}
                                     >
                                         <span className={`material-symbols-outlined text-2xl ${isProcessing ? 'text-slate-400' : 'text-primary'}`}>visibility</span>
                                         <span className="text-sm font-bold">Preview Document</span>
@@ -635,7 +635,7 @@ export default function Upload() {
                                     <button
                                         onClick={() => navigate('/download')}
                                         disabled={isProcessing}
-                                        className={`flex flex-col items-center justify-center gap-2 p-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 transition-all group ${isProcessing ? 'opacity-50 cursor-not-allowed text-slate-500' : 'hover:border-primary hover:bg-primary/5 text-slate-900 dark:text-white'}`}
+                                        className={`flex flex-col items-center justify-center gap-2 p-6 rounded-xl border border-slate-200 dark:border-slate-700/70 surface-ladder-border-10 bg-slate-50 surface-ladder-10 transition-all group ${isProcessing ? 'opacity-50 cursor-not-allowed text-slate-500' : 'hover:border-primary hover:bg-primary/5 hover:shadow-sm dark:hover:shadow-none text-slate-900 dark:text-white'}`}
                                     >
                                         <span className={`material-symbols-outlined text-2xl ${isProcessing ? 'text-slate-400' : 'text-primary'}`}>download</span>
                                         <span className="text-sm font-bold">Download Final</span>

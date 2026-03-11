@@ -97,13 +97,13 @@ export default function Signup() {
     };
 
     return (
-        <div className="min-h-[calc(100vh-72px)] flex font-display transition-colors duration-300 w-full relative overflow-hidden flex-col lg:flex-row bg-gradient-to-br from-violet-50 via-indigo-50 to-blue-50 dark:from-[#0a0714] dark:via-[#0c0d1e] dark:to-[#08111f]">
+        <div className="min-h-[calc(100vh-72px)] flex font-display transition-colors duration-300 w-full relative overflow-hidden flex-col lg:flex-row bg-gradient-to-br from-violet-50 via-indigo-50 to-blue-50 theme-dark-base">
 
             {/* Page background blob decorations */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-                <div className="absolute top-[-10%] left-[-5%] w-[45%] h-[45%] bg-violet-400/25 dark:bg-violet-600/20 rounded-full blur-[120px]"></div>
-                <div className="absolute bottom-[-10%] right-[-5%] w-[40%] h-[40%] bg-blue-400/20 dark:bg-blue-600/15 rounded-full blur-[100px]"></div>
-                <div className="absolute top-[40%] right-[20%] w-[25%] h-[25%] bg-pink-400/15 dark:bg-pink-600/10 rounded-full blur-[80px]"></div>
+                <div className="absolute top-[-10%] left-[-5%] w-[45%] h-[45%] bg-violet-400/25 surface-ladder-10 rounded-full blur-[120px]"></div>
+                <div className="absolute bottom-[-10%] right-[-5%] w-[40%] h-[40%] bg-blue-400/20 dark:bg-white/10 surface-ladder-06 rounded-full blur-[100px]"></div>
+                <div className="absolute top-[40%] right-[20%] w-[25%] h-[25%] bg-pink-400/15 surface-ladder-06 rounded-full blur-[80px]"></div>
             </div>
 
             <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl flex flex-col lg:flex-row items-center justify-between lg:py-0 relative z-10 min-h-[calc(100vh-72px)] overflow-y-auto">
@@ -112,7 +112,7 @@ export default function Signup() {
                     <div className="relative z-10 max-w-lg animate-in fade-in slide-in-from-left-8 duration-1000">
                         <h2 className="text-4xl xl:text-5xl font-extrabold text-slate-900 dark:text-white mb-5 leading-tight">
                             Your research deserves <br />
-                            <span className="text-primary dark:text-violet-400">perfect formatting.</span>
+                            <span className="text-primary dark:text-primary">perfect formatting.</span>
                         </h2>
                         <p className="text-base text-slate-600 dark:text-slate-400 mb-10 leading-relaxed max-w-md">
                             Join thousands of researchers worldwide who use ScholarForm AI to perfectly format their academic manuscripts for top-tier journals in seconds.
@@ -143,7 +143,7 @@ export default function Signup() {
                 {/* Right Side: Glassmorphic Form Card */}
                 <div className="w-full lg:w-[50%] flex items-center justify-center py-10 lg:py-0 lg:h-full">
                     <div className="w-full max-w-[460px] z-10 animate-in fade-in slide-in-from-right-8 duration-700">
-                        <div className="w-full bg-white/60 dark:bg-white/5 backdrop-blur-2xl shadow-2xl shadow-violet-500/10 dark:shadow-violet-900/30 border border-white/80 dark:border-white/10 rounded-3xl p-8 relative">
+                        <div className="w-full bg-white/60 dark:bg-white/5 surface-ladder-10 backdrop-blur-2xl shadow-2xl shadow-violet-500/10 dark:shadow-black/40 border border-white/80 dark:border-white/10 surface-ladder-border-14 rounded-3xl p-8 relative">
 
                             <div className="mb-6">
                                 <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-1.5 tracking-tight">Create an account</h1>
@@ -172,7 +172,7 @@ export default function Signup() {
                                         <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 transition-colors text-[20px] pointer-events-none">person</span>
                                         <input
                                             id="fullName"
-                                            className="w-full rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/30 border border-slate-200 dark:border-slate-600/60 bg-slate-50 dark:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-500 focus:border-primary dark:focus:border-primary h-12 pl-12 pr-4 text-sm font-medium transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
+                                            className="w-full rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/30 border border-slate-200 dark:border-slate-600/60 surface-ladder-border-14 bg-slate-50 dark:bg-slate-800 surface-ladder-06 hover:border-slate-300 dark:hover:border-slate-500 focus:border-primary dark:focus:border-primary h-12 pl-12 pr-4 text-sm font-medium transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
                                             placeholder="e.g. Jane Doe"
                                             type="text"
                                             required
@@ -189,7 +189,7 @@ export default function Signup() {
                                         <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 transition-colors text-[20px] pointer-events-none">alternate_email</span>
                                         <input
                                             id="email"
-                                            className="w-full rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/30 border border-slate-200 dark:border-slate-600/60 bg-slate-50 dark:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-500 focus:border-primary dark:focus:border-primary h-12 pl-12 pr-4 text-sm font-medium transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
+                                            className="w-full rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/30 border border-slate-200 dark:border-slate-600/60 surface-ladder-border-14 bg-slate-50 dark:bg-slate-800 surface-ladder-06 hover:border-slate-300 dark:hover:border-slate-500 focus:border-primary dark:focus:border-primary h-12 pl-12 pr-4 text-sm font-medium transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
                                             placeholder="Enter your email address"
                                             type="email"
                                             required
@@ -208,7 +208,7 @@ export default function Signup() {
                                         <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 transition-colors text-[20px] pointer-events-none">school</span>
                                         <input
                                             id="institution"
-                                            className="w-full rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/30 border border-slate-200 dark:border-slate-600/60 bg-slate-50 dark:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-500 focus:border-primary dark:focus:border-primary h-12 pl-12 pr-4 text-sm font-medium transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
+                                            className="w-full rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/30 border border-slate-200 dark:border-slate-600/60 surface-ladder-border-14 bg-slate-50 dark:bg-slate-800 surface-ladder-06 hover:border-slate-300 dark:hover:border-slate-500 focus:border-primary dark:focus:border-primary h-12 pl-12 pr-4 text-sm font-medium transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
                                             placeholder="Enter your university"
                                             type="text"
                                             value={institution}
@@ -225,7 +225,7 @@ export default function Signup() {
                                             <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 transition-colors text-[20px] pointer-events-none">lock</span>
                                             <input
                                                 id="password"
-                                                className="w-full rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/30 border border-slate-200 dark:border-slate-600/60 bg-slate-50 dark:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-500 focus:border-primary dark:focus:border-primary h-12 pl-12 pr-12 text-sm font-medium transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
+                                                className="w-full rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/30 border border-slate-200 dark:border-slate-600/60 surface-ladder-border-14 bg-slate-50 dark:bg-slate-800 surface-ladder-06 hover:border-slate-300 dark:hover:border-slate-500 focus:border-primary dark:focus:border-primary h-12 pl-12 pr-12 text-sm font-medium transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
                                                 placeholder="Create a password"
                                                 type={showPassword ? 'text' : 'password'}
                                                 required
@@ -262,9 +262,9 @@ export default function Signup() {
                                             <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 transition-colors text-[20px] pointer-events-none">lock</span>
                                             <input
                                                 id="confirmPassword"
-                                                className={`w-full rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 bg-slate-50 dark:bg-slate-800 h-12 pl-12 pr-12 text-sm font-medium transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm border ${confirmPassword && confirmPassword !== password
+                                                className={`w-full rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 bg-slate-50 dark:bg-slate-800 surface-ladder-06 h-12 pl-12 pr-12 text-sm font-medium transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm border ${confirmPassword && confirmPassword !== password
                                                     ? 'border-red-300 dark:border-red-500/50 focus:border-red-500 focus:ring-red-500/20'
-                                                    : 'border-slate-200 dark:border-slate-600/60 hover:border-slate-300 dark:hover:border-slate-500 focus:border-primary dark:focus:border-primary focus:ring-primary/30'
+                                                    : 'border-slate-200 dark:border-slate-600/60 surface-ladder-border-14 hover:border-slate-300 dark:hover:border-slate-500 focus:border-primary dark:focus:border-primary focus:ring-primary/30'
                                                     }`}
                                                 placeholder="Repeat your password"
                                                 type={showConfirm ? 'text' : 'password'}
@@ -284,7 +284,7 @@ export default function Signup() {
                                 </div>
 
                                 {/* Requirements hint */}
-                                <div className="flex items-center gap-2 px-1 text-sm bg-slate-50/50 dark:bg-slate-800/20 backdrop-blur-sm p-3 rounded-xl border border-slate-100 dark:border-slate-800/30">
+                                <div className="flex items-center gap-2 px-1 text-sm bg-slate-50/50 dark:bg-slate-800/20 surface-ladder-06 backdrop-blur-sm p-3 rounded-xl border border-slate-100 dark:border-slate-800/30 surface-ladder-border-10">
                                     <span className={`material-symbols-outlined text-[18px] transition-colors ${isPasswordValid ? 'text-green-500' : 'text-slate-400 dark:text-slate-500'}`}>
                                         {isPasswordValid ? 'check_circle' : 'info'}
                                     </span>
@@ -294,7 +294,7 @@ export default function Signup() {
                                 {/* Terms */}
                                 <div className="flex items-start gap-3 mt-2 px-1">
                                     <input
-                                        className="mt-1 flex-shrink-0 h-4 w-4 rounded border-slate-300 dark:border-slate-700 text-primary focus:ring-primary transition-colors cursor-pointer bg-white/80 dark:bg-slate-900/50"
+                                        className="mt-1 flex-shrink-0 h-4 w-4 rounded border-slate-300 dark:border-slate-700 surface-ladder-border-10 text-primary focus:ring-primary transition-colors cursor-pointer bg-white/80 dark:bg-slate-900/50 surface-ladder-06"
                                         id="terms"
                                         required
                                         type="checkbox"
@@ -324,16 +324,16 @@ export default function Signup() {
                             </form>
 
                             <div className="relative flex items-center py-8">
-                                <div className="flex-grow border-t border-slate-200 dark:border-slate-700/40"></div>
+                                <div className="flex-grow border-t border-slate-200 dark:border-slate-700/40 surface-ladder-border-10"></div>
                                 <span className="flex-shrink mx-4 text-[13px] text-slate-400 font-medium">Or continue with</span>
-                                <div className="flex-grow border-t border-slate-200 dark:border-slate-700/40"></div>
+                                <div className="flex-grow border-t border-slate-200 dark:border-slate-700/40 surface-ladder-border-10"></div>
                             </div>
 
                             {/* Social Signup */}
                             <button
                                 type="button"
                                 onClick={handleGoogleSignup}
-                                className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700/40 bg-white dark:bg-slate-800/50 h-12 px-4 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800/80 hover:border-slate-300 dark:hover:border-slate-600 hover:-translate-y-0.5 active:translate-y-0 text-sm font-semibold text-slate-700 dark:text-slate-200 transition-all transform mb-2"
+                                className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700/40 surface-ladder-border-10 bg-white dark:bg-slate-800/50 surface-ladder-06 h-12 px-4 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800/80 surface-ladder-hover-10 hover:border-slate-300 dark:hover:border-slate-600 hover:-translate-y-0.5 active:translate-y-0 text-sm font-semibold text-slate-700 dark:text-slate-200 transition-all transform mb-2"
                             >
                                 <svg className="h-5 w-5" viewBox="0 0 24 24">
                                     <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"></path>
