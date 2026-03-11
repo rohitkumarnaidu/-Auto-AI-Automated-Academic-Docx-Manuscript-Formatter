@@ -25,7 +25,7 @@ export default {
                 'spring': 'cubic-bezier(0.175, 0.885, 0.32, 1.275)',
             },
             colors: {
-                "background-dark": "#0a0f1e",
+                "background-dark": "#09090b",
                 "background-light": "#f6f6f8",
                 "primary": "#136dec",
                 "primary-hover": "#0f5bbd",

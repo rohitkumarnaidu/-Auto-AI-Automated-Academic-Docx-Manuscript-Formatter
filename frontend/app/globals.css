@@ -184,7 +184,7 @@ html {
 }
 
 html.dark {
-  background-color: #0a0f1e;
+  background-color: #09090b;
   color-scheme: dark;
 }
 
@@ -4747,7 +4747,7 @@ body:is(.dark *) {
 }
 
 .focus-within\:ring-offset-background-dark:focus-within {
-  --tw-ring-offset-color: #0f172a;
+  --tw-ring-offset-color: #09090b;
 }
 
 .hover\:-translate-y-0\.5:hover {
@@ -5211,7 +5211,7 @@ body:is(.dark *) {
 }
 
 .focus\:ring-offset-slate-900:focus {
-  --tw-ring-offset-color: #0f172a;
+  --tw-ring-offset-color: #09090b;
 }
 
 .focus-visible\:ring-2:focus-visible {
@@ -5564,11 +5564,11 @@ body:is(.dark *) {
 
 .dark\:bg-background-dark:is(.dark *) {
   --tw-bg-opacity: 1;
-  background-color: rgb(15 23 42 / var(--tw-bg-opacity, 1));
+  background-color: rgb(9 9 11 / var(--tw-bg-opacity, 1));
 }
 
 .dark\:bg-background-dark\/50:is(.dark *) {
-  background-color: rgb(15 23 42 / 0.5);
+  background-color: rgb(9 9 11 / 0.5);
 }
 
 .dark\:bg-blue-900\/10:is(.dark *) {
@@ -6501,10 +6501,10 @@ body:is(.dark *) {
 
 /* APP HEADER — Dark: exact match to landing page navbar in dark mode */
 .dark .app-header {
-  background-color: rgba(15, 23, 42, 0.6) !important;
+  background-color: rgba(9, 9, 11, 0.68) !important;
   backdrop-filter: blur(24px) saturate(180%) !important;
   -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
   box-shadow: none !important;
 }
 
@@ -6514,7 +6514,7 @@ body:is(.dark *) {
   background: transparent !important;
 }
 
-/* Dark: body is #0f172a (bg-background-dark) — same as landing page */
+/* Dark: body is #09090b (bg-background-dark) */
 .dark .appshell-root {
   background: transparent !important;
 }
@@ -6539,12 +6539,12 @@ body:is(.dark *) {
 
 /* Nav link — active state */
 .dark .active-nav-link {
-  background-color: rgba(37, 99, 235, 0.18) !important;
-  border: 1px solid rgba(37, 99, 235, 0.12) !important;
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 
 .dark .active-nav-link:hover {
-  background-color: rgba(255, 255, 255, 0.04) !important;
+  background-color: rgba(255, 255, 255, 0.12) !important;
 }
 
 /* Icons consistent sizing */
@@ -6561,6 +6561,6 @@ body:is(.dark *) {
 }
 
 .dark {
-  --glass-surface: rgba(15, 23, 42, 0.7);
-  --glass-border: rgba(100, 116, 139, 0.2);
+  --glass-surface: rgba(9, 9, 11, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.14);
 }

@@ -89,7 +89,7 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
     // Auth pages (login, signup, forgot-password, etc.): always show auth header
     if (isLandingRoute || isAuthRoute) {
         return (
-            <header className="sticky top-0 z-50 w-full bg-white/60 dark:bg-slate-950/60 backdrop-blur-2xl pt-2 pb-1">
+            <header className="app-header sticky top-0 z-50 w-full bg-white/60 dark:bg-slate-950/60 backdrop-blur-2xl pt-2 pb-1">
                 <div className="mx-auto max-w-[1240px] px-4 sm:px-6">
                     <div className="flex h-[72px] items-center justify-between gap-4">
                         <Link href="/" className="flex items-center gap-2 sm:gap-3 shrink-0 group">
@@ -146,7 +146,7 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
     // Sidebar layout header — for both guests and logged-in users on app routes.
     // Shows Login/Sign Up for guests, avatar/bell for users (handled below).
     if (isSidebarLayout) {
-        const sidebarHeaderClassName = 'sticky top-0 z-50 w-full bg-white/60 dark:bg-slate-950/60 backdrop-blur-2xl pt-2 pb-1';
+        const sidebarHeaderClassName = 'app-header sticky top-0 z-50 w-full bg-white/60 dark:bg-slate-950/60 backdrop-blur-2xl pt-2 pb-1';
 
         const sidebarContainerClassName = isUploadRoute
             ? 'mx-auto max-w-[1600px] px-4 xl:px-8'
@@ -220,7 +220,7 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
 
     return (
         <header className="sticky top-0 z-50 w-full px-3 sm:px-4 pt-3">
-            <div className="mx-auto max-w-[1240px] rounded-2xl ring-1 ring-black/5 dark:ring-white/10 bg-white/90 dark:bg-[#0a0f1e]/80 backdrop-blur-md shadow-[0_14px_40px_rgba(0,0,0,0.06)] dark:shadow-[0_22px_56px_rgba(0,0,0,0.45)]">
+            <div className="mx-auto max-w-[1240px] rounded-2xl ring-1 ring-black/5 dark:ring-white/10 bg-white/90 dark:bg-background-dark/50 backdrop-blur-md shadow-[0_14px_40px_rgba(0,0,0,0.06)] dark:shadow-[0_22px_56px_rgba(0,0,0,0.45)]">
                 <div className="flex h-[68px] items-center gap-3 px-3 sm:px-4">
                     <Link href={logoHref} className="flex items-center gap-2 shrink-0 group">
                         <div className="flex items-center justify-center size-10">
