@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabaseClient';
 const ThemeContext = createContext();
 
 function ThemeSyncWrapper({ children }) {
-    const { theme, setTheme: setNextTheme } = useNextTheme();
+    const { theme, setTheme: setNextTheme, systemTheme } = useNextTheme();
 
     useEffect(() => {
         const fetchRemoteTheme = async () => {
@@ -48,7 +48,7 @@ function ThemeSyncWrapper({ children }) {
     };
 
     return (
-        <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
+        <ThemeContext.Provider value={{ theme, systemTheme, toggleTheme, setTheme }}>
             {children}
         </ThemeContext.Provider>
     );

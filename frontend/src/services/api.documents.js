@@ -372,28 +372,7 @@ export const downloadExport = async (jobId, format = 'docx') => (
     downloadFile(jobId, normalizeExportFormat(format))
 );
 
-export const downloadJATS = async (jobId) => {
-    const headers = await getAuthorizedHeaders();
-    const response = await fetch(
-        `${API_BASE_URL}/api/documents/${encodeURIComponent(jobId)}/download?format=jats`,
-        {
-            method: 'GET',
-            headers,
-            credentials: 'include',
-        }
-    );
 
-    if (!response.ok) {
-        throw new Error(`JATS download failed: ${response.status} ${response.statusText}`);
-    }
-
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    return {
-        url,
-        cleanup: () => window.URL.revokeObjectURL(url),
-    };
-};
 
 export const deleteDocument = async (jobId) => (
     fetchWithAuth(`/api/documents/${encodeURIComponent(jobId)}`, {

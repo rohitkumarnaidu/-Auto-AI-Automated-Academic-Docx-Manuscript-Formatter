@@ -7,7 +7,7 @@ import Footer from '@/src/components/Footer';
 import ExportDialog from '@/src/components/ExportDialog';
 import { useDocument } from '@/src/context/DocumentContext';
 import { useAuth } from '@/src/context/AuthContext';
-import { downloadExport, downloadJATS } from '@/src/services/api'; // B-FIX-23: downloadJATS added
+import { downloadExport } from '@/src/services/api';
 import { isCompleted, isFailed, isProcessing } from '@/src/constants/status';
 import useJobFromUrl from '@/src/hooks/useJobFromUrl';
 
@@ -28,7 +28,7 @@ export default function Download() {
     const [downloadError, setDownloadError] = useState(null);
     const [showLoginModal, setShowLoginModal] = useState(false);
     const [showExportDialog, setShowExportDialog] = useState(false);
-    const [isJatsDownloading, setIsJatsDownloading] = useState(false); // B-FIX-23
+
 
     const getJobRoute = (suffix, fallback) => (
         job?.id ? `/jobs/${encodeURIComponent(job.id)}/${suffix}` : fallback
@@ -251,40 +251,9 @@ export default function Download() {
                                             </>
                                         )}
                                     </button>
-                                    {/* B-FIX-23: JATS XML download button */}
-                                    <button
-                                        onClick={async () => {
-                                            setIsJatsDownloading(true);
-                                            setDownloadError(null);
-                                            try {
-                                                const { url, cleanup } = await downloadJATS(job.id);
-                                                const link = document.createElement('a');
-                                                link.href = url;
-                                                const baseName = job.originalFileName
-                                                    ? `JATS_${job.originalFileName.replace(/\.[^/.]+$/, '')}`
-                                                    : 'Manuscript_JATS';
-                                                link.setAttribute('download', `${baseName}.xml`);
-                                                document.body.appendChild(link);
-                                                link.click();
-                                                link.parentNode.removeChild(link);
-                                                setTimeout(cleanup, 0);
-                                            } catch {
-                                                setDownloadError('JATS download failed. The server may not support this format yet.');
-                                            } finally {
-                                                setIsJatsDownloading(false);
-                                            }
-                                        }}
-                                        disabled={isJatsDownloading}
-                                        className="flex w-full cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-10 px-6 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-sm font-bold leading-normal transition-all hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        {isJatsDownloading ? (
-                                            <><span className="material-symbols-outlined animate-spin text-sm">progress_activity</span><span>Downloading JATS...</span></>
-                                        ) : (
-                                            <><span className="material-symbols-outlined text-sm">code</span><span>Download JATS XML</span></>
-                                        )}
-                                    </button>
+                                    {/* TODO: Add "tex" option after Module 2 LaTeX export is built */}
                                     <p className="text-xs text-slate-500 text-center">
-                                        Available formats: DOCX, PDF, JATS XML
+                                        Available formats: DOCX, PDF
                                     </p>
                                 </div>
                             </div>
@@ -299,7 +268,7 @@ export default function Download() {
                                 <p className="text-[#4c6c9a] dark:text-slate-400 text-sm font-semibold uppercase tracking-tight">Output Format</p>
                                 <div className="flex items-center gap-2">
                                     <span className="material-symbols-outlined text-blue-500">article</span>
-                                    <p className="text-[#0d131b] dark:text-slate-200 text-sm font-medium">DOCX, PDF, JATS XML</p>
+                                    <p className="text-[#0d131b] dark:text-slate-200 text-sm font-medium">DOCX, PDF</p>
                                 </div>
                             </div>
                             <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-[220px_1fr] gap-2 md:gap-6 border-b border-slate-200 dark:border-slate-800 py-4 items-center">

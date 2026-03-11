@@ -1,7 +1,7 @@
 'use client';
 import usePageTitle from '@/src/hooks/usePageTitle';
 import { useState, useRef, useEffect } from 'react';
-import { ArrowRight, CheckCircle2, FileText, Zap, Shield, Sparkles, BookOpen, Quote, Download, Users, Briefcase, GraduationCap } from 'lucide-react';
+
 import Footer from '@/src/components/Footer';
 import Link from 'next/link';
 
