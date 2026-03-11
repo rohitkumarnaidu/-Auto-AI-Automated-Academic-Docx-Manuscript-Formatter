@@ -7,12 +7,13 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
-import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
+from app.config.settings import settings
+from app.db.supabase_client import get_supabase_client
 from app.models.block import Block, BlockType
 from app.models.pipeline_document import DocumentMetadata, PipelineDocument, TemplateInfo
 from app.pipeline.export.exporter import Exporter
@@ -25,7 +26,7 @@ from app.utils.singleton import get_or_create
 
 logger = logging.getLogger(__name__)
 
-GENERATED_DIR = Path(os.getenv("GENERATED_OUTPUT_DIR", "generated_outputs"))
+GENERATED_DIR = Path(settings.GENERATED_OUTPUT_DIR)
 
 _BLOCK_TYPE_MAP: dict[str, BlockType] = {
     "TITLE": BlockType.TITLE,
@@ -51,7 +52,137 @@ class DocumentGenerator:
     """Orchestrates document generation from metadata."""
 
     def __init__(self) -> None:
-        self._progress_store: dict[str, dict[str, Any]] = {}
+        # Volatile fallback only used when Supabase is unavailable in local/test mode.
+        self._volatile_sessions: dict[str, dict[str, Any]] = {}
+
+    @staticmethod
+    def _normalize_status(raw_status: str | None) -> str:
+        mapping = {
+            "PENDING": "pending",
+            "PROCESSING": "processing",
+            "COMPLETED": "done",
+            "COMPLETED_WITH_WARNINGS": "done",
+            "FAILED": "failed",
+            "CANCELLED": "failed",
+            "pending": "pending",
+            "processing": "processing",
+            "done": "done",
+            "failed": "failed",
+        }
+        return mapping.get(str(raw_status or "").strip(), "processing")
+
+    @staticmethod
+    def _now_iso() -> str:
+        return datetime.now(timezone.utc).isoformat()
+
+    def _default_session_config(
+        self,
+        *,
+        doc_type: str,
+        template: str,
+        metadata: dict[str, Any],
+        options: dict[str, Any],
+        user_id: str,
+    ) -> dict[str, Any]:
+        return {
+            "doc_type": doc_type,
+            "template": template,
+            "metadata": metadata,
+            "options": options,
+            "user_id": user_id,
+            "stage": "queued",
+            "message": "Generation job queued.",
+            "error": None,
+            "output_path": None,
+        }
+
+    def _session_record_to_status(self, session: dict[str, Any], *, include_outline: bool = True) -> dict[str, Any]:
+        config = session.get("config_json") or {}
+        status = self._normalize_status(str(session.get("status") or config.get("status") or "pending"))
+        progress = int(session.get("progress") or config.get("progress") or 0)
+        stage = str(config.get("stage") or "queued")
+        message = str(config.get("message") or "Generation in progress...")
+        error = config.get("error")
+        output_path = config.get("output_path")
+        outline = session.get("outline_json") if include_outline else []
+        if not isinstance(outline, list):
+            outline = []
+        outline = [str(item).strip() for item in outline if str(item).strip()]
+        return {
+            "job_id": str(session.get("id")),
+            "status": status,
+            "stage": stage,
+            "progress": int(max(0, min(100, progress))),
+            "message": message,
+            "error": str(error) if error else None,
+            "output_path": str(output_path) if output_path else None,
+            "outline": outline,
+        }
+
+    def _get_session_record(self, job_id: str) -> Optional[dict[str, Any]]:
+        sb = get_supabase_client()
+        if sb is not None:
+            try:
+                result = (
+                    sb.table("generator_sessions")
+                    .select("*")
+                    .eq("id", str(job_id))
+                    .maybe_single()
+                    .execute()
+                )
+                if result.data:
+                    return result.data
+            except Exception as exc:
+                logger.warning("Failed to fetch generator session %s from DB: %s", job_id, exc)
+        return self._volatile_sessions.get(str(job_id))
+
+    def get_session(self, job_id: str) -> Optional[dict[str, Any]]:
+        return self._get_session_record(job_id)
+
+    def update_status(
+        self,
+        job_id: str,
+        *,
+        status: str,
+        progress: int,
+        stage: Optional[str] = None,
+        message: Optional[str] = None,
+        error: Optional[str] = None,
+        output_path: Optional[str] = None,
+        outline: Optional[list[str]] = None,
+    ) -> None:
+        record = self._get_session_record(job_id) or {"id": str(job_id)}
+        config = dict(record.get("config_json") or {})
+        config["status"] = status
+        config["progress"] = int(max(0, min(100, progress)))
+        if stage is not None:
+            config["stage"] = stage
+        if message is not None:
+            config["message"] = message
+        if error is not None:
+            config["error"] = error
+        if output_path is not None:
+            config["output_path"] = output_path
+
+        payload: dict[str, Any] = {
+            "status": status,
+            "progress": int(max(0, min(100, progress))),
+            "config_json": config,
+            "updated_at": self._now_iso(),
+        }
+        if outline is not None:
+            payload["outline_json"] = [str(item).strip() for item in outline if str(item).strip()]
+
+        sb = get_supabase_client()
+        if sb is not None:
+            try:
+                sb.table("generator_sessions").update(payload).eq("id", str(job_id)).execute()
+            except Exception as exc:
+                logger.warning("Failed to update generator session %s in DB: %s", job_id, exc)
+
+        merged = dict(record)
+        merged.update(payload)
+        self._volatile_sessions[str(job_id)] = merged
 
     async def start_job(
         self,
@@ -63,6 +194,13 @@ class DocumentGenerator:
     ) -> str:
         job_id = str(uuid.uuid4())
         generated_filename = f"generated_{doc_type}_{job_id[:8]}.docx"
+        config_json = self._default_session_config(
+            doc_type=doc_type,
+            template=template,
+            metadata=metadata,
+            options=options,
+            user_id=user_id,
+        )
         formatting_options = {
             "generation": True,
             "doc_type": doc_type,
@@ -81,36 +219,42 @@ class DocumentGenerator:
         if db_created is None:
             logger.warning("Generation job %s created in memory only (DB unavailable).", job_id)
 
-        self._progress_store[job_id] = {
-            "job_id": job_id,
+        session_payload = {
+            "id": job_id,
+            "user_id": str(user_id) if user_id else None,
+            "session_type": "agent",
             "status": "pending",
             "progress": 0,
-            "stage": "queued",
-            "message": "Generation job queued.",
-            "doc_type": doc_type,
-            "template": template,
-            "metadata": metadata,
-            "options": options,
-            "user_id": user_id,
-            "outline": [],
-            "output_path": None,
-            "error": None,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "config_json": config_json,
+            "outline_json": [],
+            "created_at": self._now_iso(),
+            "updated_at": self._now_iso(),
         }
+
+        sb = get_supabase_client()
+        if sb is not None:
+            try:
+                sb.table("generator_sessions").insert(session_payload).execute()
+            except Exception as exc:
+                logger.warning("Failed to persist generator session %s to DB: %s", job_id, exc)
+                self._volatile_sessions[job_id] = session_payload
+        else:
+            self._volatile_sessions[job_id] = session_payload
 
         self._emit(job_id, phase="QUEUED", status="PENDING", message="Generation job queued.", progress=0, stage="queued")
         return job_id
 
     async def run_pipeline(self, job_id: str) -> None:
-        state = self._progress_store.get(job_id)
+        state = self._get_session_record(job_id)
         if not state:
             logger.error("run_pipeline: generation job '%s' not found", job_id)
             return
 
-        doc_type = state["doc_type"]
-        template = state["template"]
-        metadata = state["metadata"]
-        options = state["options"]
+        config = state.get("config_json") or {}
+        doc_type = str(config.get("doc_type") or "academic_paper")
+        template = str(config.get("template") or "none")
+        metadata = config.get("metadata") or {}
+        options = config.get("options") or {}
 
         try:
             self._update(job_id, "generating", 10, "Building LLM prompt...")
@@ -124,7 +268,14 @@ class DocumentGenerator:
             parser = ContentParser()
             raw_blocks = parser.parse(llm_response, doc_type)
             outline = self._extract_outline(raw_blocks)
-            state["outline"] = outline
+            self.update_status(
+                job_id,
+                status="processing",
+                progress=50,
+                stage="structuring",
+                message="Structuring AI output into blocks...",
+                outline=outline,
+            )
 
             DocumentService.upsert_document_result(
                 job_id,
@@ -167,18 +318,16 @@ class DocumentGenerator:
             self._update(job_id, "error", 0, str(exc), error=str(exc))
 
     def get_status(self, job_id: str) -> dict[str, Any]:
-        state = self._progress_store.get(job_id)
+        state = self._get_session_record(job_id)
         if state:
-            return {
-                "job_id": state["job_id"],
-                "status": state["status"],
-                "stage": state["stage"],
-                "progress": state["progress"],
-                "message": state["message"],
-                "error": state.get("error"),
-                "output_path": state.get("output_path"),
-                "outline": list(state.get("outline") or []),
-            }
+            status_payload = self._session_record_to_status(state)
+            if not status_payload["outline"]:
+                result = DocumentService.get_document_result(job_id)
+                if result and isinstance(result.get("structured_data"), dict):
+                    raw_outline = result["structured_data"].get("outline") or []
+                    if isinstance(raw_outline, list):
+                        status_payload["outline"] = [str(item).strip() for item in raw_outline if str(item).strip()]
+            return status_payload
 
         doc = DocumentService.get_document(job_id)
         if not doc:
@@ -218,11 +367,11 @@ class DocumentGenerator:
         }
 
     def get_download_path(self, job_id: str) -> Path | None:
-        state = self._progress_store.get(job_id)
-        if state and state.get("status") == "done":
-            output = state.get("output_path")
-            if output:
-                return Path(output)
+        state = self._get_session_record(job_id)
+        if state:
+            status_payload = self._session_record_to_status(state, include_outline=False)
+            if status_payload.get("status") == "done" and status_payload.get("output_path"):
+                return Path(str(status_payload["output_path"]))
 
         doc = DocumentService.get_document(job_id)
         if not doc:
@@ -242,27 +391,22 @@ class DocumentGenerator:
         output_path: str | None = None,
         error: str | None = None,
     ) -> None:
-        state = self._progress_store.get(job_id, {})
         status = "failed" if stage == "error" else ("done" if progress >= 100 else ("pending" if stage == "queued" else "processing"))
-        state.update(
-            {
-                "status": status,
-                "stage": stage,
-                "progress": int(max(0, min(100, progress))),
-                "message": str(message),
-            }
+        self.update_status(
+            job_id,
+            status=status,
+            progress=int(max(0, min(100, progress))),
+            stage=stage,
+            message=str(message),
+            error=error,
+            output_path=output_path,
         )
-        if output_path:
-            state["output_path"] = output_path
-        if error:
-            state["error"] = error
-        self._progress_store[job_id] = state
 
         doc_status = "FAILED" if status == "failed" else ("COMPLETED" if status == "done" else "PROCESSING")
         updates: dict[str, Any] = {
             "status": doc_status,
             "current_stage": stage.upper(),
-            "progress": state["progress"],
+            "progress": int(max(0, min(100, progress))),
         }
         if error:
             updates["error_message"] = error
@@ -275,7 +419,7 @@ class DocumentGenerator:
             job_id,
             phase=stage.upper(),
             status=phase_status,
-            progress_percentage=state["progress"],
+            progress_percentage=int(max(0, min(100, progress))),
             message=message,
         )
 
@@ -284,10 +428,10 @@ class DocumentGenerator:
             phase=stage.upper(),
             status=phase_status,
             message=message,
-            progress=state["progress"],
+            progress=int(max(0, min(100, progress))),
             stage=stage,
-            output_path=state.get("output_path"),
-            error=state.get("error"),
+            output_path=output_path,
+            error=error,
         )
 
     def _emit(self, job_id: str, **payload: Any) -> None:
@@ -327,8 +471,12 @@ class DocumentGenerator:
             logger.warning("Generation job %s: DeepSeek Tier 2 failed (%s), using rule fallback", job_id, exc)
 
         logger.warning("Generation job %s: all LLMs unavailable, using rule-based skeleton", job_id)
-        state = self._progress_store.get(job_id, {})
-        return self._rule_based_skeleton(str(state.get("doc_type", "academic_paper")), state.get("metadata") or {})
+        state = self._get_session_record(job_id) or {}
+        config = state.get("config_json") or {}
+        return self._rule_based_skeleton(
+            str(config.get("doc_type", "academic_paper")),
+            config.get("metadata") or {},
+        )
 
     @staticmethod
     def _rule_based_skeleton(doc_type: str, metadata: dict) -> str:

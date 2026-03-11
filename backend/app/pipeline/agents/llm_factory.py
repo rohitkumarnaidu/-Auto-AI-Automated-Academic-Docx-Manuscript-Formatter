@@ -12,6 +12,7 @@ import sys
 import logging
 from typing import List
 from unittest.mock import Mock
+from app.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +120,7 @@ class CustomLLMFactory:
     @staticmethod
     def _create_langchain(provider: str, model: str, temperature: float, **kwargs):
         if provider == "openai":
-            api_key = kwargs.get("api_key") or os.getenv("OPENAI_API_KEY")
+            api_key = kwargs.get("api_key") or settings.OPENAI_API_KEY or os.getenv("OPENAI_API_KEY")
             if not api_key:
                 raise ValueError("OPENAI_API_KEY not set")
             llm_cls = ChatOpenAI
@@ -136,13 +137,13 @@ class CustomLLMFactory:
                 from langchain_anthropic import ChatAnthropic
             except ImportError:
                 raise ImportError("langchain-anthropic not installed. pip install langchain-anthropic")
-            api_key = kwargs.get("api_key") or os.getenv("ANTHROPIC_API_KEY")
+            api_key = kwargs.get("api_key") or settings.ANTHROPIC_API_KEY or os.getenv("ANTHROPIC_API_KEY")
             if not api_key:
                 raise ValueError("ANTHROPIC_API_KEY not set")
             return ChatAnthropic(model=model, temperature=temperature, api_key=api_key,
                                  **{k: v for k, v in kwargs.items() if k != "api_key"})
         elif provider == "ollama":
-            base_url = kwargs.get("base_url", "http://localhost:11434")
+            base_url = kwargs.get("base_url", settings.OLLAMA_BASE_URL)
             llm_cls = Ollama
             if llm_cls is None:
                 if sys.version_info >= (3, 14):
@@ -158,20 +159,20 @@ class CustomLLMFactory:
     @staticmethod
     def get_available_providers() -> List[str]:
         providers = []
-        if os.getenv("NVIDIA_API_KEY"):
+        if settings.NVIDIA_API_KEY:
             providers.append("nvidia")
-        if os.getenv("OPENAI_API_KEY"):
+        if settings.OPENAI_API_KEY:
             providers.append("openai")
         if sys.version_info < (3, 14):
             try:
                 import langchain_anthropic  # noqa
-                if os.getenv("ANTHROPIC_API_KEY"):
+                if settings.ANTHROPIC_API_KEY:
                     providers.append("anthropic")
             except ImportError:
                 pass
         try:
             import requests
-            r = requests.get("http://localhost:11434/api/tags", timeout=1)
+            r = requests.get(f"{settings.OLLAMA_BASE_URL}/api/tags", timeout=1)
             if r.status_code == 200:
                 providers.append("ollama")
         except Exception:
@@ -194,7 +195,7 @@ class CustomLLMFactory:
 def _get_api_key(provider: str):
     """Resolve API key from env for the given provider."""
     return {
-        "openai":    os.getenv("OPENAI_API_KEY"),
-        "anthropic": os.getenv("ANTHROPIC_API_KEY"),
-        "nvidia":    os.getenv("NVIDIA_API_KEY"),
+        "openai": settings.OPENAI_API_KEY,
+        "anthropic": settings.ANTHROPIC_API_KEY,
+        "nvidia": settings.NVIDIA_API_KEY,
     }.get(provider)

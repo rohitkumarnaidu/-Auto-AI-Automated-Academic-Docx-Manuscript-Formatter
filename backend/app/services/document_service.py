@@ -11,6 +11,7 @@ schema definition and is used by Alembic migrations.
 from __future__ import annotations
 
 import logging
+import os
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta, timezone
 
@@ -248,6 +249,51 @@ class DocumentService:
         except Exception as exc:
             logger.error("update_document(%s) failed: %s", doc_id, exc)
             return None
+
+    @staticmethod
+    def delete_document(document_id: str, user_id: Optional[str] = None) -> bool:
+        """
+        Delete a document and associated DB artifacts/files.
+        Returns True on success, raises on failure.
+        """
+        sb = get_supabase_client()
+        doc_id = str(document_id)
+        owner_id = str(user_id) if user_id else None
+
+        if sb is None:
+            raise RuntimeError("Supabase client not available")
+
+        doc = DocumentService.get_document(doc_id, owner_id)
+        if not doc:
+            raise ValueError("Document not found or not owned by user")
+
+        # Best-effort local file cleanup
+        for key in ("output_path", "original_file_path"):
+            candidate = doc.get(key)
+            if candidate and os.path.isfile(candidate):
+                try:
+                    os.remove(candidate)
+                except OSError as exc:
+                    logger.warning("Failed to remove file %s for document %s: %s", candidate, doc_id, exc)
+
+        try:
+            sb.table("processing_status").delete().eq("document_id", doc_id).execute()
+            sb.table("document_results").delete().eq("document_id", doc_id).execute()
+            sb.table("document_versions").delete().eq("document_id", doc_id).execute()
+        except Exception as exc:
+            logger.warning("Auxiliary cleanup failed for document %s: %s", doc_id, exc)
+
+        try:
+            query = sb.table("documents").delete().eq("id", doc_id)
+            if owner_id:
+                query = query.eq("user_id", owner_id)
+            result = query.execute()
+            if result.data is not None and len(result.data) == 0:
+                raise ValueError("Document delete affected 0 rows")
+            return True
+        except Exception as exc:
+            logger.error("delete_document(%s, user=%s) failed: %s", doc_id, owner_id, exc)
+            raise
 
     @staticmethod
     def update_output_hash(doc_id: str, output_hash: str) -> bool:

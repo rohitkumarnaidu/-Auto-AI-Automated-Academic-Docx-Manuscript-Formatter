@@ -9,6 +9,7 @@ import logging
 import os
 from typing import Optional
 
+from app.config.settings import settings
 from app.pipeline.parsing.base_parser import BaseParser
 from app.pipeline.parsing.parser import DocxParser
 from app.pipeline.parsing.pdf_parser import PdfParser
@@ -29,14 +30,11 @@ class ParserFactory:
         # Try to initialize all parsers (some may fail if dependencies missing)
         self.parsers = []
         in_pytest = bool(os.environ.get("PYTEST_CURRENT_TEST"))
-        nougat_override = os.environ.get("ENABLE_NOUGAT_PARSER")
+        enable_nougat = bool(settings.ENABLE_NOUGAT_PARSER)
 
         # Keep fast PDF extraction as default. Nougat stays opt-in and is used
         # as secondary OCR parser when explicitly enabled.
-        enable_nougat = False
-        if nougat_override is not None:
-            enable_nougat = nougat_override.strip().lower() not in {"0", "false", "no", "off"}
-        elif in_pytest:
+        if in_pytest and not enable_nougat:
             # Keep tests deterministic and fast unless explicitly enabled.
             enable_nougat = False
 

@@ -2,10 +2,11 @@
 llm_service.py — Unified LLM access layer powered by LiteLLM.
 """
 from __future__ import annotations
-import os
 import sys
 import logging
 from typing import List, Dict, Any, Optional
+
+from app.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,7 @@ except ImportError:
         "LiteLLM unavailable - llm_service will use direct provider clients."
     )
 LLM_NVIDIA   = "nvidia_nim/meta/llama-3.3-70b-instruct"
+LLM_GROQ     = "groq/llama-3.3-70b-versatile"
 LLM_DEEPSEEK = "ollama/deepseek-r1"
 LLM_GPT4     = "gpt-4"
 
@@ -119,23 +121,29 @@ def generate(
     if api_key:
         kwargs["api_key"] = api_key
     elif model.startswith("nvidia_nim/"):
-        nvidia_key = os.getenv("NVIDIA_API_KEY")
+        nvidia_key = settings.NVIDIA_API_KEY
         if nvidia_key:
             kwargs["api_key"] = nvidia_key
     elif model.startswith("gpt-") or model.startswith("openai/"):
-        openai_key = os.getenv("OPENAI_API_KEY")
+        openai_key = settings.OPENAI_API_KEY
         if openai_key:
             kwargs["api_key"] = openai_key
     elif model.startswith("claude") or model.startswith("anthropic/"):
-        anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+        anthropic_key = settings.ANTHROPIC_API_KEY
         if anthropic_key:
             kwargs["api_key"] = anthropic_key
+    elif model.startswith("groq/"):
+        groq_key = settings.GROQ_API_KEY
+        if groq_key:
+            kwargs["api_key"] = groq_key
 
     # Per-provider base URL
     if api_base:
         kwargs["api_base"] = api_base
     elif model.startswith("ollama/"):
-        kwargs["api_base"] = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+        kwargs["api_base"] = settings.OLLAMA_BASE_URL
+    elif model.startswith("groq/"):
+        kwargs["api_base"] = settings.GROQ_API_BASE
 
     response = completion(**kwargs)
     choices = response.choices
@@ -154,13 +162,13 @@ def generate_with_fallback(
     max_tokens: int = 2048,
 ) -> Dict[str, Any]:
     """
-    3-tier fallback: NVIDIA → DeepSeek/Ollama → raises LLMUnavailableError.
+    3-tier fallback: NVIDIA -> Groq -> Ollama -> raises LLMUnavailableError.
 
     Returns:
         {"text": str, "model": str, "tier": int}
     """
     # Tier 1: NVIDIA NIM
-    nvidia_key = os.getenv("NVIDIA_API_KEY")
+    nvidia_key = settings.NVIDIA_API_KEY
     if nvidia_key:
         try:
             text = generate(messages, model=LLM_NVIDIA, temperature=temperature, max_tokens=max_tokens)
@@ -172,20 +180,44 @@ def generate_with_fallback(
                 from app.middleware.prometheus_metrics import MetricsManager
                 MetricsManager.record_llm_failure("nvidia")
             except Exception: pass
-            logger.warning("llm_service: Tier 1 (NVIDIA) failed: %s — trying DeepSeek.", exc)
+            logger.warning("llm_service: Tier 1 (NVIDIA) failed: %s - trying Groq.", exc)
 
-    # Tier 2: DeepSeek via Ollama
+    # Tier 2: Groq
+    groq_model = settings.GROQ_MODEL or LLM_GROQ
+    groq_key = settings.GROQ_API_KEY
+    if groq_key:
+        try:
+            text = generate(
+                messages,
+                model=groq_model,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                api_key=groq_key,
+            )
+            if text:
+                logger.info("llm_service: Tier 2 (Groq) succeeded.")
+                return {"text": text, "model": groq_model, "tier": 2}
+        except Exception as exc:
+            try:
+                from app.middleware.prometheus_metrics import MetricsManager
+                MetricsManager.record_llm_failure("groq")
+            except Exception:
+                pass
+            logger.warning("llm_service: Tier 2 (Groq) failed: %s - trying Ollama.", exc)
+
+    # Tier 3: DeepSeek via Ollama
     try:
         text = generate(messages, model=LLM_DEEPSEEK, temperature=temperature, max_tokens=max_tokens)
         if text:
-            logger.info("llm_service: Tier 2 (DeepSeek) succeeded.")
-            return {"text": text, "model": LLM_DEEPSEEK, "tier": 2}
+            logger.info("llm_service: Tier 3 (Ollama) succeeded.")
+            return {"text": text, "model": LLM_DEEPSEEK, "tier": 3}
     except Exception as exc:
         try:
             from app.middleware.prometheus_metrics import MetricsManager
-            MetricsManager.record_llm_failure("deepseek")
-        except Exception: pass
-        logger.warning("llm_service: Tier 2 (DeepSeek) failed: %s — no LLM available.", exc)
+            MetricsManager.record_llm_failure("ollama")
+        except Exception:
+            pass
+        logger.warning("llm_service: Tier 3 (Ollama) failed: %s - no LLM available.", exc)
 
     raise LLMUnavailableError("All LLM tiers failed. Use rule-based fallback.")
 
@@ -203,13 +235,22 @@ def _generate_fallback(
     if model.startswith("nvidia_nim/") or model.startswith("openai/") or model.startswith("gpt-"):
         return _openai_compat(
             messages, model, temperature, max_tokens,
-            api_key or os.getenv("NVIDIA_API_KEY") or os.getenv("OPENAI_API_KEY"),
+            api_key or settings.NVIDIA_API_KEY or settings.OPENAI_API_KEY,
             api_base or ("https://integrate.api.nvidia.com/v1" if model.startswith("nvidia_nim/") else None),
+        )
+    elif model.startswith("groq/"):
+        return _openai_compat(
+            messages,
+            model,
+            temperature,
+            max_tokens,
+            api_key or settings.GROQ_API_KEY,
+            api_base or settings.GROQ_API_BASE,
         )
     elif model.startswith("ollama/"):
         return _ollama_http(
             messages, model.replace("ollama/", ""), temperature, max_tokens,
-            api_base or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"), timeout,
+            api_base or settings.OLLAMA_BASE_URL, timeout,
         )
     raise NotImplementedError(f"No fallback implementation for model: {model}")
 
@@ -217,7 +258,7 @@ def _generate_fallback(
 def _openai_compat(messages, model, temperature, max_tokens, api_key, base_url) -> str:
     from openai import OpenAI
     # Strip provider prefix for raw OpenAI/NVIDIA
-    raw_model = model.replace("nvidia_nim/", "").replace("openai/", "")
+    raw_model = model.replace("nvidia_nim/", "").replace("openai/", "").replace("groq/", "")
     client = OpenAI(api_key=api_key or "none", base_url=base_url)
     resp = client.chat.completions.create(
         model=raw_model, messages=messages,
@@ -245,7 +286,7 @@ async def check_health() -> Dict[str, str]:
     
     # Check NVIDIA
     try:
-        nvidia_key = os.getenv("NVIDIA_API_KEY")
+        nvidia_key = settings.NVIDIA_API_KEY
         if nvidia_key:
             results["nvidia"] = "healthy"
         else:
@@ -256,7 +297,7 @@ async def check_health() -> Dict[str, str]:
     # Check Ollama/DeepSeek
     try:
         import httpx
-        base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+        base_url = settings.OLLAMA_BASE_URL
         async with httpx.AsyncClient(timeout=2.0) as client:
             resp = await client.get(f"{base_url}/api/tags")
             if resp.status_code == 200:

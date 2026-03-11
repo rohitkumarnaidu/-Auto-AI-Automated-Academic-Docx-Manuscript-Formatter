@@ -20,11 +20,19 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    # Add template column with NULL as default
-    op.add_column('documents', sa.Column('template', sa.String(), nullable=True, server_default=None))
+    # Add template column with NULL as default (idempotent for drifted DBs)
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    existing = {col["name"] for col in inspector.get_columns("documents")}
+    if "template" not in existing:
+        op.add_column('documents', sa.Column('template', sa.String(), nullable=True, server_default=None))
 
 
 def downgrade() -> None:
     """Downgrade schema."""
-    # Remove template column
-    op.drop_column('documents', 'template')
+    # Remove template column (idempotent for drifted DBs)
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    existing = {col["name"] for col in inspector.get_columns("documents")}
+    if "template" in existing:
+        op.drop_column('documents', 'template')

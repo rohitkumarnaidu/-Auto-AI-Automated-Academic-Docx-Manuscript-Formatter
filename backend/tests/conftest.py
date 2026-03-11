@@ -3,8 +3,36 @@ conftest.py — shared pytest fixtures for ScholarForm AI backend tests.
 """
 from __future__ import annotations
 
+import os
+import socket
 import pytest
 from unittest.mock import MagicMock, patch
+
+
+def _service_reachable(host: str, port: int, timeout: float = 0.5) -> bool:
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def _integration_service_status() -> list[str]:
+    service_matrix = [
+        ("Redis", os.getenv("REDIS_HOST", "127.0.0.1"), int(os.getenv("REDIS_PORT", "6379"))),
+        ("GROBID", os.getenv("GROBID_HOST", "127.0.0.1"), int(os.getenv("GROBID_PORT", "8070"))),
+    ]
+    return [name for name, host, port in service_matrix if not _service_reachable(host, port)]
+
+
+@pytest.fixture(autouse=True)
+def skip_integration_when_services_unavailable(request):
+    if "integration" not in request.keywords:
+        return
+    missing = _integration_service_status()
+    if missing:
+        pytest.skip(f"Service {', '.join(missing)} not available")
+
 
 @pytest.fixture(autouse=True)
 def mock_redis():

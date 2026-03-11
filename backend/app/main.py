@@ -18,7 +18,7 @@ import os
 import asyncio
 import logging
 # Optional structured logging for production environments.
-if os.getenv("ENABLE_STRUCTURED_LOGGING", "false").strip().lower() in {"1", "true", "yes", "on"}:
+if settings.ENABLE_STRUCTURED_LOGGING:
     from app.config.logging_config import setup_logging
     setup_logging()
 
@@ -35,6 +35,35 @@ from app.pipeline.safety import safe_execution
 from app.services.enhancement_manager import enhancement_manager
 
 
+def _cleanup_expired_uploads(*, upload_dir: str = "uploads", retention_days: int) -> int:
+    if not os.path.isdir(upload_dir):
+        return 0
+
+    cutoff_epoch = datetime.now(timezone.utc).timestamp() - (retention_days * 86400)
+    deleted = 0
+    for entry in os.scandir(upload_dir):
+        if not entry.is_file():
+            continue
+        try:
+            if entry.stat().st_mtime < cutoff_epoch:
+                os.remove(entry.path)
+                deleted += 1
+        except OSError as exc:
+            logger.warning("Cleanup failed for %s: %s", entry.path, exc)
+    return deleted
+
+
+async def _periodic_file_cleanup(retention_days: int) -> None:
+    while True:
+        cleaned = _cleanup_expired_uploads(retention_days=retention_days)
+        logger.info(
+            "Scheduled file cleanup complete. Removed %d files older than %d days.",
+            cleaned,
+            retention_days,
+        )
+        await asyncio.sleep(24 * 60 * 60)
+
+
 # ── Lifespan (replaces deprecated @app.on_event) ─────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -45,6 +74,20 @@ async def lifespan(app: FastAPI):
     # ── STARTUP ──
     # DISABLED: Auto-delete feature temporarily removed per user request
     # cleanup_task = asyncio.create_task(cleanup_old_uploads())
+    cleanup_task = None
+    enable_cleanup = settings.ENABLE_FILE_CLEANUP
+    retention_days = int(settings.RETENTION_DAYS)
+    if enable_cleanup:
+        cleaned = _cleanup_expired_uploads(retention_days=retention_days)
+        logger.info(
+            "Startup file cleanup complete. Removed %d files older than %d days.",
+            cleaned,
+            retention_days,
+        )
+        cleanup_task = asyncio.create_task(_periodic_file_cleanup(retention_days))
+    else:
+        logger.info("File cleanup disabled (ENABLE_FILE_CLEANUP=false in .env).")
+
     with safe_execution("Application Startup"):
         # ── Supabase-py: reset interrupted jobs ───────────────────────────────
         try:
@@ -97,6 +140,12 @@ async def lifespan(app: FastAPI):
     yield  # App is running
 
     # ── SHUTDOWN ──
+    if cleanup_task is not None:
+        cleanup_task.cancel()
+        try:
+            await cleanup_task
+        except asyncio.CancelledError:
+            pass
     logger.info("ScholarForm AI shutting down...")
 
 
@@ -109,10 +158,7 @@ app = FastAPI(
 )
 
 # CORS Configuration (from environment)
-origins = settings.CORS_ORIGINS.split(",") if hasattr(settings, 'CORS_ORIGINS') and settings.CORS_ORIGINS else [
-    "http://127.0.0.1:5173",  # Vite dev server
-    "http://127.0.0.1:3000",
-]
+origins = [origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()]
 
 app.add_middleware(
     CORSMiddleware,
@@ -133,7 +179,14 @@ app.add_middleware(MaxBodySizeMiddleware, max_size=60 * 1024 * 1024)  # 60MB glo
 # HTTPS Redirect (production only)
 if settings.FORCE_HTTPS:
     from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
+
     app.add_middleware(HTTPSRedirectMiddleware)
+
+    @app.middleware("http")
+    async def add_hsts_header(request: Request, call_next):
+        response = await call_next(request)
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+        return response
 
 # Include Routers
 app.include_router(auth.router)

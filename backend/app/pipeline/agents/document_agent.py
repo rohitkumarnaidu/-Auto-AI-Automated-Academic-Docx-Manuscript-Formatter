@@ -6,6 +6,7 @@ import sys
 import logging
 from typing import Optional, Dict, Any, List, Callable
 from unittest.mock import Mock
+from app.config.settings import settings
 from app.pipeline.agents.tools.metadata_tool import MetadataExtractionTool
 from app.pipeline.agents.tools.layout_tool import LayoutAnalysisTool
 from app.pipeline.agents.tools.validation_tool import ValidationTool
@@ -85,7 +86,7 @@ class DocumentAgent:
         llm_model: str = "gpt-4",
         temperature: float = 0.0,
         max_retries: int = 3,
-        grobid_url: str = "http://localhost:8070",
+        grobid_url: Optional[str] = None,
         enable_memory: bool = True,
         enable_streaming: bool = False,
         streaming_callback: Optional[Callable] = None
@@ -104,6 +105,7 @@ class DocumentAgent:
             streaming_callback: Optional callback for streaming events
         """
         self.max_retries = max_retries
+        resolved_grobid_url = grobid_url or settings.GROBID_URL
         
         # Initialize LLM using factory
         try:
@@ -111,7 +113,7 @@ class DocumentAgent:
             if llm_provider == "openai" and ChatOpenAI is not None:
                 # Preserve legacy initialization path expected by existing tests/integrations.
                 llm_kwargs = {"model": llm_model, "temperature": temperature}
-                api_key = os.getenv("OPENAI_API_KEY")
+                api_key = settings.OPENAI_API_KEY
                 if api_key:
                     llm_kwargs["api_key"] = api_key
                 try:
@@ -147,10 +149,10 @@ class DocumentAgent:
         
         # Initialize tools (now with 5 tools!)
         self.tools = [
-            MetadataExtractionTool(grobid_url=grobid_url),
+            MetadataExtractionTool(grobid_url=resolved_grobid_url),
             LayoutAnalysisTool(),
             ValidationTool(),
-            ReferenceExtractionTool(grobid_url=grobid_url),
+            ReferenceExtractionTool(grobid_url=resolved_grobid_url),
             FigureAnalysisTool()
         ]
         

@@ -2,12 +2,12 @@ import os
 import time
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from app.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
 UPLOAD_DIR = "uploads"
-RETENTION_DAYS = 7
+RETENTION_DAYS = int(settings.RETENTION_DAYS)
 
 async def cleanup_old_uploads():
     """

@@ -3,7 +3,6 @@ Streaming Response Router
 Provides Server-Sent Events (SSE) for real-time agent feedback.
 """
 
-import os
 import redis as sync_redis
 import redis.asyncio as aioredis
 import asyncio
@@ -14,6 +13,7 @@ from typing import AsyncGenerator
 from fastapi import APIRouter, Request, Depends
 from sse_starlette.sse import EventSourceResponse
 from app.utils.dependencies import get_current_user
+from app.config.settings import settings
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -21,8 +21,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/stream", tags=["Streaming"])
 
 # Phase 5: Redis Pub/Sub for SSE
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
-REDIS_ENABLED = os.getenv("REDIS_ENABLED", "true").strip().lower() in {"1", "true", "yes", "on"}
+REDIS_URL = settings.REDIS_URL
+REDIS_ENABLED = bool(settings.REDIS_ENABLED)
 async_redis = None
 sync_redis_client = None
 if REDIS_ENABLED:

@@ -1,6 +1,5 @@
 import json
 import logging
-import os
 from typing import Any, Dict, Optional
 from urllib.parse import quote_plus
 
@@ -14,11 +13,11 @@ logger = logging.getLogger(__name__)
 try:
     import redis
 
-    redis_enabled = os.getenv("REDIS_ENABLED", "true").strip().lower() in {"1", "true", "yes", "on"}
+    redis_enabled = bool(settings.REDIS_ENABLED)
     if not redis_enabled:
         raise RuntimeError("REDIS_ENABLED=false")
 
-    REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+    REDIS_URL = settings.REDIS_URL
     redis_client = redis.from_url(REDIS_URL, decode_responses=True)
     redis_client.ping()
     HAS_REDIS = True
@@ -35,7 +34,7 @@ class CrossRefClient:
     BASE_URL = "https://api.crossref.org/works"
 
     def __init__(self, contact_email: Optional[str] = None):
-        email = contact_email or getattr(settings, "CROSSREF_MAILTO", "mailto:bot@scholarform.com")
+        email = contact_email or settings.CROSSREF_MAILTO
         self.headers = {"User-Agent": f"ScholarFormValidation/1.0 ({email})"}
         # Instance-level cache (no global lru_cache memory leak).
         self._api_cache: Dict[str, Dict[str, Any]] = {}

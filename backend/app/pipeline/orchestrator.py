@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 from app.db.supabase_client import get_supabase_client
+from app.config.settings import settings
 from app.models import (
     Block, 
     BlockType,
@@ -66,10 +67,7 @@ logger = logging.getLogger(__name__)
 # Concurrent job limiter — prevents OOM from unlimited parallel pipelines
 _MAX_CONCURRENT_JOBS = 5
 _pipeline_semaphore = threading.Semaphore(_MAX_CONCURRENT_JOBS)
-try:
-    _ACQUIRE_TIMEOUT_SECONDS = float(os.getenv("PIPELINE_ACQUIRE_TIMEOUT_SECONDS", "30"))
-except ValueError:
-    _ACQUIRE_TIMEOUT_SECONDS = 30.0
+_ACQUIRE_TIMEOUT_SECONDS = float(settings.PIPELINE_ACQUIRE_TIMEOUT_SECONDS)
 
 class PipelineOrchestrator:
     """
@@ -273,11 +271,11 @@ class PipelineOrchestrator:
         Skip Docling layout pass for digital-native PDFs to reduce latency.
         This keeps Docling available for scanned/low-text PDFs.
         """
-        force_docling = os.getenv("PIPELINE_DOCLING_FORCE", "false").strip().lower() in {"1", "true", "yes", "on"}
+        force_docling = bool(settings.PIPELINE_DOCLING_FORCE)
         if force_docling:
             return False
 
-        auto_skip = os.getenv("PIPELINE_DOCLING_SKIP_DIGITAL_PDF", "true").strip().lower() in {"1", "true", "yes", "on"}
+        auto_skip = bool(settings.PIPELINE_DOCLING_SKIP_DIGITAL_PDF)
         if not auto_skip:
             return False
 
@@ -433,7 +431,7 @@ class PipelineOrchestrator:
         """Semantic Analysis Layer 2"""
         from app.pipeline.intelligence.semantic_parser import get_semantic_parser
         semantic_parser = get_semantic_parser()
-        semantic_timeout = int(os.getenv("PIPELINE_SEMANTIC_TIMEOUT_SECONDS", "25"))
+        semantic_timeout = int(settings.PIPELINE_SEMANTIC_TIMEOUT_SECONDS)
         semantic_blocks = self._run_with_timeout(
             semantic_parser.analyze_blocks,
             semantic_timeout,
@@ -641,8 +639,8 @@ class PipelineOrchestrator:
                             # Submit tasks
                             future_grobid = executor.submit(run_grobid)
                             future_docling = executor.submit(run_docling)
-                            grobid_timeout_sec = int(os.getenv("PIPELINE_GROBID_TIMEOUT_SECONDS", "25"))
-                            docling_timeout_sec = int(os.getenv("PIPELINE_DOCLING_TIMEOUT_SECONDS", "25"))
+                            grobid_timeout_sec = int(settings.PIPELINE_GROBID_TIMEOUT_SECONDS)
+                            docling_timeout_sec = int(settings.PIPELINE_DOCLING_TIMEOUT_SECONDS)
 
                             # Get results (bounded by timeout)
                             import concurrent.futures
@@ -830,7 +828,7 @@ class PipelineOrchestrator:
                             ]
 
                             if hasattr(reasoner, "generate_instruction_set"):
-                                reasoning_timeout_sec = int(os.getenv("PIPELINE_REASONING_TIMEOUT_SECONDS", "28"))
+                                reasoning_timeout_sec = int(settings.PIPELINE_REASONING_TIMEOUT_SECONDS)
                                 reasoning_cancel_event = threading.Event()
                                 try:
                                     semantic_advice = (

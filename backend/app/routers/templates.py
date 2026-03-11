@@ -108,6 +108,8 @@ async def list_builtin_templates():
         "modern_blue",
         "modern_gold",
         "modern_red",
+        "resume",
+        "portfolio",
     }
     descriptions = {
         "ieee": "IEEE manuscript style",

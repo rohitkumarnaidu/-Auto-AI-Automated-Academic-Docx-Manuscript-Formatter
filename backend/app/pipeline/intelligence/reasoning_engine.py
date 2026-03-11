@@ -1,4 +1,5 @@
 import json
+import os
 import re
 import sys
 import time
@@ -113,26 +114,18 @@ class ReasoningEngine:
     }
     
     def __init__(self, timeout: int = 30):
-        import os
-        env_timeout = os.environ.get("REASONING_TIMEOUT_SECONDS")
-        if env_timeout is not None:
-            try:
-                timeout = int(env_timeout)
-            except ValueError:
-                pass
+        if timeout == 30:
+            timeout = int(settings.PIPELINE_REASONING_TIMEOUT_SECONDS)
 
-        self.nvidia_api_key = os.environ.get("NVIDIA_API_KEY", "")  # Loaded from env in real usage
-        in_pytest = bool(os.environ.get("PYTEST_CURRENT_TEST"))
-        nvidia_override = os.environ.get("ENABLE_NVIDIA_REASONER")
-        enable_nvidia = True
-        if nvidia_override is not None:
-            enable_nvidia = nvidia_override.strip().lower() not in {"0", "false", "no", "off"}
-        elif in_pytest:
-            # Keep reasoning tests deterministic unless explicitly enabled.
+        self.nvidia_api_key = settings.NVIDIA_API_KEY or ""
+        enable_nvidia = bool(settings.ENABLE_NVIDIA_REASONER)
+        in_pytest = bool(os.getenv("PYTEST_CURRENT_TEST"))
+        if in_pytest and os.getenv("ENABLE_NVIDIA_REASONER") is None:
+            # Keep tests deterministic unless explicitly overridden in environment.
             enable_nvidia = False
         
         # Ollama Configuration
-        self.ollama_base_url = settings.OLLAMA_URL
+        self.ollama_base_url = settings.OLLAMA_BASE_URL
         self.fallback_model = "deepseek-r1:8b"
         
         self.timeout = max(5, int(timeout))  # Supports ReasoningEngine(timeout=N)

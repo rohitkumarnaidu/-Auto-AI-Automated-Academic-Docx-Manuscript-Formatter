@@ -37,6 +37,14 @@ def _assert_generation_owner(job_id: str, user_id: str) -> None:
     Validate ownership when a DB-backed generation job record exists.
     In-memory-only jobs are tolerated for local/dev fallback mode.
     """
+    generator = get_generator()
+    session = generator.get_session(job_id)
+    if session:
+        owner = session.get("user_id")
+        if owner and str(owner) != str(user_id):
+            raise HTTPException(status_code=403, detail="Not authorized to access this generation job.")
+        return
+
     record = DocumentService.get_document(job_id)
     if not record:
         return

@@ -30,6 +30,14 @@ services:
     restart: unless-stopped
     command: redis-server --appendonly yes
 
+  # ClamAV daemon for malware scanning
+  clamav:
+    image: clamav/clamav:latest
+    container_name: scholarform-clamav
+    ports:
+      - "3310:3310"
+    restart: unless-stopped
+
   # Celery Worker for async processing
   celery_worker:
     build:
@@ -37,16 +45,25 @@ services:
       dockerfile: docker/Dockerfile
     container_name: scholarform-celery-worker
     command: celery -A app.tasks.celery_tasks worker --loglevel=info
+    env_file:
+      - ../.env
     environment:
       - DATABASE_URL=${DATABASE_URL}
+      - REDIS_ENABLED=true
       - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - GROBID_URL=http://grobid:8070
+      - GROBID_BASE_URL=http://grobid:8070
+      - CLAMAV_HOST=clamav
+      - CLAMAV_PORT=3310
     depends_on:
       - redis
       - grobid
+      - clamav
     restart: unless-stopped
 
 volumes:

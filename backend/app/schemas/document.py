@@ -17,7 +17,25 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 ExportFormat = Literal["docx", "pdf"]
 DocumentStatus = Literal["PENDING", "PROCESSING", "COMPLETED", "COMPLETED_WITH_WARNINGS", "FAILED", "CANCELLED"]
 PageSize = Literal["Letter", "A4", "Legal"]
-TemplateChoice = Literal["IEEE", "Springer", "APA", "Nature", "Vancouver", "none"]
+TemplateChoice = Literal[
+    "IEEE",
+    "ACM",
+    "APA",
+    "MLA",
+    "Chicago",
+    "Harvard",
+    "Vancouver",
+    "Springer",
+    "Nature",
+    "Elsevier",
+    "Numeric",
+    "Modern Blue",
+    "Modern Gold",
+    "Modern Red",
+    "None",
+    "Resume",
+    "Portfolio",
+]
 
 
 # ── Upload / Request Schemas ──────────────────────────────────────────────────

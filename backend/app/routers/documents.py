@@ -14,6 +14,7 @@ from app.pipeline.orchestrator import PipelineOrchestrator
 from app.pipeline.export.pdf_exporter import PDFExporter
 from app.config.settings import settings
 from app.pipeline.safety.safe_execution import safe_async_function
+from app.utils.virus_scanner import scan_file
 
 # ── Old SQLAlchemy imports (kept for reference, replaced by DocumentService) ───
 # from sqlalchemy import exc
@@ -222,6 +223,16 @@ async def upload_document_chunked(
                 raise HTTPException(status_code=400, detail="Invalid file path detected")
 
             os.replace(final_path, file_path)
+            scan_result = scan_file(file_path)
+            if not scan_result.get("clean", True):
+                try:
+                    os.remove(file_path)
+                except OSError:
+                    pass
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Malware detected: {scan_result.get('result', 'unknown')}",
+                )
 
             formatting_options = {
                 "page_numbers": add_page_numbers,
@@ -232,6 +243,7 @@ async def upload_document_chunked(
                 "line_spacing": line_spacing,
                 "page_size": page_size,
                 "fast_mode": fast_mode,
+                "virus_scan": scan_result,
             }
 
             created = DocumentService.create_document(
@@ -400,6 +412,16 @@ async def upload_document(
 
         with open(file_path, "wb") as buffer:
             buffer.write(file_content)
+        scan_result = scan_file(file_path)
+        if not scan_result.get("clean", True):
+            try:
+                os.remove(file_path)
+            except OSError:
+                pass
+            raise HTTPException(
+                status_code=422,
+                detail=f"Malware detected: {scan_result.get('result', 'unknown')}",
+            )
 
         # ── DB insert via DocumentService ──────────────────────────────────────
 
@@ -412,6 +434,7 @@ async def upload_document(
             "line_spacing": line_spacing,
             "page_size": page_size,
             "fast_mode": fast_mode,
+            "virus_scan": scan_result,
         }
 
         file_hash = hashlib.sha256(file_content).hexdigest()
@@ -814,7 +837,7 @@ async def delete_document(
                 logger.warning("Failed to remove uploaded file %s: %s", original_path, e)
 
         # Delete from database
-        DocumentService.delete_document(job_id)
+        DocumentService.delete_document(job_id, str(current_user.id))
 
         return {"status": "deleted", "job_id": job_id}
 

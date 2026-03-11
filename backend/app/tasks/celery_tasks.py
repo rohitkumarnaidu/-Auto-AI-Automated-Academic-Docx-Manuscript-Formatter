@@ -1,11 +1,11 @@
 # RESERVED: Celery task definitions for future distributed processing.
 # Not currently wired into the FastAPI runtime — kept for planned Redis/Celery migration.
-import os
 import logging
 import time
 import asyncio
 from celery import Celery
 from app.pipeline.orchestrator import PipelineOrchestrator
+from app.config.settings import settings
 
 # ── Old ORM imports (kept for reference, replaced by DocumentService) ──────────
 # from app.db.session import SessionLocal
@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 # Configure Celery
 celery_app = Celery(
     "manuscript_tasks",
-    broker=os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0"),
-    backend=os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/0"),
+    broker=settings.CELERY_BROKER_URL,
+    backend=settings.CELERY_RESULT_BACKEND,
 )
 
 

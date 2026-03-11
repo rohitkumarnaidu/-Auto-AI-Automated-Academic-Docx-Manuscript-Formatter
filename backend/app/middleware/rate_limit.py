@@ -11,7 +11,6 @@ Design goals:
 """
 from __future__ import annotations
 
-import os
 import time
 import hashlib
 import logging
@@ -23,17 +22,13 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from app.cache.redis_cache import RedisCache
+from app.config.settings import settings
 
 # ---------------------------------------------------------------------------
 # Module-level Redis client (lazily initialised, patched in tests)
 # ---------------------------------------------------------------------------
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
-_redis_enabled_raw = os.getenv("REDIS_ENABLED")
-REDIS_ENABLED = (
-    _redis_enabled_raw.strip().lower() in {"1", "true", "yes", "on"}
-    if _redis_enabled_raw is not None
-    else bool(os.getenv("REDIS_URL"))
-)
+REDIS_URL = settings.REDIS_URL
+REDIS_ENABLED = bool(settings.REDIS_ENABLED)
 _redis_backend = RedisCache()
 redis = _redis_backend.client  # kept for test-patch compat
 logger = logging.getLogger(__name__)
@@ -73,10 +68,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     def __init__(self, app, requests_per_minute: int = 60):
         super().__init__(app)
         self.requests_per_minute = requests_per_minute
-        try:
-            self.uploads_per_minute = int(os.getenv("UPLOADS_PER_MINUTE", "10"))
-        except ValueError:
-            self.uploads_per_minute = 10
+        self.uploads_per_minute = int(settings.UPLOADS_PER_MINUTE)
         # In-memory stores:
         # - request_counts keeps legacy/general API counters (used by tests)
         # - upload_request_counts isolates stricter upload limits from general traffic

@@ -1,4 +1,3 @@
-import os
 import redis
 import json
 import logging
@@ -14,7 +13,7 @@ class RedisCache:
     """
     
     def __init__(self, host: str = "localhost", port: int = 6379, db: int = 0):
-        redis_enabled = os.getenv("REDIS_ENABLED", "true").strip().lower() in {"1", "true", "yes", "on"}
+        redis_enabled = bool(settings.REDIS_ENABLED)
         if not redis_enabled:
             logger.info("Redis cache disabled via REDIS_ENABLED=false. Using in-memory/no-cache mode.")
             self.client = None
@@ -22,8 +21,8 @@ class RedisCache:
 
         try:
             self.client = redis.Redis(
-                host=os.getenv("REDIS_HOST", host),
-                port=int(os.getenv("REDIS_PORT", port)),
+                host=settings.REDIS_HOST or host,
+                port=int(settings.REDIS_PORT or port),
                 db=db,
                 decode_responses=True
             )
