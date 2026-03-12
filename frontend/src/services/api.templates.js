@@ -1,4 +1,5 @@
 import { fetchWithAuth, sanitizePayload, sanitizeText } from './api.core';
+import { getV1, unwrapResponse } from './api.v1';
 
 export const getCustomTemplates = async () => {
     return fetchWithAuth('/api/templates/custom');
@@ -14,11 +15,12 @@ export const saveCustomTemplate = async (template) => {
 };
 
 export const getBuiltinTemplates = async () => {
-    return fetchWithAuth('/api/templates/', {
+    const response = await getV1('/templates', {
         suppressConsoleError: true,
         suppressMonitoring: true,
         retryConfig: { maxRetries: 0 },
     });
+    return unwrapResponse(response);
 };
 
 export const searchCSLStyles = async (query) => {

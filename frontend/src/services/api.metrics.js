@@ -1,5 +1,7 @@
 import { fetchWithAuth, sanitizePayload, sendFrontendErrorLog, API_BASE_URL } from './api.core';
 
+import { getV1, unwrapResponse } from './api.v1';
+
 export const logFrontendError = async (errorInfo) => {
     await sendFrontendErrorLog(errorInfo);
 };
@@ -22,9 +24,12 @@ export const getMetricsDb = async () => {
 };
 
 export const getMetricsHealth = async () => {
-    const res = await fetch(`${API_BASE_URL}/api/metrics/health`);
-    if (!res.ok) return null;
-    return res.json();
+    try {
+        const res = await getV1('/health/ready');
+        return unwrapResponse(res);
+    } catch {
+        return null;
+    }
 };
 
 export const getMetricsDashboard = async () => {

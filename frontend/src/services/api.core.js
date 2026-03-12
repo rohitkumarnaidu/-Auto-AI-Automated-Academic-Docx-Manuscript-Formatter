@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabaseClient';
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 export const API_BASE = API_BASE_URL;
 
 const SUPPORTED_EXPORT_FORMATS = ['docx', 'pdf'];
@@ -13,6 +13,21 @@ export const CHUNK_SIZE_BYTES = 5 * 1024 * 1024;
 export const CHUNK_UPLOAD_THRESHOLD_BYTES = 10 * 1024 * 1024;
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Generate a UUID v4 for Request IDs.
+ * Falls back to Math.random() if crypto.randomUUID is unavailable (e.g. older browsers / non-secure contexts).
+ */
+export const generateRequestId = () => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return crypto.randomUUID();
+    }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+        const v = c === 'x' ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+    });
+};
 
 const removeControlChars = (input) => (
     Array.from(String(input ?? ''))
@@ -205,6 +220,10 @@ export const fetchWithRetry = async (url, options = {}, retryConfig = {}) => {
 const withAuthHeader = async (initialHeaders = {}) => {
     const headers = { ...initialHeaders };
 
+    if (!headers['X-Request-Id']) {
+        headers['X-Request-Id'] = generateRequestId();
+    }
+
     if (!supabase?.auth?.getSession) {
         return headers;
     }
@@ -227,7 +246,7 @@ const withAuthHeader = async (initialHeaders = {}) => {
 export const getAuthorizedHeaders = withAuthHeader;
 export const getAuthHeaders = getAuthorizedHeaders;
 
-const parseResponseData = async (response) => {
+export const parseResponseData = async (response) => {
     if (!response || response.status === 204) {
         return null;
     }
