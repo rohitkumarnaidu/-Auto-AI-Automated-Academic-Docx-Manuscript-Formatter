@@ -1,0 +1,17 @@
+{
+  "section_count": 3,
+  "heading_hierarchy": [
+    {"text": "Introduction", "level": 1},
+    {"text": "Discussion", "level": 2},
+    {"text": "Conclusion", "level": 1}
+  ],
+  "template_metadata": {
+    "template_name": "apa",
+    "title": "Evaluating APA Rendering Stability"
+  },
+  "reference_entries": [
+    "Torres, M. (2025). Repeatable formatting benchmarks for research tooling.",
+    "Lee, S. (2024). Stable document pipelines in practice."
+  ],
+  "reference_count": 2
+}

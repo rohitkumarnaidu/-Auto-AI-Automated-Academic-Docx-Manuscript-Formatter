@@ -1,0 +1,18 @@
+{
+  "section_count": 4,
+  "heading_hierarchy": [
+    {"text": "Introduction", "level": 1},
+    {"text": "Methods", "level": 2},
+    {"text": "Results", "level": 1},
+    {"text": "Conclusion", "level": 1}
+  ],
+  "template_metadata": {
+    "template_name": "ieee",
+    "title": "Benchmarking Template Compliance in ScholarForm AI"
+  },
+  "reference_entries": [
+    "[1] A. Verma and D. Wu, \"Template Benchmarks for Manuscript Tooling,\" 2025.",
+    "[2] J. Chen, \"Structural Validation for DOCX Pipelines,\" 2024."
+  ],
+  "reference_count": 2
+}

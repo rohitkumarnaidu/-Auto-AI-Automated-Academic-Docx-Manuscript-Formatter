@@ -8,10 +8,34 @@ from zipfile import ZipFile
 import pytest
 from docx import Document as WordDocument
 from docxtpl import DocxTemplate
+from docx.opc.constants import RELATIONSHIP_TYPE as RT
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 
 from app.models import Block, BlockType
 from app.pipeline.formatting.formatter import Formatter
 from app.pipeline.formatting.template_renderer import TemplateRenderer
+from app.pipeline.parsing.parser import DocxParser
+
+
+def _add_word_hyperlink(paragraph, text: str, url: str) -> None:
+    relation_id = paragraph.part.relate_to(url, RT.HYPERLINK, is_external=True)
+
+    hyperlink = OxmlElement("w:hyperlink")
+    hyperlink.set(qn("r:id"), relation_id)
+
+    run = OxmlElement("w:r")
+    run_properties = OxmlElement("w:rPr")
+    run_style = OxmlElement("w:rStyle")
+    run_style.set(qn("w:val"), "Hyperlink")
+    run_properties.append(run_style)
+    run.append(run_properties)
+
+    text_node = OxmlElement("w:t")
+    text_node.text = text
+    run.append(text_node)
+    hyperlink.append(run)
+    paragraph._p.append(hyperlink)
 
 
 class TestFormatterOutput:
@@ -136,3 +160,61 @@ class TestFormatterOutput:
         assert "PAGE" in footer_xml
         assert "<w:pgBorders" in document_xml
         assert "<w:lnNumType" in document_xml
+
+    def test_formatter_preserves_docx_hyperlinks(self, tmp_path):
+        """DOCX hyperlinks should remain true Word hyperlinks after formatting."""
+        source_doc = WordDocument()
+        paragraph = source_doc.add_paragraph("Visit ")
+        _add_word_hyperlink(paragraph, "ScholarForm AI", "https://scholarform.ai")
+        source_path = tmp_path / "hyperlinks.docx"
+        source_doc.save(str(source_path))
+
+        parsed = DocxParser().parse(str(source_path), "hyper-doc")
+        for block in parsed.blocks:
+            if block.text.strip():
+                block.block_type = BlockType.BODY
+
+        formatter = Formatter(templates_dir="app/templates", contracts_dir="app/pipeline/contracts")
+        rendered = formatter.format(parsed, template_name="ieee")
+        output_path = tmp_path / "hyperlinks_out.docx"
+        rendered.save(str(output_path))
+
+        with ZipFile(output_path, "r") as archive:
+            document_xml = archive.read("word/document.xml").decode("utf-8", errors="ignore")
+            relationships_xml = archive.read("word/_rels/document.xml.rels").decode("utf-8", errors="ignore")
+
+        assert "w:hyperlink" in document_xml
+        assert "https://scholarform.ai" in relationships_xml
+
+    def test_formatter_writes_word_footnotes(self, minimal_doc, tmp_path):
+        """Footnotes should be emitted as a Word footnotes part, not appended endnotes."""
+        minimal_doc.blocks = [
+            Block(block_id="b1", index=1, block_type=BlockType.HEADING_1, text="Introduction"),
+            Block(
+                block_id="b2",
+                index=2,
+                block_type=BlockType.BODY,
+                text="Benchmark-driven formatting is safer.",
+                metadata={"footnote_refs": ["1"]},
+            ),
+            Block(
+                block_id="b3",
+                index=3,
+                block_type=BlockType.FOOTNOTE,
+                text="Footnotes should live in word/footnotes.xml.",
+                metadata={"footnote_id": "1"},
+            ),
+        ]
+
+        formatter = Formatter(templates_dir="app/templates", contracts_dir="app/pipeline/contracts")
+        rendered = formatter.format(minimal_doc, template_name="ieee")
+        output_path = tmp_path / "footnotes_out.docx"
+        rendered.save(str(output_path))
+
+        with ZipFile(output_path, "r") as archive:
+            document_xml = archive.read("word/document.xml").decode("utf-8", errors="ignore")
+            footnotes_xml = archive.read("word/footnotes.xml").decode("utf-8", errors="ignore")
+
+        assert "w:footnoteReference" in document_xml
+        assert "Footnotes should live in word/footnotes.xml." in footnotes_xml
+        assert "FOOTNOTES" not in document_xml

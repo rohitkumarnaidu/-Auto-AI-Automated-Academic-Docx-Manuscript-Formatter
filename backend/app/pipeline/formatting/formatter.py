@@ -9,8 +9,12 @@ import logging
 import os
 import re
 import yaml
+from copy import deepcopy
+from xml.etree import ElementTree as ET
+from zipfile import ZIP_DEFLATED, ZipFile
 from typing import Optional, Any
 from docx import Document as WordDocument
+from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.shared import Inches, Pt
 from io import BytesIO
 from docx.enum.text import WD_BREAK
@@ -92,12 +96,12 @@ class Formatter:
             default=False,
         )
         template_key = template_name.lower()
-        has_non_text_content = bool(document.figures or document.tables or document.equations)
         renderer_mode = str(options.get("template_engine", "auto")).strip().lower()
+        footnote_lookup = self._build_footnote_lookup(document)
         use_template_renderer = (
             renderer_mode != "legacy"
             and template_key != "none"
-            and not has_non_text_content
+            and self.template_renderer.has_renderable_template(template_name)
         )
             
         # 1. Apply rules to model before rendering
@@ -108,17 +112,25 @@ class Formatter:
         # Keep legacy python-docx path as a fallback for robustness.
         if use_template_renderer:
             try:
+                logger.info("Using docxtpl renderer for template '%s'", template_name)
                 rendered = self.template_renderer.render(document, template_name)
-                self._post_process_template_render(rendered, document, template_name, options)
+                self._post_process_template_render(
+                    rendered,
+                    document,
+                    template_name,
+                    options,
+                    footnote_lookup=footnote_lookup,
+                )
+                self._install_post_save_hook(rendered, footnote_lookup)
                 return rendered
             except Exception as exc:
                 logger.warning(
-                    "docxtpl render failed for template '%s'. Falling back to legacy formatter. Error: %s",
+                    "Falling back to python-docx renderer for template '%s'. Error: %s",
                     template_name, exc
                 )
-        elif has_non_text_content and template_key != "none":
+        elif template_key != "none":
             logger.info(
-                "Skipping docxtpl renderer for template '%s' because document contains figures/tables/equations.",
+                "Falling back to python-docx renderer for template '%s' because no docxtpl-capable template was found.",
                 template_name,
             )
         
@@ -152,6 +164,7 @@ class Formatter:
                 or block.metadata.get("is_footer")
                 or block.metadata.get("is_footnote")
                 or block.metadata.get("is_endnote")
+                or block.block_type == BlockType.FOOTNOTE
             ):
                 continue
 
@@ -249,7 +262,12 @@ class Formatter:
                     self._set_columns(word_doc.sections[0], target_cols)
                     
                 current_columns = target_cols
-                self._render_block(word_doc, block, template_name)
+                self._render_block(
+                    word_doc,
+                    block,
+                    template_name,
+                    footnote_lookup=footnote_lookup,
+                )
                 
             elif item["type"] == "figure":
                 self._render_figure(word_doc, item["obj"], item["number"])
@@ -258,23 +276,6 @@ class Formatter:
             elif item["type"] == "table":
                 self.table_renderer.render(word_doc, item["obj"], item.get("number"))
                 
-        # 4. Render Footnotes (Supplemental)
-        footnotes = [b for b in document.blocks if b.block_type == BlockType.FOOTNOTE]
-        if footnotes:
-            word_doc.add_section() # New page or section for footnotes? 
-            # Usually footnotes are at bottom of page, but for simple formatter, append at end.
-            p = word_doc.add_paragraph()
-            p.add_run("FOOTNOTES").bold = True
-            p.alignment = 1 # Center
-            
-            for fn in footnotes:
-                fn_p = word_doc.add_paragraph(style="Normal")
-                # Format: [ID] Text
-                fn_id = fn.metadata.get("footnote_id", "")
-                prefix = f"[{fn_id}] " if fn_id else "* "
-                fn_p.add_run(prefix).italic = True
-                fn_p.add_run(fn.text)
-
         # Apply section-level options after all content/sections are created.
         if add_page_numbers:
             self._remove_static_page_number_placeholders(word_doc)
@@ -284,6 +285,7 @@ class Formatter:
         if add_line_numbers:
             self._add_line_numbers(word_doc)
         self._apply_global_line_spacing(word_doc, template_name, options)
+        self._install_post_save_hook(word_doc, footnote_lookup)
                 
         return word_doc
 
@@ -686,7 +688,14 @@ class Formatter:
             return
         self._add_table_of_contents(doc, prepend=True, add_page_break=True)
 
-    def _post_process_template_render(self, rendered, source_document: Document, template_name: str, options: dict) -> None:
+    def _post_process_template_render(
+        self,
+        rendered,
+        source_document: Document,
+        template_name: str,
+        options: dict,
+        footnote_lookup: Optional[dict] = None,
+    ) -> None:
         """Apply backend layout options to docxtpl-rendered templates as well."""
         word_doc = getattr(rendered, "docx", None)
         if word_doc is None:
@@ -744,7 +753,373 @@ class Formatter:
             self._add_page_borders(word_doc)
         if add_line_numbers:
             self._add_line_numbers(word_doc)
+        self._rehydrate_template_render(
+            word_doc,
+            source_document,
+            template_name,
+            footnote_lookup=footnote_lookup or {},
+        )
         self._apply_global_line_spacing(word_doc, template_name, options)
+
+    def _build_footnote_lookup(self, document: Document) -> dict:
+        """Map source footnote identifiers to valid Word footnote IDs."""
+        lookup = {}
+        next_word_id = 1
+
+        for block in sorted(document.blocks, key=lambda item: item.index):
+            if not (
+                block.block_type == BlockType.FOOTNOTE
+                or block.metadata.get("is_footnote")
+            ):
+                continue
+
+            footnote_text = (block.text or "").strip()
+            if not footnote_text:
+                continue
+
+            raw_id = str(
+                block.metadata.get("footnote_id")
+                or block.metadata.get("endnote_id")
+                or next_word_id
+            )
+            if raw_id in lookup:
+                continue
+
+            lookup[raw_id] = {"word_id": next_word_id, "text": footnote_text}
+            next_word_id += 1
+
+        return lookup
+
+    def _rehydrate_template_render(
+        self,
+        doc,
+        source_document: Document,
+        template_name: str,
+        footnote_lookup: dict,
+    ) -> None:
+        """Upgrade docxtpl output with inline hyperlinks, footnotes, and missing rich content."""
+        used_paragraphs = set()
+
+        for block in sorted(source_document.blocks, key=lambda item: item.index):
+            if (
+                block.metadata.get("is_header")
+                or block.metadata.get("is_footer")
+                or block.metadata.get("is_footnote")
+                or block.metadata.get("is_endnote")
+                or block.block_type == BlockType.FOOTNOTE
+            ):
+                continue
+
+            clean_text = (block.text or "").strip()
+            has_inline_artifacts = bool(
+                block.metadata.get("hyperlinks") or block.metadata.get("footnote_refs")
+            )
+            target_paragraph = self._find_matching_paragraph(doc, clean_text, used_paragraphs)
+            if target_paragraph is not None:
+                used_paragraphs.add(id(target_paragraph))
+                if has_inline_artifacts:
+                    self._replace_paragraph_inline_content(
+                        target_paragraph,
+                        block,
+                        footnote_lookup=footnote_lookup,
+                    )
+                continue
+
+            if block.block_type == BlockType.REFERENCE_ENTRY or has_inline_artifacts:
+                self._render_block(
+                    doc,
+                    deepcopy(block),
+                    template_name,
+                    footnote_lookup=footnote_lookup,
+                )
+
+        if source_document.figures:
+            for number, figure in enumerate(source_document.figures, start=1):
+                self._render_figure(doc, figure, number)
+        if source_document.equations:
+            for equation in source_document.equations:
+                self._render_equation(doc, equation)
+        if source_document.tables:
+            for number, table in enumerate(source_document.tables, start=1):
+                self.table_renderer.render(doc, table, number)
+
+    def _find_matching_paragraph(self, doc, text: str, used_paragraphs: set):
+        needle = " ".join((text or "").split())
+        if not needle:
+            return None
+
+        for paragraph in doc.paragraphs:
+            if id(paragraph) in used_paragraphs:
+                continue
+            haystack = " ".join((paragraph.text or "").split())
+            if haystack == needle:
+                return paragraph
+
+        for paragraph in doc.paragraphs:
+            if id(paragraph) in used_paragraphs:
+                continue
+            haystack = " ".join((paragraph.text or "").split())
+            if needle and needle in haystack:
+                return paragraph
+
+        return None
+
+    def _replace_paragraph_inline_content(self, paragraph, block, footnote_lookup: dict) -> None:
+        """Replace a template-rendered paragraph with hyperlink-aware content."""
+        self._clear_paragraph_content(paragraph)
+        self._write_inline_content(
+            paragraph,
+            (block.text or "").strip(),
+            block.metadata.get("hyperlinks", []),
+            block.metadata.get("footnote_refs", []),
+            footnote_lookup,
+        )
+
+    def _clear_paragraph_content(self, paragraph) -> None:
+        for child in list(paragraph._p):
+            if child.tag != qn("w:pPr"):
+                paragraph._p.remove(child)
+
+    def _write_inline_content(
+        self,
+        paragraph,
+        text: str,
+        hyperlinks: list,
+        footnote_refs: list,
+        footnote_lookup: dict,
+    ) -> None:
+        plain_text = text or ""
+        cursor = 0
+        wrote_content = False
+
+        for hyperlink in hyperlinks or []:
+            label = str(hyperlink.get("text") or "").strip()
+            url = str(hyperlink.get("url") or "").strip()
+            if not label or not url:
+                continue
+
+            match_index = plain_text.find(label, cursor)
+            if match_index < 0:
+                continue
+
+            if match_index > cursor:
+                paragraph.add_run(plain_text[cursor:match_index])
+                wrote_content = True
+
+            self._add_hyperlink(paragraph, label, url)
+            wrote_content = True
+            cursor = match_index + len(label)
+
+        remaining = plain_text[cursor:]
+        if remaining:
+            paragraph.add_run(remaining)
+            wrote_content = True
+        elif plain_text and not wrote_content:
+            paragraph.add_run(plain_text)
+            wrote_content = True
+
+        if not wrote_content:
+            paragraph.add_run("")
+
+        for raw_ref in footnote_refs or []:
+            entry = footnote_lookup.get(str(raw_ref))
+            if entry:
+                self._append_footnote_reference(paragraph, entry["word_id"])
+
+    def _add_hyperlink(self, paragraph, text: str, url: str) -> None:
+        """Append a true external Word hyperlink to a paragraph."""
+        relation_id = paragraph.part.relate_to(url, RT.HYPERLINK, is_external=True)
+
+        hyperlink = OxmlElement("w:hyperlink")
+        hyperlink.set(qn("r:id"), relation_id)
+
+        run = OxmlElement("w:r")
+        run_properties = OxmlElement("w:rPr")
+        run_style = OxmlElement("w:rStyle")
+        run_style.set(qn("w:val"), "Hyperlink")
+        run_properties.append(run_style)
+        run.append(run_properties)
+
+        text_node = OxmlElement("w:t")
+        text_node.text = text
+        run.append(text_node)
+        hyperlink.append(run)
+        paragraph._p.append(hyperlink)
+
+    def _append_footnote_reference(self, paragraph, word_footnote_id: int) -> None:
+        """Append a footnote reference marker to a paragraph."""
+        run = OxmlElement("w:r")
+        run_properties = OxmlElement("w:rPr")
+
+        run_style = OxmlElement("w:rStyle")
+        run_style.set(qn("w:val"), "FootnoteReference")
+        run_properties.append(run_style)
+
+        vert_align = OxmlElement("w:vertAlign")
+        vert_align.set(qn("w:val"), "superscript")
+        run_properties.append(vert_align)
+
+        run.append(run_properties)
+
+        reference = OxmlElement("w:footnoteReference")
+        reference.set(qn("w:id"), str(word_footnote_id))
+        run.append(reference)
+        paragraph._p.append(run)
+
+    def _install_post_save_hook(self, rendered_obj, footnote_lookup: dict) -> None:
+        """Patch saved DOCX files so Word has a proper footnotes part."""
+        if not footnote_lookup or getattr(rendered_obj, "_scholarform_save_hook_installed", False):
+            return
+
+        original_save = rendered_obj.save
+
+        def _save_with_footnotes(target, *args, **kwargs):
+            result = original_save(target, *args, **kwargs)
+            try:
+                self._patch_saved_docx_with_footnotes(target, footnote_lookup)
+            except Exception as exc:
+                logger.warning("Failed to patch saved DOCX footnotes: %s", exc)
+            return result
+
+        rendered_obj.save = _save_with_footnotes
+        rendered_obj._scholarform_save_hook_installed = True
+
+    def _patch_saved_docx_with_footnotes(self, target, footnote_lookup: dict) -> None:
+        if hasattr(target, "read") and hasattr(target, "write") and hasattr(target, "seek"):
+            current_position = target.tell()
+            target.seek(0)
+            payload = target.read()
+            if not payload:
+                return
+            patched_payload = self._patch_docx_payload(payload, footnote_lookup)
+            target.seek(0)
+            target.truncate()
+            target.write(patched_payload)
+            target.seek(current_position)
+            return
+
+        target_path = os.fspath(target)
+        with open(target_path, "rb") as handle:
+            payload = handle.read()
+
+        patched_payload = self._patch_docx_payload(payload, footnote_lookup)
+        with open(target_path, "wb") as handle:
+            handle.write(patched_payload)
+
+    def _patch_docx_payload(self, payload: bytes, footnote_lookup: dict) -> bytes:
+        with ZipFile(BytesIO(payload), "r") as source_zip:
+            parts = {name: source_zip.read(name) for name in source_zip.namelist()}
+
+        if b"w:footnoteReference" not in parts.get("word/document.xml", b""):
+            return payload
+
+        parts["word/footnotes.xml"] = self._build_footnotes_part(footnote_lookup)
+        parts["[Content_Types].xml"] = self._patch_content_types(parts["[Content_Types].xml"])
+        parts["word/_rels/document.xml.rels"] = self._patch_document_relationships(
+            parts.get("word/_rels/document.xml.rels", b""),
+        )
+        parts["word/settings.xml"] = self._patch_settings_xml(parts.get("word/settings.xml", b""))
+
+        output_stream = BytesIO()
+        with ZipFile(output_stream, "w", compression=ZIP_DEFLATED) as target_zip:
+            for name, content in parts.items():
+                target_zip.writestr(name, content)
+        return output_stream.getvalue()
+
+    def _build_footnotes_part(self, footnote_lookup: dict) -> bytes:
+        footnotes_root = ET.Element(qn("w:footnotes"))
+
+        separator = ET.SubElement(
+            footnotes_root,
+            qn("w:footnote"),
+            {qn("w:type"): "separator", qn("w:id"): "-1"},
+        )
+        separator_paragraph = ET.SubElement(separator, qn("w:p"))
+        separator_run = ET.SubElement(separator_paragraph, qn("w:r"))
+        ET.SubElement(separator_run, qn("w:separator"))
+
+        continuation = ET.SubElement(
+            footnotes_root,
+            qn("w:footnote"),
+            {qn("w:type"): "continuationSeparator", qn("w:id"): "0"},
+        )
+        continuation_paragraph = ET.SubElement(continuation, qn("w:p"))
+        continuation_run = ET.SubElement(continuation_paragraph, qn("w:r"))
+        ET.SubElement(continuation_run, qn("w:continuationSeparator"))
+
+        sorted_entries = sorted(footnote_lookup.values(), key=lambda item: int(item["word_id"]))
+        for entry in sorted_entries:
+            footnote = ET.SubElement(
+                footnotes_root,
+                qn("w:footnote"),
+                {qn("w:id"): str(entry["word_id"])},
+            )
+            paragraph = ET.SubElement(footnote, qn("w:p"))
+            reference_run = ET.SubElement(paragraph, qn("w:r"))
+            reference_props = ET.SubElement(reference_run, qn("w:rPr"))
+            reference_style = ET.SubElement(reference_props, qn("w:rStyle"))
+            reference_style.set(qn("w:val"), "FootnoteReference")
+            ET.SubElement(reference_run, qn("w:footnoteRef"))
+
+            text_run = ET.SubElement(paragraph, qn("w:r"))
+            text_node = ET.SubElement(text_run, qn("w:t"))
+            text_node.set(qn("xml:space"), "preserve")
+            text_node.text = f" {entry['text']}"
+
+        return ET.tostring(footnotes_root, encoding="utf-8", xml_declaration=True)
+
+    def _patch_content_types(self, content_types_xml: bytes) -> bytes:
+        root = ET.fromstring(content_types_xml)
+        existing = root.findall(f"./{{*}}Override[@PartName='/word/footnotes.xml']")
+        if not existing:
+            override = ET.Element(
+                f"{{{root.tag.partition('}')[0].strip('{')}}}Override",
+                {
+                    "PartName": "/word/footnotes.xml",
+                    "ContentType": "application/vnd.openxmlformats-officedocument.wordprocessingml.footnotes+xml",
+                },
+            )
+            root.append(override)
+        return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+    def _patch_document_relationships(self, relationships_xml: bytes) -> bytes:
+        if relationships_xml:
+            root = ET.fromstring(relationships_xml)
+        else:
+            root = ET.Element("Relationships")
+
+        for relationship in root.findall("./{*}Relationship"):
+            if relationship.get("Type") == "http://schemas.openxmlformats.org/officeDocument/2006/relationships/footnotes":
+                return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+        existing_ids = {relationship.get("Id") for relationship in root.findall("./{*}Relationship")}
+        next_id = 1
+        while f"rId{next_id}" in existing_ids:
+            next_id += 1
+
+        new_relationship = ET.Element(
+            "Relationship",
+            {
+                "Id": f"rId{next_id}",
+                "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/footnotes",
+                "Target": "footnotes.xml",
+            },
+        )
+        root.append(new_relationship)
+        return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+    def _patch_settings_xml(self, settings_xml: bytes) -> bytes:
+        if not settings_xml:
+            return settings_xml
+
+        root = ET.fromstring(settings_xml)
+        existing = root.find(f"./{{*}}footnotePr")
+        if existing is None:
+            footnote_properties = ET.Element(qn("w:footnotePr"))
+            num_format = ET.SubElement(footnote_properties, qn("w:numFmt"))
+            num_format.set(qn("w:val"), "decimal")
+            root.append(footnote_properties)
+        return ET.tostring(root, encoding="utf-8", xml_declaration=True)
 
     def _set_columns(self, section, count: int):
         """Helper to set column count on a python-docx section."""
@@ -777,7 +1152,7 @@ class Formatter:
 
 
     @safe_function(fallback_value=None, error_message="Block rendering failed")
-    def _render_block(self, doc, block, template_name):
+    def _render_block(self, doc, block, template_name, footnote_lookup: Optional[dict] = None):
         """Render a block with contract-driven spacing, formatting, and dynamic list detection."""
         # Skip rendering empty anchor blocks (preserve in pipeline)
         if block.text.strip() == "" and block.metadata.get("has_figure", False):
@@ -795,38 +1170,42 @@ class Formatter:
             # Check if this is a list item
             if self._is_bullet_list_item(clean_text):
                 # Render as bullet list
-                p = doc.add_paragraph(self._clean_list_text(clean_text), style="List Bullet")
+                clean_text = self._clean_list_text(clean_text)
+                p = doc.add_paragraph(style="List Bullet")
             elif self._is_numbered_list_item(clean_text):
                 # Render as numbered list
-                p = doc.add_paragraph(self._clean_list_text(clean_text), style="List Number")
+                clean_text = self._clean_list_text(clean_text)
+                p = doc.add_paragraph(style="List Number")
             else:
                 # Normal paragraph rendering
                 word_style = self.style_mapper.get_style_name(block, template_name)
-                p = doc.add_paragraph(clean_text, style=word_style)
+                p = doc.add_paragraph(style=word_style)
             
+            self._write_inline_content(
+                p,
+                clean_text,
+                block.metadata.get("hyperlinks", []),
+                block.metadata.get("footnote_refs", []),
+                footnote_lookup or {},
+            )
             # Apply contract-driven spacing
             self._apply_spacing_from_contract(p, block, template_name)
             
         except Exception:
             # Fallback if style missing
             if clean_text:
-                p = doc.add_paragraph(clean_text)
+                p = doc.add_paragraph()
+                self._write_inline_content(
+                    p,
+                    clean_text,
+                    block.metadata.get("hyperlinks", []),
+                    block.metadata.get("footnote_refs", []),
+                    footnote_lookup or {},
+                )
                 self._apply_spacing_from_contract(p, block, template_name)
             else:
                 return
-        
-        # PROACTIVE FIX: Render Hyperlinks extracted in Stage 1
-        hyperlinks = block.metadata.get("hyperlinks", [])
-        if hyperlinks:
-            p.add_run(" (Links: ")
-            for i, hl in enumerate(hyperlinks):
-                label = hl.get("text", "Link")
-                url = hl.get("url", "")
-                p.add_run(f"[{label}]({url})").font.italic = True
-                if i < len(hyperlinks) - 1:
-                    p.add_run(", ")
-            p.add_run(")")
-        
+
         return p
 
 

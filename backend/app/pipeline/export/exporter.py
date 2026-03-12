@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from app.models import PipelineDocument as Document
 from app.pipeline.export.jats_generator import JATSGenerator
+from app.pipeline.export.latex_exporter import LaTeXExporter
 from app.pipeline.export.pdf_exporter import PDFExporter
 from app.utils.serialization import safe_model_dump
 
@@ -24,6 +25,7 @@ class Exporter:
     
     def __init__(self):
         self.pdf_exporter = PDFExporter()
+        self.latex_exporter = LaTeXExporter()
     
     def process(self, document: Document) -> Document:
         """Standard pipeline stage entry point."""
@@ -155,57 +157,14 @@ class Exporter:
     def export_latex(self, doc_obj: Document, output_path: str) -> Optional[str]:
         """Export document to LaTeX format."""
         try:
-            tex_lines = [
-                "\\documentclass{article}",
-                "\\usepackage[utf8]{inputenc}",
-                "\\usepackage{hyperref}",
-                ""
-            ]
-            
-            title = doc_obj.metadata.title or "Untitled Manuscript"
-            tex_lines.append(f"\\title{{{title}}}")
-            
-            if doc_obj.metadata.authors:
-                tex_lines.append(f"\\author{{{', '.join(doc_obj.metadata.authors)}}}")
-                
-            tex_lines.extend(["\\begin{document}", "\\maketitle", ""])
-            
-            if doc_obj.metadata.abstract:
-                tex_lines.extend(["\\begin{abstract}", doc_obj.metadata.abstract, "\\end{abstract}", ""])
-            
-            for block in sorted(doc_obj.blocks, key=lambda b: b.index):
-                block_type = str(block.block_type).lower()
-                text = (block.text or "").strip()
-                if not text:
-                    continue
-                    
-                if block_type.startswith("heading_"):
-                    if block.metadata.get("heading_level", 2) == 1:
-                        tex_lines.append(f"\\section{{{text}}}")
-                    else:
-                        tex_lines.append(f"\\subsection{{{text}}}")
-                elif block_type not in {"reference_entry", "references_heading"}:
-                    escaped_text = text.replace("&", "\\&").replace("%", "\\%").replace("$", "\\$").replace("#", "\\#").replace("_", "\\_").replace("{", "\\{").replace("}", "\\}")
-                    tex_lines.append(escaped_text + "\n")
-                    
-            references = [
-                (ref.formatted_text or ref.raw_text or "").strip()
-                for ref in sorted(doc_obj.references, key=lambda r: r.index)
-                if (ref.formatted_text or ref.raw_text or "").strip()
-            ]
-            
-            if references:
-                tex_lines.extend(["\\begin{thebibliography}{99}"])
-                for i, ref in enumerate(references):
-                    escaped_ref = ref.replace("&", "\\&").replace("%", "\\%").replace("$", "\\$").replace("#", "\\#").replace("_", "\\_").replace("{", "\\{").replace("}", "\\}")
-                    tex_lines.append(f"\\bibitem{{ref{i}}} {escaped_ref}")
-                tex_lines.append("\\end{thebibliography}")
-                
-            tex_lines.append("\\end{document}")
-            
-            os.makedirs(os.path.dirname(output_path), exist_ok=True)
-            with open(output_path, "w", encoding="utf-8") as f:
-                f.write("\n".join(tex_lines))
+            if not doc_obj.output_path:
+                return None
+            converted_path = self.latex_exporter.convert_to_latex(
+                doc_obj.output_path,
+                os.path.dirname(output_path),
+            )
+            if converted_path != output_path and os.path.exists(converted_path):
+                os.replace(converted_path, output_path)
             return output_path
         except Exception as e:
             logger.warning("Exporter: LaTeX export failed: %s", e)

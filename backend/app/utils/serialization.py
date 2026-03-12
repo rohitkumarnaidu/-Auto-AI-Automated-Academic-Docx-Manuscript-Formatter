@@ -76,6 +76,8 @@ def build_structured_data(doc_obj: Any, partial: bool = False) -> Dict[str, Any]
     Build the structured_data payload used by persistence and edit/review flows.
     """
     sections: Dict[str, List[Any]] = {}
+    blocks_payload: List[Dict[str, Any]] = []
+    headings_payload: List[Dict[str, Any]] = []
 
     for block in getattr(doc_obj, "blocks", []) or []:
         block_type = getattr(block, "block_type", None)
@@ -84,9 +86,30 @@ def build_structured_data(doc_obj: Any, partial: bool = False) -> Dict[str, Any]
 
         section_key = _normalize_block_type(block_type)
         sections.setdefault(section_key, []).append(getattr(block, "text", None))
+        block_payload = safe_model_dump(block)
+        blocks_payload.append(block_payload)
+
+        if str(section_key).startswith("heading_") or section_key in {
+            "abstract_heading",
+            "keywords_heading",
+            "references_heading",
+        }:
+            level = getattr(block, "level", None)
+            if level is None and isinstance(getattr(block, "metadata", None), dict):
+                level = block.metadata.get("heading_level")
+            headings_payload.append(
+                {
+                    "text": getattr(block, "text", None),
+                    "level": level,
+                    "section_name": getattr(block, "section_name", None),
+                    "block_type": section_key,
+                }
+            )
 
     payload: Dict[str, Any] = {
         "sections": sections,
+        "blocks": blocks_payload,
+        "headings": headings_payload,
         "metadata": safe_model_dump(getattr(doc_obj, "metadata", None)),
         "references": [safe_model_dump(ref) for ref in getattr(doc_obj, "references", []) or []],
         "history": [safe_model_dump(stage) for stage in getattr(doc_obj, "processing_history", []) or []],

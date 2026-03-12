@@ -459,6 +459,10 @@ class DocxParser(BaseParser):
         if hyperlinks:
             block.metadata["hyperlinks"] = hyperlinks
 
+        footnote_refs = self._extract_note_references(paragraph, "w:footnoteReference")
+        if footnote_refs:
+            block.metadata["footnote_refs"] = footnote_refs
+
         # SAFE EXTENSION: Nested List Depth
         list_info = self._get_list_info(paragraph)
         if list_info:
@@ -479,7 +483,12 @@ class DocxParser(BaseParser):
                     try:
                         url = paragraph.part.rels[r_id].target_ref
                         # Get Text
-                        text = "".join([t.text for t in hyperlink.findall(qn('w:r')) if t.text])
+                        text_chunks = []
+                        for run in hyperlink.findall(qn('w:r')):
+                            for text_node in run.findall(qn('w:t')):
+                                if text_node.text:
+                                    text_chunks.append(text_node.text)
+                        text = "".join(text_chunks).strip()
                         if text:
                             links.append({"text": text, "url": url})
                     except (KeyError, AttributeError):
@@ -487,6 +496,18 @@ class DocxParser(BaseParser):
         except Exception:
             pass
         return links
+
+    def _extract_note_references(self, paragraph: DocxParagraph, tag_name: str) -> List[str]:
+        """Extract footnote/endnote reference IDs attached to a paragraph."""
+        refs: List[str] = []
+        try:
+            for note_ref in paragraph._element.findall(f".//{qn(tag_name)}"):
+                note_id = note_ref.get(qn("w:id"))
+                if note_id:
+                    refs.append(str(note_id))
+        except Exception:
+            pass
+        return refs
 
     def _get_list_info(self, paragraph: DocxParagraph) -> Optional[Dict[str, Any]]:
         """Detect list level and status using w:ilvl and w:numId, with style fallback."""

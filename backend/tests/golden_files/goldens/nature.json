@@ -1,0 +1,16 @@
+{
+  "section_count": 3,
+  "heading_hierarchy": [
+    {"text": "Introduction", "level": 1},
+    {"text": "Analysis", "level": 2},
+    {"text": "Conclusion", "level": 1}
+  ],
+  "template_metadata": {
+    "template_name": "nature",
+    "title": "Nature Style Structural Baseline"
+  },
+  "reference_entries": [
+    "E. Rossi. Structural checks for publisher templates. 2025."
+  ],
+  "reference_count": 1
+}

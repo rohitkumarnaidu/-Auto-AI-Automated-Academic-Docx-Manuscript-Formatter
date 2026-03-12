@@ -12,6 +12,7 @@ from app.schemas.user import User
 from app.services.document_service import DocumentService
 from app.services.enhancement_manager import enhancement_manager
 from app.pipeline.orchestrator import PipelineOrchestrator
+from app.pipeline.export.latex_exporter import LaTeXExporter
 from app.pipeline.export.pdf_exporter import PDFExporter
 from app.config.settings import settings
 from app.pipeline.safety.safe_execution import safe_async_function
@@ -52,7 +53,7 @@ router = APIRouter(
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 _READY_FOR_EXPORT_STATUSES = {"COMPLETED", "COMPLETED_WITH_WARNINGS"}
-_SUPPORTED_EXPORT_FORMATS = {"docx", "pdf"}
+_SUPPORTED_EXPORT_FORMATS = {"docx", "pdf", "tex"}
 MAX_DAILY_UPLOADS = 20
 
 ACCEPTED_EXTENSIONS = {
@@ -113,6 +114,15 @@ def _enforce_daily_upload_quota(current_user: Optional[User]) -> None:
             status_code=429,
             detail=f"Daily upload limit reached ({MAX_DAILY_UPLOADS} uploads/day).",
         )
+
+
+def _extract_quality_payload(result: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    validation_results = (result or {}).get("validation_results") or {}
+    quality_summary = validation_results.get("quality_summary") or {}
+    return {
+        "quality_score": validation_results.get("quality_score") or quality_summary.get("quality_score"),
+        "quality_summary": quality_summary or None,
+    }
 
 
 async def _validate_magic_bytes(
@@ -518,6 +528,8 @@ async def get_status(
                 raise HTTPException(status_code=403, detail="Not authorized to access this document")
 
         statuses = DocumentService.get_processing_statuses(job_id)
+        result = DocumentService.get_document_result(job_id)
+        quality_payload = _extract_quality_payload(result)
 
         return {
             "job_id": job_id,
@@ -539,6 +551,8 @@ async def get_status(
                 }
                 for s in statuses
             ],
+            "quality_score": quality_payload["quality_score"],
+            "quality_summary": quality_payload["quality_summary"],
         }
     except HTTPException:
         raise
@@ -640,9 +654,13 @@ async def get_preview(
         if not result:
             raise HTTPException(status_code=404, detail="Processing results not found")
 
+        quality_payload = _extract_quality_payload(result)
+
         return {
             "structured_data": result.get("structured_data"),
             "validation_results": result.get("validation_results"),
+            "quality_score": quality_payload["quality_score"],
+            "quality_summary": quality_payload["quality_summary"],
             "metadata": {
                 "filename": doc.get("filename"),
                 "template": doc.get("template"),
@@ -741,7 +759,7 @@ async def download_document(
 
         requested_format = (format or "").strip().lower()
         if requested_format not in _SUPPORTED_EXPORT_FORMATS:
-            raise HTTPException(status_code=400, detail="Unsupported format. Supported: docx, pdf")
+            raise HTTPException(status_code=400, detail="Unsupported format. Supported: docx, pdf, tex")
 
         if doc.get("user_id") is not None:
             if not current_user or str(doc["user_id"]) != str(current_user.id):
@@ -815,6 +833,28 @@ async def download_document(
             path_to_serve = pdf_path
             media_type = "application/pdf"
             filename = f"{base_filename}_formatted.pdf"
+
+        if requested_format == "tex":
+            tex_path = output_path.replace(".docx", ".tex")
+            if not os.path.exists(tex_path):
+                try:
+                    exporter = LaTeXExporter()
+                    generated_path = exporter.convert_to_latex(output_path, os.path.dirname(output_path))
+                    if not generated_path:
+                        raise HTTPException(status_code=500, detail="LaTeX conversion failed unexpectedly.")
+                    tex_path = generated_path
+                except RuntimeError as runtime_error:
+                    logger.error("LaTeX Export Error for job %s: %s", job_id, runtime_error)
+                    raise HTTPException(status_code=400, detail=str(runtime_error))
+                except HTTPException:
+                    raise
+                except Exception as exc:
+                    logger.error("Unexpected LaTeX Error for job %s: %s", job_id, exc)
+                    raise HTTPException(status_code=500, detail="An internal error occurred during LaTeX export.")
+
+            path_to_serve = tex_path
+            media_type = "application/x-latex"
+            filename = f"{base_filename}_formatted.tex"
 
         return FileResponse(path=path_to_serve, media_type=media_type, filename=filename)
 

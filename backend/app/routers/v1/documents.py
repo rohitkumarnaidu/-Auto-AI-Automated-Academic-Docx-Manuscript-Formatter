@@ -281,16 +281,9 @@ async def download_document(
     current_user: Optional[User] = Depends(get_optional_user),
 ):
     async def operation():
-        requested_format = (format or "").strip().lower()
-        if requested_format == "tex":
-            raise HTTPException(
-                status_code=501,
-                detail="TeX export is not available for document downloads yet.",
-            )
-
         return await legacy_documents.download_document(
             job_id=jobId,
-            format=requested_format,
+            format=(format or "").strip().lower(),
             current_user=current_user,
         )
 
@@ -301,7 +294,6 @@ async def download_document(
             400: "INVALID_EXPORT_FORMAT",
             403: "DOCUMENT_ACCESS_DENIED",
             404: "DOCUMENT_NOT_FOUND",
-            501: "TEX_EXPORT_NOT_AVAILABLE",
         },
         logger=logger,
         operation_name="document download",

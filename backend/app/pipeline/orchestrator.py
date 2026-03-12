@@ -31,6 +31,7 @@ from app.pipeline.formatting.formatter import Formatter
 from app.pipeline.export.exporter import Exporter
 from app.pipeline.input_conversion.converter import InputConverter
 from app.pipeline.contracts.loader import ContractLoader
+from app.services.quality_score_service import compute_quality_score
 from app.utils.serialization import build_structured_data, safe_model_dump
 from app.utils.singleton import resolve_optional_callable
 # from app.routers.stream import emit_event  # Moved to local scope inside _update_status
@@ -363,8 +364,17 @@ class PipelineOrchestrator:
         )
         quality_score = round(quality_ratio * 100, 2)
 
+        structured_data = build_structured_data(doc_obj, partial=True)
+        template_name = (
+            doc_obj.template.template_name
+            if getattr(doc_obj, "template", None) and getattr(doc_obj.template, "template_name", None)
+            else "default"
+        )
+        quality_metrics = compute_quality_score(structured_data, template_name, validation_results)
+
         return {
-            "quality_score": quality_score,
+            "quality_score": quality_metrics.get("overall_score", quality_score),
+            "pipeline_quality_score": quality_score,
             "avg_confidence": round(avg_conf, 4),
             "min_confidence": round(min_conf, 4),
             "block_count": block_count,
@@ -375,6 +385,7 @@ class PipelineOrchestrator:
             "warnings": warning_count,
             "low_conf_blocks": low_conf_blocks,
             "review_status": getattr(getattr(doc_obj, "review", None), "status", "N/A"),
+            **quality_metrics,
         }
 
     def _log_quality_summary(self, job_id: str, summary: Dict[str, Any]) -> None:

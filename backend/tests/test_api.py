@@ -179,6 +179,40 @@ class TestAPIEndpoints:
             app.dependency_overrides.pop(get_optional_user, None)
 
     @pytest.mark.integration
+    def test_document_status_includes_quality_score(self):
+        mock_user = MagicMock()
+        mock_user.id = "user-123"
+        app.dependency_overrides[get_optional_user] = lambda: mock_user
+        try:
+            with patch("app.routers.documents.DocumentService.get_document") as mock_get_document:
+                with patch("app.routers.documents.DocumentService.get_processing_statuses", return_value=[]):
+                    with patch("app.routers.documents.DocumentService.get_document_result") as mock_get_result:
+                        mock_get_document.return_value = {
+                            "id": "job-quality",
+                            "user_id": "user-123",
+                            "status": "COMPLETED",
+                            "current_stage": "DONE",
+                            "progress": 100,
+                        }
+                        mock_get_result.return_value = {
+                            "validation_results": {
+                                "quality_score": 92.4,
+                                "quality_summary": {
+                                    "overall_score": 92.4,
+                                    "template_compliance_pct": 100.0,
+                                },
+                            }
+                        }
+                        response = client.get("/api/documents/job-quality/status")
+
+            assert response.status_code == 200
+            payload = response.json()
+            assert payload["quality_score"] == 92.4
+            assert payload["quality_summary"]["overall_score"] == 92.4
+        finally:
+            app.dependency_overrides.pop(get_optional_user, None)
+
+    @pytest.mark.integration
     def test_log_error_endpoint_allows_guest(self):
         """POST /api/metrics/log-error should work without auth."""
         response = client.post(
@@ -244,7 +278,34 @@ class TestAPIEndpoints:
                 response = client.get("/api/documents/job-download/download?format=txt")
 
             assert response.status_code == 400
-            assert response.json()["detail"] == "Unsupported format. Supported: docx, pdf"
+            assert response.json()["detail"] == "Unsupported format. Supported: docx, pdf, tex"
+        finally:
+            app.dependency_overrides.pop(get_optional_user, None)
+
+    @pytest.mark.integration
+    def test_download_supports_tex_export(self, tmp_path):
+        mock_user = MagicMock()
+        mock_user.id = "user-123"
+        app.dependency_overrides[get_optional_user] = lambda: mock_user
+        try:
+            output_path = tmp_path / "job-download.docx"
+            output_path.write_bytes(b"PK\x03\x04dummy-docx")
+            tex_path = tmp_path / "job-download.tex"
+            tex_path.write_text("\\section{Introduction}", encoding="utf-8")
+
+            with patch("app.routers.documents.DocumentService.get_document") as mock_get_document:
+                with patch("app.routers.documents.LaTeXExporter.convert_to_latex", return_value=str(tex_path)):
+                    mock_get_document.return_value = {
+                        "id": "job-download",
+                        "user_id": "user-123",
+                        "status": "COMPLETED",
+                        "filename": "paper.docx",
+                        "output_path": str(output_path),
+                    }
+                    response = client.get("/api/documents/job-download/download?format=tex")
+
+            assert response.status_code == 200
+            assert "application/x-latex" in response.headers.get("content-type", "")
         finally:
             app.dependency_overrides.pop(get_optional_user, None)
 

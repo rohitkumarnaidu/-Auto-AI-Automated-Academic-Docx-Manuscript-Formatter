@@ -411,6 +411,12 @@ class MarkdownParser(BaseParser):
         
         # Detect list items (before stripping)
         is_list = text.strip().startswith(('-', '*', '+')) or re.match(r'^\d+\.', text.strip())
+        hyperlinks = [
+            {"text": match.group(1).strip(), "url": match.group(2).strip()}
+            for match in re.finditer(r'\[([^\]]+)\]\(([^)]+)\)', text)
+            if match.group(1).strip() and match.group(2).strip()
+        ]
+        footnote_refs = re.findall(r'\[\^([^\]]+)\]', text)
         
         # Strip markdown syntax (returns plain text only)
         cleaned_text = self._strip_markdown(text)
@@ -428,5 +434,9 @@ class MarkdownParser(BaseParser):
         
         if is_list:
             block.metadata["is_list_item"] = True
+        if hyperlinks:
+            block.metadata["hyperlinks"] = hyperlinks
+        if footnote_refs:
+            block.metadata["footnote_refs"] = footnote_refs
         
         return block

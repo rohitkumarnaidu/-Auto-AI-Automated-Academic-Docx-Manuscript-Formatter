@@ -1,0 +1,17 @@
+{
+  "section_count": 3,
+  "heading_hierarchy": [
+    {"text": "Introduction", "level": 1},
+    {"text": "System Design", "level": 2},
+    {"text": "Findings", "level": 2}
+  ],
+  "template_metadata": {
+    "template_name": "acm",
+    "title": "ACM Template Regression Benchmark"
+  },
+  "reference_entries": [
+    "[1] N. Patel and I. Silva. Template-aware automation for conference publishing. 2025.",
+    "[2] R. Gomez. Structure-first document regression testing. 2024."
+  ],
+  "reference_count": 2
+}

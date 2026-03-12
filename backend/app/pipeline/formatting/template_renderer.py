@@ -81,6 +81,16 @@ class TemplateRenderer:
             logger.error("Failed to render template '%s': %s", template_name, exc)
             raise
 
+    def has_renderable_template(self, template_name: str) -> bool:
+        """Return True when the template directory contains a docxtpl-capable source."""
+        style = (template_name or "ieee").lower()
+        template_dir = self.templates_dir / style
+        if (template_dir / "template.jinja2").is_file():
+            return True
+
+        candidate = template_dir / "template.docx"
+        return candidate.is_file() and self._has_template_markers(candidate)
+
     def build_context(self, document: Document) -> Dict[str, Any]:
         """Build Jinja2 context from a pipeline document."""
         try:
@@ -153,7 +163,12 @@ class TemplateRenderer:
 
     def _resolve_template_path(self, template_name: str) -> Path:
         style = (template_name or "ieee").lower()
-        candidate = self.templates_dir / style / "template.docx"
+        template_dir = self.templates_dir / style
+        jinja_source = template_dir / "template.jinja2"
+        if jinja_source.is_file():
+            return self._build_template_from_jinja_source(jinja_source)
+
+        candidate = template_dir / "template.docx"
         if candidate.is_file():
             if self._has_template_markers(candidate):
                 return candidate
@@ -162,6 +177,25 @@ class TemplateRenderer:
                 candidate,
             )
         return self._build_fallback_template()
+
+    def _build_template_from_jinja_source(self, source_path: Path) -> Path:
+        """Wrap a plain-text Jinja2 template source in a minimal DOCX container."""
+        try:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as tmp:
+                temp_path = Path(tmp.name)
+
+            doc = WordDocument()
+            for line in source_path.read_text(encoding="utf-8").splitlines():
+                doc.add_paragraph(line)
+            doc.save(str(temp_path))
+            return temp_path
+        except Exception as exc:
+            logger.warning(
+                "Failed to build DOCX template from Jinja source '%s': %s. Falling back.",
+                source_path,
+                exc,
+            )
+            return self._build_fallback_template()
 
     def _has_template_markers(self, template_path: Path) -> bool:
         cached = self._template_marker_cache.get(template_path)

@@ -1,0 +1,15 @@
+{
+  "section_count": 4,
+  "heading_hierarchy": [
+    {"text": "Summary", "level": 1},
+    {"text": "Experience", "level": 1},
+    {"text": "Selected Impact", "level": 2},
+    {"text": "Education", "level": 1}
+  ],
+  "template_metadata": {
+    "template_name": "resume",
+    "title": "Jordan Patel"
+  },
+  "reference_entries": [],
+  "reference_count": 0
+}

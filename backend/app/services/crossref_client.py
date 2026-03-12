@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from typing import Any, Dict, Optional
 from urllib.parse import quote_plus
 
@@ -69,31 +70,51 @@ class CrossRefClient:
 
         url = f"{self.BASE_URL}?query.bibliographic={quote_plus(query)}&rows=1"
         try:
-            # Short timeout to prevent orchestrator lagging.
-            response = requests.get(url, headers=self.headers, timeout=5)
-            if response.status_code == 200:
-                data = response.json()
-                items = data.get("message", {}).get("items", [])
-                if items:
-                    item = items[0]
-                    authors = ", ".join(
-                        [
-                            f"{a.get('given', '')} {a.get('family', '')}".strip()
-                            for a in item.get("author", [])
-                        ]
+            retry_delays = [1, 2, 4]
+            max_attempts = len(retry_delays) + 1
+            for attempt in range(1, max_attempts + 1):
+                response = requests.get(url, headers=self.headers, timeout=10)
+                if response.status_code == 200:
+                    data = response.json()
+                    items = data.get("message", {}).get("items", [])
+                    if items:
+                        item = items[0]
+                        authors = ", ".join(
+                            [
+                                f"{a.get('given', '')} {a.get('family', '')}".strip()
+                                for a in item.get("author", [])
+                            ]
+                        )
+                        result = {
+                            "doi": item.get("DOI"),
+                            "title": item.get("title", [""])[0],
+                            "authors": authors,
+                            # TF-IDF search relevance score from CrossRef.
+                            "confidence": item.get("score", 0.0),
+                            "url": item.get("URL"),
+                        }
+                        self._api_cache[query] = result
+                        return result
+
+                if response.status_code != 429:
+                    return {}
+
+                if attempt < max_attempts:
+                    delay = retry_delays[attempt - 1]
+                    logger.warning(
+                        "CrossRef API rate limited for query '%s'. Retrying in %ss (attempt %s/%s).",
+                        query[:80],
+                        delay,
+                        attempt,
+                        max_attempts,
                     )
-                    result = {
-                        "doi": item.get("DOI"),
-                        "title": item.get("title", [""])[0],
-                        "authors": authors,
-                        # TF-IDF search relevance score from CrossRef.
-                        "confidence": item.get("score", 0.0),
-                        "url": item.get("URL"),
-                    }
-                    self._api_cache[query] = result
-                    return result
-            elif response.status_code == 429:
-                logger.warning("CrossRef API rate limited. Returning empty.")
+                    time.sleep(delay)
+
+            logger.warning(
+                "CrossRef API remained rate limited after %s retries for query '%s'. Returning empty result.",
+                len(retry_delays),
+                query[:80],
+            )
             return {}
         except requests.RequestException as e:
             logger.warning("CrossRef API network error: %s. Skipping validation.", e)
