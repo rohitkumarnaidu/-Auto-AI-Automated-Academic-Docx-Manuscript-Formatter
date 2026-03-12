@@ -6,6 +6,7 @@ from typing import Optional, Dict, Any, List
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, BackgroundTasks, Query, Form
+from app.routers.deprecation import DeprecatedRoute
 from app.utils.dependencies import get_current_user, get_optional_user
 from app.schemas.user import User
 from app.services.document_service import DocumentService
@@ -23,7 +24,30 @@ from app.utils.virus_scanner import scan_file
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/documents", tags=["Documents"])
+_LEGACY_SUCCESSORS = {
+    "/api/documents": "/api/v1/documents",
+    "/api/documents/upload/chunked": "/api/v1/documents/upload/chunked",
+    "/api/documents/upload": "/api/v1/documents/upload",
+    "/api/documents/{job_id}/status": "/api/v1/documents/{jobId}/status",
+    "/api/documents/{job_id}/summary": "/api/v1/documents/{jobId}/summary",
+    "/api/documents/{job_id}/edit": "/api/v1/documents/{jobId}/edit",
+    "/api/documents/{job_id}/preview": "/api/v1/documents/{jobId}/preview",
+    "/api/documents/{job_id}/compare": "/api/v1/documents/{jobId}/compare",
+    "/api/documents/{job_id}/download": "/api/v1/documents/{jobId}/download",
+    "/api/documents/{job_id}": "/api/v1/documents/{jobId}",
+    "/api/documents/batch-upload": "/api/v1/documents/batch-upload",
+}
+
+
+class LegacyDocumentsRoute(DeprecatedRoute):
+    successor_map = _LEGACY_SUCCESSORS
+
+
+router = APIRouter(
+    prefix="/api/documents",
+    tags=["Documents"],
+    route_class=LegacyDocumentsRoute,
+)
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)

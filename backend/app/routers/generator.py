@@ -17,6 +17,7 @@ from fastapi.responses import FileResponse
 
 from app.pipeline.export.pdf_exporter import PDFExporter
 from app.pipeline.generation.document_generator import get_generator
+from app.routers.deprecation import DeprecatedRoute
 from app.schemas.document import (
     GenerateRequest,
     GenerateResponse,
@@ -29,7 +30,21 @@ from app.utils.dependencies import get_current_user
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/generate", tags=["generator"])
+_LEGACY_SUCCESSORS = {
+    "/generate": "/api/v1/generator/sessions",
+    "/generate/status/{job_id}": "/api/v1/generator/sessions/{sessionId}",
+    "/generate/download/{job_id}": "/api/v1/generator/sessions/{sessionId}/download",
+    "/api/generate": "/api/v1/generator/sessions",
+    "/api/generate/status/{job_id}": "/api/v1/generator/sessions/{sessionId}",
+    "/api/generate/download/{job_id}": "/api/v1/generator/sessions/{sessionId}/download",
+}
+
+
+class LegacyGeneratorRoute(DeprecatedRoute):
+    successor_map = _LEGACY_SUCCESSORS
+
+
+router = APIRouter(prefix="/generate", tags=["generator"], route_class=LegacyGeneratorRoute)
 
 
 def _assert_generation_owner(job_id: str, user_id: str) -> None:

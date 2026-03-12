@@ -9,13 +9,36 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.db.supabase_client import get_supabase_client
+from app.routers.deprecation import DeprecatedRoute
 from app.pipeline.services.csl_fetcher import search_styles, fetch_style
 from app.schemas.user import User
 from app.utils.dependencies import get_optional_user
 
 logger = logging.getLogger(__name__)
 
-templates_router = APIRouter()
+_LEGACY_SUCCESSORS = {
+    "": "/api/v1/templates",
+    "/": "/api/v1/templates",
+    "/csl/search": "/api/v1/templates/csl/search",
+    "/csl/fetch": "/api/v1/templates/csl/fetch",
+    "/csl/{style_id}": "/api/v1/templates/csl/{styleId}",
+    "/custom": "/api/v1/templates/custom",
+    "/custom/{template_id}": "/api/v1/templates/custom/{templateId}",
+    "/api/templates": "/api/v1/templates",
+    "/api/templates/": "/api/v1/templates",
+    "/api/templates/csl/search": "/api/v1/templates/csl/search",
+    "/api/templates/csl/fetch": "/api/v1/templates/csl/fetch",
+    "/api/templates/csl/{style_id}": "/api/v1/templates/csl/{styleId}",
+    "/api/templates/custom": "/api/v1/templates/custom",
+    "/api/templates/custom/{template_id}": "/api/v1/templates/custom/{templateId}",
+}
+
+
+class LegacyTemplatesRoute(DeprecatedRoute):
+    successor_map = _LEGACY_SUCCESSORS
+
+
+templates_router = APIRouter(route_class=LegacyTemplatesRoute)
 
 
 def _require_db():
@@ -88,7 +111,7 @@ def _extract_template_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-@templates_router.get("/")
+@templates_router.get("")
 async def list_builtin_templates():
     """List all built-in templates (public)."""
     templates_dir = Path(__file__).resolve().parents[1] / "templates"

@@ -6,7 +6,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.routers import auth, documents
 from app.config.settings import settings
+from app.middleware.request_id import RequestIdMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
+from app.routers.v1 import v1_router
+from app.services.health_checks import get_readiness_payload
 from contextlib import asynccontextmanager
 
 # Initialize logging — kept commented out so terminal output remains visible during development
@@ -165,7 +168,14 @@ app.add_middleware(
     allow_origins=origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Requested-With", "Accept"],
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+        "X-Requested-With",
+        "Accept",
+        "X-Request-Id",
+        "Idempotency-Key",
+    ],
 )
 
 # Rate Limiting Middleware (DoS Protection)
@@ -188,7 +198,10 @@ if settings.FORCE_HTTPS:
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
         return response
 
+app.add_middleware(RequestIdMiddleware)
+
 # Include Routers
+app.include_router(v1_router)
 app.include_router(auth.router)
 app.include_router(documents.router)
 
@@ -218,6 +231,9 @@ async def readiness_probe():
     Readiness probe for operational environments (K8s, Docker).
     Checks availability of critical dependencies and AI models.
     """
+    payload, status_code = await get_readiness_payload()
+    return JSONResponse(content=payload, status_code=status_code)
+
     import httpx
     from app.db.supabase_client import get_supabase_client, check_supabase_health
     from app.services.model_store import model_store
