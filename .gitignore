@@ -117,3 +117,4 @@ docs/audits/
 
 
 *.txt
+backend/generated_outputs/

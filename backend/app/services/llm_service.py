@@ -27,8 +27,8 @@ except ImportError:
     logger.warning(
         "LiteLLM unavailable - llm_service will use direct provider clients."
     )
-LLM_NVIDIA   = "nvidia_nim/meta/llama-3.3-70b-instruct"
-LLM_GROQ     = "groq/llama-3.3-70b-versatile"
+LLM_NVIDIA   = settings.NVIDIA_MODEL
+LLM_GROQ     = settings.GROQ_MODEL
 LLM_DEEPSEEK = "ollama/deepseek-r1"
 LLM_GPT4     = "gpt-4"
 

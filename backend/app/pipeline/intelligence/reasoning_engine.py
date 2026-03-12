@@ -62,7 +62,7 @@ try:
 except ImportError:
     _LLM_SERVICE_AVAILABLE = False
     LITELLM_AVAILABLE = False
-    LLM_NVIDIA = "nvidia_nim/meta/llama-3.3-70b-instruct"
+    LLM_NVIDIA = settings.NVIDIA_MODEL
     LLM_DEEPSEEK = "ollama/deepseek-r1"
     logger.warning("llm_service not available - using legacy LangChain paths")
 
@@ -113,20 +113,22 @@ class ReasoningEngine:
         "BIBLIOGRAPHY_HEADING": "REFERENCES_HEADING",
     }
     
-    def __init__(self, timeout: int = 30):
+    def __init__(self, timeout: int = 30, model: Optional[str] = None):
         if timeout == 30:
             timeout = int(settings.PIPELINE_REASONING_TIMEOUT_SECONDS)
 
-        self.nvidia_api_key = settings.NVIDIA_API_KEY or ""
-        enable_nvidia = bool(settings.ENABLE_NVIDIA_REASONER)
         in_pytest = bool(os.getenv("PYTEST_CURRENT_TEST"))
-        if in_pytest and os.getenv("ENABLE_NVIDIA_REASONER") is None:
-            # Keep tests deterministic unless explicitly overridden in environment.
+        if in_pytest:
+            # Keep tests deterministic even when the developer machine has live API keys.
+            self.nvidia_api_key = ""
             enable_nvidia = False
+        else:
+            self.nvidia_api_key = settings.NVIDIA_API_KEY or ""
+            enable_nvidia = bool(settings.ENABLE_NVIDIA_REASONER)
         
         # Ollama Configuration
         self.ollama_base_url = settings.OLLAMA_BASE_URL
-        self.fallback_model = "deepseek-r1:8b"
+        self.fallback_model = (model or "deepseek-r1:8b").strip()
         
         self.timeout = max(5, int(timeout))  # Supports ReasoningEngine(timeout=N)
         self.model = self.fallback_model
@@ -426,7 +428,7 @@ class ReasoningEngine:
     @retry_guard(max_retries=2, base_delay=0.5)
     def _call_nvidia_litellm(self, messages: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         """Call NVIDIA NIM via llm_service (LiteLLM-backed)."""
-        if not _LLM_SERVICE_AVAILABLE:
+        if not _LLM_SERVICE_AVAILABLE or not self.nvidia_api_key:
             return None
         text = _llm_generate(
             messages=messages,
@@ -434,6 +436,7 @@ class ReasoningEngine:
             temperature=0.3,
             max_tokens=2048,
             timeout=self.timeout,
+            api_key=self.nvidia_api_key,
         )
         if not text:
             return None

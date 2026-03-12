@@ -18,7 +18,7 @@ try:
 except ImportError:
     _USE_LLM_SERVICE = False
     LITELLM_AVAILABLE = False
-    LLM_NVIDIA = "meta/llama-3.3-70b-instruct"
+    LLM_NVIDIA = settings.NVIDIA_MODEL
 
 try:
     from openai import OpenAI as _OpenAI
@@ -62,7 +62,7 @@ class NvidiaClient:
                 logger.info("NvidiaClient: using LiteLLM for NVIDIA calls.")
 
         # Model identifiers
-        self.llama_70b   = "meta/llama-3.3-70b-instruct"
+        self.llama_70b = settings.NVIDIA_MODEL.replace("nvidia_nim/", "")
         self.llama_vision = "meta/llama-3.2-11b-vision-instruct"
 
     def chat(
@@ -160,7 +160,7 @@ class NvidiaClient:
             section_keywords = ["abstract", "introduction", "method", "result", "discussion", "conclusion", "reference"]
             detected = sum(1 for kw in section_keywords if kw in response.lower())
             confidence = min(1.0, 0.3 + (detected / len(section_keywords)) * 0.7)
-        return {"analysis": response, "model": "llama-3.3-70b", "confidence": round(confidence, 2)}
+        return {"analysis": response, "model": self.llama_70b, "confidence": round(confidence, 2)}
 
     def analyze_figure(self, image_path: str, caption: Optional[str] = None) -> str:
         """Analyze figure/diagram using Llama 3.2 11B Vision."""
@@ -239,7 +239,7 @@ class NvidiaClient:
             "compliant": is_compliant,
             "issues": [] if is_compliant else [response],
             "suggestions": response,
-            "model": "llama-3.3-70b",
+            "model": self.llama_70b,
         }
 
 
