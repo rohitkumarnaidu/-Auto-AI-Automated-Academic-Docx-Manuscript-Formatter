@@ -3,6 +3,9 @@ import usePageTitle from '@/src/hooks/usePageTitle';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import ErrorBoundary from '@/src/components/ErrorBoundary';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Placeholder from '@tiptap/extension-placeholder';
 
 import { useDocument } from '@/src/context/DocumentContext';
 import { useToast } from '@/src/context/ToastContext';
@@ -60,6 +63,36 @@ export default function Edit() {
     const isDirty = content !== initialContentRef.current;
     useUnsavedChanges(isDirty);
 
+    const editor = useEditor({
+        extensions: [
+            StarterKit,
+            Placeholder.configure({
+                placeholder: 'Edit your document content here...',
+            }),
+        ],
+        content: '',
+        onUpdate: ({ editor: e }) => {
+            // Sync TipTap HTML → content state (for word count and save)
+            setContent(e.getText({ blockSeparator: '\n\n' }));
+        },
+        editorProps: {
+            attributes: {
+                class: 'prose prose-slate dark:prose-invert max-w-none focus:outline-none min-h-[520px] sm:min-h-[700px] text-base sm:text-lg leading-relaxed text-slate-700 dark:text-slate-300 font-serif',
+            },
+        },
+    });
+
+    // Keep editor in sync when content loaded from job
+    const setEditorContent = useCallback((text) => {
+        if (!editor || editor.isDestroyed) return;
+        // Convert plain text to basic HTML paragraphs for TipTap
+        const html = text
+            .split(/\n{2,}/)
+            .map(para => para.trim() ? `<p>${para.replace(/\n/g, '<br/>')}</p>` : '<p></p>')
+            .join('');
+        editor.commands.setContent(html, false);
+    }, [editor]);
+
     useEffect(() => {
         let isMounted = true;
 
@@ -73,6 +106,7 @@ export default function Edit() {
                 if (isMounted) {
                     setContent(job.processedText);
                     initialContentRef.current = job.processedText;
+                    setEditorContent(job.processedText);
                 }
                 return;
             }
@@ -82,6 +116,7 @@ export default function Edit() {
                 if (isMounted) {
                     setContent(reconstructedFromJob);
                     initialContentRef.current = reconstructedFromJob;
+                    setEditorContent(reconstructedFromJob);
                 }
                 return;
             }
@@ -98,6 +133,7 @@ export default function Edit() {
                     const val = reconstructedFromPreview || '';
                     setContent(val);
                     initialContentRef.current = val;
+                    setEditorContent(val);
                 }
             } catch (error) {
                 console.error('Failed to load preview content:', error);
@@ -109,32 +145,34 @@ export default function Edit() {
         return () => {
             isMounted = false;
         };
-    }, [job]);
+    }, [job, editor, setEditorContent]);
 
     const handleSave = useCallback(async () => {
         if (!job) return;
         if (isSaving) return;
         setIsSaving(true);
         try {
-            // Basic parsing: Treat the whole content as one 'BODY' section for now, 
-            // since we don't have a structured editor yet.
-            // In a real scenario, we'd enable block-based editing.
+            // Get the raw text from TipTap editor (or fallback to content state)
+            const currentText = editor
+                ? editor.getText({ blockSeparator: '\n' })
+                : content;
+
             const structuredData = {
                 sections: {
-                    "BODY": content.split('\n').filter(line => line.trim() !== '')
+                    "BODY": currentText.split('\n').filter(line => line.trim() !== '')
                 }
             };
 
             await submitEdit(job.id, structuredData);
 
             setLastSaved(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+            initialContentRef.current = currentText;
 
             // Redirect to processing/upload page to show progress of re-formatting
-            // We reuse the upload page state logic but we need to set the job back to 'processing'
             const updatedJob = { ...job, status: 'processing', progress: 0 };
             setJob(updatedJob);
             sessionStorage.setItem('scholarform_currentJob', JSON.stringify(updatedJob));
-            navigate('/upload'); // Reuse polling logic
+            navigate('/upload');
 
         } catch (error) {
             console.error("Save failed:", error);
@@ -142,7 +180,7 @@ export default function Edit() {
         } finally {
             setIsSaving(false);
         }
-    }, [addToast, content, isSaving, job, navigate, setJob]);
+    }, [addToast, content, editor, isSaving, job, navigate, setJob]);
 
     const handleCancel = useCallback(() => {
         navigate('/history');
@@ -285,13 +323,96 @@ export default function Edit() {
                                 >
                                     {title.replace(/_/g, ' ')}
                                 </h1>
-                                <textarea
-                                    className="w-full min-h-[520px] sm:min-h-[700px] bg-transparent resize-none border-none focus:ring-0 p-0 text-base sm:text-lg leading-relaxed text-slate-700 dark:text-slate-300 font-serif"
-                                    value={content}
-                                    onChange={(e) => setContent(e.target.value)}
-                                    placeholder="Start typing your manuscript..."
-                                    spellCheck={false}
-                                />
+
+                                {/* TipTap Formatting Toolbar */}
+                                <div className="flex flex-wrap items-center gap-1 mb-4 pb-3 border-b border-slate-200 dark:border-slate-700">
+                                    <button
+                                        type="button"
+                                        onClick={() => editor?.chain().focus().toggleBold().run()}
+                                        className={`px-2 py-1 rounded text-sm font-bold transition-colors ${
+                                            editor?.isActive('bold')
+                                                ? 'bg-primary text-white'
+                                                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                        }`}
+                                        title="Bold (Ctrl+B)"
+                                    >B</button>
+                                    <button
+                                        type="button"
+                                        onClick={() => editor?.chain().focus().toggleItalic().run()}
+                                        className={`px-2 py-1 rounded text-sm italic transition-colors ${
+                                            editor?.isActive('italic')
+                                                ? 'bg-primary text-white'
+                                                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                        }`}
+                                        title="Italic (Ctrl+I)"
+                                    >I</button>
+                                    <div className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-1" />
+                                    <button
+                                        type="button"
+                                        onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
+                                        className={`px-2 py-1 rounded text-sm font-bold transition-colors ${
+                                            editor?.isActive('heading', { level: 1 })
+                                                ? 'bg-primary text-white'
+                                                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                        }`}
+                                        title="Heading 1"
+                                    >H1</button>
+                                    <button
+                                        type="button"
+                                        onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
+                                        className={`px-2 py-1 rounded text-sm font-bold transition-colors ${
+                                            editor?.isActive('heading', { level: 2 })
+                                                ? 'bg-primary text-white'
+                                                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                        }`}
+                                        title="Heading 2"
+                                    >H2</button>
+                                    <div className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-1" />
+                                    <button
+                                        type="button"
+                                        onClick={() => editor?.chain().focus().toggleBulletList().run()}
+                                        className={`px-2 py-1 rounded text-sm transition-colors ${
+                                            editor?.isActive('bulletList')
+                                                ? 'bg-primary text-white'
+                                                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                        }`}
+                                        title="Bullet List"
+                                    >
+                                        <span className="material-symbols-outlined text-[14px]">format_list_bulleted</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => editor?.chain().focus().toggleOrderedList().run()}
+                                        className={`px-2 py-1 rounded text-sm transition-colors ${
+                                            editor?.isActive('orderedList')
+                                                ? 'bg-primary text-white'
+                                                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                        }`}
+                                        title="Numbered List"
+                                    >
+                                        <span className="material-symbols-outlined text-[14px]">format_list_numbered</span>
+                                    </button>
+                                    <div className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-1" />
+                                    <button
+                                        type="button"
+                                        onClick={() => editor?.chain().focus().undo().run()}
+                                        className="px-2 py-1 rounded text-sm bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                                        title="Undo (Ctrl+Z)"
+                                    >
+                                        <span className="material-symbols-outlined text-[14px]">undo</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => editor?.chain().focus().redo().run()}
+                                        className="px-2 py-1 rounded text-sm bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                                        title="Redo (Ctrl+Y)"
+                                    >
+                                        <span className="material-symbols-outlined text-[14px]">redo</span>
+                                    </button>
+                                </div>
+
+                                {/* TipTap Editor */}
+                                <EditorContent editor={editor} />
                             </article>
                         </div>
                     </main>

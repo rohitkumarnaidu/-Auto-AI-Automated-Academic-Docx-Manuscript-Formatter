@@ -269,6 +269,87 @@ function ValidationResults() {
                     </div>
                 </div>
 
+                {/* ── Quality Score Panel ── */}
+                {resolvedResult?.quality ? (
+                    (() => {
+                        const q = resolvedResult.quality;
+                        const overall = q.overall_score ?? null;
+                        const overallColor =
+                            overall === null ? 'text-slate-500'
+                            : overall >= 80 ? 'text-green-600 dark:text-green-400'
+                            : overall >= 50 ? 'text-amber-600 dark:text-amber-400'
+                            : 'text-red-600 dark:text-red-400';
+                        const overallBg =
+                            overall === null ? 'bg-slate-500'
+                            : overall >= 80 ? 'bg-green-500'
+                            : overall >= 50 ? 'bg-amber-500'
+                            : 'bg-red-500';
+                        return (
+                            <div className="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 space-y-5">
+                                <div className="flex items-center justify-between">
+                                    <h2 className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                        <span className="material-symbols-outlined text-primary">analytics</span>
+                                        Quality Analysis
+                                    </h2>
+                                    {overall !== null && (
+                                        <span className={`text-2xl font-black ${overallColor}`}>{overall}%</span>
+                                    )}
+                                </div>
+                                {/* Overall bar */}
+                                {overall !== null && (
+                                    <div>
+                                        <div className="flex justify-between text-xs font-semibold mb-1 text-slate-500 dark:text-slate-400">
+                                            <span>Overall Score</span>
+                                            <span className={overallColor}>{overall >= 80 ? 'Excellent' : overall >= 50 ? 'Fair' : 'Needs Work'}</span>
+                                        </div>
+                                        <div className="h-2.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                                            <div className={`h-full rounded-full ${overallBg} transition-all duration-700`} style={{ width: `${overall}%` }} />
+                                        </div>
+                                    </div>
+                                )}
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    {/* Template Compliance */}
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between text-xs font-semibold text-slate-600 dark:text-slate-400">
+                                            <span>Template Compliance</span>
+                                            <span>{q.template_compliance ?? '—'}%</span>
+                                        </div>
+                                        <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                                            <div className="h-full rounded-full bg-primary transition-all duration-700" style={{ width: `${q.template_compliance ?? 0}%` }} />
+                                        </div>
+                                    </div>
+                                    {/* Content Completeness */}
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between text-xs font-semibold text-slate-600 dark:text-slate-400">
+                                            <span>Content Completeness</span>
+                                            <span>{q.content_completeness ?? '—'}%</span>
+                                        </div>
+                                        <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                                            <div className="h-full rounded-full bg-violet-500 transition-all duration-700" style={{ width: `${q.content_completeness ?? 0}%` }} />
+                                        </div>
+                                    </div>
+                                    {/* Citation Count */}
+                                    <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3">
+                                        <span className="material-symbols-outlined text-primary">format_quote</span>
+                                        <div>
+                                            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Citations</p>
+                                            <p className="text-xl font-black text-slate-900 dark:text-white">{q.citation_count ?? '—'}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })()
+                ) : (
+                    <div className="bg-slate-50 dark:bg-slate-800/50 border border-dashed border-slate-300 dark:border-slate-700 rounded-xl p-6 flex items-center gap-4">
+                        <span className="material-symbols-outlined text-slate-400 text-3xl">analytics</span>
+                        <div>
+                            <p className="font-semibold text-slate-700 dark:text-slate-300">Quality Analysis Coming Soon</p>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Template compliance, content completeness &amp; citation scores will appear here after Module 2.</p>
+                        </div>
+                    </div>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded-xl p-6 flex flex-col">
                         <div className="flex items-center justify-between mb-2">

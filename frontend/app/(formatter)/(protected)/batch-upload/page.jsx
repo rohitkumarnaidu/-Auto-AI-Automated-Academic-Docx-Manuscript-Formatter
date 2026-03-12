@@ -2,7 +2,6 @@
 import usePageTitle from '@/src/hooks/usePageTitle';
 import { useState, useCallback } from 'react';
 
-
 import Footer from '@/src/components/Footer';
 import BatchUploadPanel from '@/src/components/BatchUploadPanel';
 import { uploadDocumentWithProgress } from '@/src/services/api';
@@ -43,29 +42,32 @@ export default function BatchUpload() {
 
         setProcessing(true);
 
-        for (const entry of pending) {
-            updateFile(entry.id, { status: 'uploading', progress: 0 });
-            try {
-                const result = await uploadDocumentWithProgress(
-                    entry.file,
-                    template,
-                    {},
-                    {
-                        onProgress: (percent) => updateFile(entry.id, { progress: percent }),
-                    }
-                );
-                updateFile(entry.id, {
-                    status: 'done',
-                    progress: 100,
-                    jobId: result?.job_id || null,
-                });
-            } catch (err) {
-                updateFile(entry.id, {
-                    status: 'error',
-                    error: err.message || 'Upload failed',
-                });
-            }
-        }
+        // Run all uploads concurrently — failure in one doesn't affect others
+        await Promise.allSettled(
+            pending.map(async (entry) => {
+                updateFile(entry.id, { status: 'uploading', progress: 0 });
+                try {
+                    const result = await uploadDocumentWithProgress(
+                        entry.file,
+                        template,
+                        {},
+                        {
+                            onProgress: (percent) => updateFile(entry.id, { progress: percent }),
+                        }
+                    );
+                    updateFile(entry.id, {
+                        status: 'done',
+                        progress: 100,
+                        jobId: result?.job_id || null,
+                    });
+                } catch (err) {
+                    updateFile(entry.id, {
+                        status: 'error',
+                        error: err.message || 'Upload failed',
+                    });
+                }
+            })
+        );
 
         setProcessing(false);
     };
@@ -75,7 +77,7 @@ export default function BatchUpload() {
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-                        <main className="max-w-4xl mx-auto px-4 py-8">
+            <main className="max-w-4xl mx-auto px-4 py-8">
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
                         <span className="material-symbols-outlined text-primary text-4xl">upload_file</span>
@@ -118,7 +120,7 @@ export default function BatchUpload() {
 
                 {/* Action Bar */}
                 {files.length > 0 && (
-                    <div className="mt-6 flex items-center justify-between bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm">
+                    <div className="mt-6 flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm">
                         <div className="text-sm text-slate-600 dark:text-slate-400">
                             {files.length} file{files.length !== 1 ? 's' : ''}
                             {completedCount > 0 && (
@@ -128,23 +130,42 @@ export default function BatchUpload() {
                                 <span className="text-red-600 dark:text-red-400 ml-2">• {errorCount} failed</span>
                             )}
                         </div>
-                        <button
-                            onClick={processAll}
-                            disabled={processing || files.filter((f) => f.status === 'pending').length === 0}
-                            className="px-6 py-3 bg-primary hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-primary/25 transition-all disabled:opacity-50 flex items-center gap-2"
-                        >
-                            {processing ? (
-                                <>
-                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                    Processing...
-                                </>
-                            ) : (
-                                <>
-                                    <span className="material-symbols-outlined">rocket_launch</span>
-                                    Process All ({files.filter((f) => f.status === 'pending').length})
-                                </>
+                        <div className="flex items-center gap-3">
+                            {/* Download All — shows when at least one file completed */}
+                            {completedCount > 0 && !processing && (
+                                <button
+                                    onClick={() => {
+                                        files
+                                            .filter((f) => f.status === 'done' && f.jobId)
+                                            .forEach((f) => {
+                                                const url = `/jobs/${encodeURIComponent(f.jobId)}/download`;
+                                                window.open(url, '_blank', 'noopener,noreferrer');
+                                            });
+                                    }}
+                                    className="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg shadow-green-600/25 transition-all flex items-center gap-2"
+                                >
+                                    <span className="material-symbols-outlined">download</span>
+                                    Download All ({completedCount})
+                                </button>
                             )}
-                        </button>
+                            <button
+                                onClick={processAll}
+                                disabled={processing || files.filter((f) => f.status === 'pending').length === 0}
+                                className="px-6 py-3 bg-primary hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-primary/25 transition-all disabled:opacity-50 flex items-center gap-2"
+                            >
+                                {processing ? (
+                                    <>
+                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                        Processing...
+                                    </>
+                                ) : (
+                                    <>
+                                        <span className="material-symbols-outlined">rocket_launch</span>
+                                        Process All ({files.filter((f) => f.status === 'pending').length})
+                                    </>
+                                )}
+                            </button>
+                        </div>
                     </div>
                 )}
             </main>

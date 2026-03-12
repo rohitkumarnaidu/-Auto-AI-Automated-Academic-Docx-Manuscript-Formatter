@@ -11,6 +11,9 @@ import { downloadExport } from '@/src/services/api';
 import { isCompleted, isFailed, isProcessing } from '@/src/constants/status';
 import useJobFromUrl from '@/src/hooks/useJobFromUrl';
 
+// Feature flag: enable LaTeX export once Agent Alpha ships Module 2 Step 5
+const LATEX_EXPORT_ENABLED = process.env.NEXT_PUBLIC_LATEX_EXPORT_ENABLED === 'true';
+
 export default function Download() {
     usePageTitle('Download');
     const router = useRouter();
@@ -139,6 +142,7 @@ export default function Download() {
             const extensionMap = {
                 docx: 'docx',
                 pdf: 'pdf',
+                tex: 'tex',
             };
             const ext = extensionMap[normalizedFormat] || 'docx';
             const baseName = job.originalFileName
@@ -252,8 +256,27 @@ export default function Download() {
                                         )}
                                     </button>
                                     {/* TODO: Add "tex" option after Module 2 LaTeX export is built */}
+                                    {LATEX_EXPORT_ENABLED && (
+                                        <button
+                                            onClick={() => handleDownload('tex')}
+                                            disabled={isDownloading}
+                                            className="flex w-full cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-12 px-6 bg-slate-800 dark:bg-slate-700 text-white text-base font-bold leading-normal transition-all hover:bg-slate-700 dark:hover:bg-slate-600 active:scale-[0.98] shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {isDownloading ? (
+                                                <>
+                                                    <span className="material-symbols-outlined animate-spin">progress_activity</span>
+                                                    <span className="truncate">Downloading...</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <span className="material-symbols-outlined">code</span>
+                                                    <span className="truncate">Download as LaTeX (.tex)</span>
+                                                </>
+                                            )}
+                                        </button>
+                                    )}
                                     <p className="text-xs text-slate-500 text-center">
-                                        Available formats: DOCX, PDF
+                                        Available formats: DOCX, PDF{LATEX_EXPORT_ENABLED ? ', TEX' : ''}
                                     </p>
                                 </div>
                             </div>

@@ -3,6 +3,7 @@ import usePageTitle from '@/src/hooks/usePageTitle';
 import { useEffect, useState, useCallback } from 'react';
 import Footer from '@/src/components/Footer';
 import { getCustomTemplates, saveCustomTemplate } from '@/src/services/api';
+import { useToast } from '@/src/context/ToastContext';
 
 const CUSTOM_TEMPLATES_KEY = 'scholarform_custom_templates';
 
@@ -66,8 +67,8 @@ export default function TemplateEditor() {
     usePageTitle('Template Editor');
     const [settings, setSettings] = useState(DEFAULT_SETTINGS);
     const [savedTemplates, setSavedTemplates] = useState([]);
-    const [saveMessage, setSaveMessage] = useState('');
     const [saving, setSaving] = useState(false);
+    const { addToast } = useToast();
 
     useEffect(() => {
         const localTemplates = readLocalTemplates();
@@ -130,7 +131,6 @@ export default function TemplateEditor() {
 
     const handleSaveTemplate = useCallback(async () => {
         setSaving(true);
-        setSaveMessage('');
         const timestamp = new Date().toISOString();
         const templateName = settings.name?.trim() || `Custom Template ${savedTemplates.length + 1}`;
         const template = {
@@ -155,10 +155,10 @@ export default function TemplateEditor() {
         try {
             await saveCustomTemplate(template);
             saveTemplateLocal(template);
-            setSaveMessage(`Saved "${templateName}" to backend and local cache.`);
+            addToast(`Saved "${templateName}" to cloud successfully.`, 'success');
         } catch (error) {
             saveTemplateLocal(template);
-            setSaveMessage(`Saved "${templateName}" locally (API unavailable).`);
+            addToast(`Saved "${templateName}" locally (API unavailable).`, 'warning');
             console.warn('Template API save failed. Falling back to localStorage.', error);
         }
 
@@ -169,7 +169,7 @@ export default function TemplateEditor() {
             lineSpacing: prev.lineSpacing,
         }));
         setSaving(false);
-    }, [settings, savedTemplates.length]);
+    }, [settings, savedTemplates.length, addToast]);
 
     useEffect(() => {
         const handleKeyDown = (e) => {
@@ -322,10 +322,6 @@ export default function TemplateEditor() {
                         >
                             {saving ? 'Saving...' : 'Save Custom Template'}
                         </button>
-
-                        {saveMessage ? (
-                            <p className="text-sm text-green-600 dark:text-green-400">{saveMessage}</p>
-                        ) : null}
                     </section>
 
                     <aside className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
