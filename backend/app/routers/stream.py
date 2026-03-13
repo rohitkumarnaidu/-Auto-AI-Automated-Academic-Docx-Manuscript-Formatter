@@ -3,88 +3,47 @@ Streaming Response Router
 Provides Server-Sent Events (SSE) for real-time agent feedback.
 """
 
-import redis as sync_redis
-import redis.asyncio as aioredis
+from __future__ import annotations
+
 import asyncio
 import json
-import time
 import logging
 from typing import AsyncGenerator
-from fastapi import APIRouter, Request, Depends
-from sse_starlette.sse import EventSourceResponse
-from app.utils.dependencies import get_current_user
-from app.config.settings import settings
 
-# Configure logging
+from fastapi import APIRouter, Depends, Request
+from sse_starlette.sse import EventSourceResponse
+
+from app.realtime.events import make_event
+from app.realtime.pubsub import RedisPubSub
+from app.utils.dependencies import get_current_user
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/stream", tags=["Streaming"])
+_pubsub = RedisPubSub()
 
-# Phase 5: Redis Pub/Sub for SSE
-REDIS_URL = settings.REDIS_URL
-REDIS_ENABLED = bool(settings.REDIS_ENABLED)
-async_redis = None
-sync_redis_client = None
-if REDIS_ENABLED:
-    try:
-        async_redis = aioredis.from_url(REDIS_URL)
-        sync_redis_client = sync_redis.from_url(REDIS_URL)
-        sync_redis_client.ping()
-    except Exception as exc:
-        logger.info("SSE Redis unavailable at startup (%s). SSE publish disabled.", exc)
-        async_redis = None
-        sync_redis_client = None
-else:
-    logger.info("SSE Redis disabled via REDIS_ENABLED=false.")
-_redis_publish_unavailable = False
-_redis_publish_retry_after = 0.0
 
 async def event_generator(job_id: str, request: Request) -> AsyncGenerator[dict, None]:
-    """
-    Generate SSE events for a specific job using Redis Pub/Sub.
-    """
-    if async_redis is None:
-        while not await request.is_disconnected():
-            await asyncio.sleep(10)
-            yield {"event": "keepalive", "data": json.dumps({"job_id": job_id})}
-        return
+    channel = f"job:{job_id}"
+    connected_event = make_event(
+        "connected",
+        job_id=job_id,
+        payload={"message": f"Connected to stream for job {job_id}"},
+    )
+    yield {"event": "connected", "data": json.dumps(connected_event)}
+    async for event in _pubsub.subscribe(channel):
+        if await request.is_disconnected():
+            logger.info("Client disconnected from stream %s", job_id)
+            break
+        event_type = event.get("event_type") or "message"
+        yield {"event": event_type, "data": json.dumps(event)}
 
-    pubsub = async_redis.pubsub()
-    await pubsub.subscribe(f"job:{job_id}")
-    
-    try:
-        # Initial connection event
-        yield {
-            "event": "connected",
-            "data": json.dumps({"message": f"Connected to stream for job {job_id}"})
-        }
-        
-        async for message in pubsub.listen():
-            if await request.is_disconnected():
-                logger.info(f"Client disconnected from stream {job_id}")
-                break
-            
-            if message["type"] == "message":
-                try:
-                    event_data = json.loads(message["data"])
-                    yield event_data
-                except Exception as e:
-                    logger.error(f"Error parsing Redis message: {e}")
-            
-            # Note: sse-starlette handles keepalive automatically if configured, 
-            # or we can rely on pubsub.listen() blocking until a message arrives.
-                
-    except asyncio.CancelledError:
-        logger.info(f"Stream cancelled for job {job_id}")
-    finally:
-        await pubsub.unsubscribe(f"job:{job_id}")
-        await pubsub.close()
 
 @router.get("/{job_id}")
 async def stream_job_events(
     job_id: str,
     request: Request,
-    current_user=Depends(get_current_user)
+    current_user=Depends(get_current_user),
 ):
     """
     Stream real-time events for a specific job.
@@ -92,29 +51,22 @@ async def stream_job_events(
     """
     return EventSourceResponse(event_generator(job_id, request))
 
-def emit_event(job_id: str, event_type: str, data: dict):
+
+def emit_event(job_id: str, event_type: str, data: dict) -> None:
     """
     Emit an event to the job's stream via Redis Pub/Sub.
     Sync-friendly for use in pipeline threads.
     """
-    global _redis_publish_unavailable, _redis_publish_retry_after
-    if sync_redis_client is None:
-        return
-    now = time.time()
-    if _redis_publish_unavailable and now < _redis_publish_retry_after:
-        return
-
+    event = make_event(
+        event_type,
+        job_id=str(job_id),
+        stage=data.get("phase") or data.get("stage"),
+        progress=data.get("progress"),
+        payload=data,
+    )
+    channel = f"job:{job_id}"
     try:
-        sync_redis_client.publish(
-            f"job:{job_id}", 
-            json.dumps({"event": event_type, "data": data})
-        )
-        if _redis_publish_unavailable:
-            logger.info("Redis event publishing restored.")
-            _redis_publish_unavailable = False
-            _redis_publish_retry_after = 0.0
-    except Exception as e:
-        if not _redis_publish_unavailable:
-            logger.warning("Redis unavailable for SSE publishing: %s. Falling back to no-op.", e)
-        _redis_publish_unavailable = True
-        _redis_publish_retry_after = now + 30.0
+        loop = asyncio.get_running_loop()
+        loop.create_task(_pubsub.publish(channel, event))
+    except RuntimeError:
+        asyncio.run(_pubsub.publish(channel, event))

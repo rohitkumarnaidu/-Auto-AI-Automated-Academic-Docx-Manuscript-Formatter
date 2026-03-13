@@ -158,6 +158,13 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.warning("Enhancement capability bootstrap failed: %s", e)
 
+        try:
+            from app.services.preview_renderer import preload_template_css
+            preload_template_css()
+            logger.info("Preview template CSS preloaded.")
+        except Exception as e:
+            logger.warning("Preview CSS preload failed: %s", e)
+
     yield  # App is running
 
     # ── SHUTDOWN ──
@@ -237,6 +244,10 @@ app.include_router(feedback.router, prefix="/api")
 # Streaming Responses (Next-Gen)
 from app.routers import stream
 app.include_router(stream.router)
+
+# Live Preview (Formatter Mode B)
+from app.routers import preview
+app.include_router(preview.router)
 
 # Document Generator (generate from scratch — no upload needed)
 from app.routers import generator
