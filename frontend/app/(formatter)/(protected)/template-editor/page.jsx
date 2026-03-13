@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import Footer from '@/src/components/Footer';
 import { getCustomTemplates, saveCustomTemplate } from '@/src/services/api';
 import { useToast } from '@/src/context/ToastContext';
+import { useAuth } from '@/src/context/AuthContext';
 
 const CUSTOM_TEMPLATES_KEY = 'scholarform_custom_templates';
 
@@ -65,6 +66,7 @@ const normalizeTemplateCollection = (payload) => {
 
 export default function TemplateEditor() {
     usePageTitle('Template Editor');
+    const { loading: authLoading } = useAuth();
     const [settings, setSettings] = useState(DEFAULT_SETTINGS);
     const [savedTemplates, setSavedTemplates] = useState([]);
     const [saving, setSaving] = useState(false);
@@ -73,6 +75,11 @@ export default function TemplateEditor() {
     useEffect(() => {
         const localTemplates = readLocalTemplates();
         setSavedTemplates(localTemplates);
+
+        // Wait for auth to finish loading before calling the API.
+        // Without this guard, the request fires before the Supabase session
+        // is read from localStorage, resulting in a 401 (no Bearer token).
+        if (authLoading) return;
 
         let isMounted = true;
 
@@ -95,7 +102,7 @@ export default function TemplateEditor() {
         return () => {
             isMounted = false;
         };
-    }, []);
+    }, [authLoading]);
 
     const updateSetting = (key, value) => {
         setSettings((prev) => ({

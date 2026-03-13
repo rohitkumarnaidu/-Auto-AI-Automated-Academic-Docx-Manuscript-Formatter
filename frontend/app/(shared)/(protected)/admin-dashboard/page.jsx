@@ -19,42 +19,52 @@ export default function AdminDashboard() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
+    const applyMetricsResults = ([db, health, dashboard]) => {
+        const nextDbMetrics = db.status === 'fulfilled' ? db.value : null;
+        const nextHealthData = health.status === 'fulfilled' ? health.value : null;
+        const nextDashboardData = dashboard.status === 'fulfilled' ? dashboard.value : null;
+        const unavailableCount = [nextDbMetrics, nextHealthData, nextDashboardData].filter((value) => !value).length;
+
+        setDbMetrics(nextDbMetrics);
+        setHealthData(nextHealthData);
+        setDashboardData(nextDashboardData);
+
+        if (unavailableCount === 0) {
+            setError('');
+            return;
+        }
+
+        setError(
+            unavailableCount === 3
+                ? 'Metrics services are currently unavailable.'
+                : 'Some metrics are currently unavailable.'
+        );
+    };
+
     useEffect(() => {
         const loadAll = async () => {
             setLoading(true);
             setError('');
-            try {
-                const [db, health, dashboard] = await Promise.allSettled([
-                    getMetricsDb(),
-                    getMetricsHealth(),
-                    getMetricsDashboard(),
-                ]);
-                if (db.status === 'fulfilled') setDbMetrics(db.value);
-                if (health.status === 'fulfilled') setHealthData(health.value);
-                if (dashboard.status === 'fulfilled') setDashboardData(dashboard.value);
-            } catch (err) {
-                setError('Failed to load some metrics. Services may be unavailable.');
-            } finally {
-                setLoading(false);
-            }
+            const results = await Promise.allSettled([
+                getMetricsDb(),
+                getMetricsHealth(),
+                getMetricsDashboard(),
+            ]);
+            applyMetricsResults(results);
+            setLoading(false);
         };
         loadAll();
     }, []);
 
     const refreshMetrics = async () => {
         setLoading(true);
-        try {
-            const [db, health, dashboard] = await Promise.allSettled([
-                getMetricsDb(),
-                getMetricsHealth(),
-                getMetricsDashboard(),
-            ]);
-            if (db.status === 'fulfilled') setDbMetrics(db.value);
-            if (health.status === 'fulfilled') setHealthData(health.value);
-            if (dashboard.status === 'fulfilled') setDashboardData(dashboard.value);
-        } finally {
-            setLoading(false);
-        }
+        const results = await Promise.allSettled([
+            getMetricsDb(),
+            getMetricsHealth(),
+            getMetricsDashboard(),
+        ]);
+        applyMetricsResults(results);
+        setLoading(false);
     };
 
     // Admin role guard.
@@ -99,7 +109,7 @@ export default function AdminDashboard() {
                         <span className="material-symbols-outlined text-green-500">dns</span>
                         Service Health
                     </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                         <HealthStatusIndicator
                             status={dbMetrics?.status || 'unknown'}
                             label="Database (Supabase)"
@@ -107,13 +117,18 @@ export default function AdminDashboard() {
                         />
                         <HealthStatusIndicator
                             status={healthData?.status || 'unknown'}
-                            label="AI Services"
-                            details={healthData?.model_name || 'Checking...'}
+                            label="System Readiness"
+                            details={healthData?.details || 'Checking...'}
                         />
                         <HealthStatusIndicator
-                            status={healthData?.redis_status || 'unknown'}
-                            label="Redis Cache"
-                            details={healthData?.redis_status === 'healthy' ? 'Connected' : 'Fallback mode'}
+                            status={healthData?.aiServicesStatus || 'unknown'}
+                            label="AI Services"
+                            details={healthData?.aiServicesDetails || 'Checking...'}
+                        />
+                        <HealthStatusIndicator
+                            status={healthData?.grobidStatus || 'unknown'}
+                            label="GROBID Parser"
+                            details={healthData?.grobidDetails || 'Checking...'}
                         />
                     </div>
                 </section>
@@ -125,9 +140,9 @@ export default function AdminDashboard() {
                     </h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 stagger-children">
                         <MetricsCard title="Total Documents" value={dbMetrics?.document_count ?? '—'} icon="description" color="primary" isLoading={loading} />
-                        <MetricsCard title="Processing Success" value={dashboardData?.success_rate ? `${dashboardData.success_rate}%` : '—'} icon="check_circle" color="green" subtitle="Completion rate" isLoading={loading} />
-                        <MetricsCard title="Avg Confidence" value={dashboardData?.avg_confidence ? `${(dashboardData.avg_confidence * 100).toFixed(1)}%` : '—'} icon="psychology" color="purple" subtitle="AI model confidence" isLoading={loading} />
-                        <MetricsCard title="Error Rate" value={dashboardData?.error_rate ? `${dashboardData.error_rate}%` : '—'} icon="error_outline" color={dashboardData?.error_rate > 5 ? 'red' : 'amber'} subtitle="Last 24 hours" isLoading={loading} />
+                        <MetricsCard title="Processing Success" value={typeof dashboardData?.successRatePct === 'number' ? `${dashboardData.successRatePct.toFixed(1)}%` : '—'} icon="check_circle" color="green" subtitle="Completion rate" isLoading={loading} />
+                        <MetricsCard title="Avg Confidence" value={typeof dashboardData?.avgConfidencePct === 'number' ? `${dashboardData.avgConfidencePct.toFixed(1)}%` : '—'} icon="psychology" color="purple" subtitle="Quality score average" isLoading={loading} />
+                        <MetricsCard title="Error Rate" value={typeof dashboardData?.errorRatePct === 'number' ? `${dashboardData.errorRatePct.toFixed(1)}%` : '—'} icon="error_outline" color={dashboardData?.errorRatePct > 5 ? 'red' : 'amber'} subtitle="Across recorded calls" isLoading={loading} />
                     </div>
                 </section>
 
@@ -141,22 +156,34 @@ export default function AdminDashboard() {
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <div>
                                     <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">Model</p>
-                                    <p className="text-lg font-semibold text-slate-900 dark:text-white">{dashboardData.model_name || 'N/A'}</p>
+                                    <p className="text-lg font-semibold text-slate-900 dark:text-white">{dashboardData.modelLabel || 'N/A'}</p>
                                 </div>
                                 <div>
                                     <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">Total Processed</p>
-                                    <p className="text-lg font-semibold text-slate-900 dark:text-white">{dashboardData.total_processed ?? 0}</p>
+                                    <p className="text-lg font-semibold text-slate-900 dark:text-white">{dashboardData.totalProcessed ?? 0}</p>
                                 </div>
                                 <div>
                                     <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">Avg Processing Time</p>
-                                    <p className="text-lg font-semibold text-slate-900 dark:text-white">{dashboardData.avg_processing_time ? `${dashboardData.avg_processing_time}s` : 'N/A'}</p>
+                                    <p className="text-lg font-semibold text-slate-900 dark:text-white">{typeof dashboardData.avgProcessingTimeSeconds === 'number' ? `${dashboardData.avgProcessingTimeSeconds.toFixed(2)}s` : 'N/A'}</p>
                                 </div>
                             </div>
-                            {dashboardData.ab_testing && (
+                            <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">Automation Level</p>
+                                    <p className="text-lg font-semibold text-slate-900 dark:text-white">{dashboardData.automationLevel || 'Unknown'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">Fallback Rate</p>
+                                    <p className="text-lg font-semibold text-slate-900 dark:text-white">
+                                        {typeof dashboardData.fallbackRatePct === 'number' ? `${dashboardData.fallbackRatePct.toFixed(1)}%` : 'N/A'}
+                                    </p>
+                                </div>
+                            </div>
+                            {dashboardData.abTesting && (
                                 <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
                                     <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">A/B Testing Results</h3>
                                     <div className="grid grid-cols-2 gap-4">
-                                        {Object.entries(dashboardData.ab_testing).map(([variant, stats]) => (
+                                        {Object.entries(dashboardData.abTesting).map(([variant, stats]) => (
                                             <div key={variant} className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
                                                 <p className="text-xs font-medium text-slate-500 uppercase">{variant}</p>
                                                 <p className="text-lg font-bold text-slate-900 dark:text-white">{typeof stats === 'object' ? JSON.stringify(stats) : stats}</p>

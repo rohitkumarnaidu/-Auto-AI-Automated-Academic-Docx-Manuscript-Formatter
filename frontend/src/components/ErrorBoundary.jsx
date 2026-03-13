@@ -1,5 +1,5 @@
 import React from 'react';
-import { logFrontendError } from '../services/api';
+import { logFrontendError } from '@/src/services/api';
 
 class ErrorBoundary extends React.Component {
     constructor(props) {

@@ -4,7 +4,7 @@ import React from 'react';
 import ErrorBoundary from '../components/ErrorBoundary';
 
 // Mock the API service
-vi.mock('../services/api', () => ({
+vi.mock('@/src/services/api', () => ({
     logFrontendError: vi.fn(() => Promise.resolve()),
 }));
 

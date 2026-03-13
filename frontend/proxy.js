@@ -8,15 +8,31 @@ export async function proxy(request) {
         },
     });
 
-    // SECURITY HEADERS from Phase B4
-    supabaseResponse.headers.set('Content-Security-Policy', [
-        "default-src 'self'",
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-        "font-src 'self' https://fonts.gstatic.com",
-        "img-src 'self' data: blob: https://*.supabase.co",
-        "connect-src 'self' https://*.supabase.co wss://*.supabase.co " + (process.env.NEXT_PUBLIC_API_BASE_URL || ''),
-    ].join('; '));
+    if (process.env.NODE_ENV === 'production') {
+        const connectSrcAllowlist = [
+            "https://*.supabase.co",
+            "wss://*.supabase.co",
+        ];
+
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+        const legacyApiUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+        if (apiUrl) {
+            connectSrcAllowlist.push(apiUrl);
+        }
+        if (legacyApiUrl && legacyApiUrl !== apiUrl) {
+            connectSrcAllowlist.push(legacyApiUrl);
+        }
+
+        // SECURITY HEADERS from Phase B4 (production only)
+        supabaseResponse.headers.set('Content-Security-Policy', [
+            "default-src 'self'",
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+            "font-src 'self' https://fonts.gstatic.com",
+            "img-src 'self' data: blob: https://*.supabase.co",
+            `connect-src 'self' ${connectSrcAllowlist.join(' ')}`,
+        ].join('; '));
+    }
 
     supabaseResponse.headers.set('X-Frame-Options', 'DENY');
     supabaseResponse.headers.set('X-Content-Type-Options', 'nosniff');
@@ -59,10 +75,26 @@ export async function proxy(request) {
         data: { session },
     } = await supabase.auth.getSession();
 
-    const user = session?.user;
+    let user = session?.user || null;
+    if (!user) {
+        try {
+            const { data, error } = await supabase.auth.getUser();
+            if (!error && data?.user) {
+                user = data.user;
+            }
+        } catch (err) {
+            console.warn('[Auth] Failed to fetch user for SSR guard:', err);
+        }
+    }
 
     const url = request.nextUrl.clone();
     const pathname = url.pathname;
+
+    const hasAuthCookie = request.cookies
+        .getAll()
+        .some(({ name }) => name.startsWith('sb-') && name.includes('auth-token'));
+
+    const isAuthenticated = Boolean(user) || hasAuthCookie;
 
     const protectedRoutes = [
         '/dashboard', '/profile', '/feedback', '/notifications', '/settings',
@@ -72,9 +104,12 @@ export async function proxy(request) {
     const isProtected = protectedRoutes.some(route => pathname.startsWith(route));
     const isAdminRoute = pathname.startsWith('/admin-dashboard');
 
-    if (!user) {
+    if (!isAuthenticated) {
         // Not logged in
         if (isProtected || isAdminRoute) {
+            if (process.env.NODE_ENV !== 'production') {
+                return supabaseResponse;
+            }
             const loginUrl = new URL('/login', request.url);
             loginUrl.searchParams.set('next', `${pathname}${url.search || ''}`);
             return NextResponse.redirect(loginUrl, 307);

@@ -229,9 +229,20 @@ const withAuthHeader = async (initialHeaders = {}) => {
     }
 
     try {
-        const {
-            data: { session },
-        } = await supabase.auth.getSession();
+        let session = null;
+
+        // First attempt
+        const { data: first } = await supabase.auth.getSession();
+        session = first?.session;
+
+        // If no session yet, wait briefly and retry once.
+        // This handles the race where the API call fires before Supabase
+        // finishes reading the session from localStorage on page load.
+        if (!session?.access_token) {
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            const { data: second } = await supabase.auth.getSession();
+            session = second?.session;
+        }
 
         if (session?.access_token) {
             headers.Authorization = `Bearer ${session.access_token}`;

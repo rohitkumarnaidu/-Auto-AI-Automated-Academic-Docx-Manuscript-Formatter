@@ -64,6 +64,7 @@ export default function Edit() {
     useUnsavedChanges(isDirty);
 
     const editor = useEditor({
+        immediatelyRender: false,
         extensions: [
             StarterKit,
             Placeholder.configure({

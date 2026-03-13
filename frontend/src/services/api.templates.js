@@ -2,7 +2,11 @@ import { fetchWithAuth, sanitizePayload, sanitizeText } from './api.core';
 import { getV1, unwrapResponse } from './api.v1';
 
 export const getCustomTemplates = async () => {
-    return fetchWithAuth('/api/templates/custom');
+    return fetchWithAuth('/api/templates/custom', {
+        suppressConsoleError: true,
+        suppressMonitoring: true,
+        retryConfig: { maxRetries: 0 },
+    });
 };
 
 export const saveCustomTemplate = async (template) => {

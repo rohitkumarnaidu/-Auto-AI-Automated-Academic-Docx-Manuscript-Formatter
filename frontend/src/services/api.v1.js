@@ -127,7 +127,7 @@ const fetchV1 = async (endpoint, options = {}) => {
         return {
             data: payload?.data ?? payload,
             error: payload?.error ?? null,
-            requestId: payload?.requestId || requestId, // Server provided or client generated
+            requestId: payload?.request_id || payload?.requestId || response.headers?.get?.('X-Request-Id') || requestId,
             timestamp: payload?.timestamp || new Date().toISOString(),
         };
 

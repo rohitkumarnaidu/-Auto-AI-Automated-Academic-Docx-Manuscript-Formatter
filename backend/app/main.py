@@ -38,6 +38,24 @@ from app.pipeline.safety import safe_execution
 from app.services.enhancement_manager import enhancement_manager
 
 
+def _build_cors_origins(raw_origins: str) -> list[str]:
+    origins = [origin.strip() for origin in raw_origins.split(",") if origin.strip()]
+
+    # In local development, Next/Vite frequently shift to the next available port
+    # (3001, 3002, etc.). Keep loopback origins open on common dev ports so the
+    # browser does not fail CORS preflight with a generic "Failed to fetch".
+    if settings.DEBUG:
+        loopback_hosts = ("localhost", "127.0.0.1")
+        dev_ports = tuple(range(3000, 3011)) + (4173, 5173)
+        for host in loopback_hosts:
+            for port in dev_ports:
+                candidate = f"http://{host}:{port}"
+                if candidate not in origins:
+                    origins.append(candidate)
+
+    return origins
+
+
 def _cleanup_expired_uploads(*, upload_dir: str = "uploads", retention_days: int) -> int:
     if not os.path.isdir(upload_dir):
         return 0
@@ -160,8 +178,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS Configuration (from environment)
-origins = [origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()]
+# CORS Configuration (from environment + local dev fallbacks)
+origins = _build_cors_origins(settings.CORS_ORIGINS)
 
 app.add_middleware(
     CORSMiddleware,

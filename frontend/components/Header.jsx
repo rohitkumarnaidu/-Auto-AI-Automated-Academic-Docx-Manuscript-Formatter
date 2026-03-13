@@ -46,6 +46,7 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
 
     const isAuthRoute = AUTH_ROUTES.some((route) => pathname.startsWith(route));
     const isLandingRoute = pathname === '/';
+    const isSimplePageRoute = pathname === '/terms' || pathname === '/privacy';
     const isUploadRoute = pathname === '/upload';
 
     const activeMode = section === 'generator'
@@ -86,8 +87,8 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
     }, [pathname]);
 
     // Landing page: handled by isLandingRoute (UNTOUCHED)
-    // Auth pages (login, signup, forgot-password, etc.): always show auth header
-    if (isLandingRoute || isAuthRoute) {
+    // Auth pages and simple pages: always show auth/simple header
+    if (isLandingRoute || isAuthRoute || isSimplePageRoute) {
         return (
             <header className="app-header sticky top-0 z-50 w-full">
                 <div className="mx-auto max-w-[1240px] px-4 sm:px-6">
@@ -121,20 +122,40 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
 
                         <div className="ml-auto flex items-center gap-3 shrink-0">
                             <ThemeToggle />
-                            {isAuthRoute && (
-                                <Link href="/" className="h-10 px-3 hidden sm:inline-flex items-center text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-primary transition-colors">
-                                    Home
-                                </Link>
-                            )}
-                            {pathname !== '/login' && (
-                                <Link href="/login" className="h-10 px-3 hidden sm:inline-flex items-center text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-primary transition-colors">
-                                    Login
-                                </Link>
-                            )}
-                            {pathname !== '/signup' && (
-                                <Link href="/signup" className="h-10 px-3 inline-flex items-center text-sm font-bold text-slate-900 dark:text-white hover:text-primary dark:hover:text-primary transition-colors">
-                                    Sign Up
-                                </Link>
+                            {uiUser ? (
+                                <>
+                                    <Link href="/dashboard" className="h-10 px-3 hidden sm:inline-flex items-center text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-primary transition-colors">
+                                        Dashboard
+                                    </Link>
+                                    <button
+                                        onClick={() => router.push('/settings')}
+                                        className="h-10 w-10 ml-2 rounded-full border border-slate-200 dark:border-white/10 surface-ladder-border-10 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 active:scale-[0.98] transition-all p-0.5"
+                                        aria-label="User Profile"
+                                        title="Profile"
+                                    >
+                                        <div className="w-full h-full rounded-full bg-gradient-to-br from-violet-100 to-indigo-100 dark:from-white/10 dark:to-white/10 flex items-center justify-center text-slate-700 dark:text-slate-100">
+                                            <span className="material-symbols-outlined text-[20px] leading-none">account_circle</span>
+                                        </div>
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    {(isAuthRoute || isSimplePageRoute) && (
+                                        <Link href="/" className="h-10 px-3 hidden sm:inline-flex items-center text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-primary transition-colors">
+                                            Home
+                                        </Link>
+                                    )}
+                                    {pathname !== '/login' && (
+                                        <Link href="/login" className="h-10 px-3 hidden sm:inline-flex items-center text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-primary transition-colors">
+                                            Login
+                                        </Link>
+                                    )}
+                                    {pathname !== '/signup' && (
+                                        <Link href="/signup" className="h-10 px-3 inline-flex items-center text-sm font-bold text-slate-900 dark:text-white hover:text-primary dark:hover:text-primary transition-colors">
+                                            Sign Up
+                                        </Link>
+                                    )}
+                                </>
                             )}
                         </div>
                     </div>
@@ -187,6 +208,14 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
                             <div className={userControlRailClassName}>
                                 <ThemeToggle />
                                 <NotificationBell />
+                                <button
+                                    onClick={() => router.push('/settings')}
+                                    className={iconPillButtonClassName}
+                                    aria-label="Settings"
+                                    title="Settings"
+                                >
+                                    <span className="material-symbols-outlined text-[22px]">settings</span>
+                                </button>
                                 <button
                                     onClick={() => router.push('/profile')}
                                     className="h-10 w-10 rounded-full border border-white/70 dark:border-white/[0.12] surface-ladder-border-10 bg-white/45 dark:bg-white/[0.04] hover:bg-white/75 dark:hover:bg-white/[0.10] active:scale-[0.98] transition-all p-0.5"
@@ -355,10 +384,10 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
                             {uiUser ? (
                                 <>
                                     <button
-                                        onClick={() => router.push('/profile')}
+                                        onClick={() => router.push('/settings')}
                                         className="h-10 rounded-lg border border-slate-200 dark:border-white/10 surface-ladder-border-10 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 surface-ladder-hover-10 transition-colors"
                                     >
-                                        Profile
+                                        /settings
                                     </button>
                                 </>
                             ) : isAuthRoute ? (
@@ -382,3 +411,6 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
         </header>
     );
 }
+
+
+

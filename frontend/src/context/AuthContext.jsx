@@ -7,7 +7,7 @@ import {
     forgotPassword as apiForgotPassword,
     verifyOtp as apiVerifyOtp,
     resetPassword as apiResetPassword,
-} from '../services/api';
+} from '@/src/services/api';
 
 const AuthContext = createContext();
 
@@ -21,6 +21,7 @@ export const AuthProvider = ({ children }) => {
     // Guard: prevents onAuthStateChange('SIGNED_OUT') from clearing state
     // while signIn/signUp is in progress (setSession fires SIGNED_OUT before SIGNED_IN)
     const signingInRef = useRef(false);
+
     const clearAppSessionStorage = () => {
         [
             'scholarform_currentJob',
@@ -28,6 +29,7 @@ export const AuthProvider = ({ children }) => {
             'scholarform_active_job',
         ].forEach((key) => sessionStorage.removeItem(key));
     };
+
     const debugAuthLog = (...args) => {
         if (process.env.NODE_ENV !== 'production') {
             console.log(...args);
@@ -53,40 +55,42 @@ export const AuthProvider = ({ children }) => {
                 return;
             }
             try {
-                // 1. Get the initial session
-                const { data: { session } } = await supabase.auth.getSession();
+                // Step 1: getSession() — fast local check. The JWT is cryptographically
+                // signed, so access_token can be trusted even from localStorage.
+                const { data: { session }, error } = await supabase.auth.getSession();
 
-                // 2. Strict validation: Must have session AND access_token
-                if (!session || !session.access_token) {
-                    if (mounted) {
-                        setUser(null);
-                        setIsLoggedIn(false);
-                        setLoading(false);
-                    }
-                    return;
+                if (error) {
+                    debugAuthLog('Auth: getSession error', error);
                 }
 
-                // 3. Server-side verification (getUser is the source of truth)
-                const { data: { user }, error } = await supabase.auth.getUser();
+                if (session?.access_token && session?.user) {
+                    // Set auth state immediately — don't block on getUser() network call.
+                    // This ensures AuthGuard sees isLoggedIn=true before setLoading(false),
+                    // preventing the redirect loop.
+                    if (mounted) {
+                        setUser(session.user);
+                        setIsLoggedIn(true);
+                    }
 
-                if (error || !user) {
-                    // Token invalid/expired/revoked -> aggressive cleanup
-                    console.warn("Auth: Invalid session detected, signing out.");
-                    await supabase.auth.signOut();
-                    clearAppSessionStorage();
+                    // Call getUser() in background to upgrade to server-verified user object.
+                    // This silences the Supabase "session.user is insecure" warning and
+                    // gives us authoritative user data (e.g. for admin role checks)
+                    // without delaying the auth state resolution.
+                    supabase.auth.getUser().then(({ data: { user: serverUser } }) => {
+                        if (serverUser && mounted) {
+                            setUser(serverUser);
+                        }
+                    }).catch(() => {
+                        // Non-fatal — session.user from JWT is already in state
+                    });
+                } else {
                     if (mounted) {
                         setUser(null);
                         setIsLoggedIn(false);
-                    }
-                } else {
-                    // Valid session confirmed
-                    if (mounted) {
-                        setUser(user);
-                        setIsLoggedIn(true);
                     }
                 }
             } catch (err) {
-                console.error("Auth: Initialization error", err);
+                console.error('Auth: Initialization error', err);
                 if (mounted) {
                     setUser(null);
                     setIsLoggedIn(false);
@@ -98,10 +102,10 @@ export const AuthProvider = ({ children }) => {
 
         initializeAuth();
 
-        // 4. Listener for SUBSEQUENT changes (login/logout events)
+        // Listener for SUBSEQUENT auth changes (login/logout/token refresh events)
         let subscription;
         if (supabase) {
-            const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+            const { data } = supabase.auth.onAuthStateChange((event, session) => {
                 debugAuthLog('[Auth] onAuthStateChange:', event, { hasSession: !!session, signingIn: signingInRef.current });
 
                 if (event === 'SIGNED_OUT') {
@@ -115,7 +119,10 @@ export const AuthProvider = ({ children }) => {
                     setIsLoggedIn(false);
                     clearAppSessionStorage();
                 } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-                    // For sign-in/refresh, we trust the session but access_token must exist
+                    // Keep this synchronous — no async getUser() here.
+                    // Async getUser() inside onAuthStateChange creates a race where
+                    // signingInRef.current is cleared before the promise resolves,
+                    // allowing stale SIGNED_OUT events to slip through and cause a redirect loop.
                     if (session?.user && session?.access_token) {
                         setUser(session.user);
                         setIsLoggedIn(true);
@@ -144,11 +151,12 @@ export const AuthProvider = ({ children }) => {
             if (data?.session && supabase) {
                 const { error: sessionError } = await supabase.auth.setSession({
                     access_token: data.session.access_token,
-                    refresh_token: data.session.refresh_token
+                    refresh_token: data.session.refresh_token,
                 });
 
                 if (sessionError) {
-                    console.error("Auth: setSession failed during signup", sessionError);
+                    console.error('Auth: setSession failed during signup', sessionError);
+                    signingInRef.current = false;
                 } else {
                     const userToSet = data.user || data.session.user;
                     if (userToSet) {
@@ -156,6 +164,8 @@ export const AuthProvider = ({ children }) => {
                         setIsLoggedIn(true);
                     }
                 }
+            } else {
+                signingInRef.current = false;
             }
             return { data, error: null };
         } catch (error) {
@@ -173,22 +183,28 @@ export const AuthProvider = ({ children }) => {
 
             if (!data?.session || !supabase) {
                 signingInRef.current = false;
-            } else {
-                const { error: sessionError } = await supabase.auth.setSession({
-                    access_token: data.session.access_token,
-                    refresh_token: data.session.refresh_token
-                });
-
-                if (!sessionError) {
-                    const userToSet = data.user || data.session.user;
-                    if (userToSet) {
-                        setUser(userToSet);
-                        setIsLoggedIn(true);
-                    }
-                } else {
-                    signingInRef.current = false;
-                }
+                return { data: data ?? null, error: null };
             }
+
+            const { error: sessionError } = await supabase.auth.setSession({
+                access_token: data.session.access_token,
+                refresh_token: data.session.refresh_token,
+            });
+
+            if (sessionError) {
+                console.error('Auth: setSession failed during signIn', sessionError);
+                signingInRef.current = false;
+                return { data: null, error: sessionError.message };
+            }
+
+            // Immediately update React state so AuthGuard sees isLoggedIn=true
+            // before any navigation occurs — don't wait for onAuthStateChange.
+            const userToSet = data.user || data.session.user;
+            if (userToSet) {
+                setUser(userToSet);
+                setIsLoggedIn(true);
+            }
+            // signingInRef is cleared by onAuthStateChange SIGNED_IN event
 
             return { data, error: null };
         } catch (error) {
@@ -203,8 +219,8 @@ export const AuthProvider = ({ children }) => {
         return await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(safeRedirectPath)}`
-            }
+                redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(safeRedirectPath)}`,
+            },
         });
     };
 
@@ -212,7 +228,7 @@ export const AuthProvider = ({ children }) => {
         try {
             if (supabase) await supabase.auth.signOut();
         } catch (error) {
-            console.error("Error signing out:", error);
+            console.error('Error signing out:', error);
         } finally {
             // Force local cleanup regardless of server response
             setUser(null);
@@ -227,9 +243,9 @@ export const AuthProvider = ({ children }) => {
 
     const refreshSession = async () => {
         if (!supabase) return;
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (user && !error) {
-            setUser(user);
+        const { data: { user: refreshedUser }, error } = await supabase.auth.getUser();
+        if (refreshedUser && !error) {
+            setUser(refreshedUser);
             setIsLoggedIn(true);
         }
     };
@@ -272,12 +288,12 @@ export const AuthProvider = ({ children }) => {
         forgotPassword,
         verifyOtp,
         resetPassword,
-        loading
+        loading,
     };
 
     return (
         <AuthContext.Provider value={value}>
-            {!loading && children}
+            {children}
         </AuthContext.Provider>
     );
 };

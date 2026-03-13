@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { submitFeedback } from '../services/api';
+import { submitFeedback } from '@/src/services/api';
 
 export default function FeedbackForm({ documentId: propDocId, onSubmitted }) {
     const [documentId, setDocumentId] = useState(propDocId || '');

@@ -52,9 +52,15 @@ export default function Sidebar({ section = 'shared', onClose, isCollapsed = fal
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const router = useRouter();
-    const { user, signOut } = useAuth();
+    const { user, signOut, loading } = useAuth();
     const forceGuestMode = searchParams?.get('guest') === '1';
-    const uiUser = forceGuestMode ? null : user;
+
+    // While auth is still loading, treat uiUser as undefined (not null/not user).
+    // This prevents the sidebar from flipping to guest links on a page refresh
+    // for the brief moment before the session is read from localStorage.
+    // Once loading is done, we resolve to the actual user (or null for guests).
+    const uiUser = forceGuestMode ? null : (loading ? undefined : user);
+
     const isAdminUser = Boolean(
         uiUser?.is_admin
         || uiUser?.app_metadata?.role === 'admin'
@@ -70,31 +76,36 @@ export default function Sidebar({ section = 'shared', onClose, isCollapsed = fal
                 ? 'generator'
                 : 'formatter';
 
-    const mainNavLinks = uiUser ? USER_MAIN_LINKS_BY_MODE[activeMode] : APP_GUEST_LINKS;
-    const secondaryNavLinks = uiUser
-        ? [
+    // While loading (uiUser === undefined), show user-style links as a placeholder
+    // so there's no flash of guest content. The actual links will match once resolved.
+    const mainNavLinks = (uiUser === null)
+        ? APP_GUEST_LINKS
+        : USER_MAIN_LINKS_BY_MODE[activeMode] ?? USER_MAIN_LINKS_BY_MODE.formatter;
+
+    const secondaryNavLinks = (uiUser === null)
+        ? []
+        : [
             ...USER_SECONDARY_LINKS,
             ...(isAdminUser ? [{ href: '/admin-dashboard', label: 'Admin Dashboard', icon: 'admin_panel_settings' }] : []),
-        ]
-        : [];
+        ];
 
-    const actionHref = uiUser
-        ? activeMode === 'generator'
+    const actionHref = (uiUser === null)
+        ? '/signup'
+        : activeMode === 'generator'
             ? '/generate'
-            : '/upload'
-        : '/signup';
+            : '/upload';
 
-    const actionLabel = uiUser
-        ? activeMode === 'generator'
+    const actionLabel = (uiUser === null)
+        ? 'Get Started'
+        : activeMode === 'generator'
             ? 'New Draft'
-            : 'New Format'
-        : 'Get Started';
+            : 'New Format';
 
-    const actionIcon = uiUser
-        ? activeMode === 'generator'
+    const actionIcon = (uiUser === null)
+        ? 'rocket_launch'
+        : activeMode === 'generator'
             ? 'edit_square'
-            : 'add_circle'
-        : 'rocket_launch';
+            : 'add_circle';
 
     const handleNavigation = (href) => {
         router.push(href);

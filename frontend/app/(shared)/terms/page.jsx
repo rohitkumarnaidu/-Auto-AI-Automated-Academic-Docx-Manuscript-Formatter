@@ -49,8 +49,8 @@ export default function Terms() {
     ];
 
     return (
-        <div className="min-h-screen bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 flex flex-col">
-                        <main className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 py-8 sm:py-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="flex flex-col">
+            <main className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 py-8 sm:py-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white">
                     Terms of Service
                 </h1>

@@ -1,7 +1,7 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 
 import { useAuth } from './AuthContext';
-import { getDocuments } from '../services/api';
+import { getDocuments } from '@/src/services/api';
 import { isCompleted, isFailed, isProcessing } from '../constants/status';
 
 const DocumentContext = createContext();
