@@ -12,6 +12,7 @@ _IDEMPOTENT_PATH_SUFFIXES = (
     "/upload",
     "/generate",
     "/generator/sessions",
+    "/synthesis/sessions",
 )
 
 

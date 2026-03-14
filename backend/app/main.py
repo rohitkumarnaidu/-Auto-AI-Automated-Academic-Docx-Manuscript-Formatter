@@ -226,6 +226,7 @@ if settings.FORCE_HTTPS:
 app.add_middleware(RequestIdMiddleware)
 
 # Include Routers
+# v1_router now includes synthesis endpoints under /api/v1/synthesis
 app.include_router(v1_router)
 app.include_router(auth.router)
 app.include_router(documents.router)
