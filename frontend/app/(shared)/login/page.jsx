@@ -26,7 +26,7 @@ export default function Login() {
         setError('');
         setLocalLoading(true);
         const { data, error: signInError } = await signIn(email, password);
-        
+
         if (signInError) {
             console.error(signInError);
             setError(signInError);
@@ -35,10 +35,10 @@ export default function Login() {
             // Check if user is an admin
             const userObj = data?.user || data?.session?.user;
             const isAdmin = userObj?.app_metadata?.role === 'admin' || userObj?.user_metadata?.role === 'admin';
-            
+
             // Route admins to admin dashboard if no specific next path was requested
-            const finalRedirectPath = (isAdmin && redirectPath === '/dashboard') 
-                ? '/admin-dashboard' 
+            const finalRedirectPath = (isAdmin && redirectPath === '/dashboard')
+                ? '/admin-dashboard'
                 : redirectPath;
 
             router.push(finalRedirectPath);

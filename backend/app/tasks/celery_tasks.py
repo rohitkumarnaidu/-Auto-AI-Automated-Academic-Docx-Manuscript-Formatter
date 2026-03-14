@@ -91,6 +91,81 @@ def process_generation_task(job_id: str):
         return False
 
 
+@celery_app.task(name="process_agent_pipeline_async")
+def process_agent_pipeline_task(session_id: str, user_prompt: str):
+    """
+    Run agent-based document generation pipeline via Celery.
+    """
+    logger.info("Starting agent pipeline for session: %s", session_id)
+    try:
+        from app.pipeline.generation.agent import AgentPipeline
+        from app.services.generator_session_service import GeneratorSessionService
+        from app.realtime.pubsub import RedisPubSub
+
+        pipeline = AgentPipeline(
+            session_service=GeneratorSessionService(),
+            pipeline_orchestrator=PipelineOrchestrator(),
+            pubsub=RedisPubSub(),
+        )
+        asyncio.run(pipeline.run(str(session_id), user_prompt))
+        logger.info("Agent pipeline %s completed.", session_id)
+        return True
+    except Exception as exc:
+        logger.error("Agent pipeline failed for %s: %s", session_id, exc, exc_info=True)
+        DocumentService.mark_document_failed(str(session_id), str(exc))
+        return False
+
+
+@celery_app.task(name="process_agent_resume_async")
+def process_agent_resume_task(session_id: str):
+    """
+    Resume agent pipeline after outline approval.
+    """
+    logger.info("Resuming agent pipeline for session: %s", session_id)
+    try:
+        from app.pipeline.generation.agent import AgentPipeline
+        from app.services.generator_session_service import GeneratorSessionService
+        from app.realtime.pubsub import RedisPubSub
+
+        pipeline = AgentPipeline(
+            session_service=GeneratorSessionService(),
+            pipeline_orchestrator=PipelineOrchestrator(),
+            pubsub=RedisPubSub(),
+        )
+        asyncio.run(pipeline.resume(str(session_id)))
+        logger.info("Agent pipeline resume %s completed.", session_id)
+        return True
+    except Exception as exc:
+        logger.error("Agent resume failed for %s: %s", session_id, exc, exc_info=True)
+        DocumentService.mark_document_failed(str(session_id), str(exc))
+        return False
+
+
+@celery_app.task(name="process_agent_rewrite_async")
+def process_agent_rewrite_task(session_id: str, section_name: str, instruction: str):
+    """
+    Rewrite a specific section in an agent-generated document.
+    """
+    logger.info("Rewriting section %s for session %s", section_name, session_id)
+    try:
+        from app.pipeline.generation.agent import AgentPipeline
+        from app.services.generator_session_service import GeneratorSessionService
+        from app.realtime.pubsub import RedisPubSub
+
+        pipeline = AgentPipeline(
+            session_service=GeneratorSessionService(),
+            pipeline_orchestrator=PipelineOrchestrator(),
+            pubsub=RedisPubSub(),
+        )
+        asyncio.run(pipeline.rewrite_section(str(session_id), section_name, instruction))
+        logger.info("Section rewrite completed for %s", session_id)
+        return True
+    except Exception as exc:
+        logger.error("Agent rewrite failed for %s: %s", session_id, exc, exc_info=True)
+        DocumentService.mark_document_failed(str(session_id), str(exc))
+        return False
+
+
 @celery_app.task(name="process_edit_document_async")
 def process_edit_document_task(job_id: str, edited_structured_data: dict, template_name: str = "IEEE"):
     """

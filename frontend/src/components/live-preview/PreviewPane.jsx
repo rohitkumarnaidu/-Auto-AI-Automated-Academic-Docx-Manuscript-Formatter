@@ -51,14 +51,11 @@ export default function PreviewPane({ html, isLoading }) {
                             rounded-lg shadow-lg
                             border border-slate-200 dark:border-slate-800
                             p-6 sm:p-10 lg:p-14
-                            prose prose-slate dark:prose-invert
-                            prose-headings:font-serif
-                            prose-p:leading-relaxed
-                            text-slate-800 dark:text-slate-200
+                            prose dark:prose-invert max-w-none
+                            prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg
                             font-serif text-[15px]
                             transition-opacity duration-200
                         "
-                        /* eslint-disable-next-line react/no-danger */
                         dangerouslySetInnerHTML={{ __html: sanitized }}
                     />
                 ) : (

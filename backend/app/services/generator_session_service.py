@@ -91,6 +91,20 @@ class GeneratorSessionService:
         )
         return result.data or []
 
+    async def list_sessions(self, user_id: Optional[str], limit: int = 50) -> list[dict]:
+        sb = get_supabase_client()
+        if sb is None:
+            raise RuntimeError("Supabase client unavailable.")
+        query = sb.table("generator_sessions").select("*")
+        if user_id:
+            query = query.eq("user_id", str(user_id))
+        result = (
+            query.order("updated_at", desc=True)
+            .limit(int(limit or 50))
+            .execute()
+        )
+        return result.data or []
+
     async def save_document_version(
         self,
         session_id: str,

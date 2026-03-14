@@ -26,7 +26,9 @@ export async function createSession(files, sessionType, template, config) {
         let errorData;
         try {
             errorData = await response.json();
-        } catch(e) {}
+        } catch (err) {
+            // Intentionally ignoring explicit JSON parse errors here since it's a stream
+        }
         throw new Error(errorData?.error?.message || errorData?.detail || `Failed to create session (${response.status})`);
     }
     
@@ -34,8 +36,29 @@ export async function createSession(files, sessionType, template, config) {
     return unwrapResponse({ data: payload?.data ?? payload, error: payload?.error });
 }
 
+export async function createAgentSession(prompt, template, config) {
+    const payload = {
+        session_type: 'agent',
+        prompt,
+        template,
+        config: config || {},
+    };
+    const response = await postV1('/generator/sessions', payload);
+    return unwrapResponse(response);
+}
+
 export async function getSession(sessionId) {
     const response = await getV1(`/generator/sessions/${sessionId}`);
+    return unwrapResponse(response);
+}
+
+export async function getSessionMessages(sessionId, limit = 100) {
+    const response = await getV1(`/generator/sessions/${sessionId}/messages?limit=${limit}`);
+    return unwrapResponse(response);
+}
+
+export async function getSessionDocument(sessionId) {
+    const response = await getV1(`/generator/sessions/${sessionId}/document`);
     return unwrapResponse(response);
 }
 
@@ -44,7 +67,8 @@ export async function sendMessage(sessionId, content) {
     return unwrapResponse(response);
 }
 
-export async function approveOutline(sessionId) {
-    const response = await postV1(`/generator/sessions/${sessionId}/outline/approve`, {});
+export async function approveOutline(sessionId, outline) {
+    const payload = outline ? { outline } : {};
+    const response = await postV1(`/generator/sessions/${sessionId}/outline/approve`, payload);
     return unwrapResponse(response);
 }

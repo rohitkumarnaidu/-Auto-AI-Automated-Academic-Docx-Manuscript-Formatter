@@ -3,10 +3,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Send, Download, FileText, CheckCircle, ChevronRight, MessageSquare } from 'lucide-react';
-import MultiUploadPanel from '../../../src/components/generator/MultiUploadPanel';
-import SynthesisStageTimeline from '../../../src/components/generator/SynthesisStageTimeline';
-import { createSession, sendMessage } from '../../../src/services/api.generator.v1';
-import { useGeneratorSessionStream } from '../../../src/hooks/useGeneratorSessionStream';
+import MultiUploadPanel from '../../../../src/components/generator/MultiUploadPanel';
+import SynthesisStageTimeline from '../../../../src/components/generator/SynthesisStageTimeline';
+import { createSession, sendMessage } from '../../../../src/services/api.generator.v1';
+import { useGeneratorSessionStream } from '../../../../src/hooks/useGeneratorSessionStream';
 
 export default function MultiUploadPage() {
     const router = useRouter();

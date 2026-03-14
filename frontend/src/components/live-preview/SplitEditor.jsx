@@ -1,6 +1,10 @@
 'use client';
 import { useCallback } from 'react';
-import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
+import dynamic from 'next/dynamic';
+
+const PanelGroup = dynamic(() => import('react-resizable-panels').then(mod => mod.PanelGroup), { ssr: false });
+const Panel = dynamic(() => import('react-resizable-panels').then(mod => mod.Panel), { ssr: false });
+const PanelResizeHandle = dynamic(() => import('react-resizable-panels').then(mod => mod.PanelResizeHandle), { ssr: false });
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';

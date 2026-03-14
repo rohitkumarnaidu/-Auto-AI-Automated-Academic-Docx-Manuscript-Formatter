@@ -9,7 +9,7 @@ export default function SynthesisResultPage() {
     const searchParams = useSearchParams();
     const sessionId = searchParams.get('session');
     const router = useRouter();
-    
+
     const [sessionData, setSessionData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -56,13 +56,13 @@ export default function SynthesisResultPage() {
 
     return (
         <div className="max-w-6xl mx-auto px-4 py-12">
-            <button 
+            <button
                 onClick={() => router.back()}
                 className="flex items-center text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 font-medium mb-8 transition"
             >
                 <ArrowLeft className="w-4 h-4 mr-2" /> Back
             </button>
-            
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Left Column: Result Card */}
                 <div className="lg:col-span-2 space-y-6">
@@ -82,7 +82,7 @@ export default function SynthesisResultPage() {
                         </div>
 
                         <div className="mt-8 flex flex-wrap gap-4">
-                            <a 
+                            <a
                                 href={`${apiUrl}${documentUrl}`}
                                 className="flex-1 sm:flex-none inline-flex justify-center items-center px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl shadow-sm transition"
                                 download
@@ -90,7 +90,7 @@ export default function SynthesisResultPage() {
                                 <Download className="w-5 h-5 mr-2" />
                                 Download DOCX
                             </a>
-                            <a 
+                            <a
                                 href={`${apiUrl}${pdfUrl}`}
                                 className="flex-1 sm:flex-none inline-flex justify-center items-center px-6 py-3 bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40 border border-red-200 dark:border-red-900 font-medium rounded-xl transition"
                                 download
@@ -102,7 +102,7 @@ export default function SynthesisResultPage() {
                     </div>
 
                     <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-8 flex items-center justify-between">
-                         <div className="flex items-center">
+                        <div className="flex items-center">
                             <div className="p-3 bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400 rounded-full mr-4">
                                 <MessageSquare className="w-6 h-6" />
                             </div>
@@ -110,8 +110,8 @@ export default function SynthesisResultPage() {
                                 <h3 className="font-semibold text-slate-900 dark:text-white text-lg">Follow-up Questions?</h3>
                                 <p className="text-slate-500 dark:text-slate-400 text-sm">Review your cross-document Q&A session.</p>
                             </div>
-                         </div>
-                         <button 
+                        </div>
+                        <button
                             onClick={() => router.push('/multi-upload')}
                             className="px-5 py-2 whitespace-nowrap bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg text-sm font-medium transition"
                         >
@@ -125,17 +125,17 @@ export default function SynthesisResultPage() {
                     {/* Quality Score Panel */}
                     <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 flex flex-col items-center">
                         <h4 className="font-semibold text-slate-700 dark:text-slate-300 mb-6 self-start">Confidence Score</h4>
-                        
+
                         <div className="relative w-32 h-32 flex items-center justify-center">
                             <svg className="w-full h-full transform -rotate-90">
                                 <circle cx="64" cy="64" r="56" fill="none" className="stroke-slate-100 dark:stroke-slate-700" strokeWidth="12" />
-                                <circle 
-                                    cx="64" cy="64" r="56" fill="none" 
-                                    className="stroke-green-500" 
-                                    strokeWidth="12" 
-                                    strokeDasharray="351.8" 
+                                <circle
+                                    cx="64" cy="64" r="56" fill="none"
+                                    className="stroke-green-500"
+                                    strokeWidth="12"
+                                    strokeDasharray="351.8"
                                     strokeDashoffset={`${351.8 - (351.8 * 92) / 100}`}
-                                    strokeLinecap="round" 
+                                    strokeLinecap="round"
                                 />
                             </svg>
                             <div className="absolute inset-0 flex items-center justify-center flex-col">
