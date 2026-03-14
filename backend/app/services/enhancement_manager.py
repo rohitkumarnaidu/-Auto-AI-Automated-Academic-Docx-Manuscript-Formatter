@@ -115,6 +115,7 @@ class EnhancementManager:
         job_id: str,
         template_name: str,
         formatting_options: Dict[str, Any] | None = None,
+        queue_name: str | None = None,
     ) -> Dict[str, Any]:
         """
         Dispatch upload pipeline job with graceful fallback.
@@ -128,7 +129,8 @@ class EnhancementManager:
             try:
                 from app.tasks.celery_tasks import process_document_task
 
-                async_result = process_document_task.delay(str(job_id))
+                queue = queue_name or "interactive"
+                async_result = process_document_task.apply_async(args=[str(job_id)], queue=queue)
                 logger.info("Job %s queued via Celery task_id=%s", job_id, async_result.id)
                 return {"mode": "celery", "task_id": async_result.id}
             except Exception as exc:
@@ -154,6 +156,7 @@ class EnhancementManager:
         background_tasks: Any,
         run_pipeline: Callable[[str], Any],
         job_id: str,
+        queue_name: str | None = None,
     ) -> Dict[str, Any]:
         """
         Dispatch generation pipeline job with graceful fallback.
@@ -162,7 +165,8 @@ class EnhancementManager:
             try:
                 from app.tasks.celery_tasks import process_generation_task
 
-                async_result = process_generation_task.delay(str(job_id))
+                queue = queue_name or "interactive"
+                async_result = process_generation_task.apply_async(args=[str(job_id)], queue=queue)
                 logger.info("Generation job %s queued via Celery task_id=%s", job_id, async_result.id)
                 return {"mode": "celery", "task_id": async_result.id}
             except Exception as exc:
@@ -183,6 +187,7 @@ class EnhancementManager:
         job_id: str,
         edited_structured_data: Dict[str, Any],
         template_name: str,
+        queue_name: str | None = None,
     ) -> Dict[str, Any]:
         """
         Dispatch edit/reformat flow with graceful fallback.
@@ -191,10 +196,10 @@ class EnhancementManager:
             try:
                 from app.tasks.celery_tasks import process_edit_document_task
 
-                async_result = process_edit_document_task.delay(
-                    str(job_id),
-                    edited_structured_data,
-                    str(template_name),
+                queue = queue_name or "interactive"
+                async_result = process_edit_document_task.apply_async(
+                    args=[str(job_id), edited_structured_data, str(template_name)],
+                    queue=queue,
                 )
                 logger.info("Edit job %s queued via Celery task_id=%s", job_id, async_result.id)
                 return {"mode": "celery", "task_id": async_result.id}

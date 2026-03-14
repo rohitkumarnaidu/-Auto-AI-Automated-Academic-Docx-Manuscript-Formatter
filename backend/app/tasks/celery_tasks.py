@@ -4,6 +4,7 @@ import logging
 import time
 import asyncio
 from celery import Celery
+from kombu import Queue
 from app.pipeline.orchestrator import PipelineOrchestrator
 from app.config.settings import settings
 
@@ -21,9 +22,17 @@ celery_app = Celery(
     broker=settings.CELERY_BROKER_URL,
     backend=settings.CELERY_RESULT_BACKEND,
 )
+celery_app.conf.task_queues = (
+    Queue("interactive"),
+    Queue("batch"),
+)
+celery_app.conf.task_routes = {
+    "interactive.*": {"queue": "interactive"},
+    "batch.*": {"queue": "batch"},
+}
 
 
-@celery_app.task(name="process_document_async")
+@celery_app.task(name="interactive.process_document_async")
 def process_document_task(document_id: str, use_agent: bool = True):
     """
     Asynchronously process a document using the Agent Orchestrator.
@@ -72,7 +81,7 @@ def process_document_task(document_id: str, use_agent: bool = True):
         return False
 
 
-@celery_app.task(name="process_generation_async")
+@celery_app.task(name="interactive.process_generation_async")
 def process_generation_task(job_id: str):
     """
     Run generate-from-scratch jobs through Celery when enabled.
@@ -91,7 +100,7 @@ def process_generation_task(job_id: str):
         return False
 
 
-@celery_app.task(name="process_agent_pipeline_async")
+@celery_app.task(name="interactive.process_agent_pipeline_async")
 def process_agent_pipeline_task(session_id: str, user_prompt: str):
     """
     Run agent-based document generation pipeline via Celery.
@@ -116,7 +125,7 @@ def process_agent_pipeline_task(session_id: str, user_prompt: str):
         return False
 
 
-@celery_app.task(name="process_agent_resume_async")
+@celery_app.task(name="interactive.process_agent_resume_async")
 def process_agent_resume_task(session_id: str):
     """
     Resume agent pipeline after outline approval.
@@ -141,7 +150,7 @@ def process_agent_resume_task(session_id: str):
         return False
 
 
-@celery_app.task(name="process_agent_rewrite_async")
+@celery_app.task(name="interactive.process_agent_rewrite_async")
 def process_agent_rewrite_task(session_id: str, section_name: str, instruction: str):
     """
     Rewrite a specific section in an agent-generated document.
@@ -166,7 +175,7 @@ def process_agent_rewrite_task(session_id: str, section_name: str, instruction: 
         return False
 
 
-@celery_app.task(name="process_edit_document_async")
+@celery_app.task(name="interactive.process_edit_document_async")
 def process_edit_document_task(job_id: str, edited_structured_data: dict, template_name: str = "IEEE"):
     """
     Run edit/reformat flow through Celery when enabled.
@@ -189,3 +198,92 @@ def process_edit_document_task(job_id: str, edited_structured_data: dict, templa
         logger.error("Edit task failed for %s: %s", job_id, exc, exc_info=True)
         DocumentService.mark_document_failed(str(job_id), f"Edit flow failed: {exc}")
         return False
+
+
+@celery_app.task(name="batch.cleanup_uploads")
+def cleanup_uploads_task(upload_dir: str = "uploads", retention_days: int | None = None):
+    """
+    Batch queue task: delete uploads older than retention window.
+    """
+    from datetime import datetime, timezone
+    import os
+
+    days = int(retention_days or settings.RETENTION_DAYS)
+    if not os.path.isdir(upload_dir):
+        logger.info("Cleanup skipped; upload directory missing: %s", upload_dir)
+        return {"deleted": 0, "retention_days": days}
+
+    cutoff_epoch = datetime.now(timezone.utc).timestamp() - (days * 86400)
+    deleted = 0
+    for entry in os.scandir(upload_dir):
+        if not entry.is_file():
+            continue
+        try:
+            if entry.stat().st_mtime < cutoff_epoch:
+                os.remove(entry.path)
+                deleted += 1
+        except OSError as exc:
+            logger.warning("Cleanup failed for %s: %s", entry.path, exc)
+    logger.info("Cleanup complete. Removed %d files older than %d days.", deleted, days)
+    return {"deleted": deleted, "retention_days": days}
+
+
+@celery_app.task(name="batch.scibert_benchmark")
+def scibert_benchmark_task(fixtures_dir: str | None = None):
+    """
+    Batch queue task: run SciBERT benchmark over stored fixtures.
+    """
+    import json
+    from pathlib import Path
+    from app.pipeline.intelligence.semantic_parser import SemanticParser
+    from app.pipeline.parsing.parser_factory import ParserFactory
+
+    base_dir = Path(fixtures_dir) if fixtures_dir else Path("tests") / "fixtures" / "scibert"
+    labels_path = base_dir / "labels.json"
+    if not labels_path.exists():
+        logger.warning("SciBERT benchmark fixtures not found at %s", labels_path)
+        return {"status": "missing_fixtures", "overall_f1": 0.0}
+
+    labels_data = json.loads(labels_path.read_text(encoding="utf-8"))
+    parser_factory = ParserFactory()
+    semantic_parser = SemanticParser()
+
+    def _macro_f1(y_true, y_pred):
+        labels = sorted(set(y_true) | set(y_pred))
+        f1s = []
+        for label in labels:
+            tp = sum(1 for t, p in zip(y_true, y_pred) if t == label and p == label)
+            fp = sum(1 for t, p in zip(y_true, y_pred) if t != label and p == label)
+            fn = sum(1 for t, p in zip(y_true, y_pred) if t == label and p != label)
+            if tp == 0 and fp == 0 and fn == 0:
+                continue
+            precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+            recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+            f1 = 0.0 if (precision + recall) == 0 else (2 * precision * recall) / (precision + recall)
+            f1s.append(f1)
+        return sum(f1s) / len(f1s) if f1s else 0.0
+
+    per_paper = {}
+    overall_true = []
+    overall_pred = []
+
+    for filename, meta in labels_data.items():
+        file_path = base_dir / filename
+        labels = meta["labels"] if isinstance(meta, dict) else meta
+        parser = parser_factory.get_parser(str(file_path))
+        if parser is None:
+            continue
+        document = parser.parse(str(file_path), document_id=filename)
+        predictions = semantic_parser.analyze_blocks(document.blocks)
+        predicted_labels = [p["predicted_section_type"] for p in predictions]
+        if len(predicted_labels) != len(labels):
+            logger.warning("Label mismatch for %s (expected %d, got %d)", filename, len(labels), len(predicted_labels))
+            continue
+        f1 = _macro_f1(labels, predicted_labels)
+        per_paper[filename] = f1
+        overall_true.extend(labels)
+        overall_pred.extend(predicted_labels)
+
+    overall_f1 = _macro_f1(overall_true, overall_pred)
+    logger.info("SciBERT benchmark complete. Overall F1=%.4f", overall_f1)
+    return {"status": "ok", "overall_f1": overall_f1, "per_paper": per_paper}

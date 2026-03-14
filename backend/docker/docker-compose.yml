@@ -43,8 +43,35 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-    container_name: scholarform-celery-worker
-    command: celery -A app.tasks.celery_tasks worker --loglevel=info
+    container_name: scholarform-celery-worker-interactive
+    command: celery -A app.tasks.celery_tasks worker -Q interactive -c 4 --loglevel=info
+    env_file:
+      - ../.env
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_ENABLED=true
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GROBID_URL=http://grobid:8070
+      - GROBID_BASE_URL=http://grobid:8070
+      - CLAMAV_HOST=clamav
+      - CLAMAV_PORT=3310
+    depends_on:
+      - redis
+      - grobid
+      - clamav
+    restart: unless-stopped
+
+  celery_worker_batch:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: scholarform-celery-worker-batch
+    command: celery -A app.tasks.celery_tasks worker -Q batch -c 2 --loglevel=info
     env_file:
       - ../.env
     environment:

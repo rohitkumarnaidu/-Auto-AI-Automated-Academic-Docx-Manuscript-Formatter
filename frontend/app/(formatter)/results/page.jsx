@@ -256,7 +256,25 @@ function ValidationResults() {
                             </div>
                             <div className="space-y-1">
                                 <p className="text-xs font-bold uppercase tracking-wider text-slate-400">AI Enhancement</p>
-                                <p className="text-slate-900 dark:text-slate-100 font-semibold">{job.flags?.ai_used ? 'Enabled' : 'Disabled'}</p>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <p className="text-slate-900 dark:text-slate-100 font-semibold">{job.flags?.ai_used ? 'Enabled' : 'Disabled'}</p>
+                                    {/* LLM Provider Badge */}
+                                    {job.llm_provider && (() => {
+                                        const providerMap = {
+                                            groq: { label: 'Groq', cls: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300 ring-green-200 dark:ring-green-800' },
+                                            nvidia: { label: 'NVIDIA', cls: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 ring-blue-200 dark:ring-blue-800' },
+                                            ollama: { label: 'Ollama', cls: 'bg-slate-100 text-slate-700 dark:bg-slate-700/60 dark:text-slate-300 ring-slate-200 dark:ring-slate-600' },
+                                        };
+                                        const key = job.llm_provider.toLowerCase();
+                                        const provider = providerMap[key] || { label: job.llm_provider, cls: 'bg-slate-100 text-slate-700 dark:bg-slate-700/60 dark:text-slate-300 ring-slate-200 dark:ring-slate-600' };
+                                        return (
+                                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ring-1 ${provider.cls}`}>
+                                                <span className="material-symbols-outlined text-[11px]">smart_toy</span>
+                                                {provider.label}
+                                            </span>
+                                        );
+                                    })()}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -309,30 +327,44 @@ function ValidationResults() {
                                 )}
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                     {/* Template Compliance */}
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between text-xs font-semibold text-slate-600 dark:text-slate-400">
-                                            <span>Template Compliance</span>
-                                            <span>{q.template_compliance ?? '—'}%</span>
-                                        </div>
-                                        <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                                            <div className="h-full rounded-full bg-primary transition-all duration-700" style={{ width: `${q.template_compliance ?? 0}%` }} />
-                                        </div>
-                                    </div>
+                                    {(() => {
+                                        const tc = q.template_compliance ?? null;
+                                        const tcColor = tc === null ? 'bg-slate-400' : tc >= 80 ? 'bg-green-500' : tc >= 50 ? 'bg-amber-500' : 'bg-red-500';
+                                        const tcText = tc === null ? 'text-slate-500' : tc >= 80 ? 'text-green-600 dark:text-green-400' : tc >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400';
+                                        return (
+                                            <div className="space-y-2">
+                                                <div className="flex justify-between text-xs font-semibold text-slate-600 dark:text-slate-400">
+                                                    <span>Template Compliance</span>
+                                                    <span className={tcText}>{tc !== null ? `${tc}%` : '—'}</span>
+                                                </div>
+                                                <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                                                    <div className={`h-full rounded-full ${tcColor} transition-all duration-700`} style={{ width: `${tc ?? 0}%` }} />
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
                                     {/* Content Completeness */}
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between text-xs font-semibold text-slate-600 dark:text-slate-400">
-                                            <span>Content Completeness</span>
-                                            <span>{q.content_completeness ?? '—'}%</span>
-                                        </div>
-                                        <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                                            <div className="h-full rounded-full bg-violet-500 transition-all duration-700" style={{ width: `${q.content_completeness ?? 0}%` }} />
-                                        </div>
-                                    </div>
+                                    {(() => {
+                                        const cc = q.content_completeness ?? null;
+                                        const ccColor = cc === null ? 'bg-slate-400' : cc >= 80 ? 'bg-green-500' : cc >= 50 ? 'bg-amber-500' : 'bg-red-500';
+                                        const ccText = cc === null ? 'text-slate-500' : cc >= 80 ? 'text-green-600 dark:text-green-400' : cc >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400';
+                                        return (
+                                            <div className="space-y-2">
+                                                <div className="flex justify-between text-xs font-semibold text-slate-600 dark:text-slate-400">
+                                                    <span>Content Completeness</span>
+                                                    <span className={ccText}>{cc !== null ? `${cc}%` : '—'}</span>
+                                                </div>
+                                                <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                                                    <div className={`h-full rounded-full ${ccColor} transition-all duration-700`} style={{ width: `${cc ?? 0}%` }} />
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
                                     {/* Citation Count */}
                                     <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3">
                                         <span className="material-symbols-outlined text-primary">format_quote</span>
                                         <div>
-                                            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Citations</p>
+                                            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Citations Detected</p>
                                             <p className="text-xl font-black text-slate-900 dark:text-white">{q.citation_count ?? '—'}</p>
                                         </div>
                                     </div>
@@ -344,8 +376,8 @@ function ValidationResults() {
                     <div className="bg-slate-50 dark:bg-slate-800/50 border border-dashed border-slate-300 dark:border-slate-700 rounded-xl p-6 flex items-center gap-4">
                         <span className="material-symbols-outlined text-slate-400 text-3xl">analytics</span>
                         <div>
-                            <p className="font-semibold text-slate-700 dark:text-slate-300">Quality Analysis Coming Soon</p>
-                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Template compliance, content completeness &amp; citation scores will appear here after Module 2.</p>
+                            <p className="font-semibold text-slate-700 dark:text-slate-300">Quality analysis not available</p>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Quality scores (template compliance, content completeness &amp; citations) will appear here when the backend provides them.</p>
                         </div>
                     </div>
                 )}

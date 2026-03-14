@@ -18,6 +18,7 @@ from fastapi import (
 
 from app.config.settings import settings
 from app.routers import documents as legacy_documents
+from app.utils.logging_context import bind_request_context
 from app.schemas.user import User
 from app.utils.dependencies import get_current_user, get_optional_user
 
@@ -25,7 +26,7 @@ from ._helpers import run_enveloped
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(bind_request_context)])
 
 
 @router.post("/upload/chunked")

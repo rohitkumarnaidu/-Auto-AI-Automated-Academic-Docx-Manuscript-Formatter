@@ -17,6 +17,7 @@ from app.pipeline.orchestrator import PipelineOrchestrator
 from app.pipeline.synthesis.synthesizer import MultiDocSynthesizer
 from app.realtime.events import make_event
 from app.realtime.pubsub import RedisPubSub
+from app.middleware.request_id import get_request_id
 from app.routers import generator as legacy_generator
 from app.routers.documents import ACCEPTED_EXTENSIONS, _validate_magic_bytes
 from app.schemas.generator_session import MessageRequest
@@ -25,12 +26,13 @@ from app.services.generator_session_service import GeneratorSessionService
 from app.services.llm_service import generate_with_fallback, sanitize_for_llm
 from app.services.session_vector_store import SessionVectorStore
 from app.utils.dependencies import get_current_user
+from app.utils.logging_context import bind_request_context
 
 from ._helpers import run_enveloped
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(bind_request_context)])
 _pubsub = RedisPubSub()
 
 _session_service = GeneratorSessionService()
@@ -344,9 +346,11 @@ async def generation_events(
 ):
     async def event_generator():
         channel = f"session:{sessionId}"
+        request_id = get_request_id(request)
         connected_event = make_event(
             "connected",
             session_id=sessionId,
+            request_id=request_id,
             payload={"message": f"Connected to session {sessionId}"},
         )
         yield {"event": "connected", "data": json.dumps(connected_event)}
@@ -444,8 +448,8 @@ async def generation_messages(
 async def approve_outline(
     request: Request,
     sessionId: str,
-    payload: Optional[Dict[str, Any]] = None,
     background_tasks: BackgroundTasks,
+    payload: Optional[Dict[str, Any]] = None,
     user=Depends(get_current_user),
 ):
     session = await _session_service.get_session(sessionId)

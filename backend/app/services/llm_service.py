@@ -7,6 +7,7 @@ import logging
 from typing import List, Dict, Any, Optional
 
 from app.config.settings import settings
+from app.utils.logging_context import log_extra
 
 logger = logging.getLogger(__name__)
 
@@ -21,11 +22,12 @@ try:
     litellm.drop_params = True          # Ignore unsupported params per-provider
     litellm.suppress_debug_info = True  # Quiet startup logs
     LITELLM_AVAILABLE = True
-    logger.info("llm_service: LiteLLM available - unified LLM layer active.")
+    logger.info("llm_service: LiteLLM available - unified LLM layer active.", extra=log_extra())
 except ImportError:
     LITELLM_AVAILABLE = False
     logger.warning(
-        "LiteLLM unavailable - llm_service will use direct provider clients."
+        "LiteLLM unavailable - llm_service will use direct provider clients.",
+        extra=log_extra(),
     )
 LLM_NVIDIA   = settings.NVIDIA_MODEL
 LLM_GROQ     = settings.GROQ_MODEL
@@ -58,14 +60,15 @@ def sanitize_for_llm(text: str) -> str:
     return text
 
 
-def _cache_key(messages: List[Dict[str, str]], model: str, temperature: float) -> str:
-    import json
+def _extract_prompts(messages: List[Dict[str, str]]) -> tuple[str, str]:
+    system_parts = [m.get("content", "") for m in messages if m.get("role") == "system"]
+    user_parts = [m.get("content", "") for m in messages if m.get("role") == "user"]
+    return "\n".join(system_parts), "\n".join(user_parts)
+
+
+def _cache_key(system_prompt: str, user_message: str, model: str, temperature: float) -> str:
     import hashlib
-    try:
-        msg_str = json.dumps(messages, sort_keys=True)
-    except Exception:
-        msg_str = str(messages)
-    key_input = f"{model}:{temperature}:{msg_str}"
+    key_input = f"{model}:{temperature}:{system_prompt}:{user_message}"
     return "llm_cache:" + hashlib.sha256(key_input.encode()).hexdigest()
 
 def generate(
@@ -76,6 +79,7 @@ def generate(
     timeout: int = 30,
     api_key: Optional[str] = None,
     api_base: Optional[str] = None,
+    stream: bool = False,
 ) -> str:
     """
     Send a chat completion request via LiteLLM (or direct HTTP fallback).
@@ -95,18 +99,22 @@ def generate(
     Raises:
         Exception: On API error — callers should catch and fall back.
     """
-    key = _cache_key(messages, model, temperature)
+    system_prompt, user_message = _extract_prompts(messages)
+    key = _cache_key(system_prompt, user_message, model, temperature)
     from app.cache.redis_cache import redis_cache
     
     # ── Cache Lookup ──
-    cached = redis_cache.get_llm_result(key)
-    if cached:
-        return cached
+    cache_enabled = not stream
+    if cache_enabled:
+        cached = redis_cache.get_llm_result(key)
+        if cached:
+            logger.info("LLM cache hit", extra=log_extra())
+            return cached
 
     if not LITELLM_AVAILABLE:
         result = _generate_fallback(messages, model, temperature, max_tokens, timeout, api_key, api_base)
-        if result:
-            redis_cache.set_llm_result(key, result)
+        if result and cache_enabled:
+            redis_cache.set_llm_result(key, result, ttl=settings.LLM_CACHE_TTL_SECONDS)
         return result
 
     kwargs: Dict[str, Any] = {
@@ -148,11 +156,11 @@ def generate(
     response = completion(**kwargs)
     choices = response.choices
     if not choices:
-        logger.warning("llm_service.generate: empty choices from %s", model)
+        logger.warning("llm_service.generate: empty choices from %s", model, extra=log_extra())
         return ""
     text = choices[0].message.content or ""
-    if text:
-        redis_cache.set_llm_result(key, text)
+    if text and cache_enabled:
+        redis_cache.set_llm_result(key, text, ttl=settings.LLM_CACHE_TTL_SECONDS)
     return text
 
 
@@ -173,14 +181,14 @@ def generate_with_fallback(
         try:
             text = generate(messages, model=LLM_NVIDIA, temperature=temperature, max_tokens=max_tokens)
             if text:
-                logger.info("llm_service: Tier 1 (NVIDIA) succeeded.")
+                logger.info("llm_service: Tier 1 (NVIDIA) succeeded.", extra=log_extra())
                 return {"text": text, "model": LLM_NVIDIA, "tier": 1}
         except Exception as exc:
             try:
                 from app.middleware.prometheus_metrics import MetricsManager
                 MetricsManager.record_llm_failure("nvidia")
             except Exception: pass
-            logger.warning("llm_service: Tier 1 (NVIDIA) failed: %s - trying Groq.", exc)
+            logger.warning("llm_service: Tier 1 (NVIDIA) failed: %s - trying Groq.", exc, extra=log_extra())
 
     # Tier 2: Groq
     groq_model = settings.GROQ_MODEL or LLM_GROQ
@@ -195,7 +203,7 @@ def generate_with_fallback(
                 api_key=groq_key,
             )
             if text:
-                logger.info("llm_service: Tier 2 (Groq) succeeded.")
+                logger.info("llm_service: Tier 2 (Groq) succeeded.", extra=log_extra())
                 return {"text": text, "model": groq_model, "tier": 2}
         except Exception as exc:
             try:
@@ -203,13 +211,13 @@ def generate_with_fallback(
                 MetricsManager.record_llm_failure("groq")
             except Exception:
                 pass
-            logger.warning("llm_service: Tier 2 (Groq) failed: %s - trying Ollama.", exc)
+            logger.warning("llm_service: Tier 2 (Groq) failed: %s - trying Ollama.", exc, extra=log_extra())
 
     # Tier 3: DeepSeek via Ollama
     try:
         text = generate(messages, model=LLM_DEEPSEEK, temperature=temperature, max_tokens=max_tokens)
         if text:
-            logger.info("llm_service: Tier 3 (Ollama) succeeded.")
+            logger.info("llm_service: Tier 3 (Ollama) succeeded.", extra=log_extra())
             return {"text": text, "model": LLM_DEEPSEEK, "tier": 3}
     except Exception as exc:
         try:
@@ -217,7 +225,7 @@ def generate_with_fallback(
             MetricsManager.record_llm_failure("ollama")
         except Exception:
             pass
-        logger.warning("llm_service: Tier 3 (Ollama) failed: %s - no LLM available.", exc)
+        logger.warning("llm_service: Tier 3 (Ollama) failed: %s - no LLM available.", exc, extra=log_extra())
 
     raise LLMUnavailableError("All LLM tiers failed. Use rule-based fallback.")
 
@@ -225,6 +233,36 @@ def generate_with_fallback(
 class LLMUnavailableError(Exception):
     """Raised when all LLM tiers are exhausted."""
     pass
+
+
+def invalidate_llm_cache(pattern: str) -> int:
+    """Invalidate cached LLM responses matching a Redis glob pattern."""
+    from app.cache.redis_cache import redis_cache
+
+    if not pattern:
+        return 0
+    if not redis_cache.client:
+        logger.warning("LLM cache invalidation requested but Redis unavailable.", extra=log_extra())
+        return 0
+
+    removed = 0
+    try:
+        for key in redis_cache.client.scan_iter(match=pattern):
+            removed += int(redis_cache.client.delete(key))
+        logger.info(
+            "LLM cache invalidated for pattern=%s (removed=%s)",
+            pattern,
+            removed,
+            extra=log_extra(),
+        )
+    except Exception as exc:
+        logger.error(
+            "LLM cache invalidation failed for pattern=%s: %s",
+            pattern,
+            exc,
+            extra=log_extra(),
+        )
+    return removed
 
 
 # ── Direct-client fallback (no litellm) ─────────────────────────────────── #

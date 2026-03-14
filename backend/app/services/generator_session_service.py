@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from app.db.supabase_client import get_supabase_client
+from app.utils.logging_context import log_extra
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,7 @@ class GeneratorSessionService:
         session_id = str(uuid.uuid4())
         sb = get_supabase_client()
         if sb is None:
+            logger.error("Generator session create failed: Supabase client unavailable.", extra=log_extra())
             raise RuntimeError("Supabase client unavailable.")
 
         payload = {
@@ -35,11 +37,16 @@ class GeneratorSessionService:
             "updated_at": self._now_iso(),
         }
         sb.table("generator_sessions").insert(payload).execute()
+        logger.info(
+            "Generator session created",
+            extra=log_extra(session_id=session_id),
+        )
         return session_id
 
     async def get_session(self, session_id: str) -> Optional[dict]:
         sb = get_supabase_client()
         if sb is None:
+            logger.error("Generator session fetch failed: Supabase client unavailable.", extra=log_extra(session_id=session_id))
             raise RuntimeError("Supabase client unavailable.")
         result = (
             sb.table("generator_sessions")
@@ -53,10 +60,12 @@ class GeneratorSessionService:
     async def update_session(self, session_id: str, **fields: Any) -> None:
         sb = get_supabase_client()
         if sb is None:
+            logger.error("Generator session update failed: Supabase client unavailable.", extra=log_extra(session_id=session_id))
             raise RuntimeError("Supabase client unavailable.")
         payload = dict(fields)
         payload["updated_at"] = self._now_iso()
         sb.table("generator_sessions").update(payload).eq("id", str(session_id)).execute()
+        logger.info("Generator session updated", extra=log_extra(session_id=session_id))
 
     async def add_message(
         self,
@@ -67,6 +76,7 @@ class GeneratorSessionService:
     ) -> None:
         sb = get_supabase_client()
         if sb is None:
+            logger.error("Generator message create failed: Supabase client unavailable.", extra=log_extra(session_id=session_id))
             raise RuntimeError("Supabase client unavailable.")
         payload = {
             "session_id": str(session_id),
@@ -76,10 +86,12 @@ class GeneratorSessionService:
             "created_at": self._now_iso(),
         }
         sb.table("generator_messages").insert(payload).execute()
+        logger.info("Generator message stored", extra=log_extra(session_id=session_id))
 
     async def get_messages(self, session_id: str, limit: int = 50) -> list[dict]:
         sb = get_supabase_client()
         if sb is None:
+            logger.error("Generator messages fetch failed: Supabase client unavailable.", extra=log_extra(session_id=session_id))
             raise RuntimeError("Supabase client unavailable.")
         result = (
             sb.table("generator_messages")
@@ -94,6 +106,7 @@ class GeneratorSessionService:
     async def list_sessions(self, user_id: Optional[str], limit: int = 50) -> list[dict]:
         sb = get_supabase_client()
         if sb is None:
+            logger.error("Generator sessions list failed: Supabase client unavailable.", extra=log_extra())
             raise RuntimeError("Supabase client unavailable.")
         query = sb.table("generator_sessions").select("*")
         if user_id:
@@ -114,6 +127,7 @@ class GeneratorSessionService:
     ) -> int:
         sb = get_supabase_client()
         if sb is None:
+            logger.error("Generator document save failed: Supabase client unavailable.", extra=log_extra(session_id=session_id))
             raise RuntimeError("Supabase client unavailable.")
 
         version_number = int(version or 0)
@@ -141,11 +155,16 @@ class GeneratorSessionService:
             "version_number": version_number,
         }
         sb.table("generator_documents").insert(payload).execute()
+        logger.info(
+            "Generator document version saved",
+            extra=log_extra(session_id=session_id),
+        )
         return version_number
 
     async def get_latest_document(self, session_id: str) -> Optional[dict]:
         sb = get_supabase_client()
         if sb is None:
+            logger.error("Generator document fetch failed: Supabase client unavailable.", extra=log_extra(session_id=session_id))
             raise RuntimeError("Supabase client unavailable.")
         result = (
             sb.table("generator_documents")

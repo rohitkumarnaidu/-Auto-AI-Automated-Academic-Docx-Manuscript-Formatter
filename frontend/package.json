@@ -4,7 +4,7 @@
     "version": "0.0.0",
     "type": "module",
     "scripts": {
-        "dev": "next dev",
+        "dev": "next dev --turbopack",
         "build": "next build",
         "start": "next start",
         "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",

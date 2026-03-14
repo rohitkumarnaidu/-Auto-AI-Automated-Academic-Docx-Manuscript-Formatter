@@ -11,9 +11,14 @@ from app.services.model_metrics import get_model_metrics
 from app.services.ab_testing import get_ab_testing
 from app.services.enhancement_manager import enhancement_manager
 from app.db.supabase_client import get_supabase_client
+from app.utils.logging_context import bind_request_context
 import logging
 
-router = APIRouter(prefix="/api/metrics", tags=["Metrics"])
+router = APIRouter(
+    prefix="/api/metrics",
+    tags=["Metrics"],
+    dependencies=[Depends(bind_request_context)],
+)
 logger = logging.getLogger(__name__)
 
 def require_admin(current_user=Depends(get_current_user)):

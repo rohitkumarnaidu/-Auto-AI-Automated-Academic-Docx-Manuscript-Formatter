@@ -132,6 +132,7 @@ if _PS:
         CELERY_BROKER_URL: str
         CELERY_RESULT_BACKEND: str
         CROSSREF_MAILTO: str
+        LLM_CACHE_TTL_SECONDS: int = 3600
 
         # Pipeline tuning / feature toggles
         PIPELINE_GROBID_TIMEOUT_SECONDS: int
@@ -143,6 +144,7 @@ if _PS:
         PIPELINE_DOCLING_FORCE: bool
         ENABLE_NOUGAT_PARSER: bool
         ENABLE_NVIDIA_REASONER: bool
+        USE_SCIBERT_CLASSIFICATION: bool = False
 
         model_config = {
             "env_file": ".env",
@@ -166,6 +168,7 @@ if _PS:
             "PIPELINE_DOCLING_FORCE",
             "ENABLE_NOUGAT_PARSER",
             "ENABLE_NVIDIA_REASONER",
+            "USE_SCIBERT_CLASSIFICATION",
             mode="before",
         )
         @classmethod
@@ -288,6 +291,7 @@ else:
         CELERY_BROKER_URL: str = _require_env("CELERY_BROKER_URL")
         CELERY_RESULT_BACKEND: str = _require_env("CELERY_RESULT_BACKEND")
         CROSSREF_MAILTO: str = _require_env("CROSSREF_MAILTO")
+        LLM_CACHE_TTL_SECONDS: int = int(os.getenv("LLM_CACHE_TTL_SECONDS", "3600"))
 
         # Pipeline tuning / feature toggles
         PIPELINE_GROBID_TIMEOUT_SECONDS: int = int(_require_env("PIPELINE_GROBID_TIMEOUT_SECONDS"))
@@ -306,6 +310,9 @@ else:
         )
         ENABLE_NVIDIA_REASONER: bool = bool(
             _parse_boolish(_require_env("ENABLE_NVIDIA_REASONER"), "ENABLE_NVIDIA_REASONER")
+        )
+        USE_SCIBERT_CLASSIFICATION: bool = bool(
+            _parse_boolish(os.getenv("USE_SCIBERT_CLASSIFICATION", "false"), "USE_SCIBERT_CLASSIFICATION")
         )
 
         def validate(self) -> None:

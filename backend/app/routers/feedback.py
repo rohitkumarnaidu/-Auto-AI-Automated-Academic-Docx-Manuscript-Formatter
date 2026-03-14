@@ -4,6 +4,7 @@ from typing import Any, Optional
 from app.pipeline.agents.memory import AgentMemory
 from app.utils.dependencies import get_current_user
 from app.db.supabase_client import get_supabase_client
+from app.utils.logging_context import bind_request_context
 import logging
 
 logger = logging.getLogger(__name__)
@@ -12,6 +13,7 @@ router = APIRouter(
     prefix="/feedback",
     tags=["feedback"],
     responses={404: {"description": "Not found"}},
+    dependencies=[Depends(bind_request_context)],
 )
 
 # Instantiate memory (singleton-ish)

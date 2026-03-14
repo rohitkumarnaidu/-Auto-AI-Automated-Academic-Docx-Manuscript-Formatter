@@ -1,11 +1,16 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.utils.dependencies import get_current_user
+from app.utils.logging_context import bind_request_context
 from app.schemas.user import User
 from app.schemas.auth import SignupRequest, LoginRequest, ForgotPasswordRequest, ResetPasswordRequest, VerifyOTPRequest
 from app.services.auth_service import AuthService
 
-router = APIRouter(prefix="/api/auth", tags=["Auth"])
+router = APIRouter(
+    prefix="/api/auth",
+    tags=["Auth"],
+    dependencies=[Depends(bind_request_context)],
+)
 
 @router.get("/me", response_model=User)
 async def read_users_me(current_user: User = Depends(get_current_user)):

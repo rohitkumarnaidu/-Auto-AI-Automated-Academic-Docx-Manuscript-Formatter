@@ -27,6 +27,8 @@ from app.schemas.document import (
 from app.services.document_service import DocumentService
 from app.services.enhancement_manager import enhancement_manager
 from app.utils.dependencies import get_current_user
+from app.utils.logging_context import bind_request_context
+from app.utils.logging_context import log_extra
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +46,12 @@ class LegacyGeneratorRoute(DeprecatedRoute):
     successor_map = _LEGACY_SUCCESSORS
 
 
-router = APIRouter(prefix="/generate", tags=["generator"], route_class=LegacyGeneratorRoute)
+router = APIRouter(
+    prefix="/generate",
+    tags=["generator"],
+    route_class=LegacyGeneratorRoute,
+    dependencies=[Depends(bind_request_context)],
+)
 
 
 def _assert_generation_owner(job_id: str, user_id: str) -> None:
@@ -105,8 +112,18 @@ async def start_generation(
         run_pipeline=generator.run_pipeline,
         job_id=job_id,
     )
-    logger.info("Generation dispatch mode for job %s: %s", job_id, dispatch_info.get("mode"))
-    logger.info("Generation job %s queued for user %s", job_id, user_id)
+    logger.info(
+        "Generation dispatch mode for job %s: %s",
+        job_id,
+        dispatch_info.get("mode"),
+        extra=log_extra(job_id=job_id),
+    )
+    logger.info(
+        "Generation job %s queued for user %s",
+        job_id,
+        user_id,
+        extra=log_extra(job_id=job_id),
+    )
 
     return GenerateResponse(
         job_id=job_id,
@@ -190,7 +207,12 @@ async def download_generated(
             except HTTPException:
                 raise
             except Exception as exc:
-                logger.error("Unexpected PDF export error for job %s: %s", job_id, exc)
+                logger.error(
+                    "Unexpected PDF export error for job %s: %s",
+                    job_id,
+                    exc,
+                    extra=log_extra(job_id=job_id),
+                )
                 raise HTTPException(status_code=500, detail="An internal error occurred during PDF export.")
 
         if not pdf_path.exists():

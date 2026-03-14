@@ -16,8 +16,10 @@ from app.pipeline.orchestrator import PipelineOrchestrator
 from app.pipeline.synthesis.synthesizer import MultiDocSynthesizer
 from app.realtime.events import make_event
 from app.realtime.pubsub import RedisPubSub
+from app.middleware.request_id import get_request_id
 from app.routers.documents import ACCEPTED_EXTENSIONS, _validate_magic_bytes
 from app.schemas.generator_session import MessageRequest
+from app.utils.logging_context import bind_request_context
 from app.services.generator_session_service import GeneratorSessionService
 from app.services.llm_service import generate_with_fallback, sanitize_for_llm
 from app.services.session_vector_store import SessionVectorStore
@@ -27,7 +29,7 @@ from ._helpers import run_enveloped
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(bind_request_context)])
 _pubsub = RedisPubSub()
 
 _session_service = GeneratorSessionService()
@@ -158,9 +160,11 @@ async def session_events(
 ):
     async def event_generator():
         channel = f"session:{sessionId}"
+        request_id = get_request_id(request)
         connected_event = make_event(
             "connected",
             session_id=sessionId,
+            request_id=request_id,
             payload={"message": f"Connected to session {sessionId}"},
         )
         yield {"event": "connected", "data": json.dumps(connected_event)}

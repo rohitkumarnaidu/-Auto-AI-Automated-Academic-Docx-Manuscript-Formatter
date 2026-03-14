@@ -13,6 +13,7 @@ from app.routers.deprecation import DeprecatedRoute
 from app.pipeline.services.csl_fetcher import search_styles, fetch_style
 from app.schemas.user import User
 from app.utils.dependencies import get_optional_user
+from app.utils.logging_context import bind_request_context
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +39,10 @@ class LegacyTemplatesRoute(DeprecatedRoute):
     successor_map = _LEGACY_SUCCESSORS
 
 
-templates_router = APIRouter(route_class=LegacyTemplatesRoute)
+templates_router = APIRouter(
+    route_class=LegacyTemplatesRoute,
+    dependencies=[Depends(bind_request_context)],
+)
 
 
 def _require_db():

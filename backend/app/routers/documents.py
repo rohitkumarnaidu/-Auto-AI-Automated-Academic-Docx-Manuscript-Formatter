@@ -8,6 +8,8 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, BackgroundTasks, Query, Form
 from app.routers.deprecation import DeprecatedRoute
 from app.utils.dependencies import get_current_user, get_optional_user
+from app.utils.logging_context import log_extra
+from app.utils.logging_context import bind_request_context
 from app.schemas.user import User
 from app.services.document_service import DocumentService
 from app.services.enhancement_manager import enhancement_manager
@@ -48,6 +50,7 @@ router = APIRouter(
     prefix="/api/documents",
     tags=["Documents"],
     route_class=LegacyDocumentsRoute,
+    dependencies=[Depends(bind_request_context)],
 )
 
 UPLOAD_DIR = "uploads"
@@ -305,7 +308,12 @@ async def upload_document_chunked(
                 template_name=template,
                 formatting_options=formatting_options,
             )
-            logger.info("Chunk upload dispatch mode for job %s: %s", job_id, dispatch_info.get("mode"))
+            logger.info(
+                "Chunk upload dispatch mode for job %s: %s",
+                job_id,
+                dispatch_info.get("mode"),
+                extra=log_extra(job_id=job_id),
+            )
 
             return {
                 "status": "complete",
@@ -497,7 +505,12 @@ async def upload_document(
             template_name=template,
             formatting_options=formatting_options,
         )
-        logger.info("Upload dispatch mode for job %s: %s", job_id, dispatch_info.get("mode"))
+        logger.info(
+            "Upload dispatch mode for job %s: %s",
+            job_id,
+            dispatch_info.get("mode"),
+            extra=log_extra(job_id=job_id),
+        )
 
         return {"message": "Processing started", "job_id": str(job_id), "status": "PROCESSING"}
 
@@ -505,7 +518,12 @@ async def upload_document(
         raise
     except Exception as e:
         import traceback
-        logger.error("Upload error: %s\n%s", e, traceback.format_exc())
+        logger.error(
+            "Upload error: %s\n%s",
+            e,
+            traceback.format_exc(),
+            extra=log_extra(job_id=job_id),
+        )
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 
@@ -992,8 +1010,14 @@ async def batch_upload(
                 job_id=job_id,
                 template_name=template,
                 formatting_options={},
+                queue_name="batch",
             )
-            logger.info("Batch upload dispatch mode for job %s: %s", job_id, dispatch_info.get("mode"))
+            logger.info(
+                "Batch upload dispatch mode for job %s: %s",
+                job_id,
+                dispatch_info.get("mode"),
+                extra=log_extra(job_id=job_id),
+            )
 
             results.append({
                 "filename": file.filename,
@@ -1002,7 +1026,12 @@ async def batch_upload(
             })
 
         except Exception as e:
-            logger.error("Batch upload failed for %s: %s", file.filename, e)
+            logger.error(
+                "Batch upload failed for %s: %s",
+                file.filename,
+                e,
+                extra=log_extra(job_id=job_id),
+            )
             results.append({
                 "filename": file.filename,
                 "status": "failed",

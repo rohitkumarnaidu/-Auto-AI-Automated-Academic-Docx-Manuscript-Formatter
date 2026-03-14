@@ -8,19 +8,21 @@ import re
 import time
 from typing import Dict, Iterable
 
-from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
 from app.config.settings import settings
 from app.realtime.events import make_event
 from app.realtime.pubsub import RedisPubSub
+from app.middleware.request_id import get_request_id
+from app.utils.logging_context import bind_request_context, log_extra
 from app.services.llm_service import LLMUnavailableError, generate_with_fallback, sanitize_for_llm
 from app.services.preview_renderer import preview_renderer
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["Preview"])
+router = APIRouter(tags=["Preview"], dependencies=[Depends(bind_request_context)])
 
 _SESSION_PATTERN = re.compile(r"^[A-Za-z0-9_-]{3,64}$")
 _connections: Dict[str, set[WebSocket]] = {}
@@ -106,7 +108,7 @@ async def preview_ws(websocket: WebSocket, sessionId: str):
             event = make_event("preview_update", session_id=sessionId, payload=response_payload)
             await _preview_pubsub.publish(channel, event)
     except WebSocketDisconnect:
-        logger.info("Preview websocket disconnected: %s", sessionId)
+        logger.info("Preview websocket disconnected: %s", sessionId, extra=log_extra(session_id=sessionId))
     finally:
         forward_task.cancel()
         heartbeat_task.cancel()
@@ -136,6 +138,7 @@ def _build_ai_messages(content: str, template_id: str) -> list[dict[str, str]]:
 
 @router.get("/api/v1/preview/{sessionId}/ai-suggest")
 async def ai_suggest(
+    request: Request,
     sessionId: str,
     content: str = Query(...),
     templateId: str = Query(settings.DEFAULT_TEMPLATE),
@@ -143,15 +146,20 @@ async def ai_suggest(
     if not _valid_session_id(sessionId):
         raise HTTPException(status_code=400, detail="Invalid sessionId.")
 
+    request_id = get_request_id(request)
+
     async def event_generator():
         start = time.perf_counter()
-        yield {"event": "status", "data": json.dumps({"state": "started", "sessionId": sessionId})}
+        yield {
+            "event": "status",
+            "data": json.dumps({"state": "started", "sessionId": sessionId, "request_id": request_id}),
+        }
         try:
             messages = _build_ai_messages(content, templateId)
             result = await asyncio.to_thread(generate_with_fallback, messages, temperature=0.3, max_tokens=600)
             text = (result.get("text") or "").strip()
             for chunk in _chunk_text(text):
-                yield {"event": "suggestion", "data": json.dumps({"content": chunk})}
+                yield {"event": "suggestion", "data": json.dumps({"content": chunk, "request_id": request_id})}
                 await asyncio.sleep(0)
             latency_ms = (time.perf_counter() - start) * 1000.0
             yield {
@@ -162,13 +170,14 @@ async def ai_suggest(
                         "latencyMs": latency_ms,
                         "model": result.get("model"),
                         "tier": result.get("tier"),
+                        "request_id": request_id,
                     }
                 ),
             }
         except LLMUnavailableError as exc:
-            yield {"event": "error", "data": json.dumps({"error": str(exc)})}
+            yield {"event": "error", "data": json.dumps({"error": str(exc), "request_id": request_id})}
         except Exception as exc:
-            logger.warning("AI suggest failed for %s: %s", sessionId, exc)
-            yield {"event": "error", "data": json.dumps({"error": "AI suggestion failed"})}
+            logger.warning("AI suggest failed for %s: %s", sessionId, exc, extra=log_extra(session_id=sessionId))
+            yield {"event": "error", "data": json.dumps({"error": "AI suggestion failed", "request_id": request_id})}
 
     return EventSourceResponse(event_generator())

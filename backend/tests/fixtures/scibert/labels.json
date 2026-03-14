@@ -1,0 +1,212 @@
+{
+  "cs_paper.md": {
+    "labels": [
+      "ABSTRACT",
+      "ABSTRACT",
+      "HEADING",
+      "BODY",
+      "METHODOLOGY",
+      "BODY",
+      "HEADING",
+      "BODY",
+      "FIGURE_CAPTION",
+      "HEADING",
+      "BODY",
+      "TABLE_CAPTION",
+      "CONCLUSION",
+      "BODY",
+      "REFERENCES",
+      "REFERENCES",
+      "REFERENCES"
+    ]
+  },
+  "medical_paper.md": {
+    "labels": [
+      "ABSTRACT",
+      "ABSTRACT",
+      "HEADING",
+      "BODY",
+      "METHODOLOGY",
+      "BODY",
+      "HEADING",
+      "BODY",
+      "FIGURE_CAPTION",
+      "HEADING",
+      "BODY",
+      "TABLE_CAPTION",
+      "CONCLUSION",
+      "BODY",
+      "REFERENCES",
+      "REFERENCES",
+      "REFERENCES"
+    ]
+  },
+  "engineering_paper.md": {
+    "labels": [
+      "ABSTRACT",
+      "ABSTRACT",
+      "HEADING",
+      "BODY",
+      "METHODOLOGY",
+      "BODY",
+      "HEADING",
+      "BODY",
+      "FIGURE_CAPTION",
+      "HEADING",
+      "BODY",
+      "TABLE_CAPTION",
+      "CONCLUSION",
+      "BODY",
+      "REFERENCES",
+      "REFERENCES",
+      "REFERENCES"
+    ]
+  },
+  "humanities_paper.md": {
+    "labels": [
+      "ABSTRACT",
+      "ABSTRACT",
+      "HEADING",
+      "BODY",
+      "METHODOLOGY",
+      "BODY",
+      "HEADING",
+      "BODY",
+      "FIGURE_CAPTION",
+      "HEADING",
+      "BODY",
+      "TABLE_CAPTION",
+      "CONCLUSION",
+      "BODY",
+      "REFERENCES",
+      "REFERENCES",
+      "REFERENCES"
+    ]
+  },
+  "review_paper.md": {
+    "labels": [
+      "ABSTRACT",
+      "ABSTRACT",
+      "HEADING",
+      "BODY",
+      "METHODOLOGY",
+      "BODY",
+      "HEADING",
+      "BODY",
+      "FIGURE_CAPTION",
+      "HEADING",
+      "BODY",
+      "TABLE_CAPTION",
+      "CONCLUSION",
+      "BODY",
+      "REFERENCES",
+      "REFERENCES",
+      "REFERENCES"
+    ]
+  },
+  "biology_paper.md": {
+    "labels": [
+      "ABSTRACT",
+      "ABSTRACT",
+      "HEADING",
+      "BODY",
+      "METHODOLOGY",
+      "BODY",
+      "HEADING",
+      "BODY",
+      "FIGURE_CAPTION",
+      "HEADING",
+      "BODY",
+      "TABLE_CAPTION",
+      "CONCLUSION",
+      "BODY",
+      "REFERENCES",
+      "REFERENCES",
+      "REFERENCES"
+    ]
+  },
+  "physics_paper.md": {
+    "labels": [
+      "ABSTRACT",
+      "ABSTRACT",
+      "HEADING",
+      "BODY",
+      "METHODOLOGY",
+      "BODY",
+      "HEADING",
+      "BODY",
+      "FIGURE_CAPTION",
+      "HEADING",
+      "BODY",
+      "TABLE_CAPTION",
+      "CONCLUSION",
+      "BODY",
+      "REFERENCES",
+      "REFERENCES",
+      "REFERENCES"
+    ]
+  },
+  "economics_paper.md": {
+    "labels": [
+      "ABSTRACT",
+      "ABSTRACT",
+      "HEADING",
+      "BODY",
+      "METHODOLOGY",
+      "BODY",
+      "HEADING",
+      "BODY",
+      "FIGURE_CAPTION",
+      "HEADING",
+      "BODY",
+      "TABLE_CAPTION",
+      "CONCLUSION",
+      "BODY",
+      "REFERENCES",
+      "REFERENCES",
+      "REFERENCES"
+    ]
+  },
+  "materials_paper.md": {
+    "labels": [
+      "ABSTRACT",
+      "ABSTRACT",
+      "HEADING",
+      "BODY",
+      "METHODOLOGY",
+      "BODY",
+      "HEADING",
+      "BODY",
+      "FIGURE_CAPTION",
+      "HEADING",
+      "BODY",
+      "TABLE_CAPTION",
+      "CONCLUSION",
+      "BODY",
+      "REFERENCES",
+      "REFERENCES",
+      "REFERENCES"
+    ]
+  },
+  "psychology_paper.md": {
+    "labels": [
+      "ABSTRACT",
+      "ABSTRACT",
+      "HEADING",
+      "BODY",
+      "METHODOLOGY",
+      "BODY",
+      "HEADING",
+      "BODY",
+      "FIGURE_CAPTION",
+      "HEADING",
+      "BODY",
+      "TABLE_CAPTION",
+      "CONCLUSION",
+      "BODY",
+      "REFERENCES",
+      "REFERENCES",
+      "REFERENCES"
+    ]
+  }
+}

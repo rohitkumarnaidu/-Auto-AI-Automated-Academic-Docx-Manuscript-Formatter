@@ -6,6 +6,8 @@ from uuid import uuid4
 from fastapi import Request
 from starlette.datastructures import Headers, MutableHeaders
 
+from app.utils.logging_context import bind_context, log_extra, reset_context
+
 logger = logging.getLogger(__name__)
 
 _IDEMPOTENT_PATH_SUFFIXES = (
@@ -29,6 +31,7 @@ class RequestIdMiddleware:
         request_id = headers.get("x-request-id") or str(uuid4())
         state = scope.setdefault("state", {})
         state["request_id"] = request_id
+        tokens = bind_context(request_id=request_id)
 
         method = scope.get("method", "").upper()
         path = scope.get("path", "")
@@ -41,6 +44,7 @@ class RequestIdMiddleware:
                 path,
                 request_id,
                 idempotency_key,
+                extra=log_extra(),
             )
 
         async def send_wrapper(message) -> None:
@@ -49,7 +53,10 @@ class RequestIdMiddleware:
                 response_headers["X-Request-Id"] = request_id
             await send(message)
 
-        await self.app(scope, receive, send_wrapper)
+        try:
+            await self.app(scope, receive, send_wrapper)
+        finally:
+            reset_context(tokens)
 
 
 def _should_log_idempotency(path: str) -> bool:

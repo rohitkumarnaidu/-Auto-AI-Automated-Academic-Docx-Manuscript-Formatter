@@ -2,6 +2,7 @@ import torch
 import logging
 from typing import List, Dict, Any
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, logging as transformers_logging
+from app.config.settings import settings
 from app.models import PipelineDocument as Document, Block, BlockType
 from app.pipeline.safety import safe_function
 from app.utils.singleton import get_or_create
@@ -18,7 +19,6 @@ except ImportError:
     detect_language = None
 
 logger = logging.getLogger(__name__)
-USE_SCIBERT_CLASSIFICATION = False
 
 # Silence non-critical transformer loading warnings
 transformers_logging.set_verbosity_error()
@@ -93,7 +93,7 @@ class SemanticParser:
         Produce a list of SemanticBlock structures.
         Identifies boundaries and repairs fragmented headers semantically.
         """
-        if USE_SCIBERT_CLASSIFICATION:
+        if settings.USE_SCIBERT_CLASSIFICATION:
             self._load_model()
         semantic_blocks = []
         
@@ -106,16 +106,30 @@ class SemanticParser:
             except Exception:
                 detected_lang = "en"  # Default to English on detection failure
         
-        use_transformer = detected_lang == "en" and self.model is not None
+        use_transformer = (
+            settings.USE_SCIBERT_CLASSIFICATION
+            and detected_lang == "en"
+            and self.model is not None
+        )
         if not use_transformer and detected_lang != "en":
             logger.warning("Non-English document detected (%s). Using heuristic-only mode.", detected_lang)
         
         # 1. Heading Repair Logic (e.g., '2' + 'ethodology')
         repaired_blocks = self._repair_fragmented_headings(blocks)
         
+        texts = [block.text or "" for block in repaired_blocks]
+        if use_transformer:
+            predictions = self._predict_block_types_batch(texts)
+        else:
+            predictions = [self._heuristic_classify(text) for text in texts]
+
         for i, block in enumerate(repaired_blocks):
-            prediction = self.classify_block(block.text, use_transformer=use_transformer)
-            
+            prediction = (
+                predictions[i]
+                if i < len(predictions)
+                else self._heuristic_classify(block.text)
+            )
+
             # Create SemanticBlock Structure (as requested)
             semantic_block = {
                 "block_id": i,
@@ -154,6 +168,58 @@ class SemanticParser:
             "confidence": float(confidence.item())
         }
 
+    def _predict_block_types_batch(self, texts: List[str]) -> List[Dict[str, Any]]:
+        """Batch semantic classification for a list of block texts."""
+        if not self.model or not self.tokenizer:
+            return [self._heuristic_classify(text) for text in texts]
+
+        if not texts:
+            return []
+
+        try:
+            inputs = self.tokenizer(
+                texts,
+                return_tensors="pt",
+                padding=True,
+                truncation=True,
+                max_length=512,
+            )
+            with torch.no_grad():
+                outputs = self.model(**inputs)
+                probs = torch.softmax(outputs.logits, dim=1)
+                confidences, label_idxs = torch.max(probs, dim=1)
+
+            labels = [
+                "HEADING", "ABSTRACT", "BODY", "REFERENCES", "FIGURE_CAPTION",
+                "TABLE_CAPTION", "ACKNOWLEDGEMENTS", "EQUATION", "METHODOLOGY",
+                "CONCLUSION", "AUTHOR_INFO", "TITLE"
+            ]
+
+            results: List[Dict[str, Any]] = []
+            for conf, idx in zip(confidences, label_idxs):
+                label_index = idx.item()
+                predicted_label = labels[label_index] if label_index < len(labels) else "BODY"
+                results.append({
+                    "type": predicted_label,
+                    "confidence": float(conf.item()),
+                })
+            return results
+        except Exception as exc:
+            logger.warning("SemanticParser: batch inference failed (%s). Falling back to heuristics.", exc)
+            return [self._heuristic_classify(text) for text in texts]
+
+    def predict_blocks_batch(self, texts: List[str]) -> List[Dict[str, Any]]:
+        """
+        Public batch prediction helper.
+
+        Attempts SciBERT inference when enabled, otherwise falls back to
+        heuristic classification. Callers should still guard for missing
+        model availability if they require SciBERT specifically.
+        """
+        if settings.USE_SCIBERT_CLASSIFICATION:
+            self._load_model()
+        return self._predict_block_types_batch(texts)
+
     def _heuristic_classify(self, text: str) -> Dict[str, Any]:
         """Rule-based block classification when transformer inference is disabled."""
         prediction = {"type": "BODY", "confidence": 0.5}
@@ -185,7 +251,7 @@ class SemanticParser:
 
     def classify_block(self, text: str, use_transformer: bool = True) -> Dict[str, Any]:
         """Classify a single block using SciBERT or deterministic heuristics."""
-        if USE_SCIBERT_CLASSIFICATION and use_transformer:
+        if settings.USE_SCIBERT_CLASSIFICATION and use_transformer:
             return self._predict_block_type(text)
         return self._heuristic_classify(text)
 

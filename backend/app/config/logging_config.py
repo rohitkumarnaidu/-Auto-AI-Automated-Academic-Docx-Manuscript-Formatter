@@ -42,28 +42,41 @@ LOGGING_CONFIG = {
     "disable_existing_loggers": False,
     "formatters": {
         "default": {
-            "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            "format": (
+                "%(asctime)s - %(name)s - %(levelname)s - "
+                "[request_id=%(request_id)s job_id=%(job_id)s session_id=%(session_id)s] "
+                "%(message)s"
+            ),
             "datefmt": "%Y-%m-%d %H:%M:%S",
         },
         "detailed": {
             "format": (
                 "%(asctime)s - %(name)s - %(levelname)s - "
-                "%(filename)s:%(lineno)d - %(funcName)s() - %(message)s"
+                "%(filename)s:%(lineno)d - %(funcName)s() - "
+                "[request_id=%(request_id)s job_id=%(job_id)s session_id=%(session_id)s] "
+                "%(message)s"
             ),
             "datefmt": "%Y-%m-%d %H:%M:%S",
         },
+    },
+    "filters": {
+        "context": {
+            "()": "app.utils.logging_context.LogContextFilter",
+        }
     },
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
             "level": "INFO",
             "formatter": "default",
+            "filters": ["context"],
             "stream": "ext://sys.stdout",
         },
         "file": {
             "class": "logging.handlers.RotatingFileHandler",
             "level": "DEBUG",
             "formatter": "detailed",
+            "filters": ["context"],
             "filename": str(LOGS_DIR / "app.log"),
             "maxBytes": 10_485_760,  # 10 MB
             "backupCount": 5,
@@ -74,6 +87,7 @@ LOGGING_CONFIG = {
             "class": "logging.handlers.RotatingFileHandler",
             "level": "ERROR",
             "formatter": "detailed",
+            "filters": ["context"],
             "filename": str(LOGS_DIR / "errors.log"),
             "maxBytes": 10_485_760,  # 10 MB
             "backupCount": 5,

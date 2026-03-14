@@ -137,11 +137,12 @@ async def lifespan(app: FastAPI):
         
         logger.info("Startup: Pre-loading AI models into memory...")
         try:
-            parser = get_semantic_parser()
-            parser._load_model()
-            model_store.set_model("scibert_tokenizer", parser.tokenizer)
-            model_store.set_model("scibert_model", parser.model)
-            logger.info("SciBERT loaded.")
+            if settings.USE_SCIBERT_CLASSIFICATION:
+                parser = get_semantic_parser()
+                parser._load_model()
+                model_store.set_model("scibert_tokenizer", parser.tokenizer)
+                model_store.set_model("scibert_model", parser.model)
+                logger.info("SciBERT loaded.")
             
             rag = get_rag_engine()
             model_store.set_model("rag_engine", rag)

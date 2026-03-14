@@ -8,12 +8,13 @@ from fastapi import APIRouter, Depends, Query, Request
 from app.routers import templates as legacy_templates
 from app.schemas.user import User
 from app.utils.dependencies import get_optional_user
+from app.utils.logging_context import bind_request_context
 
 from ._helpers import run_enveloped
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(bind_request_context)])
 
 
 @router.get("")

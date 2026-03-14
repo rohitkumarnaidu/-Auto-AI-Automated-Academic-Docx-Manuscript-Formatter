@@ -23,7 +23,7 @@ export async function proxy(request) {
             connectSrcAllowlist.push(legacyApiUrl);
         }
 
-        // SECURITY HEADERS from Phase B4 (production only)
+        // SECURITY HEADERS (production only)
         supabaseResponse.headers.set('Content-Security-Policy', [
             "default-src 'self'",
             "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
@@ -39,6 +39,23 @@ export async function proxy(request) {
     supabaseResponse.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
     supabaseResponse.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
 
+    const url = request.nextUrl.clone();
+    const pathname = url.pathname;
+
+    const protectedRoutes = [
+        '/dashboard', '/profile', '/feedback', '/notifications', '/settings',
+        '/history', '/template-editor', '/batch-upload', '/generate',
+    ];
+    const isProtected = protectedRoutes.some(route => pathname.startsWith(route));
+    const isAdminRoute = pathname.startsWith('/admin-dashboard');
+
+    // ── Fast path: skip ALL Supabase network calls for non-protected routes ────
+    // This eliminates the 2-3s latency on every public page load.
+    if (!isProtected && !isAdminRoute) {
+        return supabaseResponse;
+    }
+
+    // ── Auth check: only reaches here for protected / admin routes ─────────────
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -56,12 +73,11 @@ export async function proxy(request) {
                 },
                 setAll(cookiesToSet) {
                     cookiesToSet.forEach(({ name, value, options }) => {
-                        // Enforce secure cookie options for tokens
                         const secureOptions = {
                             ...options,
                             httpOnly: true,
                             sameSite: 'lax',
-                            secure: process.env.NODE_ENV === 'production'
+                            secure: process.env.NODE_ENV === 'production',
                         };
                         request.cookies.set(name, value);
                         supabaseResponse.cookies.set(name, value, secureOptions);
@@ -71,24 +87,13 @@ export async function proxy(request) {
         }
     );
 
+    // Single getSession() — removed the redundant getUser() fallback that was
+    // doubling latency by making two sequential network calls on every request.
     const {
         data: { session },
     } = await supabase.auth.getSession();
 
-    let user = session?.user || null;
-    if (!user) {
-        try {
-            const { data, error } = await supabase.auth.getUser();
-            if (!error && data?.user) {
-                user = data.user;
-            }
-        } catch (err) {
-            console.warn('[Auth] Failed to fetch user for SSR guard:', err);
-        }
-    }
-
-    const url = request.nextUrl.clone();
-    const pathname = url.pathname;
+    const user = session?.user || null;
 
     const hasAuthCookie = request.cookies
         .getAll()
@@ -96,16 +101,7 @@ export async function proxy(request) {
 
     const isAuthenticated = Boolean(user) || hasAuthCookie;
 
-    const protectedRoutes = [
-        '/dashboard', '/profile', '/feedback', '/notifications', '/settings',
-        '/history', '/template-editor', '/batch-upload', '/generate'
-    ];
-
-    const isProtected = protectedRoutes.some(route => pathname.startsWith(route));
-    const isAdminRoute = pathname.startsWith('/admin-dashboard');
-
     if (!isAuthenticated) {
-        // Not logged in
         if (isProtected || isAdminRoute) {
             if (process.env.NODE_ENV !== 'production') {
                 return supabaseResponse;
@@ -115,7 +111,6 @@ export async function proxy(request) {
             return NextResponse.redirect(loginUrl, 307);
         }
     } else {
-        // Logged in
         if (isAdminRoute) {
             const role = user?.user_metadata?.role;
             if (role !== 'admin') {

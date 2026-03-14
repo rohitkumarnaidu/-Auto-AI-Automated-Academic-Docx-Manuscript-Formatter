@@ -22,6 +22,7 @@ from datetime import datetime, timedelta, timezone
 # from app.models.processing_status import ProcessingStatus as ProcessingStatusModel
 
 from app.db.supabase_client import get_supabase_client
+from app.utils.logging_context import log_extra
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,7 @@ class DocumentService:
         doc_id = str(doc_id)
         if user_id: user_id = str(user_id)
         if sb is None:
-            logger.error("get_document: Supabase client not available.")
+            logger.error("get_document: Supabase client not available.", extra=log_extra(job_id=doc_id))
             return None
         try:
             query = sb.table("documents").select("*").eq("id", str(doc_id))
@@ -58,7 +59,7 @@ class DocumentService:
             result = query.maybe_single().execute()
             return result.data
         except Exception as exc:
-            logger.error("get_document(%s) failed: %s", doc_id, exc)
+            logger.error("get_document(%s) failed: %s", doc_id, exc, extra=log_extra(job_id=doc_id))
             return None
 
     @staticmethod
@@ -76,7 +77,7 @@ class DocumentService:
         sb = get_supabase_client()
         user_id = str(user_id)
         if sb is None:
-            logger.error("list_documents: Supabase client not available.")
+            logger.error("list_documents: Supabase client not available.", extra=log_extra())
             return []
         try:
             query = (
@@ -93,7 +94,7 @@ class DocumentService:
             result = query.execute()
             return result.data or []
         except Exception as exc:
-            logger.error("list_documents(user=%s) failed: %s", user_id, exc)
+            logger.error("list_documents(user=%s) failed: %s", user_id, exc, extra=log_extra())
             return []
 
     @staticmethod
@@ -122,7 +123,7 @@ class DocumentService:
             result = query.execute()
             return result.count or 0
         except Exception as exc:
-            logger.error("count_documents(user=%s) failed: %s", user_id, exc)
+            logger.error("count_documents(user=%s) failed: %s", user_id, exc, extra=log_extra())
             return 0
 
     @staticmethod
@@ -147,7 +148,7 @@ class DocumentService:
             )
             return int(result.count or 0)
         except Exception as exc:
-            logger.error("count_uploads_today(user=%s) failed: %s", user_id, exc)
+            logger.error("count_uploads_today(user=%s) failed: %s", user_id, exc, extra=log_extra())
             return 0
 
     @staticmethod
@@ -168,7 +169,7 @@ class DocumentService:
         doc_id = str(doc_id)
         if user_id: user_id = str(user_id)
         if sb is None:
-            logger.error("create_document: Supabase client not available.")
+            logger.error("create_document: Supabase client not available.", extra=log_extra(job_id=doc_id))
             return None
         try:
             payload: Dict[str, Any] = {
@@ -212,7 +213,8 @@ class DocumentService:
                     if not DocumentService._file_hash_warning_logged:
                         logger.warning(
                             "documents.file_hash not found in Supabase schema; "
-                            "upload will continue without file hashing until migration is applied."
+                            "upload will continue without file hashing until migration is applied.",
+                            extra=log_extra(job_id=doc_id),
                         )
                         DocumentService._file_hash_warning_logged = True
                     retry_result = sb.table("documents").insert(retry_payload).execute()
@@ -222,9 +224,10 @@ class DocumentService:
                         "create_document(%s) retry without file_hash failed: %s",
                         doc_id,
                         retry_exc,
+                        extra=log_extra(job_id=doc_id),
                     )
                     return None
-            logger.error("create_document(%s) failed: %s", doc_id, exc)
+            logger.error("create_document(%s) failed: %s", doc_id, exc, extra=log_extra(job_id=doc_id))
             return None
 
     @staticmethod
@@ -236,7 +239,7 @@ class DocumentService:
         sb = get_supabase_client()
         doc_id = str(doc_id)
         if sb is None:
-            logger.error("update_document: Supabase client not available.")
+            logger.error("update_document: Supabase client not available.", extra=log_extra(job_id=doc_id))
             return None
         try:
             result = (
@@ -247,7 +250,7 @@ class DocumentService:
             )
             return result.data[0] if result.data else None
         except Exception as exc:
-            logger.error("update_document(%s) failed: %s", doc_id, exc)
+            logger.error("update_document(%s) failed: %s", doc_id, exc, extra=log_extra(job_id=doc_id))
             return None
 
     @staticmethod
@@ -274,14 +277,20 @@ class DocumentService:
                 try:
                     os.remove(candidate)
                 except OSError as exc:
-                    logger.warning("Failed to remove file %s for document %s: %s", candidate, doc_id, exc)
+                    logger.warning(
+                        "Failed to remove file %s for document %s: %s",
+                        candidate,
+                        doc_id,
+                        exc,
+                        extra=log_extra(job_id=doc_id),
+                    )
 
         try:
             sb.table("processing_status").delete().eq("document_id", doc_id).execute()
             sb.table("document_results").delete().eq("document_id", doc_id).execute()
             sb.table("document_versions").delete().eq("document_id", doc_id).execute()
         except Exception as exc:
-            logger.warning("Auxiliary cleanup failed for document %s: %s", doc_id, exc)
+            logger.warning("Auxiliary cleanup failed for document %s: %s", doc_id, exc, extra=log_extra(job_id=doc_id))
 
         try:
             query = sb.table("documents").delete().eq("id", doc_id)
@@ -292,7 +301,7 @@ class DocumentService:
                 raise ValueError("Document delete affected 0 rows")
             return True
         except Exception as exc:
-            logger.error("delete_document(%s, user=%s) failed: %s", doc_id, owner_id, exc)
+            logger.error("delete_document(%s, user=%s) failed: %s", doc_id, owner_id, exc, extra=log_extra(job_id=doc_id))
             raise
 
     @staticmethod
@@ -324,11 +333,12 @@ class DocumentService:
                 if not DocumentService._output_hash_warning_logged:
                     logger.warning(
                         "documents.output_hash not found in Supabase schema; "
-                        "download integrity checks will be best-effort until migration is applied."
+                        "download integrity checks will be best-effort until migration is applied.",
+                        extra=log_extra(job_id=doc_id),
                     )
                     DocumentService._output_hash_warning_logged = True
                 return False
-            logger.error("update_output_hash(%s) failed: %s", doc_id, exc)
+            logger.error("update_output_hash(%s) failed: %s", doc_id, exc, extra=log_extra(job_id=doc_id))
             return False
 
     @staticmethod
@@ -340,7 +350,7 @@ class DocumentService:
         sb = get_supabase_client()
         doc_id = str(doc_id)
         if sb is None:
-            logger.error("mark_document_failed: Supabase client not available.")
+            logger.error("mark_document_failed: Supabase client not available.", extra=log_extra(job_id=doc_id))
             return
         try:
             sb.table("documents").update({
@@ -349,7 +359,7 @@ class DocumentService:
                 "progress": 0,
             }).eq("id", str(doc_id)).execute()
         except Exception as exc:
-            logger.error("mark_document_failed(%s) failed: %s", doc_id, exc)
+            logger.error("mark_document_failed(%s) failed: %s", doc_id, exc, extra=log_extra(job_id=doc_id))
 
     @staticmethod
     def mark_document_completed(
@@ -364,7 +374,7 @@ class DocumentService:
         sb = get_supabase_client()
         doc_id = str(doc_id)
         if sb is None:
-            logger.error("mark_document_completed: Supabase client not available.")
+            logger.error("mark_document_completed: Supabase client not available.", extra=log_extra(job_id=doc_id))
             return
         try:
             updates: Dict[str, Any] = {
@@ -377,7 +387,7 @@ class DocumentService:
                 updates["raw_text"] = raw_text
             sb.table("documents").update(updates).eq("id", str(doc_id)).execute()
         except Exception as exc:
-            logger.error("mark_document_completed(%s) failed: %s", doc_id, exc)
+            logger.error("mark_document_completed(%s) failed: %s", doc_id, exc, extra=log_extra(job_id=doc_id))
 
     # ── Document Results ───────────────────────────────────────────────────────
 
@@ -401,7 +411,7 @@ class DocumentService:
             )
             return result.data
         except Exception as exc:
-            logger.error("get_document_result(%s) failed: %s", doc_id, exc)
+            logger.error("get_document_result(%s) failed: %s", doc_id, exc, extra=log_extra(job_id=doc_id))
             return None
 
     @staticmethod
@@ -417,7 +427,7 @@ class DocumentService:
         sb = get_supabase_client()
         doc_id = str(doc_id)
         if sb is None:
-            logger.error("upsert_document_result: Supabase client not available.")
+            logger.error("upsert_document_result: Supabase client not available.", extra=log_extra(job_id=doc_id))
             return
         try:
             payload: Dict[str, Any] = {"document_id": str(doc_id)}
@@ -429,7 +439,7 @@ class DocumentService:
                 payload, on_conflict="document_id"
             ).execute()
         except Exception as exc:
-            logger.error("upsert_document_result(%s) failed: %s", doc_id, exc)
+            logger.error("upsert_document_result(%s) failed: %s", doc_id, exc, extra=log_extra(job_id=doc_id))
 
     # ── Processing Status ──────────────────────────────────────────────────────
 
@@ -452,7 +462,7 @@ class DocumentService:
             )
             return result.data or []
         except Exception as exc:
-            logger.error("get_processing_statuses(%s) failed: %s", doc_id, exc)
+            logger.error("get_processing_statuses(%s) failed: %s", doc_id, exc, extra=log_extra(job_id=doc_id))
             return []
 
     @staticmethod
@@ -470,7 +480,7 @@ class DocumentService:
         sb = get_supabase_client()
         doc_id = str(doc_id)
         if sb is None:
-            logger.error("upsert_processing_status: Supabase client not available.")
+            logger.error("upsert_processing_status: Supabase client not available.", extra=log_extra(job_id=doc_id))
             return
         try:
             payload: Dict[str, Any] = {
@@ -487,5 +497,9 @@ class DocumentService:
             ).execute()
         except Exception as exc:
             logger.error(
-                "upsert_processing_status(%s, %s) failed: %s", doc_id, phase, exc
+                "upsert_processing_status(%s, %s) failed: %s",
+                doc_id,
+                phase,
+                exc,
+                extra=log_extra(job_id=doc_id),
             )

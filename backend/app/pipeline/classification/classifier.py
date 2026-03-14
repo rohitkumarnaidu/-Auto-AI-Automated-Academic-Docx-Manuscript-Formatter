@@ -68,6 +68,172 @@ class ContentClassifier(PipelineStage):
             "laboratory", "center", "centre", "division"
         }
 
+        # SciBERT integration tuning
+        self.scibert_min_confidence = max(0.6, getattr(settings, "HEURISTIC_CONFIDENCE_MEDIUM", 0.6))
+
+    def _looks_like_heading(self, block: Block) -> bool:
+        text = (block.text or "").strip()
+        if block.metadata.get("is_heading_candidate") or block.metadata.get("potential_heading"):
+            return True
+        if len(text) <= 80 and (text.isupper() or text.istitle()):
+            return True
+        if text.endswith(":"):
+            return True
+        return False
+
+    def _resolve_heading_type(self, block: Block) -> tuple[BlockType, str]:
+        level = (
+            block.metadata.get("level")
+            or block.metadata.get("heading_level")
+            or block.level
+        )
+        if level == 2:
+            return BlockType.HEADING_2, "HEADING_2"
+        if level == 3:
+            return BlockType.HEADING_3, "HEADING_3"
+        if level == 4:
+            return BlockType.HEADING_4, "HEADING_4"
+        return BlockType.HEADING_1, "HEADING_1"
+
+    def _map_scibert_label(self, label: str, block: Block) -> tuple[BlockType, str]:
+        normalized = (label or "").strip().upper()
+        text = (block.text or "").strip()
+
+        if normalized == "TITLE":
+            return BlockType.TITLE, "TITLE"
+        if normalized == "AUTHOR_INFO":
+            if self._is_likely_affiliation(text):
+                return BlockType.AFFILIATION, "AFFILIATION"
+            return BlockType.AUTHOR, "AUTHOR"
+        if normalized == "ABSTRACT":
+            if self._looks_like_heading(block) or text.lower() == "abstract":
+                return BlockType.ABSTRACT_HEADING, "ABSTRACT_HEADING"
+            return BlockType.ABSTRACT_BODY, "ABSTRACT_BODY"
+        if normalized == "REFERENCES":
+            if self._looks_like_heading(block) or len(text) < 50:
+                return BlockType.REFERENCES_HEADING, "REFERENCES_HEADING"
+            return BlockType.REFERENCE_ENTRY, "REFERENCE_ENTRY"
+        if normalized == "FIGURE_CAPTION":
+            return BlockType.FIGURE_CAPTION, "FIGURE_CAPTION"
+        if normalized == "TABLE_CAPTION":
+            return BlockType.TABLE_CAPTION, "TABLE_CAPTION"
+        if normalized == "ACKNOWLEDGEMENTS":
+            return BlockType.ACKNOWLEDGEMENTS, "ACKNOWLEDGEMENTS"
+        if normalized == "EQUATION":
+            return BlockType.EQUATION, "EQUATION"
+        if normalized in {"METHODOLOGY", "CONCLUSION"}:
+            if self._looks_like_heading(block):
+                block_type, _ = self._resolve_heading_type(block)
+                return block_type, normalized
+            return BlockType.BODY, normalized
+        if normalized == "HEADING":
+            return self._resolve_heading_type(block)
+        if normalized == "BODY":
+            return BlockType.BODY, "BODY"
+
+        # Default fallback
+        return BlockType.BODY, "BODY"
+
+    def _predict_scibert_batch(self, blocks: List[Block]) -> Optional[List[Dict[str, Any]]]:
+        if not settings.USE_SCIBERT_CLASSIFICATION:
+            return None
+        if not blocks:
+            return []
+
+        texts = [b.text or "" for b in blocks]
+        try:
+            from app.pipeline.intelligence.semantic_parser import (
+                get_semantic_parser,
+                HAS_LANGDETECT,
+                detect_language,
+            )
+
+            if HAS_LANGDETECT:
+                combined_text = " ".join(t for t in texts[:10] if t)[:500]
+                if combined_text.strip():
+                    try:
+                        detected_lang = detect_language(combined_text)
+                    except Exception:
+                        detected_lang = "en"
+                    if detected_lang != "en":
+                        logger.info(
+                            "SciBERT classification skipped for non-English document (%s).",
+                            detected_lang,
+                        )
+                        return None
+
+            parser = get_semantic_parser()
+            parser._load_model()
+            if not parser.model or not parser.tokenizer:
+                logger.warning("SciBERT model unavailable; falling back to rule-based classification.")
+                return None
+            return parser.predict_blocks_batch(texts)
+        except Exception as exc:
+            logger.warning("SciBERT batch inference failed (%s). Falling back to rule-based classification.", exc)
+            return None
+
+    def _apply_scibert_predictions(
+        self,
+        blocks: List[Block],
+        predictions: Optional[List[Dict[str, Any]]],
+    ) -> None:
+        if not predictions:
+            return
+
+        # Persist raw predictions for observability.
+        for i, block in enumerate(blocks):
+            if i >= len(predictions):
+                break
+            pred = predictions[i] or {}
+            label = pred.get("type")
+            if label:
+                block.metadata["scibert_prediction"] = label
+                block.metadata["scibert_confidence"] = pred.get("confidence")
+
+        overrides = 0
+        for i, block in enumerate(blocks):
+            if i >= len(predictions):
+                break
+            pred = predictions[i] or {}
+            label = pred.get("type")
+            if not label:
+                continue
+            try:
+                confidence = float(pred.get("confidence") or 0.0)
+            except (TypeError, ValueError):
+                confidence = 0.0
+
+            if confidence < self.scibert_min_confidence:
+                continue
+
+            # Skip protected structural blocks
+            if (
+                block.metadata.get("is_header")
+                or block.metadata.get("is_footer")
+                or block.metadata.get("is_footnote")
+                or block.metadata.get("is_endnote")
+            ):
+                continue
+
+            # Only override low-specificity assignments.
+            if block.block_type not in {BlockType.BODY, BlockType.UNKNOWN, BlockType.PARAGRAPH}:
+                continue
+
+            mapped_type, semantic_intent = self._map_scibert_label(label, block)
+            if mapped_type == BlockType.BODY and block.block_type == BlockType.BODY:
+                continue
+
+            block.block_type = mapped_type
+            block.semantic_intent = semantic_intent
+            block.classification_confidence = confidence
+            block.metadata["semantic_intent"] = semantic_intent
+            block.metadata["classification_confidence"] = confidence
+            block.metadata["classification_method"] = "scibert_batch"
+            overrides += 1
+
+        if overrides:
+            logger.info("SciBERT batch refinement applied to %d blocks.", overrides)
+
     def process(self, document: Document) -> Document:
         """
         Classify all blocks in the document.
@@ -95,7 +261,9 @@ class ContentClassifier(PipelineStage):
         blocks = document.blocks
         if not blocks:
             return document
-            
+
+        scibert_predictions = self._predict_scibert_batch(blocks)
+
         # 1. Identify key structural landmarks
         first_section_index = self._find_first_section_index(blocks)
         references_start_index = self._find_references_start_index(blocks)
@@ -390,6 +558,9 @@ class ContentClassifier(PipelineStage):
 
           except Exception as exc:
               logger.warning("ContentClassifier: failed to classify block %d: %s", i, exc)
+
+        # 2.5 Optional SciBERT refinement (batch predictions)
+        self._apply_scibert_predictions(blocks, scibert_predictions)
 
         # 3. NLP Fallback for UNKNOWNs
         self._nlp_classify_fallback(blocks)

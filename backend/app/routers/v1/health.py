@@ -2,15 +2,16 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 
 from app.services.health_checks import get_readiness_payload
+from app.utils.logging_context import bind_request_context
 
 from ._helpers import build_error_response, build_success_response
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(bind_request_context)])
 
 
 @router.get("/live")
