@@ -1,0 +1,99 @@
+name: deploy-production
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_tag:
+        description: "Git tag to deploy"
+        required: true
+        type: string
+
+jobs:
+  deploy-production:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify tag
+        run: |
+          git fetch --tags --force
+          if ! git rev-parse "refs/tags/${{ github.event.inputs.version_tag }}" >/dev/null 2>&1; then
+            echo "Tag not found: ${{ github.event.inputs.version_tag }}"
+            exit 1
+          fi
+
+      - name: Deploy backend canary to Render
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_PROD_CANARY_SERVICE_ID: ${{ secrets.RENDER_PROD_CANARY_SERVICE_ID }}
+        run: |
+          curl -fsS -X POST "https://api.render.com/v1/services/${RENDER_PROD_CANARY_SERVICE_ID}/deploys" \
+            -H "Authorization: Bearer ${RENDER_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{"clearCache":false}'
+
+      - name: Deploy frontend canary to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROD_CANARY_PROJECT_ID: ${{ secrets.VERCEL_PROD_CANARY_PROJECT_ID }}
+        working-directory: frontend
+        run: |
+          npm i -g vercel
+          VERCEL_ORG_ID=${VERCEL_ORG_ID} VERCEL_PROJECT_ID=${VERCEL_PROD_CANARY_PROJECT_ID} \
+            vercel deploy --prod --yes --token ${VERCEL_TOKEN}
+
+      - name: Wait 10 minutes
+        run: sleep 600
+
+      - name: Check Prometheus error rate
+        env:
+          PROMETHEUS_URL: ${{ secrets.PROMETHEUS_URL }}
+          PROMETHEUS_TOKEN: ${{ secrets.PROMETHEUS_TOKEN }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import sys
+          import urllib.parse
+          import urllib.request
+
+          query = 'sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m]))'
+          base = os.environ.get("PROMETHEUS_URL", "").rstrip("/")
+          if not base:
+              sys.exit("PROMETHEUS_URL is required")
+          url = f"{base}/api/v1/query?query={urllib.parse.quote(query, safe='')}"
+          req = urllib.request.Request(url)
+          token = os.environ.get("PROMETHEUS_TOKEN")
+          if token:
+              req.add_header("Authorization", f"Bearer {token}")
+          with urllib.request.urlopen(req, timeout=10) as resp:
+              data = json.loads(resp.read().decode("utf-8"))
+          result = data.get("data", {}).get("result", [])
+          value = float(result[0]["value"][1]) if result else 0.0
+          print(f"error_rate={value}")
+          if value >= 0.01:
+              sys.exit("Error rate too high, aborting production deploy.")
+          PY
+
+      - name: Deploy backend production to Render
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_PROD_SERVICE_ID: ${{ secrets.RENDER_PROD_SERVICE_ID }}
+        run: |
+          curl -fsS -X POST "https://api.render.com/v1/services/${RENDER_PROD_SERVICE_ID}/deploys" \
+            -H "Authorization: Bearer ${RENDER_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{"clearCache":false}'
+
+      - name: Deploy frontend production to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROD_PROJECT_ID: ${{ secrets.VERCEL_PROD_PROJECT_ID }}
+        working-directory: frontend
+        run: |
+          npm i -g vercel
+          VERCEL_ORG_ID=${VERCEL_ORG_ID} VERCEL_PROJECT_ID=${VERCEL_PROD_PROJECT_ID} \
+            vercel deploy --prod --yes --token ${VERCEL_TOKEN}

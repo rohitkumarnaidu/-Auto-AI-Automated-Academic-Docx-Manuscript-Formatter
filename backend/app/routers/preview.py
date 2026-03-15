@@ -81,6 +81,12 @@ async def preview_ws(websocket: WebSocket, sessionId: str):
         await websocket.close(code=1008)
         return
     await websocket.accept()
+    try:
+        from app.middleware.prometheus_metrics import MetricsManager
+    except Exception:
+        MetricsManager = None
+    if MetricsManager:
+        MetricsManager.ws_connection_open()
     _connections.setdefault(sessionId, set()).add(websocket)
     channel = f"preview:{sessionId}"
     forward_task = asyncio.create_task(_forward_updates(websocket, channel))
@@ -117,6 +123,8 @@ async def preview_ws(websocket: WebSocket, sessionId: str):
             connections.discard(websocket)
             if not connections:
                 _connections.pop(sessionId, None)
+        if MetricsManager:
+            MetricsManager.ws_connection_closed()
 
 
 def _build_ai_messages(content: str, template_id: str) -> list[dict[str, str]]:
@@ -149,6 +157,12 @@ async def ai_suggest(
     request_id = get_request_id(request)
 
     async def event_generator():
+        try:
+            from app.middleware.prometheus_metrics import MetricsManager
+        except Exception:
+            MetricsManager = None
+        if MetricsManager:
+            MetricsManager.sse_connection_open()
         start = time.perf_counter()
         yield {
             "event": "status",
@@ -179,5 +193,8 @@ async def ai_suggest(
         except Exception as exc:
             logger.warning("AI suggest failed for %s: %s", sessionId, exc, extra=log_extra(session_id=sessionId))
             yield {"event": "error", "data": json.dumps({"error": "AI suggestion failed", "request_id": request_id})}
+        finally:
+            if MetricsManager:
+                MetricsManager.sse_connection_closed()
 
     return EventSourceResponse(event_generator())

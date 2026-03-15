@@ -32,6 +32,12 @@ _pubsub = RedisPubSub()
 async def event_generator(job_id: str, request: Request) -> AsyncGenerator[dict, None]:
     channel = f"job:{job_id}"
     request_id = get_request_id(request)
+    try:
+        from app.middleware.prometheus_metrics import MetricsManager
+    except Exception:
+        MetricsManager = None
+    if MetricsManager:
+        MetricsManager.sse_connection_open()
     connected_event = make_event(
         "connected",
         job_id=job_id,
@@ -39,12 +45,16 @@ async def event_generator(job_id: str, request: Request) -> AsyncGenerator[dict,
         payload={"message": f"Connected to stream for job {job_id}"},
     )
     yield {"event": "connected", "data": json.dumps(connected_event)}
-    async for event in _pubsub.subscribe(channel):
-        if await request.is_disconnected():
-            logger.info("Client disconnected from stream %s", job_id, extra=log_extra(job_id=job_id))
-            break
-        event_type = event.get("event_type") or "message"
-        yield {"event": event_type, "data": json.dumps(event)}
+    try:
+        async for event in _pubsub.subscribe(channel):
+            if await request.is_disconnected():
+                logger.info("Client disconnected from stream %s", job_id, extra=log_extra(job_id=job_id))
+                break
+            event_type = event.get("event_type") or "message"
+            yield {"event": event_type, "data": json.dumps(event)}
+    finally:
+        if MetricsManager:
+            MetricsManager.sse_connection_closed()
 
 
 @router.get("/{job_id}")

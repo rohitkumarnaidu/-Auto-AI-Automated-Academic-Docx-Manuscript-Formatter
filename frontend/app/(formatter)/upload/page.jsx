@@ -348,118 +348,114 @@ export default function Upload() {
     };
 
     const handleProcess = useCallback(async () => {
-        // Allow processing if file exists and NOT currently processing.
-        // Even if progress was 100% (previous job), we allow starting a new one.
-        if (!file || isProcessing) {
-            return;
-        }
+        if (!file || isProcessing) return;
 
         if (remaining === 0) {
             setShowUpgradeModal(true);
-            return; // Block process
+            return;
         }
 
         if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
             Notification.requestPermission().catch(() => { });
         }
 
-        const controller = new AbortController();
-        setJob(null);
-        setAbortController(controller);
-        setIsProcessing(true);
-        setActiveJobId(null);
-        setProgress(0);
-        setCurrentStep(1);
-        setStatusMessage('Initiating upload...');
-        terminalStatusHandledRef.current = false;
-        completionNotificationSentRef.current = false;
+        const executeUpload = async (attempt = 0) => {
+            const controller = new AbortController();
+            setAbortController(controller);
+            setIsProcessing(true);
+            setActiveJobId(null);
+            setProgress(0);
+            setCurrentStep(1);
+            setStatusMessage(attempt > 0 ? `Retrying upload (Attempt ${attempt + 1}/3)...` : 'Initiating upload...');
+            terminalStatusHandledRef.current = false;
+            completionNotificationSentRef.current = false;
 
-        const uploadOptions = {
-            add_page_numbers: addPageNumbers,
-            add_borders: addBorders,
-            add_cover_page: addCoverPage,
-            generate_toc: generateTOC,
-            page_size: pageSize,
-            fast_mode: fastMode,
+            const uploadOptions = {
+                add_page_numbers: addPageNumbers,
+                add_borders: addBorders,
+                add_cover_page: addCoverPage,
+                generate_toc: generateTOC,
+                page_size: pageSize,
+                fast_mode: fastMode,
+            };
+
+            try {
+                let result = null;
+                const shouldUseChunkedUpload = file.size > CHUNK_UPLOAD_THRESHOLD_BYTES && isLoggedIn;
+
+                if (shouldUseChunkedUpload) {
+                    setStatusMessage('Large file detected. Uploading chunks...');
+                    const chunkedResult = await uploadChunked(file, {
+                        signal: controller.signal,
+                        onProgress: ({ chunkIndex, totalChunks, percent }) => {
+                            setProgress(percent);
+                            setStatusMessage(`Uploading chunk ${chunkIndex + 1}/${totalChunks} (${percent}%)...`);
+                        },
+                    });
+
+                    if (chunkedResult?.job_id) {
+                        result = chunkedResult;
+                    }
+                }
+
+                if (controller.signal.aborted) return;
+
+                if (!result) {
+                    result = await uploadDocumentWithProgress(file, template, uploadOptions, {
+                        signal: controller.signal,
+                        onProgress: (uploadPercent) => {
+                            setProgress(uploadPercent);
+                            setStatusMessage(`Uploading manuscript... ${uploadPercent}%`);
+                        },
+                    });
+                }
+
+                if (controller.signal.aborted || !result?.job_id) {
+                    if (!result?.job_id) throw new Error('Upload response missing job id.');
+                    return;
+                }
+
+                const newJob = {
+                    id: result.job_id,
+                    timestamp: new Date().toISOString(),
+                    status: 'processing',
+                    phase: 'UPLOAD',
+                    originalFileName: file.name,
+                    template,
+                    flags: {
+                        page_numbers: addPageNumbers,
+                        borders: addBorders,
+                        cover_page: addCoverPage,
+                        toc: generateTOC,
+                        page_size: pageSize,
+                    },
+                    progress: 0,
+                };
+                setStatusMessage('Upload complete. Processing started...');
+                setProgress(0);
+                setJob(newJob);
+                setActiveJobId(newJob.id);
+                sessionStorage.setItem('scholarform_currentJob', JSON.stringify(newJob));
+
+            } catch (error) {
+                if (controller.signal.aborted) return;
+                
+                console.error(`Upload attempt ${attempt + 1} failed:`, error);
+                
+                if (attempt < 2) { // 3 attempts total (0, 1, 2)
+                    const backoffTime = Math.pow(2, attempt) * 1000;
+                    setStatusMessage(`Upload failed. Retrying in ${backoffTime / 1000}s...`);
+                    setTimeout(() => executeUpload(attempt + 1), backoffTime);
+                } else {
+                    setIsProcessing(false);
+                    setStatusMessage(`Upload failed after 3 attempts: ${error.message}`);
+                }
+            } finally {
+                setAbortController((activeController) => (activeController === controller ? null : activeController));
+            }
         };
 
-        try {
-            let result = null;
-            const shouldUseChunkedUpload = file.size > CHUNK_UPLOAD_THRESHOLD_BYTES && isLoggedIn;
-
-            if (shouldUseChunkedUpload) {
-                setStatusMessage('Large file detected. Uploading chunks...');
-                const chunkedResult = await uploadChunked(file, {
-                    signal: controller.signal,
-                    onProgress: ({ chunkIndex, totalChunks, percent }) => {
-                        setProgress(percent);
-                        setStatusMessage(`Uploading chunk ${chunkIndex + 1}/${totalChunks} (${percent}%)...`);
-                    },
-                });
-
-                if (chunkedResult?.job_id) {
-                    result = chunkedResult;
-                    setStatusMessage('Chunk upload complete. Processing started...');
-                } else {
-                    setProgress(0);
-                    setStatusMessage('Chunk upload complete. Finalizing upload...');
-                }
-            } else if (file.size > CHUNK_UPLOAD_THRESHOLD_BYTES) {
-                setStatusMessage('Large file detected. Uploading in single request mode...');
-            }
-
-            if (controller.signal.aborted) {
-                return;
-            }
-
-            if (!result) {
-                result = await uploadDocumentWithProgress(file, template, uploadOptions, {
-                    signal: controller.signal,
-                    onProgress: (uploadPercent) => {
-                        setProgress(uploadPercent);
-                        setStatusMessage(`Uploading manuscript... ${uploadPercent}%`);
-                    },
-                });
-            }
-
-            if (controller.signal.aborted || !result?.job_id) {
-                if (!result?.job_id) {
-                    throw new Error('Upload response missing job id.');
-                }
-                return;
-            }
-
-            const newJob = {
-                id: result.job_id,
-                timestamp: new Date().toISOString(),
-                status: 'processing',
-                phase: 'UPLOAD',
-                originalFileName: file.name,
-                template,
-                flags: {
-                    page_numbers: addPageNumbers,
-                    borders: addBorders,
-                    cover_page: addCoverPage,
-                    toc: generateTOC,
-                    page_size: pageSize,
-                },
-                progress: 0,
-            };
-            setStatusMessage('Upload complete. Processing started...');
-            setProgress(0);
-            setJob(newJob);
-            setActiveJobId(newJob.id);
-            sessionStorage.setItem('scholarform_currentJob', JSON.stringify(newJob));
-        } catch (error) {
-            if (controller.signal.aborted) {
-                return;
-            }
-            console.error('Upload failed:', error);
-            setIsProcessing(false);
-            setStatusMessage(`Upload failed: ${error.message}`);
-        } finally {
-            setAbortController((activeController) => (activeController === controller ? null : activeController));
-        }
+        executeUpload();
     }, [
         addBorders,
         addCoverPage,
@@ -551,31 +547,46 @@ export default function Upload() {
                                 1. Document Source
                             </h2>
                             <div
-                                className={`flex flex-col items-center gap-6 rounded-xl border-2 border-dashed px-6 py-12 transition-all duration-300 ${isDragging || file ? 'border-primary bg-primary/5' : 'border-slate-300 dark:border-slate-700 surface-ladder-border-10 bg-slate-50/50 surface-ladder-10'
-                                    } hover:border-primary`}
+                                id="upload-zone"
+                                className={`flex flex-col items-center gap-6 rounded-xl border-2 border-dashed px-6 py-12 transition-all duration-300 relative group/zone ${isDragging 
+                                    ? 'border-primary bg-primary/10 scale-[1.02] shadow-xl shadow-primary/10' 
+                                    : file 
+                                        ? 'border-primary bg-primary/5' 
+                                        : 'border-slate-300 dark:border-slate-700 surface-ladder-border-10 bg-slate-50/50 surface-ladder-10'
+                                    } hover:border-primary hover:bg-slate-50 dark:hover:bg-white/5 transition-all`}
                                 onDragOver={handleDragOver}
                                 onDragLeave={handleDragLeave}
                                 onDrop={handleDrop}
                             >
-                                <div className="flex flex-col items-center gap-4">
-                                    <div className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors duration-300 ${isDragging || file ? 'bg-primary text-white' : 'bg-primary/10 text-primary'}`}>
-                                        <span className="material-symbols-outlined text-4xl">{file ? 'check_circle' : 'cloud_upload'}</span>
+                                {isDragging && (
+                                    <div className="absolute inset-0 bg-primary/5 animate-pulse rounded-xl pointer-events-none" />
+                                )}
+                                <div className="flex flex-col items-center gap-4 relative z-10">
+                                    <div className={`w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300 ${isDragging || file ? 'bg-primary text-white scale-110' : 'bg-primary/10 text-primary group-hover/zone:scale-110'}`}>
+                                        <span className={`material-symbols-outlined text-4xl ${isProcessing ? 'animate-spin' : ''}`}>
+                                            {file ? 'check_circle' : isDragging ? 'download' : 'cloud_upload'}
+                                        </span>
                                     </div>
                                     <div className="text-center">
                                         <p className="text-slate-900 dark:text-white text-lg font-bold">
-                                            {file ? 'File selected' : 'Drag and drop your manuscript here'}
+                                            {isDragging ? 'Drop to upload' : file ? 'Manuscript Ready' : 'Drag and drop your manuscript here'}
                                         </p>
                                         <div className="text-slate-500 dark:text-slate-400 text-sm mt-1 flex items-center justify-center gap-2">
                                             {file ? (
-                                                <>
-                                                    <span>{`File: ${file.name} (${formatFileSize(file.size)})`}</span>
-                                                    <button onClick={(e) => { e.stopPropagation(); setFile(null); setFileError(null); }} className="hover:text-red-500 dark:hover:text-red-400 transition-colors flex items-center" title="Remove file">
+                                                <div className="flex items-center gap-2 px-3 py-1 bg-white dark:bg-slate-800 rounded-full border border-slate-200 dark:border-slate-700 shadow-sm">
+                                                    <span className="truncate max-w-[200px]">{file.name}</span>
+                                                    <span className="text-slate-400 text-xs">({formatFileSize(file.size)})</span>
+                                                    <button 
+                                                        onClick={(e) => { e.stopPropagation(); setFile(null); setFileError(null); }} 
+                                                        className="hover:text-red-500 dark:hover:text-red-400 transition-colors flex items-center p-0.5" 
+                                                        title="Remove file"
+                                                    >
                                                         <span className="material-symbols-outlined text-sm">close</span>
                                                     </button>
-                                                </>
-                                            ) : 'Supported formats: DOCX, PDF, TEX, TXT, HTML/HTM, MD/MARKDOWN, DOC (Max 50MB)'}
+                                                </div>
+                                            ) : 'Supported formats: DOCX, PDF, TEX, TXT, HTML, MD, DOC (Max 50MB)'}
                                         </div>
-                                        {fileError && <p className="text-red-500 text-sm mt-2 font-medium">{fileError}</p>}
+                                        {fileError && <p className="text-red-500 text-xs mt-2 font-bold animate-bounce">{fileError}</p>}
                                     </div>
                                 </div>
                                 <input
@@ -596,9 +607,9 @@ export default function Upload() {
                                             fileInputRef.current?.click();
                                         }
                                     }}
-                                    className={`flex w-full sm:w-auto min-w-[140px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-11 px-6 bg-primary text-white text-sm font-bold tracking-wide shadow-md hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    className={`flex w-full sm:w-auto min-w-[140px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-11 px-6 bg-primary text-white text-sm font-bold tracking-wide shadow-md hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all relative z-10 ${isProcessing ? 'opacity-50 cursor-not-allowed' : 'active:scale-95'}`}
                                 >
-                                    {file ? 'Change File' : 'Browse Files'}
+                                    {isProcessing ? 'Locked' : file ? 'Change File' : 'Browse Files'}
                                 </label>
                             </div>
                         </div>

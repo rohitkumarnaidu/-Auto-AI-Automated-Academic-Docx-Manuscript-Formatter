@@ -1,0 +1,37 @@
+name: e2e-staging
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows:
+      - deploy-staging
+    types:
+      - completed
+
+jobs:
+  e2e-staging:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install
+
+      - name: Run Playwright tests
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ secrets.STAGING_FRONTEND_URL }}
+          CI: "1"
+        run: npx playwright test

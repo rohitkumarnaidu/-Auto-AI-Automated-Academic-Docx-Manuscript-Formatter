@@ -12,6 +12,8 @@ node_modules/
 .env.development.local
 .env.test.local
 .env.production.local
+.env*.local
+!.env.example
 
 # Vercel
 .vercel
@@ -20,6 +22,9 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+*.log
+.next_start.*
 
 # OS files
 .DS_Store
@@ -30,17 +35,33 @@ playwright-report/
 test-results/
 coverage/
 
-# Build artifacts
+# Build and Lint artifacts
 build_log.txt
 lint_output.txt
+build-*
+lint-*
+out.txt
+out-utf8.txt
+dep.txt
+test_output.txt
+frontend_git_status.txt
+*.tsbuildinfo
+.eslintcache
+.stylelintcache
 
 # Vite legacy
 dist/
 index.html
 !_legacy_vite_archive/index.html
 
-# Editor
-.vscode/settings.json
+# Editor & IDE
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
 # Local build/dev artifacts
 build_*.txt
@@ -48,4 +69,7 @@ build_out.txt
 build_err.txt
 build*.log
 devserver.*.log
-*.tsbuildinfo
+*.tmp
+proxy.js
+proxy_clean.js
+*.js.tmp

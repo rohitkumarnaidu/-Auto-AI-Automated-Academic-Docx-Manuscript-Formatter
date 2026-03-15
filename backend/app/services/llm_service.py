@@ -4,6 +4,7 @@ llm_service.py — Unified LLM access layer powered by LiteLLM.
 from __future__ import annotations
 import sys
 import logging
+import time
 from typing import List, Dict, Any, Optional
 
 from app.config.settings import settings
@@ -33,6 +34,22 @@ LLM_NVIDIA   = settings.NVIDIA_MODEL
 LLM_GROQ     = settings.GROQ_MODEL
 LLM_DEEPSEEK = "ollama/deepseek-r1"
 LLM_GPT4     = "gpt-4"
+
+
+def _infer_provider(model: str) -> str:
+    if not model:
+        return "unknown"
+    if model.startswith("nvidia_nim/"):
+        return "nvidia"
+    if model.startswith("groq/"):
+        return "groq"
+    if model.startswith("ollama/"):
+        return "ollama"
+    if model.startswith("openai/") or model.startswith("gpt-"):
+        return "openai"
+    if model.startswith("anthropic/") or model.startswith("claude"):
+        return "anthropic"
+    return "unknown"
 
 # ── Prompt injection guard ───────────────────────────────────────────────── #
 import re
@@ -105,63 +122,84 @@ def generate(
     
     # ── Cache Lookup ──
     cache_enabled = not stream
+    provider = _infer_provider(model)
     if cache_enabled:
         cached = redis_cache.get_llm_result(key)
         if cached:
+            try:
+                from app.middleware.prometheus_metrics import MetricsManager
+                MetricsManager.record_llm_cache_hit(provider, model)
+            except Exception:
+                pass
             logger.info("LLM cache hit", extra=log_extra())
             return cached
+        try:
+            from app.middleware.prometheus_metrics import MetricsManager
+            MetricsManager.record_llm_cache_miss(provider, model)
+        except Exception:
+            pass
+    start_time = time.perf_counter()
 
-    if not LITELLM_AVAILABLE:
-        result = _generate_fallback(messages, model, temperature, max_tokens, timeout, api_key, api_base)
-        if result and cache_enabled:
-            redis_cache.set_llm_result(key, result, ttl=settings.LLM_CACHE_TTL_SECONDS)
-        return result
+    try:
+        if not LITELLM_AVAILABLE:
+            result = _generate_fallback(messages, model, temperature, max_tokens, timeout, api_key, api_base)
+            if result and cache_enabled:
+                redis_cache.set_llm_result(key, result, ttl=settings.LLM_CACHE_TTL_SECONDS)
+            return result
 
-    kwargs: Dict[str, Any] = {
-        "model": model,
-        "messages": messages,
-        "temperature": max(0.0, min(1.0, temperature)),
-        "max_tokens": max_tokens,
-        "timeout": timeout,
-    }
+        kwargs: Dict[str, Any] = {
+            "model": model,
+            "messages": messages,
+            "temperature": max(0.0, min(1.0, temperature)),
+            "max_tokens": max_tokens,
+            "timeout": timeout,
+        }
 
-    # Per-provider API key resolution
-    if api_key:
-        kwargs["api_key"] = api_key
-    elif model.startswith("nvidia_nim/"):
-        nvidia_key = settings.NVIDIA_API_KEY
-        if nvidia_key:
-            kwargs["api_key"] = nvidia_key
-    elif model.startswith("gpt-") or model.startswith("openai/"):
-        openai_key = settings.OPENAI_API_KEY
-        if openai_key:
-            kwargs["api_key"] = openai_key
-    elif model.startswith("claude") or model.startswith("anthropic/"):
-        anthropic_key = settings.ANTHROPIC_API_KEY
-        if anthropic_key:
-            kwargs["api_key"] = anthropic_key
-    elif model.startswith("groq/"):
-        groq_key = settings.GROQ_API_KEY
-        if groq_key:
-            kwargs["api_key"] = groq_key
+        # Per-provider API key resolution
+        if api_key:
+            kwargs["api_key"] = api_key
+        elif model.startswith("nvidia_nim/"):
+            nvidia_key = settings.NVIDIA_API_KEY
+            if nvidia_key:
+                kwargs["api_key"] = nvidia_key
+        elif model.startswith("gpt-") or model.startswith("openai/"):
+            openai_key = settings.OPENAI_API_KEY
+            if openai_key:
+                kwargs["api_key"] = openai_key
+        elif model.startswith("claude") or model.startswith("anthropic/"):
+            anthropic_key = settings.ANTHROPIC_API_KEY
+            if anthropic_key:
+                kwargs["api_key"] = anthropic_key
+        elif model.startswith("groq/"):
+            groq_key = settings.GROQ_API_KEY
+            if groq_key:
+                kwargs["api_key"] = groq_key
 
-    # Per-provider base URL
-    if api_base:
-        kwargs["api_base"] = api_base
-    elif model.startswith("ollama/"):
-        kwargs["api_base"] = settings.OLLAMA_BASE_URL
-    elif model.startswith("groq/"):
-        kwargs["api_base"] = settings.GROQ_API_BASE
+        # Per-provider base URL
+        if api_base:
+            kwargs["api_base"] = api_base
+        elif model.startswith("ollama/"):
+            kwargs["api_base"] = settings.OLLAMA_BASE_URL
+        elif model.startswith("groq/"):
+            kwargs["api_base"] = settings.GROQ_API_BASE
 
-    response = completion(**kwargs)
-    choices = response.choices
-    if not choices:
-        logger.warning("llm_service.generate: empty choices from %s", model, extra=log_extra())
-        return ""
-    text = choices[0].message.content or ""
-    if text and cache_enabled:
-        redis_cache.set_llm_result(key, text, ttl=settings.LLM_CACHE_TTL_SECONDS)
-    return text
+        response = completion(**kwargs)
+        choices = response.choices
+        if not choices:
+            logger.warning("llm_service.generate: empty choices from %s", model, extra=log_extra())
+            return ""
+        text = choices[0].message.content or ""
+        if text and cache_enabled:
+            redis_cache.set_llm_result(key, text, ttl=settings.LLM_CACHE_TTL_SECONDS)
+        return text
+    finally:
+        duration = time.perf_counter() - start_time
+        try:
+            from app.middleware.prometheus_metrics import MetricsManager
+            MetricsManager.record_llm_duration(provider, model, duration)
+            MetricsManager.record_llm_ttft(provider, model, duration)
+        except Exception:
+            pass
 
 
 def generate_with_fallback(

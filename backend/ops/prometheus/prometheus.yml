@@ -1,0 +1,10 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: "scholarform-backend"
+    metrics_path: /metrics
+    static_configs:
+      # Update target for your deployment topology.
+      - targets: ["backend:8000"]

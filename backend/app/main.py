@@ -12,6 +12,7 @@ from app.middleware.tier_rate_limit import TierRateLimitMiddleware
 from app.routers.v1 import v1_router
 from app.services.health_checks import get_readiness_payload
 from contextlib import asynccontextmanager
+from prometheus_fastapi_instrumentator import Instrumentator
 
 # Initialize logging — kept commented out so terminal output remains visible during development
 # from app.config.logging_config import setup_logging
@@ -86,6 +87,33 @@ async def _periodic_file_cleanup(retention_days: int) -> None:
         await asyncio.sleep(24 * 60 * 60)
 
 
+def _fetch_queue_depths() -> dict[str, int]:
+    if not settings.REDIS_ENABLED:
+        return {"interactive": 0, "batch": 0}
+    try:
+        import redis
+        client = redis.Redis.from_url(settings.REDIS_URL, decode_responses=True)
+        return {
+            queue: int(client.llen(queue) or 0)
+            for queue in ("interactive", "batch")
+        }
+    except Exception as exc:
+        logger.debug("Queue depth fetch failed: %s", exc)
+        return {"interactive": 0, "batch": 0}
+
+
+async def _periodic_queue_depth_update(interval_seconds: int = 30) -> None:
+    while True:
+        depths = await asyncio.to_thread(_fetch_queue_depths)
+        try:
+            from app.middleware.prometheus_metrics import MetricsManager
+            for queue, depth in depths.items():
+                MetricsManager.set_celery_queue_depth(queue, depth)
+        except Exception:
+            pass
+        await asyncio.sleep(interval_seconds)
+
+
 # ── Lifespan (replaces deprecated @app.on_event) ─────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -97,6 +125,7 @@ async def lifespan(app: FastAPI):
     # DISABLED: Auto-delete feature temporarily removed per user request
     # cleanup_task = asyncio.create_task(cleanup_old_uploads())
     cleanup_task = None
+    queue_metrics_task = None
     enable_cleanup = settings.ENABLE_FILE_CLEANUP
     retention_days = int(settings.RETENTION_DAYS)
     if enable_cleanup:
@@ -109,6 +138,8 @@ async def lifespan(app: FastAPI):
         cleanup_task = asyncio.create_task(_periodic_file_cleanup(retention_days))
     else:
         logger.info("File cleanup disabled (ENABLE_FILE_CLEANUP=false in .env).")
+
+    queue_metrics_task = asyncio.create_task(_periodic_queue_depth_update())
 
     with safe_execution("Application Startup"):
         # ── Supabase-py: reset interrupted jobs ───────────────────────────────
@@ -170,6 +201,12 @@ async def lifespan(app: FastAPI):
     yield  # App is running
 
     # ── SHUTDOWN ──
+    if queue_metrics_task is not None:
+        queue_metrics_task.cancel()
+        try:
+            await queue_metrics_task
+        except asyncio.CancelledError:
+            pass
     if cleanup_task is not None:
         cleanup_task.cancel()
         try:
@@ -186,6 +223,9 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+# Prometheus instrumentation
+Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 
 # CORS Configuration (from environment + local dev fallbacks)
 origins = _build_cors_origins(settings.CORS_ORIGINS)

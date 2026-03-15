@@ -1,0 +1,238 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total[1m]))",
+          "legendFormat": "rps"
+        },
+        {
+          "expr": "sum(rate(http_requests_total{status=~\"5..\"}[1m])) / sum(rate(http_requests_total[1m]))",
+          "legendFormat": "error_rate"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95_latency"
+        }
+      ],
+      "title": "Overview",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
+      "id": 2,
+      "targets": [
+        {
+          "expr": "sum(rate(pipeline_requests_total{status=\"completed\"}[5m]))",
+          "legendFormat": "pipeline_completed_rate"
+        },
+        {
+          "expr": "sum(rate(pipeline_requests_total{status=\"failed\"}[5m]))",
+          "legendFormat": "pipeline_failed_rate"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(pipeline_duration_seconds_bucket[5m])) by (le, status))",
+          "legendFormat": "pipeline_p95_latency"
+        },
+        {
+          "expr": "sum(celery_queue_depth)",
+          "legendFormat": "queue_depth"
+        }
+      ],
+      "title": "Pipeline",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "id": 3,
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(llm_ttft_seconds_bucket[5m])) by (le, provider))",
+          "legendFormat": "{{provider}} ttft_p95"
+        },
+        {
+          "expr": "sum(rate(agent_llm_tokens_total[5m]))",
+          "legendFormat": "tokens_per_sec"
+        },
+        {
+          "expr": "sum(rate(llm_cache_hits_total[5m])) / (sum(rate(llm_cache_hits_total[5m])) + sum(rate(llm_cache_misses_total[5m])))",
+          "legendFormat": "cache_hit_rate"
+        }
+      ],
+      "title": "LLM",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      },
+      "id": 4,
+      "targets": [
+        {
+          "expr": "sse_active_connections",
+          "legendFormat": "sse_active"
+        },
+        {
+          "expr": "ws_active_connections",
+          "legendFormat": "ws_active"
+        },
+        {
+          "expr": "sum(rate(sse_connections_total[5m]))",
+          "legendFormat": "sse_reconnect_rate"
+        },
+        {
+          "expr": "sum(rate(ws_connections_total[5m]))",
+          "legendFormat": "ws_reconnect_rate"
+        }
+      ],
+      "title": "Realtime",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 32
+      },
+      "id": 5,
+      "targets": [
+        {
+          "expr": "active_users",
+          "legendFormat": "active_users"
+        },
+        {
+          "expr": "increase(pipeline_requests_total{status=\"completed\"}[1h])",
+          "legendFormat": "documents_processed_1h"
+        },
+        {
+          "expr": "sum(rate(http_requests_total{handler=~\"/api/v1/generator/sessions\", method=\"POST\"}[5m]))",
+          "legendFormat": "generation_jobs_rate"
+        }
+      ],
+      "title": "Business",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": [
+    "scholarform"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "Prometheus",
+          "value": "${DS_PROMETHEUS}"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Prometheus",
+        "name": "DS_PROMETHEUS",
+        "query": "prometheus",
+        "refresh": 1,
+        "type": "datasource"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "ScholarForm Overview",
+  "version": 1,
+  "weekStart": ""
+}

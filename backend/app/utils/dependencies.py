@@ -3,6 +3,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.services.auth_service import AuthService
 from app.schemas.user import User
+from typing import Optional
 import logging
 import jwt
 
@@ -26,6 +27,12 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     role = payload.get("role", "authenticated")
     app_metadata = payload.get("app_metadata")
 
+    try:
+        from app.middleware.prometheus_metrics import MetricsManager
+        MetricsManager.record_user_activity(str(user_id))
+    except Exception:
+        pass
+
     return User(id=user_id, email=email, role=role, app_metadata=app_metadata)
 
 def get_optional_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False))) -> Optional[User]:
@@ -43,6 +50,11 @@ def get_optional_user(credentials: Optional[HTTPAuthorizationCredentials] = Depe
         email = payload.get("email")
         role = payload.get("role", "authenticated")
         app_metadata = payload.get("app_metadata")
+        try:
+            from app.middleware.prometheus_metrics import MetricsManager
+            MetricsManager.record_user_activity(str(user_id))
+        except Exception:
+            pass
         return User(id=user_id, email=email, role=role, app_metadata=app_metadata)
     except (HTTPException, jwt.InvalidTokenError, jwt.ExpiredSignatureError, jwt.InvalidIssuerError) as e:
         # Log authentication failures for security monitoring

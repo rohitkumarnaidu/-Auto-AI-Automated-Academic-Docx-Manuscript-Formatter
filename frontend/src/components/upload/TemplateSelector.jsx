@@ -40,7 +40,7 @@ export default function TemplateSelector({
                             value={category}
                             onChange={(e) => onCategoryChange(e.target.value)}
                             disabled={isProcessing}
-                            className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700/70 surface-ladder-border-10 bg-white surface-ladder-06 pl-3 pr-8 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none appearance-none disabled:opacity-50 transition-all font-medium cursor-pointer"
+                            className="template-selector-trigger w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700/70 surface-ladder-border-10 bg-white surface-ladder-06 pl-3 pr-8 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none appearance-none disabled:opacity-50 transition-all font-medium cursor-pointer"
                         >
                             {TEMPLATE_OPTIONS.map((option) => (
                                 <option key={option.value} value={option.value}>

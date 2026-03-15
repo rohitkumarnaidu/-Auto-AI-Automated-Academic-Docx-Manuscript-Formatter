@@ -159,6 +159,7 @@ export default function Sidebar({ section = 'shared', onClose, isCollapsed = fal
                         {!isCollapsed && <span className="truncate">Formatter</span>}
                     </button>
                     <button
+                        id="mode-generator"
                         onClick={() => handleModeChange('generator')}
                         title={isCollapsed ? 'Generator' : undefined}
                         className={`active-mode-btn flex items-center gap-3 py-2 rounded-xl text-[15px] active:scale-[0.98] transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${isCollapsed ? 'px-0 justify-center w-10 h-10 mx-auto' : 'px-3 w-full'
@@ -181,6 +182,7 @@ export default function Sidebar({ section = 'shared', onClose, isCollapsed = fal
                     return (
                         <button
                             key={href}
+                            id={label === 'History' ? 'nav-history' : undefined}
                             onClick={() => handleNavigation(href)}
                             title={isCollapsed ? label : undefined}
                             className={`active-nav-link flex items-center gap-3 py-2.5 rounded-xl text-[15px] font-semibold active:scale-[0.98] transition-all ${isCollapsed ? 'px-0 justify-center w-11 h-11 mx-auto' : 'px-3 w-full'

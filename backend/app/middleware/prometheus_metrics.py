@@ -3,6 +3,7 @@ Prometheus metrics definition and middleware for the application.
 """
 import time
 import logging
+import threading
 from typing import Callable
 from fastapi import Request, Response
 from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
@@ -62,6 +63,73 @@ LLM_FAILURES_TOTAL = Counter(
     ["provider"]
 )
 
+LLM_TTFT_SECONDS = Histogram(
+    "llm_ttft_seconds",
+    "Time to first token for LLM responses (approximated for non-streaming calls).",
+    ["provider", "model"],
+    buckets=(0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 20),
+)
+
+LLM_CACHE_HITS_TOTAL = Counter(
+    "llm_cache_hits_total",
+    "Total LLM cache hits",
+    ["provider", "model"],
+)
+
+LLM_CACHE_MISSES_TOTAL = Counter(
+    "llm_cache_misses_total",
+    "Total LLM cache misses",
+    ["provider", "model"],
+)
+
+LLM_REQUEST_DURATION_SECONDS = Histogram(
+    "llm_request_duration_seconds",
+    "Duration of LLM requests",
+    ["provider", "model"],
+    buckets=(0.1, 0.25, 0.5, 1, 2, 5, 10, 20, 30, 60),
+)
+
+CELERY_QUEUE_DEPTH = Gauge(
+    "celery_queue_depth",
+    "Depth of Celery queues",
+    ["queue"],
+)
+
+SSE_ACTIVE_CONNECTIONS = Gauge(
+    "sse_active_connections",
+    "Active SSE connections",
+)
+
+SSE_CONNECTIONS_TOTAL = Counter(
+    "sse_connections_total",
+    "Total SSE connections opened",
+)
+
+WS_ACTIVE_CONNECTIONS = Gauge(
+    "ws_active_connections",
+    "Active WebSocket connections",
+)
+
+WS_CONNECTIONS_TOTAL = Counter(
+    "ws_connections_total",
+    "Total WebSocket connections opened",
+)
+
+CLAMAV_SCAN_DURATION_SECONDS = Histogram(
+    "clamav_scan_duration_seconds",
+    "Duration of ClamAV scans",
+    buckets=(0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10),
+)
+
+ACTIVE_USERS = Gauge(
+    "active_users",
+    "Active authenticated users in the last 5 minutes",
+)
+
+_ACTIVE_USERS_WINDOW_SECONDS = 300
+_active_user_last_seen: dict[str, float] = {}
+_active_user_lock = threading.Lock()
+
 # --- Middleware ---
 
 async def prometheus_metrics_middleware(request: Request, call_next: Callable) -> Response:
@@ -105,6 +173,61 @@ class MetricsManager:
     @staticmethod
     def record_llm_failure(provider: str):
         LLM_FAILURES_TOTAL.labels(provider=provider).inc()
+
+    @staticmethod
+    def record_llm_duration(provider: str, model: str, duration_seconds: float):
+        LLM_REQUEST_DURATION_SECONDS.labels(provider=provider, model=model).observe(duration_seconds)
+
+    @staticmethod
+    def record_llm_ttft(provider: str, model: str, duration_seconds: float):
+        LLM_TTFT_SECONDS.labels(provider=provider, model=model).observe(duration_seconds)
+
+    @staticmethod
+    def record_llm_cache_hit(provider: str, model: str):
+        LLM_CACHE_HITS_TOTAL.labels(provider=provider, model=model).inc()
+
+    @staticmethod
+    def record_llm_cache_miss(provider: str, model: str):
+        LLM_CACHE_MISSES_TOTAL.labels(provider=provider, model=model).inc()
+
+    @staticmethod
+    def set_celery_queue_depth(queue: str, depth: int):
+        CELERY_QUEUE_DEPTH.labels(queue=queue).set(depth)
+
+    @staticmethod
+    def sse_connection_open():
+        SSE_ACTIVE_CONNECTIONS.inc()
+        SSE_CONNECTIONS_TOTAL.inc()
+
+    @staticmethod
+    def sse_connection_closed():
+        SSE_ACTIVE_CONNECTIONS.dec()
+
+    @staticmethod
+    def ws_connection_open():
+        WS_ACTIVE_CONNECTIONS.inc()
+        WS_CONNECTIONS_TOTAL.inc()
+
+    @staticmethod
+    def ws_connection_closed():
+        WS_ACTIVE_CONNECTIONS.dec()
+
+    @staticmethod
+    def record_clamav_scan_duration(duration_seconds: float):
+        CLAMAV_SCAN_DURATION_SECONDS.observe(duration_seconds)
+
+    @staticmethod
+    def record_user_activity(user_id: str):
+        if not user_id:
+            return
+        now = time.time()
+        with _active_user_lock:
+            _active_user_last_seen[user_id] = now
+            cutoff = now - _ACTIVE_USERS_WINDOW_SECONDS
+            expired = [uid for uid, ts in _active_user_last_seen.items() if ts < cutoff]
+            for uid in expired:
+                _active_user_last_seen.pop(uid, None)
+            ACTIVE_USERS.set(len(_active_user_last_seen))
     
     @staticmethod
     def record_retry():

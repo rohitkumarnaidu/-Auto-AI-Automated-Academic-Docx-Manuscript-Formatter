@@ -4,6 +4,7 @@ import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import { usePathname } from 'next/navigation';
 import React, { useEffect, useState, Suspense } from 'react';
+import OnboardingTour from '@/src/components/OnboardingTour';
 
 const AUTH_ROUTES = ['/login', '/signup', '/forgot-password', '/verify-otp', '/reset-password', '/auth/callback'];
 
@@ -64,6 +65,7 @@ export default function AppShell({ children, section = 'shared' }) {
                 <main id="main-content" tabIndex="-1" className="flex-grow flex flex-col items-center w-full relative z-10 focus:outline-none">
                     {children}
                 </main>
+                <OnboardingTour />
             </div>
         );
     }
@@ -127,6 +129,7 @@ export default function AppShell({ children, section = 'shared' }) {
             >
                 {children}
             </main>
+            <OnboardingTour />
         </>
     );
 }
