@@ -12,8 +12,12 @@ from __future__ import annotations
 
 import logging
 import os
+import time
+import hmac
+import hashlib
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta, timezone
+from urllib.parse import urlparse, parse_qsl, urlencode, urlunparse
 
 # ── Old ORM imports (kept for reference, replaced by supabase-py) ──────────────
 # from sqlalchemy.orm import Session
@@ -36,6 +40,52 @@ class DocumentService:
     _file_hash_warning_logged: bool = False
     _supports_output_hash: Optional[bool] = None
     _output_hash_warning_logged: bool = False
+
+    @staticmethod
+    def generate_signed_download_url(
+        *,
+        file_url: str,
+        file_path: str,
+        secret: str,
+        expires_in_seconds: int = 3600,
+    ) -> Dict[str, Any]:
+        if not secret:
+            raise ValueError("SIGNED_URL_SECRET is required")
+        expires = int(time.time()) + int(expires_in_seconds)
+        signature = hmac.new(
+            secret.encode("utf-8"),
+            f"{file_path}{expires}".encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
+
+        parsed = urlparse(file_url)
+        query = dict(parse_qsl(parsed.query))
+        query.update({"token": signature, "expires": str(expires)})
+        signed_url = urlunparse(parsed._replace(query=urlencode(query)))
+        return {"url": signed_url, "expires": expires}
+
+    @staticmethod
+    def verify_signed_download(
+        *,
+        file_path: str,
+        token: str,
+        expires: int,
+        secret: str,
+    ) -> bool:
+        if not secret or not token or not expires:
+            return False
+        try:
+            expires_int = int(expires)
+        except (TypeError, ValueError):
+            return False
+        if expires_int < int(time.time()):
+            return False
+        expected = hmac.new(
+            secret.encode("utf-8"),
+            f"{file_path}{expires_int}".encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
+        return hmac.compare_digest(expected, token)
 
     # ── Documents ──────────────────────────────────────────────────────────────
 

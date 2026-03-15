@@ -255,7 +255,12 @@ class TestAPIEndpoints:
                     assert compare_response.status_code == 200
                     assert "html_diff" in compare_response.json()
 
-                    download_response = client.get("/api/documents/job-download/download?format=docx")
+                    download_link = client.get("/api/documents/job-download/download?format=docx")
+                    assert download_link.status_code == 200
+                    signed_url = download_link.json()["url"]
+                    from urllib.parse import urlparse
+                    parsed = urlparse(signed_url)
+                    download_response = client.get(f"{parsed.path}?{parsed.query}")
                     assert download_response.status_code == 200
                     assert "application/vnd.openxmlformats-officedocument.wordprocessingml.document" in download_response.headers.get("content-type", "")
         finally:
@@ -302,8 +307,13 @@ class TestAPIEndpoints:
                         "filename": "paper.docx",
                         "output_path": str(output_path),
                     }
-                    response = client.get("/api/documents/job-download/download?format=tex")
+                    link_response = client.get("/api/documents/job-download/download?format=tex")
 
+            assert link_response.status_code == 200
+            signed_url = link_response.json()["url"]
+            from urllib.parse import urlparse
+            parsed = urlparse(signed_url)
+            response = client.get(f"{parsed.path}?{parsed.query}")
             assert response.status_code == 200
             assert "application/x-latex" in response.headers.get("content-type", "")
         finally:

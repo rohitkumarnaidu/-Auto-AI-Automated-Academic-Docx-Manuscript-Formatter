@@ -2,9 +2,9 @@ import logging
 import warnings
 from typing import Optional
 
-import jwt
 from fastapi import HTTPException, status
 from app.config.settings import settings
+from app.security.jwks_verifier import verify_jwt
 
 logger = logging.getLogger(__name__)
 
@@ -60,42 +60,7 @@ class AuthService:
         Decodes and verifies the Supabase JWT.
         Validates signature, expiration (exp), audience (aud), and issuer (iss).
         """
-        try:
-            # Construct issuer URL from SUPABASE_URL if provided
-            # Standard Supabase issuer is: https://<project-ref>.supabase.co/auth/v1
-            supabase_url = settings.SUPABASE_URL
-            expected_issuer = f"{supabase_url}/auth/v1" if supabase_url else None
-
-            payload = jwt.decode(
-                token,
-                settings.SUPABASE_JWT_SECRET,
-                algorithms=[settings.ALGORITHM],
-                audience="authenticated",
-                issuer=expected_issuer,
-                options={
-                    "verify_exp": True,
-                    "verify_iss": True if expected_issuer else False,
-                },
-            )
-            return payload
-        except jwt.ExpiredSignatureError:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token has expired",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        except jwt.InvalidIssuerError:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token issuer",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        except jwt.InvalidTokenError:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+        return verify_jwt(token)
 
     @staticmethod
     def get_user_id_from_payload(payload: dict) -> str:

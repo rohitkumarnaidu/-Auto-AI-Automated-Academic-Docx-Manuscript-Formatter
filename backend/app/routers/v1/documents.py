@@ -50,6 +50,7 @@ async def upload_document_chunked(
 ):
     async def operation():
         return await legacy_documents.upload_document_chunked(
+            request=request,
             background_tasks=background_tasks,
             file_id=file_id,
             chunk_index=chunk_index,
@@ -131,6 +132,7 @@ async def upload_document(
 ):
     async def operation():
         return await legacy_documents.upload_document(
+            request=request,
             background_tasks=background_tasks,
             file=file,
             template=template,
@@ -279,12 +281,17 @@ async def download_document(
     request: Request,
     jobId: str,
     format: str = Query("docx"),
+    token: Optional[str] = Query(None),
+    expires: Optional[int] = Query(None),
     current_user: Optional[User] = Depends(get_optional_user),
 ):
     async def operation():
         return await legacy_documents.download_document(
+            request=request,
             job_id=jobId,
             format=(format or "").strip().lower(),
+            token=token,
+            expires=expires,
             current_user=current_user,
         )
 
@@ -308,7 +315,7 @@ async def delete_document(
     current_user: User = Depends(get_current_user),
 ):
     async def operation():
-        return await legacy_documents.delete_document(job_id=jobId, current_user=current_user)
+        return await legacy_documents.delete_document(request=request, job_id=jobId, current_user=current_user)
 
     return await run_enveloped(
         request,

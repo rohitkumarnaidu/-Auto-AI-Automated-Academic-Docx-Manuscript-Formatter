@@ -62,6 +62,11 @@ if _PS:
         # Security
         ALGORITHM: str
         CORS_ORIGINS: str
+        SIGNED_URL_SECRET: Optional[str] = None
+
+        # Billing
+        STRIPE_API_KEY: Optional[str] = None
+        STRIPE_WEBHOOK_SECRET: Optional[str] = None
 
         # Upload Limits
         MAX_FILE_SIZE: int
@@ -221,6 +226,11 @@ else:
         # Security
         ALGORITHM: str = _require_env("ALGORITHM")
         CORS_ORIGINS: str = _require_env("CORS_ORIGINS")
+        SIGNED_URL_SECRET: Optional[str] = os.getenv("SIGNED_URL_SECRET")
+
+        # Billing
+        STRIPE_API_KEY: Optional[str] = os.getenv("STRIPE_API_KEY")
+        STRIPE_WEBHOOK_SECRET: Optional[str] = os.getenv("STRIPE_WEBHOOK_SECRET")
 
         # Upload Limits
         MAX_FILE_SIZE: int = int(_require_env("MAX_FILE_SIZE"))

@@ -8,6 +8,7 @@ from app.routers import auth, documents
 from app.config.settings import settings
 from app.middleware.request_id import RequestIdMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
+from app.middleware.tier_rate_limit import TierRateLimitMiddleware
 from app.routers.v1 import v1_router
 from app.services.health_checks import get_readiness_payload
 from contextlib import asynccontextmanager
@@ -206,6 +207,7 @@ app.add_middleware(
 
 # Rate Limiting Middleware (DoS Protection)
 app.add_middleware(RateLimitMiddleware, requests_per_minute=60)
+app.add_middleware(TierRateLimitMiddleware, guest_daily_limit=5)
 
 # Security Headers Middleware (CSP, X-Frame-Options, etc.)
 from app.middleware.security_headers import SecurityHeadersMiddleware, MaxBodySizeMiddleware

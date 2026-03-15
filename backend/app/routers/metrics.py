@@ -5,7 +5,8 @@ Provides operational visibility into database connections, rate limiting, and sy
 
 from fastapi import APIRouter, HTTPException, Depends
 from typing import Dict, Any
-from app.utils.dependencies import get_current_user, get_optional_user
+from app.utils.dependencies import get_optional_user
+from app.middleware.rbac import require_role
 
 from app.services.model_metrics import get_model_metrics
 from app.services.ab_testing import get_ab_testing
@@ -21,19 +22,8 @@ router = APIRouter(
 )
 logger = logging.getLogger(__name__)
 
-def require_admin(current_user=Depends(get_current_user)):
-    """Guard admin-only observability endpoints."""
-    role = getattr(current_user, "role", None)
-    metadata_role = None
-    app_metadata = getattr(current_user, "app_metadata", None)
-    if isinstance(app_metadata, dict):
-        metadata_role = app_metadata.get("role")
-    if role == "admin" or metadata_role == "admin":
-        return current_user
-    raise HTTPException(status_code=403, detail="Admin privileges required")
-
 @router.get("/db")
-async def get_database_metrics(admin_user=Depends(require_admin)):
+async def get_database_metrics(admin_user=Depends(require_role("admin"))):
     """
     Get database health metrics via Supabase client.
     
@@ -154,7 +144,7 @@ async def health_check():
 
 
 @router.get("/dashboard")
-async def get_metrics_dashboard(admin_user=Depends(require_admin)) -> Dict[str, Any]:
+async def get_metrics_dashboard(admin_user=Depends(require_role("admin"))) -> Dict[str, Any]:
     """Get aggregated AI metrics and A/B testing results."""
     # Local runtime metrics
     model_metrics = get_model_metrics()
@@ -192,7 +182,7 @@ async def get_metrics_dashboard(admin_user=Depends(require_admin)) -> Dict[str, 
 
 
 @router.get("/enhancements")
-async def get_enhancement_metrics(admin_user=Depends(require_admin)) -> Dict[str, Any]:
+async def get_enhancement_metrics(admin_user=Depends(require_role("admin"))) -> Dict[str, Any]:
     """
     Expose optional enhancement capability profile and active fallback mode.
     """

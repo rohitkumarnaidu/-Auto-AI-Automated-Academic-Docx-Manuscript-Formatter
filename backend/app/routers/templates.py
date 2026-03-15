@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from app.db.supabase_client import get_supabase_client
 from app.routers.deprecation import DeprecatedRoute
@@ -14,6 +14,7 @@ from app.pipeline.services.csl_fetcher import search_styles, fetch_style
 from app.schemas.user import User
 from app.utils.dependencies import get_optional_user
 from app.utils.logging_context import bind_request_context
+from app.services.audit_log_service import audit_log_service
 
 logger = logging.getLogger(__name__)
 
@@ -223,6 +224,7 @@ async def list_custom_templates(current_user: Optional[User] = Depends(get_optio
 
 @templates_router.post("/custom")
 async def create_custom_template(
+    request: Request,
     payload: Dict[str, Any],
     current_user: Optional[User] = Depends(get_optional_user),
 ):
@@ -235,6 +237,14 @@ async def create_custom_template(
     try:
         result = sb.table("custom_templates").insert(record).execute()
         created = result.data[0] if result.data else record
+        await audit_log_service.log(
+            user_id=str(user.id),
+            action="template_create",
+            resource_type="template",
+            resource_id=str(created.get("id") or record.get("id")),
+            ip_address=request.client.host if request.client else None,
+            details={"name": created.get("name")},
+        )
         return {"template": created}
     except Exception as exc:
         logger.error("Failed to create custom template: %s", exc)
@@ -243,6 +253,7 @@ async def create_custom_template(
 
 @templates_router.put("/custom/{template_id}")
 async def update_custom_template(
+    request: Request,
     template_id: str,
     payload: Dict[str, Any],
     current_user: Optional[User] = Depends(get_optional_user),
@@ -269,6 +280,14 @@ async def update_custom_template(
         )
         if not result.data:
             raise HTTPException(status_code=404, detail="Template not found")
+        await audit_log_service.log(
+            user_id=str(user.id),
+            action="template_update",
+            resource_type="template",
+            resource_id=str(template_id),
+            ip_address=request.client.host if request.client else None,
+            details={"name": updates.get("name")},
+        )
         return {"template": result.data[0]}
     except HTTPException:
         raise

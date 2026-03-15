@@ -5,13 +5,14 @@ import hashlib
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, BackgroundTasks, Query, Form
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, BackgroundTasks, Query, Form, Request
 from app.routers.deprecation import DeprecatedRoute
 from app.utils.dependencies import get_current_user, get_optional_user
 from app.utils.logging_context import log_extra
 from app.utils.logging_context import bind_request_context
 from app.schemas.user import User
 from app.services.document_service import DocumentService
+from app.services.audit_log_service import audit_log_service
 from app.services.enhancement_manager import enhancement_manager
 from app.pipeline.orchestrator import PipelineOrchestrator
 from app.pipeline.export.latex_exporter import LaTeXExporter
@@ -105,18 +106,8 @@ def _compute_sha256(filepath: str) -> str:
 
 
 def _enforce_daily_upload_quota(current_user: Optional[User]) -> None:
-    if current_user is None:
-        return
-    uploads_today_raw = DocumentService.count_uploads_today(str(current_user.id))
-    try:
-        uploads_today = int(uploads_today_raw)
-    except (TypeError, ValueError):
-        uploads_today = 0
-    if uploads_today >= MAX_DAILY_UPLOADS:
-        raise HTTPException(
-            status_code=429,
-            detail=f"Daily upload limit reached ({MAX_DAILY_UPLOADS} uploads/day).",
-        )
+    # Daily limits are enforced by TierRateLimitMiddleware (guest-only for now).
+    return
 
 
 def _extract_quality_payload(result: Optional[Dict[str, Any]]) -> Dict[str, Any]:
@@ -174,6 +165,7 @@ async def _validate_magic_bytes(
 
 @router.post("/upload/chunked")
 async def upload_document_chunked(
+    request: Request,
     background_tasks: BackgroundTasks,
     file_id: str = Form(...),
     chunk_index: int = Form(...),
@@ -315,6 +307,19 @@ async def upload_document_chunked(
                 extra=log_extra(job_id=job_id),
             )
 
+            await audit_log_service.log(
+                user_id=str(current_user.id) if current_user else None,
+                action="upload",
+                resource_type="document",
+                resource_id=str(job_id),
+                ip_address=request.client.host if request.client else None,
+                details={
+                    "filename": original_filename,
+                    "template": template,
+                    "chunked": True,
+                },
+            )
+
             return {
                 "status": "complete",
                 "job_id": str(job_id),
@@ -392,6 +397,7 @@ async def list_documents(
 
 @router.post("/upload")
 async def upload_document(
+    request: Request,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     template: str = Form(settings.DEFAULT_TEMPLATE),
@@ -510,6 +516,19 @@ async def upload_document(
             job_id,
             dispatch_info.get("mode"),
             extra=log_extra(job_id=job_id),
+        )
+
+        await audit_log_service.log(
+            user_id=str(current_user.id) if current_user else None,
+            action="upload",
+            resource_type="document",
+            resource_id=str(job_id),
+            ip_address=request.client.host if request.client else None,
+            details={
+                "filename": safe_filename,
+                "template": template,
+                "file_hash": file_hash,
+            },
         )
 
         return {"message": "Processing started", "job_id": str(job_id), "status": "PROCESSING"}
@@ -760,8 +779,11 @@ async def get_comparison_data(
 
 @router.get("/{job_id}/download")
 async def download_document(
+    request: Request,
     job_id: str,
     format: str = "docx",
+    token: Optional[str] = Query(None),
+    expires: Optional[int] = Query(None),
     current_user: Optional[User] = Depends(get_optional_user)
 ):
     """
@@ -804,6 +826,26 @@ async def download_document(
         if not os.path.exists(output_path):
             logger.error("Output file missing on disk for job %s: %s", job_id, output_path)
             raise HTTPException(status_code=404, detail="Output file not found on server. File may have been deleted.")
+
+        if not token or not expires:
+            if not settings.SIGNED_URL_SECRET:
+                raise HTTPException(status_code=500, detail="Signed download secret not configured.")
+            base_url = str(request.url.remove_query_params("token", "expires"))
+            signed = DocumentService.generate_signed_download_url(
+                file_url=base_url,
+                file_path=output_path,
+                secret=settings.SIGNED_URL_SECRET,
+                expires_in_seconds=3600,
+            )
+            return {"url": signed["url"], "expires": signed["expires"]}
+
+        if not DocumentService.verify_signed_download(
+            file_path=output_path,
+            token=token,
+            expires=expires,
+            secret=settings.SIGNED_URL_SECRET or "",
+        ):
+            raise HTTPException(status_code=403, detail="Invalid or expired download token.")
 
         base_filename = os.path.splitext(doc.get("filename") or "document")[0]
         filename = f"{base_filename}_formatted.docx"
@@ -885,6 +927,7 @@ async def download_document(
 
 @router.delete("/{job_id}")
 async def delete_document(
+    request: Request,
     job_id: str,
     current_user: User = Depends(get_current_user)
 ):
@@ -921,6 +964,15 @@ async def delete_document(
         # Delete from database
         DocumentService.delete_document(job_id, str(current_user.id))
 
+        await audit_log_service.log(
+            user_id=str(current_user.id) if current_user else None,
+            action="delete",
+            resource_type="document",
+            resource_id=str(job_id),
+            ip_address=request.client.host if request.client else None,
+            details={"filename": doc.get("filename")},
+        )
+
         return {"status": "deleted", "job_id": job_id}
 
     except HTTPException:
@@ -950,13 +1002,7 @@ async def batch_upload(
     if len(files) > settings.MAX_BATCH_FILES:
         raise HTTPException(status_code=400, detail=f"Maximum {settings.MAX_BATCH_FILES} files per batch upload.")
 
-    uploads_today = DocumentService.count_uploads_today(str(current_user.id))
-    if uploads_today + len(files) > MAX_DAILY_UPLOADS:
-        remaining = max(0, MAX_DAILY_UPLOADS - uploads_today)
-        raise HTTPException(
-            status_code=429,
-            detail=f"Daily upload limit exceeded. Remaining uploads today: {remaining}.",
-        )
+    # Daily upload caps are enforced by TierRateLimitMiddleware (guest-only for now).
 
     results = []
     for file in files:

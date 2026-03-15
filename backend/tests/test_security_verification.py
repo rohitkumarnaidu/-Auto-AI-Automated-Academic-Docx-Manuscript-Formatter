@@ -2,9 +2,12 @@ import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import MagicMock, patch
 import os
+import time
+import jwt
 
 # Import app - adjust import based on your actual structure
 from app.main import app
+from app.config.settings import settings
 
 client = TestClient(app)
 
@@ -15,7 +18,15 @@ def test_rate_limiting_upload():
     import uuid
     # Mock authentication to simulate a specific user
     # Use random token to avoid rate limit collision from previous test runs
-    headers = {"Authorization": f"Bearer test_token_{uuid.uuid4()}"}
+    payload = {
+        "sub": "test-user",
+        "email": "test@example.com",
+        "aud": "authenticated",
+        "iss": f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1",
+        "exp": int(time.time()) + 3600,
+    }
+    token = jwt.encode(payload, settings.SUPABASE_JWT_SECRET, algorithm=settings.ALGORITHM)
+    headers = {"Authorization": f"Bearer {token}"}
     
     # Create a dummy file
     files = {'file': ('test.docx', b'test content', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')}

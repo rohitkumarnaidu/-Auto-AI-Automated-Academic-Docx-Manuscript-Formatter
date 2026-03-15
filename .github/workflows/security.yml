@@ -1,0 +1,42 @@
+name: Security Scan
+
+on:
+  push:
+    branches:
+      - "**"
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build backend image
+        run: docker build -f backend/docker/Dockerfile -t scholarform-backend backend
+
+      - name: Trivy scan
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          image-ref: scholarform-backend
+          severity: CRITICAL,HIGH
+          exit-code: 1
+
+      - name: Bandit scan
+        run: |
+          pip install bandit
+          bandit -r backend/app -f json -o bandit-report.json
+
+      - name: OWASP Dependency Check
+        uses: dependency-check/Dependency-Check_Action@v3.0.2
+        with:
+          project: "scholarform-backend"
+          path: "backend"
+          format: "JSON"
+          out: "dependency-check-report"
+          args: "--scan backend/requirements.txt --failOnCVSS 7"

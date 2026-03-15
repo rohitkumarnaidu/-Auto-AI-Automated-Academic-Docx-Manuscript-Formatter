@@ -48,7 +48,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; "
                 "img-src 'self' data: blob: https:; "
                 "font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com; "
-                "connect-src 'self' https://*.supabase.co wss://*.supabase.co"
+                "connect-src 'self' https://*.supabase.co wss://*.supabase.co ws: wss:; "
+                "frame-src 'self' blob:; "
+                "object-src 'self' blob:"
             )
         else:
             response.headers["Content-Security-Policy"] = (
@@ -57,7 +59,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 "style-src 'self' 'unsafe-inline'; "
                 "img-src 'self' data: blob:; "
                 "font-src 'self' data:; "
-                "connect-src 'self' https://*.supabase.co wss://*.supabase.co"
+                "connect-src 'self' https://*.supabase.co wss://*.supabase.co ws: wss:; "
+                "frame-src 'self' blob:; "
+                "object-src 'self' blob:"
             )
         return response
 

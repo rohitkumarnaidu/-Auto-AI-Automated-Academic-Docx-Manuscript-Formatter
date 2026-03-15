@@ -116,6 +116,7 @@ async def create_custom_template(
 ):
     async def operation():
         return await legacy_templates.create_custom_template(
+            request=request,
             payload=payload,
             current_user=current_user,
         )
@@ -142,6 +143,7 @@ async def update_custom_template(
 ):
     async def operation():
         return await legacy_templates.update_custom_template(
+            request=request,
             template_id=templateId,
             payload=payload,
             current_user=current_user,

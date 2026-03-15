@@ -25,6 +25,8 @@ from app.services.enhancement_manager import enhancement_manager
 from app.services.generator_session_service import GeneratorSessionService
 from app.services.llm_service import generate_with_fallback, sanitize_for_llm
 from app.services.session_vector_store import SessionVectorStore
+from app.services.audit_log_service import audit_log_service
+from app.middleware.abuse_detector import abuse_detector
 from app.utils.dependencies import get_current_user
 from app.utils.logging_context import bind_request_context
 
@@ -119,6 +121,8 @@ async def start_generation(
     user=Depends(get_current_user),
 ):
     content_type = request.headers.get("content-type", "")
+    ip_address = request.client.host if request.client else None
+    await abuse_detector.record_generation_request(ip_address or "unknown")
 
     if "application/json" in content_type:
         payload = await request.json()
@@ -146,6 +150,14 @@ async def start_generation(
         user_id = user.id if hasattr(user, "id") else str(user)
         session_id = await _session_service.create_session(user_id, "agent", config_payload)
         await _session_service.add_message(session_id, "user", user_prompt, token_count=0)
+        await audit_log_service.log(
+            user_id=str(user_id),
+            action="generation_start",
+            resource_type="generator_session",
+            resource_id=session_id,
+            ip_address=ip_address,
+            details={"session_type": "agent", "template": template},
+        )
 
         from app.tasks.celery_tasks import process_agent_pipeline_task
 
@@ -174,6 +186,14 @@ async def start_generation(
         user_id = user.id if hasattr(user, "id") else str(user)
         session_id = await _session_service.create_session(user_id, "agent", config_payload)
         await _session_service.add_message(session_id, "user", user_prompt, token_count=0)
+        await audit_log_service.log(
+            user_id=str(user_id),
+            action="generation_start",
+            resource_type="generator_session",
+            resource_id=session_id,
+            ip_address=ip_address,
+            details={"session_type": "agent", "template": template},
+        )
 
         from app.tasks.celery_tasks import process_agent_pipeline_task
 
@@ -192,6 +212,14 @@ async def start_generation(
     config_payload = _parse_config(str(form.get("config") or "{}"))
     user_id = user.id if hasattr(user, "id") else str(user)
     session_id = await _session_service.create_session(user_id, session_type, config_payload)
+    await audit_log_service.log(
+        user_id=str(user_id),
+        action="generation_start",
+        resource_type="generator_session",
+        resource_id=session_id,
+        ip_address=ip_address,
+        details={"session_type": session_type, "template": template},
+    )
 
     upload_dir = Path("uploads") / "synthesis" / session_id
     upload_dir.mkdir(parents=True, exist_ok=True)
@@ -421,6 +449,7 @@ async def generation_messages(
     )
     await _session_service.add_message(sessionId, "system", system, token_count=0)
     user_prompt = f"Question: {question}\n\nSources:\n{sanitize_for_llm(context)}"
+    await abuse_detector.record_llm_call(str(getattr(user, "id", user)))
     result = await asyncio.to_thread(
         generate_with_fallback,
         [

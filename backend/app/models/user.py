@@ -13,4 +13,7 @@ class User(Base):
     full_name = Column(String)
     institution = Column(String)
     role = Column(String, server_default="authenticated")
+    plan_tier = Column(String, server_default="free")
+    stripe_customer_id = Column(String)
+    billing_status = Column(String)
     created_at = Column(DateTime(timezone=True), server_default=text("now()"))

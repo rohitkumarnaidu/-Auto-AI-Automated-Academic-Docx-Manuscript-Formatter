@@ -7,7 +7,7 @@ Used by:
 - All document endpoints that scope by user_id
 """
 
-from typing import Optional
+from typing import Optional, Dict, Any
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -30,6 +30,10 @@ class User(UserBase):
     """Full user record — returned from JWT decode and /api/auth/me."""
 
     id: str = Field(..., description="Supabase user UUID.")
+    app_metadata: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Supabase app_metadata payload (used for RBAC).",
+    )
 
     model_config = ConfigDict(from_attributes=True)
 

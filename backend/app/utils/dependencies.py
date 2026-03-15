@@ -24,8 +24,9 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     # For now, we trust the token and construct the User schema directly
     email = payload.get("email")
     role = payload.get("role", "authenticated")
+    app_metadata = payload.get("app_metadata")
 
-    return User(id=user_id, email=email, role=role)
+    return User(id=user_id, email=email, role=role, app_metadata=app_metadata)
 
 def get_optional_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False))) -> Optional[User]:
     """
@@ -41,7 +42,8 @@ def get_optional_user(credentials: Optional[HTTPAuthorizationCredentials] = Depe
         user_id = AuthService.get_user_id_from_payload(payload)
         email = payload.get("email")
         role = payload.get("role", "authenticated")
-        return User(id=user_id, email=email, role=role)
+        app_metadata = payload.get("app_metadata")
+        return User(id=user_id, email=email, role=role, app_metadata=app_metadata)
     except (HTTPException, jwt.InvalidTokenError, jwt.ExpiredSignatureError, jwt.InvalidIssuerError) as e:
         # Log authentication failures for security monitoring
         logger.warning(f"Token validation failed in optional auth: {type(e).__name__}: {str(e)}")
