@@ -3,6 +3,9 @@ import usePageTitle from '@/src/hooks/usePageTitle';
 import { useEffect, useState } from 'react';
 import { useTheme } from '@/src/context/ThemeContext';
 import Footer from '@/src/components/Footer';
+import { useAuth } from '@/src/context/AuthContext';
+import { getUserTier, getRemainingQuota } from '@/src/lib/planTier';
+import { supabase } from '@/src/lib/supabaseClient';
 
 const SETTINGS_KEY = 'scholarform_settings';
 
@@ -28,9 +31,107 @@ const loadSettings = () => {
 export default function SettingsPage() {
     usePageTitle('Settings');
     const { theme, setTheme } = useTheme();
+    const { user } = useAuth();
+    const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const initialTab = searchParams?.get('tab') || 'general';
+    const [activeTab, setActiveTab] = useState(initialTab);
     const [settings, setSettings] = useState(loadSettings);
     const [saved, setSaved] = useState(false);
     const [error, setError] = useState('');
+    const [billingLoading, setBillingLoading] = useState(false);
+
+    const tier = getUserTier(user);
+    const { used, limit, remaining } = getRemainingQuota(user, user?.uploads_count || 0);
+
+    const handleCheckout = async () => {
+        setBillingLoading(true);
+        setError('');
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+            const res = await fetch(`${apiUrl}/api/v1/billing/create-checkout-session`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                }
+            });
+            
+            if (!res.ok) throw new Error('Failed to create checkout session');
+            const data = await res.json();
+            if (data.url) {
+                window.location.href = data.url;
+            } else {
+                throw new Error('No checkout URL returned');
+            }
+        } catch (err) {
+            setError(err.message || 'Error processing billing request');
+        } finally {
+            setBillingLoading(false);
+        }
+    };
+
+    const handleCustomerPortal = async () => {
+        setBillingLoading(true);
+        setError('');
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+            // Assuming this is the customer portal endpoint, if not we fallback nicely
+            const res = await fetch(`${apiUrl}/api/v1/billing/customer-portal`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                }
+            });
+            
+            if (!res.ok) throw new Error('Failed to create customer portal session');
+            const data = await res.json();
+            if (data.url) {
+                window.location.href = data.url;
+            } else {
+                throw new Error('No portal URL returned');
+            }
+        } catch (err) {
+            setError(err.message || 'Error accessing customer portal');
+        } finally {
+            setBillingLoading(false);
+        }
+    };
+
+    const handleCancelSubscription = async () => {
+        if (!confirm("Are you sure you want to cancel your Pro subscription? You will lose access to Pro features at the end of your billing cycle.")) {
+            return;
+        }
+        setBillingLoading(true);
+        setError('');
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+            const res = await fetch(`${apiUrl}/api/v1/billing/cancel-subscription`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                }
+            });
+            
+            if (!res.ok) throw new Error('Failed to cancel subscription');
+            alert('Your subscription has been cancelled successfully.');
+            // Ideally trigger user refresh here
+        } catch (err) {
+            setError(err.message || 'Error cancelling subscription');
+        } finally {
+            setBillingLoading(false);
+        }
+    };
 
     const update = (key, value) => {
         setSettings((prev) => ({ ...prev, [key]: value }));
@@ -80,9 +181,27 @@ export default function SettingsPage() {
                         <span className="material-symbols-outlined text-primary text-4xl">settings</span>
                         Settings
                     </h1>
-                    <p className="text-slate-600 dark:text-slate-400 mt-2">Configure your default preferences for document processing.</p>
+                    <p className="text-slate-600 dark:text-slate-400 mt-2">Configure your preferences and manage your plan.</p>
                 </div>
 
+                {/* Tabs */}
+                <div className="flex border-b border-slate-200 dark:border-slate-800 mb-8">
+                    <button
+                        onClick={() => setActiveTab('general')}
+                        className={`pb-4 px-4 text-sm font-medium transition-colors border-b-2 ${activeTab === 'general' ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'}`}
+                    >
+                        General
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('billing')}
+                        className={`pb-4 px-4 text-sm font-medium transition-colors border-b-2 ${activeTab === 'billing' ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'}`}
+                    >
+                        Billing & Plan
+                    </button>
+                </div>
+
+                {activeTab === 'general' ? (
+                <>
                 {/* Upload Preferences */}
                 <section className="bg-glass-surface backdrop-blur-xl border border-glass-border  shadow-xl shadow-primary/5 mb-6">
                     <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
@@ -180,6 +299,69 @@ export default function SettingsPage() {
                         Save Settings
                     </button>
                 </div>
+                </>
+                ) : (
+                <div className="space-y-6 animate-in fade-in duration-300">
+                    <section className="bg-glass-surface backdrop-blur-xl border border-glass-border shadow-xl shadow-primary/5 p-6 rounded-xl">
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Your Plan</h2>
+                                <p className="text-slate-500 dark:text-slate-400 text-sm">Manage your subscription and billing details.</p>
+                            </div>
+                            <span className={`px-3 py-1 text-sm font-semibold rounded-full ${tier === 'pro' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300' : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'}`}>
+                                {tier === 'pro' ? 'Pro Plan' : 'Free Plan'}
+                            </span>
+                        </div>
+
+                        <div className="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-4 border border-slate-200 dark:border-slate-800 mb-6">
+                            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 mb-2">Usage Highlights</h3>
+                            <div className="flex justify-between items-center text-sm">
+                                <span className="text-slate-600 dark:text-slate-400">Uploads Status</span>
+                                <span className="font-medium text-slate-900 dark:text-white">
+                                    {limit === Infinity ? 'Unlimited' : `${used || 0} of ${limit} used today`}
+                                </span>
+                            </div>
+                            {limit !== Infinity && (
+                                <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-1.5 mt-3">
+                                    <div className="bg-primary h-1.5 rounded-full" style={{ width: `${Math.min(((used || 0) / limit) * 100, 100)}%` }}></div>
+                                </div>
+                            )}
+                        </div>
+
+                        {tier === 'free' ? (
+                            <div className="flex flex-col gap-3">
+                                <button 
+                                    onClick={handleCheckout} 
+                                    disabled={billingLoading}
+                                    className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold rounded-xl shadow-md transition-all disabled:opacity-70 flex justify-center items-center"
+                                >
+                                    {billingLoading ? <span className="material-symbols-outlined animate-spin mr-2">progress_activity</span> : null}
+                                    Upgrade to Pro
+                                </button>
+                                <p className="text-xs text-center text-slate-500">You will be redirected to Stripe for secure checkout.</p>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col sm:flex-row gap-3">
+                                <button 
+                                    onClick={handleCustomerPortal} 
+                                    disabled={billingLoading}
+                                    className="flex-1 py-3 bg-primary hover:bg-blue-700 text-white font-bold rounded-xl shadow-md transition-all disabled:opacity-70 flex justify-center items-center"
+                                >
+                                    {billingLoading ? <span className="material-symbols-outlined animate-spin mr-2">progress_activity</span> : null}
+                                    Manage Subscription
+                                </button>
+                                <button 
+                                    onClick={handleCancelSubscription} 
+                                    disabled={billingLoading}
+                                    className="flex-1 py-3 bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-900/20 dark:hover:bg-red-900/40 dark:text-red-400 font-bold rounded-xl border border-red-200 dark:border-red-800 transition-all disabled:opacity-70 flex justify-center items-center"
+                                >
+                                    Cancel Subscription
+                                </button>
+                            </div>
+                        )}
+                    </section>
+                </div>
+                )}
             </main>
             <Footer />
         </div>

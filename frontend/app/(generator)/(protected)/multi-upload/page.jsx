@@ -3,10 +3,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Send, Download, FileText, CheckCircle, ChevronRight, MessageSquare } from 'lucide-react';
-import MultiUploadPanel from '../../../../src/components/generator/MultiUploadPanel';
-import SynthesisStageTimeline from '../../../../src/components/generator/SynthesisStageTimeline';
-import { createSession, sendMessage } from '../../../../src/services/api.generator.v1';
-import { useGeneratorSessionStream } from '../../../../src/hooks/useGeneratorSessionStream';
+import MultiUploadPanel from '@/src/components/generator/MultiUploadPanel';
+import SynthesisStageTimeline from '@/src/components/generator/SynthesisStageTimeline';
+import { createSession, sendMessage } from '@/src/services/api.generator.v1';
+import { useGeneratorSessionStream } from '@/src/hooks/useGeneratorSessionStream';
+import { useAuth } from '@/src/context/AuthContext';
+import { canAccess } from '@/src/lib/planTier';
+import UpgradeModal from '@/src/components/UpgradeModal';
 
 export default function MultiUploadPage() {
     const router = useRouter();
@@ -19,6 +22,15 @@ export default function MultiUploadPage() {
     
     const messagesEndRef = useRef(null);
     const { stages, currentStage, progress, isComplete, error: streamError } = useGeneratorSessionStream(sessionId);
+
+    const { user } = useAuth();
+    const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+    useEffect(() => {
+        if (user && !canAccess(user, 'generator_multi_doc')) {
+            setShowUpgradeModal(true);
+        }
+    }, [user]);
 
     // Auto-scroll chat to bottom
     useEffect(() => {
@@ -99,13 +111,30 @@ export default function MultiUploadPage() {
                     </p>
                 </div>
                 
+                
                 {createError && (
                     <div className="max-w-4xl mx-auto mb-6 p-4 bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded-xl">
                         {createError}
                     </div>
                 )}
                 
-                <MultiUploadPanel onStart={handleStartSynthesis} />
+                <UpgradeModal 
+                    isOpen={showUpgradeModal} 
+                    onClose={() => setShowUpgradeModal(false)} 
+                    title="Upgrade to Pro for Multi-Document Synthesis" 
+                />
+
+                {!canAccess(user, 'generator_multi_doc') ? (
+                    <div className="max-w-4xl mx-auto mt-12 p-8 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 text-center shadow-sm">
+                        <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200 mb-4">Multi-Document Synthesis is a Pro Feature</h2>
+                        <p className="text-slate-600 dark:text-slate-400 mb-6">Upgrade to our Pro plan to merge multiple documents into a single cohesive manuscript using our AI Agent.</p>
+                        <button onClick={() => setShowUpgradeModal(true)} className="px-6 py-3 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700">
+                            View Plans
+                        </button>
+                    </div>
+                ) : (
+                    <MultiUploadPanel onStart={handleStartSynthesis} />
+                )}
             </div>
         );
     }

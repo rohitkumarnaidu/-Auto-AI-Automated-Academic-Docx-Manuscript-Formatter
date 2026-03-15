@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, Suspense } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/src/context/AuthContext';
 
@@ -9,7 +9,7 @@ const isAdminUser = (user) => (
     user?.user_metadata?.role === 'admin'
 );
 
-export default function AuthGuard({ children, requireAdmin = false }) {
+function AuthGuardInner({ children, requireAdmin }) {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -53,4 +53,19 @@ export default function AuthGuard({ children, requireAdmin = false }) {
     }
 
     return children;
+}
+
+export default function AuthGuard({ children, requireAdmin = false }) {
+    return (
+        <Suspense fallback={
+            <div className="w-full max-w-7xl mx-auto px-6 py-16 flex items-center justify-center">
+                <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400">
+                    <span className="material-symbols-outlined animate-spin">progress_activity</span>
+                    <span className="text-sm font-medium">Loading your session...</span>
+                </div>
+            </div>
+        }>
+            <AuthGuardInner requireAdmin={requireAdmin}>{children}</AuthGuardInner>
+        </Suspense>
+    );
 }

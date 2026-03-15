@@ -18,6 +18,8 @@ import {
     uploadDocumentWithProgress,
     useDocumentStatus,
 } from '@/src/services/api';
+import { getRemainingQuota } from '@/src/lib/planTier';
+import UpgradeModal from '@/src/components/UpgradeModal';
 
 const ACCEPTED_EXTENSIONS = ['.docx', '.pdf', '.tex', '.txt', '.html', '.htm', '.md', '.markdown', '.doc'];
 const ACCEPTED_FORMATS = '.docx,.pdf,.tex,.txt,.html,.htm,.md,.markdown,.doc';
@@ -56,6 +58,20 @@ export default function Upload() {
     const [statusMessage, setStatusMessage] = useState('Initializing...');
     const [template, setTemplate] = useState('none');
     const [category, setCategory] = useState('none'); // New State for Dropdown Filter
+    
+    // Quota tracking
+    const { user } = useAuth();
+    const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+    const [quotaWarning, setQuotaWarning] = useState(null);
+    const { remaining, limit } = getRemainingQuota(user, user?.uploads_count || 0);
+
+    useEffect(() => {
+        if (remaining <= 2 && remaining > 0) {
+            setQuotaWarning(`${remaining} upload${remaining !== 1 ? 's' : ''} remaining on your current plan.`);
+        } else {
+            setQuotaWarning(null);
+        }
+    }, [remaining]);
     // FIX 34: Inline file error instead of navigate('/error')
     const [fileError, setFileError] = useState(null);
     // FEAT 43: Upload cancellation
@@ -338,6 +354,11 @@ export default function Upload() {
             return;
         }
 
+        if (remaining === 0) {
+            setShowUpgradeModal(true);
+            return; // Block process
+        }
+
         if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
             Notification.requestPermission().catch(() => { });
         }
@@ -452,6 +473,7 @@ export default function Upload() {
         setJob,
         template,
         fastMode,
+        remaining,
     ]);
 
     // FEAT 46: Keyboard shortcuts
@@ -496,8 +518,18 @@ export default function Upload() {
                     </p>
                 </div>
 
-                {/* HEADER SECTION: Category & Style Selection */}
-                <div className="mb-7 space-y-5">
+                <div className="mb-7 mt-4">
+                    {quotaWarning && (
+                        <div className="p-4 mb-4 bg-orange-50 border border-orange-200 text-orange-800 dark:bg-orange-900/30 dark:border-orange-800 dark:text-orange-300 rounded-xl flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <span className="material-symbols-outlined">warning</span>
+                                <span className="font-medium">{quotaWarning}</span>
+                            </div>
+                            <button onClick={() => setShowUpgradeModal(true)} className="text-sm font-bold underline hover:text-orange-900 dark:hover:text-orange-200">
+                                Upgrade Plan
+                            </button>
+                        </div>
+                    )}
                     <CategoryTabs />
                     <TemplateSelector
                         category={category}
@@ -657,6 +689,12 @@ export default function Upload() {
                     </div>
                 </div>
             </main>
+
+            <UpgradeModal 
+                isOpen={showUpgradeModal} 
+                onClose={() => setShowUpgradeModal(false)} 
+                title="Upload Limit Reached" 
+            />
 
             <Footer variant="app" />
         </div>

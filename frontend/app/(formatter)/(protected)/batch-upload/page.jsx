@@ -1,6 +1,9 @@
 'use client';
 import usePageTitle from '@/src/hooks/usePageTitle';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { useAuth } from '@/src/context/AuthContext';
+import { canAccess } from '@/src/lib/planTier';
+import UpgradeModal from '@/src/components/UpgradeModal';
 
 import Footer from '@/src/components/Footer';
 import BatchUploadPanel from '@/src/components/BatchUploadPanel';
@@ -11,6 +14,15 @@ export default function BatchUpload() {
     const [files, setFiles] = useState([]);
     const [template, setTemplate] = useState('IEEE');
     const [processing, setProcessing] = useState(false);
+    
+    const { user } = useAuth();
+    const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+    useEffect(() => {
+        if (user && !canAccess(user, 'batch_upload')) {
+            setShowUpgradeModal(true);
+        }
+    }, [user]);
 
     const handleFilesSelected = useCallback((selectedFiles) => {
         const newFiles = selectedFiles.map((f) => ({
@@ -76,8 +88,25 @@ export default function BatchUpload() {
     const errorCount = files.filter((f) => f.status === 'error').length;
 
     return (
-        <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-            <main className="max-w-4xl mx-auto px-4 py-8">
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col">
+            <UpgradeModal 
+                isOpen={showUpgradeModal} 
+                onClose={() => setShowUpgradeModal(false)} 
+                title="Upgrade to Pro for Batch Upload" 
+            />
+            
+            {!canAccess(user, 'batch_upload') ? (
+                <main className="flex-1 max-w-4xl mx-auto px-4 py-8 w-full flex flex-col items-center justify-center">
+                    <div className="text-center">
+                        <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200 mb-4">Batch Upload is a Pro Feature</h2>
+                        <p className="text-slate-600 dark:text-slate-400 mb-6">Upgrade to our Pro plan to process multiple documents simultaneously and save time.</p>
+                        <button onClick={() => setShowUpgradeModal(true)} className="px-6 py-3 bg-primary text-white font-medium rounded-xl">
+                            View Plans
+                        </button>
+                    </div>
+                </main>
+            ) : (
+                <main className="flex-1 max-w-4xl mx-auto px-4 py-8 w-full">
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
                         <span className="material-symbols-outlined text-primary text-4xl">upload_file</span>
@@ -169,6 +198,7 @@ export default function BatchUpload() {
                     </div>
                 )}
             </main>
+            )}
             <Footer />
         </div>
     );

@@ -3,7 +3,7 @@
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 
 const AUTH_ROUTES = ['/login', '/signup', '/forgot-password', '/verify-otp', '/reset-password', '/auth/callback'];
 
@@ -58,7 +58,9 @@ export default function AppShell({ children, section = 'shared' }) {
     if (!showSidebarLayout) {
         return (
             <div className="relative z-10 flex flex-col min-h-screen">
-                <Header section={section} />
+                <Suspense fallback={<div className="h-16 w-full bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800" />}>
+                    <Header section={section} />
+                </Suspense>
                 <main id="main-content" tabIndex="-1" className="flex-grow flex flex-col items-center w-full relative z-10 focus:outline-none">
                     {children}
                 </main>
@@ -80,11 +82,13 @@ export default function AppShell({ children, section = 'shared' }) {
 
             {/* Fixed Header */}
             <div className="fixed top-0 left-0 right-0 z-50">
-                <Header
-                    section={section}
-                    isSidebarLayout={true}
-                    onOpenMobileSidebar={toggleSidebar}
-                />
+                <Suspense fallback={<div className="h-12 w-full bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800" />}>
+                    <Header
+                        section={section}
+                        isSidebarLayout={true}
+                        onOpenMobileSidebar={toggleSidebar}
+                    />
+                </Suspense>
             </div>
 
             {/* Sidebar — shows for all users on app routes */}
@@ -94,7 +98,9 @@ export default function AppShell({ children, section = 'shared' }) {
                 style={{ top: `${appHeaderHeightPx}px`, bottom: 0 }}
             >
                 <div className="w-full h-full flex flex-col">
-                    <Sidebar section={section} isCollapsed={!isDesktopSidebarOpen} />
+                    <Suspense fallback={<div className="w-full h-full bg-background-light dark:bg-background-dark" />}>
+                        <Sidebar section={section} isCollapsed={!isDesktopSidebarOpen} />
+                    </Suspense>
                 </div>
             </div>
 
@@ -103,11 +109,12 @@ export default function AppShell({ children, section = 'shared' }) {
                 <div className="lg:hidden fixed inset-0 z-50 flex">
                     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsMobileSidebarOpen(false)} />
                     <div className="sidebar-mobile relative flex flex-col w-[260px] h-full shadow-2xl animate-in slide-in-from-left duration-300 bg-background-light dark:bg-background-dark">
-                        <Sidebar section={section} onClose={() => setIsMobileSidebarOpen(false)} isCollapsed={false} />
+                        <Suspense fallback={<div className="w-full h-full bg-background-light dark:bg-background-dark" />}>
+                            <Sidebar section={section} onClose={() => setIsMobileSidebarOpen(false)} isCollapsed={false} />
+                        </Suspense>
                     </div>
                 </div>
             )}
-
             {/* Main content — sidebar padding only for logged-in users */}
             <main
                 id="main-content"
@@ -123,4 +130,3 @@ export default function AppShell({ children, section = 'shared' }) {
         </>
     );
 }
-

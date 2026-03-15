@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { FileText, Download, ArrowLeft, MessageSquare, AlertCircle } from 'lucide-react';
-import { getSession } from '../../../src/services/api.generator.v1';
+import { getSession } from '@/src/services/api.generator.v1';
 
 export default function SynthesisResultPage() {
     const searchParams = useSearchParams();

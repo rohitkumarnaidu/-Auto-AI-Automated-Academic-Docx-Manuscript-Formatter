@@ -13,6 +13,9 @@ import AgentChatPane from '../../../../src/components/generator/AgentChatPane';
 import DocumentBuildPane from '../../../../src/components/generator/DocumentBuildPane';
 import SessionHistory from '../../../../src/components/generator/SessionHistory';
 import OutlineApproval from '../../../../src/components/generator/OutlineApproval';
+import { useAuth } from '../../../../src/context/AuthContext';
+import { canAccess } from '../../../../src/lib/planTier';
+import UpgradeModal from '../../../../src/components/UpgradeModal';
 
 const deriveSessionState = (session) => {
   const status = session?.status || '';
@@ -58,6 +61,15 @@ export default function AgentWorkspacePage() {
   const searchParams = useSearchParams();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeSessionId, setActiveSessionId] = useState(null);
+  
+  const { user } = useAuth();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  useEffect(() => {
+    if (user && !canAccess(user, 'generator_agent')) {
+        setShowUpgradeModal(true);
+    }
+  }, [user]);
   
   // sessionState: 'idle' | 'parsing' | 'outline_review' | 'generating' | 'complete'
   const [sessionState, setSessionState] = useState('idle');
@@ -434,8 +446,23 @@ export default function AgentWorkspacePage() {
 
   return (
     <div className="flex flex-col h-[100dvh] bg-zinc-100 dark:bg-zinc-900 overflow-hidden">
+      <UpgradeModal 
+        isOpen={showUpgradeModal} 
+        onClose={() => setShowUpgradeModal(false)} 
+        title="Upgrade to Pro for AI Agent" 
+      />
       
-      {/* Top Header Layer */}
+      {!canAccess(user, 'generator_agent') ? (
+        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+            <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200 mb-4">AI Agent is a Pro Feature</h2>
+            <p className="text-slate-600 dark:text-slate-400 mb-6 max-w-md">Upgrade to our Pro plan to interact with the AI Agent for intelligent document synthesis and drafting.</p>
+            <button onClick={() => setShowUpgradeModal(true)} className="px-6 py-3 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700">
+                View Plans
+            </button>
+        </div>
+      ) : (
+        <>
+            {/* Top Header Layer */}
       <header className="flex-shrink-0 h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 px-4 flex items-center justify-between z-20">
         <div className="flex items-center gap-3">
           <button 
@@ -539,7 +566,8 @@ export default function AgentWorkspacePage() {
 
         </PanelGroup>
       </div>
-
+      </>
+      )}
     </div>
   );
 }
