@@ -6,9 +6,9 @@ import { useSearchParams } from 'next/navigation';
 import { Bot, PanelLeftClose, PanelLeft, LayoutTemplate } from 'lucide-react';
 import { approveOutline, createAgentSession, getSession, getSessionDocument, getSessionMessages, sendMessage } from '../../../../src/services/api.generator.v1';
 
-const PanelGroup = dynamic(() => import('react-resizable-panels').then(mod => mod.PanelGroup), { ssr: false });
+const PanelGroup = dynamic(() => import('react-resizable-panels').then(mod => mod.PanelGroup || mod.Group), { ssr: false });
 const Panel = dynamic(() => import('react-resizable-panels').then(mod => mod.Panel), { ssr: false });
-const PanelResizeHandle = dynamic(() => import('react-resizable-panels').then(mod => mod.PanelResizeHandle), { ssr: false });
+const PanelResizeHandle = dynamic(() => import('react-resizable-panels').then(mod => mod.PanelResizeHandle || mod.Separator), { ssr: false });
 import AgentChatPane from '../../../../src/components/generator/AgentChatPane';
 import DocumentBuildPane from '../../../../src/components/generator/DocumentBuildPane';
 import SessionHistory from '../../../../src/components/generator/SessionHistory';

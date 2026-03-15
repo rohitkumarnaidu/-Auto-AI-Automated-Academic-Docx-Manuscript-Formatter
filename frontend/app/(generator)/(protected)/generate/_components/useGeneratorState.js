@@ -60,7 +60,7 @@ const STEPS = [
 
 // ── Hook ────────────────────────────────────────────────────────────────
 export function useGeneratorState() {
-    const { addToast } = useToast();
+    const { showToast } = useToast();
 
     const [step, setStep] = useState(1);
     const [docType, setDocType] = useState('');
@@ -125,7 +125,7 @@ export function useGeneratorState() {
             if (draft.currentStep && draft.currentStep >= 1 && draft.currentStep <= 3) {
                 setStep(draft.currentStep);
             }
-            addToast('Draft restored from your last session.', 'info');
+            showToast({ message: 'Draft restored from your last session.', type: 'info' });
         }
         // Only run once on mount
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -241,11 +241,11 @@ export function useGeneratorState() {
                 status: 'failed',
                 error: error?.message || 'Failed to start generation.',
             }));
-            addToast('Failed to start generation: ' + (error?.message || 'Unknown error'), 'error');
+            showToast({ message: 'Failed to start generation: ' + (error?.message || 'Unknown error'), type: 'error' });
         } finally {
             setIsSubmitting(false);
         }
-    }, [isSubmitting, docType, template, metadata, clearDraft, addToast]);
+    }, [isSubmitting, docType, template, metadata, clearDraft, showToast]);
 
     // ── Download ─────────────────────────────────────────────────────
     const handleDownload = useCallback(async (format = 'docx') => {
@@ -265,15 +265,15 @@ export function useGeneratorState() {
             document.body.appendChild(a);
             a.click();
             a.remove();
-            addToast('Download started!', 'success');
+            showToast({ message: 'Download started!', type: 'success' });
         } catch (error) {
-            addToast('Download failed: ' + (error?.message || 'Unknown error'), 'error');
+            showToast({ message: 'Download failed: ' + (error?.message || 'Unknown error'), type: 'error' });
         } finally {
             if (cleanup) {
                 setTimeout(cleanup, 0);
             }
         }
-    }, [jobStatus.jobId, addToast]);
+    }, [jobStatus.jobId, showToast]);
 
     // ── Reset ────────────────────────────────────────────────────────
     const handleReset = useCallback(() => {
