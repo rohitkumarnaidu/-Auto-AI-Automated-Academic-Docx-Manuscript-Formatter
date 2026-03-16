@@ -1,15 +1,15 @@
-name: e2e-staging
+name: e2e-production
 
 on:
   workflow_dispatch:
   workflow_run:
     workflows:
-      - deploy-staging
+      - deploy-production
     types:
       - completed
 
 jobs:
-  e2e-staging:
+  e2e-production:
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     defaults:
@@ -32,6 +32,6 @@ jobs:
 
       - name: Run Playwright tests
         env:
-          PLAYWRIGHT_BASE_URL: ${{ secrets.STAGING_FRONTEND_URL }}
+          PLAYWRIGHT_BASE_URL: ${{ secrets.PROD_FRONTEND_URL }}
           CI: "1"
         run: npx playwright test
