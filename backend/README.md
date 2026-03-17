@@ -1,4 +1,4 @@
-# Automated Academic Manuscript Formatter
+# Automated Academic Manuscript Formatter (Backend)
 
 ## Overview
 The system combines deterministic document processing with optional OCR and AI enrichment.
@@ -6,31 +6,31 @@ OCR ensures accessibility for scanned inputs, while AI provides advisory insight
 
 ## Key Features
 - Multi-format input support (DOCX, PDF, MD, HTML, TXT, ODT, RTF)
-- **PDF OCR Support**: Automatic conversion of scanned documents.
-- **AI Enrichment**: Optional advisory hints for section detection and readablity.
-- Deterministic document understanding (no AI / LLMs involved in core logic)
-- Section detection & semantic classification
-- Figure–caption linking and validation
-- Reference parsing and integrity checks
-- Template-aware formatting (IEEE, Springer)
-- Safe operation without template selection
+- **3-Tier PDF Parsing Fallback**: 
+  1. GROBID (best metadata, requires 1.5GB RAM via Docker)
+  2. Docling (Python-native, ~150MB RAM, IBM models)
+  3. PyMuPDF (fast basic text parsing)
+- **AI Enrichment**: Optional advisory hints for section detection and readablity using NVIDIA NIM.
+- Deterministic document understanding (no AI / LLMs involved in core logic).
+- Template-aware formatting (IEEE, Springer).
+- Backend runs exclusively on **FastAPI** (Python 3.12 required).
 
 ## Architecture
 Input Conversion (OCR) → Parsing → Normalization → Structure Detection →
 AI Enrichment → Classification → Figures → References → Validation → Formatting → Export
 
-![Architecture Diagram](docs/architecture_diagram.png)
+*(Note: There is no Spring Boot gateway. The backend is a pure Python modular monolith.)*
 
 ## Supported Input Formats
 | Format | Handling |
 |------|---------|
 | DOCX | Native |
-| PDF | LibreOffice / Tesseract OCR (if scanned) |
+| PDF | GROBID / Docling / LibreOffice / Tesseract OCR (if scanned) |
 | MD / HTML / TXT | Pandoc |
 | ODT / RTF | LibreOffice |
 
 ## API Usage
-### POST /upload
+### POST /api/v1/documents/upload
 
 **Request**:
 - `file`: manuscript (any supported format)
@@ -53,9 +53,11 @@ AI Enrichment → Classification → Figures → References → Validation → F
 - **Missing reference authors** → ERROR
 
 ## Running Locally
+**Prerequisites**: Python 3.12
+
 **Command**:
 ```bash
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --port 8000
 ```
 
 ## Manual Testing
@@ -65,37 +67,12 @@ All stages tested via scripts in `app/manual_tests/`:
 - `run_validation.py`
 - `run_export.py`
 
+Alternatively, you can run the `trusted-core` test profile ensuring unit safety:
+```bash
+pytest tests -m "not integration and not llm" -x -q
+```
+
 ## Limitations
-- PDF layout may degrade during conversion
-- Equations are treated as plain text
-- No citation renumbering across styles
-
-## Future Work
-- Frontend UI
-- PDF export
-- Citation cross-linking
-
----
-
-## Demo Walkthrough
-
-1. **Upload a messy PDF or DOCX**
-   - Use the `/upload` endpoint.
-   - The system auto-converts PDF to DOCX using LibreOffice.
-
-2. **Show validation warnings**
-   - The response JSON highlights issues like "Figure 1 referenced but missing caption" or "Missing Introduction section".
-   - Critical errors (e.g., missing author list in references) ensure quality control.
-
-3. **Upload again with IEEE template**
-   - Re-upload the file, setting `template_name="ieee"`.
-
-4. **Download formatted DOCX**
-   - The system returns a valid document.
-   - The output file applies IEEE styles (e.g., "Paper Title", "Heading 1").
-
-5. **Open the file and verify**:
-   - Headings are correctly styled.
-   - Figures are numbered sequentially (Figure 1, Figure 2).
-   - Captions appear immediately after figures.
-   - References are structured.
+- PDF layout may degrade during conversion if GROBID is disabled and file is complex.
+- Equations are treated as plain text.
+- No citation renumbering across styles yet.

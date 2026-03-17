@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -34,6 +35,8 @@ def _load_samples():
     return json.loads(LABELS_PATH.read_text(encoding="utf-8"))
 
 
+@pytest.mark.llm
+@pytest.mark.service
 @pytest.mark.slow
 def test_scibert_benchmark():
     original_flag = settings.USE_SCIBERT_CLASSIFICATION
@@ -44,7 +47,13 @@ def test_scibert_benchmark():
         assert len(samples) >= 10, "Expected at least 10 benchmark papers."
 
         parser_factory = ParserFactory()
-        semantic_parser = SemanticParser()
+        benchmark_model = os.getenv("SCIBERT_BENCHMARK_MODEL", "allenai/scibert_scivocab_uncased")
+        semantic_parser = SemanticParser(model_name=benchmark_model)
+        if benchmark_model == "allenai/scibert_scivocab_uncased":
+            pytest.skip(
+                "SciBERT benchmark requires a fine-tuned classification checkpoint. "
+                "Set SCIBERT_BENCHMARK_MODEL to enable this acceptance test."
+            )
 
         per_paper_f1 = []
         overall_true = []

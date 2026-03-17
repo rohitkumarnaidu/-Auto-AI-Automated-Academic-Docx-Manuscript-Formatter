@@ -1,9 +1,9 @@
+import time
+from unittest.mock import patch
+
+import jwt
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import MagicMock, patch
-import os
-import time
-import jwt
 
 # Import app - adjust import based on your actual structure
 from app.main import app
@@ -48,27 +48,20 @@ def test_rate_limiting_upload():
     data = response.json()
     assert "rate limit exceeded" in data["error"].lower()
 
-def test_file_size_limit():
+def test_file_size_limit(monkeypatch):
     """
-    Verify that files larger than 50MB are rejected.
+    Verify that uploads larger than the configured limit are rejected.
     """
-    # We can't easily upload 50MB in a unit test without memory issues / slow perf.
-    # Instead, we should check if the middleware/router logic handles Content-Length 
-    # OR mock the file read to return a large size.
-    
-    # Approach: Mocking the UploadFile.read to return a huge byte string is hard with TestClient 
-    # because TestClient constructs the request.
-    # Alternative: Just rely on the code audit we did.
-    # OR: Create a separate test that imports the router function directly if possible (integration test).
-    
-    # Let's try sending a header 'Content-Length' that is huge?
-    # FastAPI/Starlette reads the stream.
-    
-    # Simplest: Send a request with a slightly too large body? 
-    # 51MB is too big to generate in memory for a quick test.
-    # Let's trust the 50MB check in the code we verified:
-    # `if file_size > MAX_FILE_SIZE:`
-    pass 
+    monkeypatch.setattr(settings, "MAX_FILE_SIZE", 4)
+    files = {"file": ("test.txt", b"12345", "text/plain")}
+
+    with patch("app.routers.documents._require_db", return_value=None):
+        with patch("app.routers.documents.DocumentService.create_document") as mock_create:
+            response = client.post("/api/documents/upload", files=files)
+
+    assert response.status_code == 413
+    assert "Maximum size" in response.json()["detail"]
+    mock_create.assert_not_called()
 
 def test_cors_headers():
     """

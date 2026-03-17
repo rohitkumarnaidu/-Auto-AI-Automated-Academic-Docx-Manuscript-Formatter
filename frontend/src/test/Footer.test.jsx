@@ -1,6 +1,10 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import Footer from '../components/Footer';
+
+vi.mock('@/src/services/api', () => ({
+    useMetricsHealth: () => ({ data: { status: 'healthy', version: '1.0' } })
+}));
 
 describe('Footer', () => {
     it('renders app footer with policy and support links', () => {

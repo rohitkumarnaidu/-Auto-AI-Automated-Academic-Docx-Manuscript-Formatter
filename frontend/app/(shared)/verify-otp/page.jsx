@@ -1,12 +1,12 @@
 'use client';
 import usePageTitle from '@/src/hooks/usePageTitle';
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 import { useAuth } from '@/src/context/AuthContext';
 
-export default function VerifyOTP() {
+function VerifyOTPContent() {
     usePageTitle('Verify OTP');
     const router = useRouter();
     const navigate = useCallback((href, options = {}) => {
@@ -207,5 +207,13 @@ export default function VerifyOTP() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function VerifyOTP() {
+    return (
+        <Suspense fallback={<div className="min-h-[calc(100vh-72px)] flex items-center justify-center"><div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div></div>}>
+            <VerifyOTPContent />
+        </Suspense>
     );
 }

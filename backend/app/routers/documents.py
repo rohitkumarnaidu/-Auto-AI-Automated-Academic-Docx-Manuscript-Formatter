@@ -2,6 +2,7 @@ import logging
 import os
 import uuid
 import hashlib
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 
@@ -830,7 +831,13 @@ async def download_document(
         if not token or not expires:
             if not settings.SIGNED_URL_SECRET:
                 raise HTTPException(status_code=500, detail="Signed download secret not configured.")
-            base_url = str(request.url.remove_query_params("token", "expires"))
+            parsed_request_url = urlsplit(str(request.url))
+            filtered_query = [
+                (key, value)
+                for key, value in parse_qsl(parsed_request_url.query, keep_blank_values=True)
+                if key not in {"token", "expires"}
+            ]
+            base_url = urlunsplit(parsed_request_url._replace(query=urlencode(filtered_query)))
             signed = DocumentService.generate_signed_download_url(
                 file_url=base_url,
                 file_path=output_path,

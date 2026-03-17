@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { FileText, Download, ArrowLeft, MessageSquare, AlertCircle } from 'lucide-react';
 import { getSession } from '@/src/services/api.generator.v1';
 
-export default function SynthesisResultPage() {
+function SynthesisResultContent() {
     const searchParams = useSearchParams();
     const sessionId = searchParams.get('session');
     const router = useRouter();
@@ -162,5 +162,13 @@ export default function SynthesisResultPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function SynthesisResultPage() {
+    return (
+        <Suspense fallback={<div className="min-h-[60vh] flex items-center justify-center"><div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div></div>}>
+            <SynthesisResultContent />
+        </Suspense>
     );
 }

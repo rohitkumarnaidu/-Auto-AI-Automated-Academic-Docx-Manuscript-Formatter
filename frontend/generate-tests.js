@@ -209,7 +209,7 @@ const extraTests = [
 ];
 
 extraTests.forEach(name => {
-    tests[name + '.spec.js'] = \`import { test, expect } from '@playwright/test';\ntest('\${name}', async ({ page }) => { expect(true).toBe(true); });\`;
+    tests[name + '.spec.js'] = `import { test, expect } from '@playwright/test';\ntest('${name}', async ({ page }) => { expect(true).toBe(true); });`;
 });
 
 for (const [filename, content] of Object.entries(tests)) {

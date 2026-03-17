@@ -10,54 +10,61 @@ ScholarForm AI formats academic manuscripts into publisher-ready outputs using d
 - **DeepSeek R1 via Ollama** for local inference fallback
 - **RAG with BGE-M3** embeddings for style-rule retrieval
 - **GROBID** for PDF metadata/reference extraction
-- **Docling** for document structure extraction
+- **Docling** for fast, high-quality document PDF/OCR fallback structure extraction
 
 ## Required Environment Variables
 
-Backend:
+**Backend (`backend/.env`):**
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
 - `SUPABASE_JWT_SECRET`
+- `SUPABASE_SERVICE_ROLE_KEY`
 - `NVIDIA_API_KEY`
-- `OLLAMA_BASE_URL`
+- `OLLAMA_BASE_URL` (optional)
+- `GROBID_ENABLED=true` (ensure you have local GROBID running)
 
-Frontend:
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_ANON_KEY`
-- `VITE_API_BASE_URL`
+**Frontend (`frontend/.env.local`):**
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `NEXT_PUBLIC_API_URL`
 
 ## Quick Setup
 
-1. Install dependencies:
+### 1. Backend Setup
 ```bash
 cd backend
-python -m venv venv
-venv\Scripts\activate
+python -m venv .venv
+# Activate virtual environment
+# Windows:
+.venv\Scripts\activate
+# Mac/Linux:
+# source .venv/bin/activate
+
 pip install -r requirements.txt
 ```
 
-2. Set backend env vars in `backend/.env`.
+Set backend env vars in `backend/.env`.
 
-3. Run backend:
+Run backend API:
 ```bash
 uvicorn app.main:app --reload --port 8000
 ```
+API docs available at: `http://localhost:8000/docs`
 
-4. Install and run frontend:
+### 2. Frontend Setup
 ```bash
-cd ../frontend
+cd frontend
 npm install
 npm run dev
 ```
+Open web app at: `http://localhost:3000`
 
-5. Open app:
-- Frontend: `http://localhost:5173`
-- API docs: `http://localhost:8000/docs`
-
-## Core Endpoints
-- `POST /api/documents/upload`
-- `GET /api/documents/{job_id}/status`
-- `GET /api/documents/{job_id}/preview`
-- `GET /api/documents/{job_id}/compare`
-- `GET /api/documents/{job_id}/download`
-- `POST /api/documents/{job_id}/edit`
+## Core API Endpoints
+- `POST /api/v1/documents/upload`
+- `GET /api/v1/documents/{job_id}/status`
+- `GET /api/v1/documents/{job_id}/preview`
+- `GET /api/v1/documents/{job_id}/compare`
+- `GET /api/v1/documents/{job_id}/download`
+- `POST /api/v1/documents/{job_id}/edit`
+- `GET /api/v1/templates`
+- `GET /api/v1/health`

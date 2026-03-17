@@ -1,6 +1,6 @@
 'use client';
 import usePageTitle from '@/src/hooks/usePageTitle';
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 import { useAuth } from '@/src/context/AuthContext';
@@ -41,7 +41,7 @@ const isAllowedUploadFile = (selectedFile) => {
     );
 };
 
-export default function Upload() {
+function UploadContent() {
     usePageTitle('Upload Document');
     const { isLoggedIn } = useAuth();
     const { job, setJob } = useDocument();
@@ -709,6 +709,14 @@ export default function Upload() {
 
             <Footer variant="app" />
         </div>
+    );
+}
+
+export default function Upload() {
+    return (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div></div>}>
+            <UploadContent />
+        </Suspense>
     );
 }
 

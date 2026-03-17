@@ -1,4 +1,5 @@
-from unittest.mock import MagicMock, patch
+import asyncio
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -34,29 +35,16 @@ def test_sse_stream_connection(client, authenticated_user):
     assert "event: connected" in response.text
 
 
-def test_emit_event_redis_fallback_behavior():
+@pytest.mark.asyncio
+async def test_emit_event_schedules_pubsub_publish():
     from app.routers import stream as stream_router
 
-    original_client = stream_router.sync_redis_client
-    original_unavailable = stream_router._redis_publish_unavailable
-    original_retry_after = stream_router._redis_publish_retry_after
-
-    failing_client = MagicMock()
-    failing_client.publish.side_effect = RuntimeError("redis down")
-
-    try:
-        stream_router.sync_redis_client = failing_client
-        stream_router._redis_publish_unavailable = False
-        stream_router._redis_publish_retry_after = 0.0
-
+    with patch.object(stream_router._pubsub, "publish", new_callable=AsyncMock) as mock_publish:
         stream_router.emit_event("job-1", "STATUS", {"ok": True})
-        assert stream_router._redis_publish_unavailable is True
-        assert failing_client.publish.call_count == 1
+        await asyncio.sleep(0)
 
-        # Second call should be skipped during retry window.
-        stream_router.emit_event("job-1", "STATUS", {"ok": True})
-        assert failing_client.publish.call_count == 1
-    finally:
-        stream_router.sync_redis_client = original_client
-        stream_router._redis_publish_unavailable = original_unavailable
-        stream_router._redis_publish_retry_after = original_retry_after
+    mock_publish.assert_awaited_once()
+    channel, event = mock_publish.await_args.args
+    assert channel == "job:job-1"
+    assert event["event_type"] == "STATUS"
+    assert event["payload"]["ok"] is True

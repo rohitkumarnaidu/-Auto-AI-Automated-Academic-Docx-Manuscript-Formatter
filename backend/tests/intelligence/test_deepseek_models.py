@@ -3,6 +3,7 @@ DeepSeek Model Comparison Test
 Compares deepseek-r1:8b vs deepseek-r1:0b for semantic reasoning quality.
 """
 
+import pytest
 import sys
 import time
 import json
@@ -12,6 +13,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from app.pipeline.intelligence.reasoning_engine import ReasoningEngine
+
+pytestmark = [pytest.mark.llm, pytest.mark.service]
 
 def run_model_comparison():
     """Run deepseek-r1:8b vs deepseek-r1:0b comparison and return raw results."""

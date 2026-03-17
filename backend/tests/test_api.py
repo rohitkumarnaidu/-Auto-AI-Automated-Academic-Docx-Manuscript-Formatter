@@ -308,12 +308,12 @@ class TestAPIEndpoints:
                         "output_path": str(output_path),
                     }
                     link_response = client.get("/api/documents/job-download/download?format=tex")
+                    assert link_response.status_code == 200
+                    signed_url = link_response.json()["url"]
+                    from urllib.parse import urlparse
+                    parsed = urlparse(signed_url)
+                    response = client.get(f"{parsed.path}?{parsed.query}")
 
-            assert link_response.status_code == 200
-            signed_url = link_response.json()["url"]
-            from urllib.parse import urlparse
-            parsed = urlparse(signed_url)
-            response = client.get(f"{parsed.path}?{parsed.query}")
             assert response.status_code == 200
             assert "application/x-latex" in response.headers.get("content-type", "")
         finally:

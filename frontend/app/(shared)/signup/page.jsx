@@ -1,13 +1,13 @@
 'use client';
 import usePageTitle from '@/src/hooks/usePageTitle';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 import { useAuth } from '@/src/context/AuthContext';
 
-export default function Signup() {
+function SignupContent() {
     usePageTitle('Create Account');
     const { signUp, signInWithGoogle } = useAuth();
     const router = useRouter();
@@ -352,5 +352,13 @@ export default function Signup() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function Signup() {
+    return (
+        <Suspense fallback={<div className="min-h-[calc(100vh-72px)] flex items-center justify-center"><div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div></div>}>
+            <SignupContent />
+        </Suspense>
     );
 }

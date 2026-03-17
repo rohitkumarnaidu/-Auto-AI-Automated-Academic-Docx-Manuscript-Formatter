@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState, Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
 import { Bot, PanelLeftClose, PanelLeft, LayoutTemplate } from 'lucide-react';
@@ -57,7 +57,7 @@ const detectRewriteSection = (message, sections = []) => {
   return null;
 };
 
-export default function AgentWorkspacePage() {
+function AgentWorkspaceContent() {
   const searchParams = useSearchParams();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeSessionId, setActiveSessionId] = useState(null);
@@ -569,5 +569,13 @@ export default function AgentWorkspacePage() {
       </>
       )}
     </div>
+  );
+}
+
+export default function AgentWorkspacePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div></div>}>
+      <AgentWorkspaceContent />
+    </Suspense>
   );
 }

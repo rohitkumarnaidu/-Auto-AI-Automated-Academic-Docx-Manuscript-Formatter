@@ -10,9 +10,20 @@ from __future__ import annotations
 
 import logging
 import os
+from pathlib import Path
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+BACKEND_ROOT = Path(__file__).resolve().parents[2]
+ENV_FILE = BACKEND_ROOT / ".env"
+DEFAULT_LOCAL_CORS_ORIGINS = ",".join(
+    (
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    )
+)
 
 try:
     from pydantic import Field, field_validator
@@ -45,6 +56,17 @@ def _require_env(name: str) -> str:
     if value is None or value.strip() == "":
         raise RuntimeError(f"Missing required environment variable: {name}")
     return value
+
+
+def _normalize_cors_origins(value) -> str:
+    if value is None:
+        return DEFAULT_LOCAL_CORS_ORIGINS
+
+    origins = [origin.strip() for origin in str(value).split(",") if origin.strip()]
+    filtered = [origin for origin in origins if "<your-frontend-domain>" not in origin]
+    if filtered:
+        return ",".join(filtered)
+    return DEFAULT_LOCAL_CORS_ORIGINS
 
 
 if _PS:
@@ -152,7 +174,7 @@ if _PS:
         USE_SCIBERT_CLASSIFICATION: bool = False
 
         model_config = {
-            "env_file": ".env",
+            "env_file": ENV_FILE,
             "env_file_encoding": "utf-8",
             "case_sensitive": False,
             "extra": "ignore",
@@ -179,6 +201,11 @@ if _PS:
         @classmethod
         def parse_bool_fields(cls, value, info):
             return _parse_boolish(value, info.field_name)
+
+        @field_validator("CORS_ORIGINS", mode="before")
+        @classmethod
+        def normalize_cors_origins(cls, value):
+            return _normalize_cors_origins(value)
 
         @field_validator(
             "HEADING_STYLE_THRESHOLD",
@@ -210,7 +237,7 @@ else:
     try:
         from dotenv import load_dotenv
 
-        load_dotenv(override=True)
+        load_dotenv(ENV_FILE, override=True)
     except Exception:
         pass
 
@@ -225,7 +252,7 @@ else:
 
         # Security
         ALGORITHM: str = _require_env("ALGORITHM")
-        CORS_ORIGINS: str = _require_env("CORS_ORIGINS")
+        CORS_ORIGINS: str = _normalize_cors_origins(os.getenv("CORS_ORIGINS"))
         SIGNED_URL_SECRET: Optional[str] = os.getenv("SIGNED_URL_SECRET")
 
         # Billing

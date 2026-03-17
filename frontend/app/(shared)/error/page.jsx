@@ -22,7 +22,9 @@ function normalizeError(errorValue) {
     return { title, message };
 }
 
-export default function ErrorPage() {
+import { Suspense } from 'react';
+
+function ErrorContent() {
     usePageTitle('Error');
     const searchParams = useSearchParams();
     const { isLoggedIn } = useAuth();
@@ -112,5 +114,13 @@ export default function ErrorPage() {
                 <p>(c) {new Date().getFullYear()} ManuscriptFormatter. Professional Academic Tools for Researchers.</p>
             </footer>
         </main>
+    );
+}
+
+export default function ErrorPage() {
+    return (
+        <Suspense fallback={<main className="flex-1 flex flex-col items-center justify-center px-4 py-12"><div className="text-slate-500">Loading error details...</div></main>}>
+            <ErrorContent />
+        </Suspense>
     );
 }
