@@ -41,7 +41,7 @@ export default function SettingsPage() {
     const [billingLoading, setBillingLoading] = useState(false);
 
     const tier = getUserTier(user);
-    const { used, limit, remaining } = getRemainingQuota(user, user?.uploads_count || 0);
+    const { used, limit } = getRemainingQuota(user, user?.uploads_count || 0);
 
     const handleCheckout = async () => {
         setBillingLoading(true);

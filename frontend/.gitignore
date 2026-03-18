@@ -32,6 +32,7 @@ Thumbs.db
 
 # Test outputs
 playwright-report/
+blob-report/
 test-results/
 coverage/
 

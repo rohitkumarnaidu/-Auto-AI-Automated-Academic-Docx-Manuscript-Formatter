@@ -19,7 +19,7 @@ const {
 }));
 
 vi.mock('@/src/context/ToastContext', () => ({
-    useToast: () => ({ addToast: addToastMock }),
+    useToast: () => ({ addToast: addToastMock, showToast: addToastMock }),
 }));
 
 vi.mock('@/src/services/api', () => ({
@@ -170,7 +170,7 @@ describe('useGeneratorState', () => {
 
         expect(downloadGeneratedDocumentMock).toHaveBeenCalledWith('job-77', 'pdf');
         expect(cleanupMock).toHaveBeenCalledTimes(1);
-        expect(addToastMock).toHaveBeenCalledWith('Download started!', 'success');
+        expect(addToastMock).toHaveBeenCalledWith({ message: 'Download started!', type: 'success' });
 
         clickSpy.mockRestore();
         vi.useRealTimers();

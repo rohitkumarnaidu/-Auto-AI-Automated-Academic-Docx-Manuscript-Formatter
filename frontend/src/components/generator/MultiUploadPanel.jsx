@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { UploadCloud, File as FileIcon, X, AlertCircle, CheckCircle, Trash2 } from 'lucide-react';
+import { UploadCloud, File as FileIcon, AlertCircle, CheckCircle, Trash2 } from 'lucide-react';
 import { getBuiltinTemplates } from '../../services/api.templates';
 
 const ACCEPTED_FORMATS = {
@@ -41,7 +41,7 @@ export default function MultiUploadPanel({ onStart }) {
             .catch(err => console.error("Could not fetch templates:", err));
     }, []);
 
-    const onDrop = useCallback(async (acceptedFiles, rejectedFiles) => {
+    const onDrop = useCallback(async (acceptedFiles) => {
         setGlobalError('');
         
         if (files.length + acceptedFiles.length > MAX_FILES) {

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
-import AuthGuard from '../../components/AuthGuard';
+import AuthGuard from '@/src/components/layout/AuthGuard';
 import { useAuth } from '@/src/context/AuthContext';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 

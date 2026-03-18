@@ -188,7 +188,7 @@ function AgentWorkspaceContent() {
       setError("Failed to load the selected session.");
       setIsTyping(false);
     }
-  }, [fetchSessionData, fetchSessionMessages, fetchLatestDocument, messages.length]);
+  }, [fetchSessionData, fetchSessionMessages, fetchLatestDocument]);
 
   const handleSendMessage = async (text) => {
     setMessages(prev => [...prev, { id: Date.now(), role: 'user', content: text, timestamp: Date.now() }]);

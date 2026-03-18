@@ -3,7 +3,7 @@
 import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { FileText, Download, ArrowLeft, MessageSquare, AlertCircle } from 'lucide-react';
-import { getSession } from '@/src/services/api.generator.v1';
+import { getSynthesisSession } from '@/src/services/api.synthesis';
 
 function SynthesisResultContent() {
     const searchParams = useSearchParams();
@@ -21,12 +21,12 @@ function SynthesisResultContent() {
             return;
         }
 
-        getSession(sessionId)
+        getSynthesisSession(sessionId)
             .then(res => {
                 setSessionData(res);
                 setLoading(false);
             })
-            .catch(err => {
+            .catch(() => {
                 setError('Failed to load session results.');
                 setLoading(false);
             });

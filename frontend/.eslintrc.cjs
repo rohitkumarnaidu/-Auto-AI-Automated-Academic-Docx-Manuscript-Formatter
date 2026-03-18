@@ -51,5 +51,14 @@ module.exports = {
                 node: true,
             },
         },
+        {
+            files: ['e2e/**/*.js'],
+            env: {
+                node: true,
+            },
+            rules: {
+                'no-unused-vars': ['warn', { argsIgnorePattern: '^page$' }],
+            },
+        },
     ],
 };

@@ -3,6 +3,9 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+.hypothesis/
+.nox/
+.ruff_cache/
 .venv/
 env/
 venv/
@@ -62,9 +65,12 @@ test_output/
 tmp/
 temp/
 .cache/
+backend/.metrics/
 
 # Testing
 .coverage
+.coverage.*
+coverage.xml
 htmlcov/
 .pytest_cache/
 frontend/playwright-report/
@@ -110,6 +116,7 @@ backend/backend/db/test_chroma/
 
 # AI Audit Artifacts
 FILE_BY_FILE_AUDIT.csv
+replace_imports.py
 
 
 uploads/
@@ -121,3 +128,4 @@ docs/audits/
 
 *.txt
 backend/generated_outputs/
+backend/tests_outputs/

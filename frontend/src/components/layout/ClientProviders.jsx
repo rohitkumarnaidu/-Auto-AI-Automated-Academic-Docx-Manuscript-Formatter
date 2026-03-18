@@ -5,8 +5,8 @@ import { ThemeProvider } from '@/src/context/ThemeContext';
 import { AuthProvider } from '@/src/context/AuthContext';
 import { ToastProvider } from '@/src/context/ToastContext';
 import { DocumentProvider } from '@/src/context/DocumentContext';
-import FocusManager from '@/components/FocusManager';
-import DynamicMeta from '@/components/DynamicMeta';
+import FocusManager from '@/src/components/layout/FocusManager';
+import DynamicMeta from '@/src/components/layout/DynamicMeta';
 import { useState } from 'react';
 
 export default function ClientProviders({ children }) {

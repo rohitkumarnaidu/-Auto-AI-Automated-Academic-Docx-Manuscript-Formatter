@@ -1,7 +1,7 @@
 'use client';
 
-import Header from '@/components/Header';
-import Sidebar from '@/components/Sidebar';
+import Header from '@/src/components/layout/Header';
+import Sidebar from '@/src/components/layout/Sidebar';
 import { usePathname } from 'next/navigation';
 import React, { useEffect, useState, Suspense } from 'react';
 import OnboardingTour from '@/src/components/OnboardingTour';

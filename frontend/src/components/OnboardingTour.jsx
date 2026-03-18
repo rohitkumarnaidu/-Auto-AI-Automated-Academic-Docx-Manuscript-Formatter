@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useAuth } from '@/src/context/AuthContext';
-import { X, ChevronRight, ChevronLeft } from 'lucide-react';
+import { X, ChevronRight } from 'lucide-react';
 
 const TOUR_STEPS = [
   {
@@ -39,7 +39,7 @@ const TOUR_STEPS = [
 ];
 
 export default function OnboardingTour() {
-  const { user, isLoggedIn } = useAuth();
+  const { isLoggedIn } = useAuth();
   const [currentStep, setCurrentStep] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
   const [targetRect, setTargetRect] = useState(null);

@@ -25,7 +25,9 @@ export async function createSynthesisSession(files, template, config) {
         let errorData;
         try {
             errorData = await response.json();
-        } catch (err) {}
+        } catch {
+            errorData = null;
+        }
         throw new Error(errorData?.error?.message || errorData?.detail || `Failed to create synthesis session (${response.status})`);
     }
     

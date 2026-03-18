@@ -23,6 +23,10 @@ export function ToastProvider({ children }) {
         return id;
     }, [dismiss]);
 
+    const addToast = useCallback((message, type = 'info', duration = 5000) => (
+        showToast({ message, type, duration })
+    ), [showToast]);
+
     // Cleanup on unmount
     useEffect(() => {
         const t = timers.current;
@@ -30,7 +34,7 @@ export function ToastProvider({ children }) {
     }, []);
 
     return (
-        <ToastContext.Provider value={{ showToast, dismiss }}>
+        <ToastContext.Provider value={{ showToast, addToast, dismiss }}>
             {children}
             <ToastContainer toasts={toasts} dismiss={dismiss} />
         </ToastContext.Provider>

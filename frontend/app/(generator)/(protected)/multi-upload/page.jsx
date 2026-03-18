@@ -2,11 +2,11 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Send, Download, FileText, CheckCircle, ChevronRight, MessageSquare } from 'lucide-react';
+import { Loader2, Send, Download, FileText, CheckCircle, MessageSquare } from 'lucide-react';
 import MultiUploadPanel from '@/src/components/generator/MultiUploadPanel';
 import SynthesisStageTimeline from '@/src/components/generator/SynthesisStageTimeline';
-import { createSession, sendMessage } from '@/src/services/api.generator.v1';
-import { useGeneratorSessionStream } from '@/src/hooks/useGeneratorSessionStream';
+import { createSynthesisSession, sendSynthesisMessage } from '@/src/services/api.synthesis';
+import { useSynthesisSessionStream } from '@/src/hooks/useSynthesisSessionStream';
 import { useAuth } from '@/src/context/AuthContext';
 import { canAccess } from '@/src/lib/planTier';
 import UpgradeModal from '@/src/components/UpgradeModal';
@@ -21,7 +21,7 @@ export default function MultiUploadPage() {
     const [isSending, setIsSending] = useState(false);
     
     const messagesEndRef = useRef(null);
-    const { stages, currentStage, progress, isComplete, error: streamError } = useGeneratorSessionStream(sessionId);
+    const { stages, currentStage, isComplete, error: streamError } = useSynthesisSessionStream(sessionId);
 
     const { user } = useAuth();
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -46,7 +46,7 @@ export default function MultiUploadPage() {
                 preserve_citations: true,
                 focus_areas: ['methodology', 'results'],
             };
-            const res = await createSession(files, 'synthesis', templateId, config);
+            const res = await createSynthesisSession(files, templateId, config);
             
             if (res && (res.id || res.session_id)) {
                 setSessionId(res.id || res.session_id);
@@ -71,7 +71,7 @@ export default function MultiUploadPage() {
         setIsSending(true);
         
         try {
-            const res = await sendMessage(sessionId, text);
+            const res = await sendSynthesisMessage(sessionId, text);
             // Append assistant response
             if (res && res.response) {
                 setChatMessages(prev => [...prev, { 

@@ -63,7 +63,7 @@ function UploadContent() {
     const { user } = useAuth();
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
     const [quotaWarning, setQuotaWarning] = useState(null);
-    const { remaining, limit } = getRemainingQuota(user, user?.uploads_count || 0);
+    const { remaining } = getRemainingQuota(user, user?.uploads_count || 0);
 
     useEffect(() => {
         if (remaining <= 2 && remaining > 0) {

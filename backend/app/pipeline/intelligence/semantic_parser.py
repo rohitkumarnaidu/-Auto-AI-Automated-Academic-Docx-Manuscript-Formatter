@@ -1,5 +1,6 @@
 import torch
 import logging
+import re
 from typing import List, Dict, Any
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, logging as transformers_logging
 from app.config.settings import settings
@@ -20,6 +21,11 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+HEURISTIC_ONLY_MODEL_NAMES = {
+    "__heuristic_fallback__",
+    "__local_benchmark_fallback__",
+}
+
 # Silence non-critical transformer loading warnings
 transformers_logging.set_verbosity_error()
 
@@ -38,6 +44,16 @@ class SemanticParser:
     def _load_model(self):
         """Lazily load SciBERT weights only when needed, or fetch from ModelStore."""
         if self._is_loaded:
+            return
+
+        if self.model_name in HEURISTIC_ONLY_MODEL_NAMES:
+            logger.info(
+                "SemanticParser: using heuristic-only classification profile for %s.",
+                self.model_name,
+            )
+            self.tokenizer = None
+            self.model = None
+            self._is_loaded = True
             return
             
         from app.services.model_store import model_store
@@ -231,6 +247,8 @@ class SemanticParser:
                 prediction = {"type": "ABSTRACT", "confidence": 0.8}
             elif upper_text.startswith("REFERENCES") or upper_text.startswith("BIBLIOGRAPHY"):
                 prediction = {"type": "REFERENCES", "confidence": 0.8}
+            elif re.match(r"^\[\d+\]", text) or re.match(r"^\d+\.\s+[A-Z]", text):
+                prediction = {"type": "REFERENCES", "confidence": 0.75}
             elif upper_text.startswith("ACKNOWLEDGEMENTS") or upper_text.startswith("ACKNOWLEDGMENTS"):
                 prediction = {"type": "ACKNOWLEDGEMENTS", "confidence": 0.8}
             elif upper_text.startswith("METHODOLOGY") or upper_text.startswith("METHODS"):

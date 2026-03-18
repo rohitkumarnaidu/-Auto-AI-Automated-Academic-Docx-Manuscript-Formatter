@@ -3,8 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import ModeSwitcher from '@/components/header/ModeSwitcher';
-import ThemeToggle from '@/components/header/ThemeToggle';
+import ThemeToggle from '@/src/components/layout/header/ThemeToggle';
 import { useAuth } from '@/src/context/AuthContext';
 import NotificationBell from '@/src/components/NotificationBell';
 
@@ -58,29 +57,7 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
                 : 'formatter';
 
     const navLinks = uiUser ? USER_LINKS_BY_MODE[activeMode] : APP_GUEST_LINKS;
-    const showModeSwitch = !isAuthRoute;
     const logoHref = uiUser ? '/dashboard' : '/';
-
-    const toggleMode = (mode) => {
-        if (mode === activeMode) return;
-        if (mode === 'generator') {
-            router.push('/generate');
-            return;
-        }
-        router.push(uiUser ? '/dashboard' : '/upload');
-    };
-
-    const actionHref = uiUser
-        ? activeMode === 'generator'
-            ? '/generate'
-            : '/upload'
-        : '/signup';
-
-    const actionLabel = uiUser
-        ? activeMode === 'generator'
-            ? 'New Draft'
-            : 'New Format'
-        : 'Get Started';
 
     useEffect(() => {
         setIsMobileMenuOpen(false);
