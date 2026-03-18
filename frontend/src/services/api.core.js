@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabaseClient';
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 export const API_BASE = API_BASE_URL;
 
-const SUPPORTED_EXPORT_FORMATS = ['docx', 'pdf'];
+const SUPPORTED_EXPORT_FORMATS = ['docx', 'pdf', 'tex'];
 const RETRYABLE_STATUS_CODES = [408, 429, 500, 502, 503, 504];
 const DEFAULT_MAX_RETRIES = 2;
 const BASE_RETRY_DELAY_MS = 500;

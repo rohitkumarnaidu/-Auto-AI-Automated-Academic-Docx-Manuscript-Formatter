@@ -38,6 +38,7 @@ logger = logging.getLogger(__name__)
 
 from app.pipeline.safety import safe_execution
 from app.services.enhancement_manager import enhancement_manager
+from app.services.audit_log_service import audit_log_service
 
 
 def _build_cors_origins(raw_origins: str) -> list[str]:
@@ -267,6 +268,19 @@ if settings.FORCE_HTTPS:
         return response
 
 app.add_middleware(RequestIdMiddleware)
+
+
+@app.middleware("http")
+async def audit_write_operations(request: Request, call_next):
+    response = await call_next(request)
+    try:
+        await audit_log_service.log_http_write(
+            request,
+            status_code=response.status_code,
+        )
+    except Exception as exc:
+        logger.debug("Audit middleware skipped due to logging error: %s", exc)
+    return response
 
 # Include Routers
 # v1_router now includes synthesis endpoints under /api/v1/synthesis

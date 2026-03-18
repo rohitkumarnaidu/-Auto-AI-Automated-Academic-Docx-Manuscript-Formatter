@@ -295,6 +295,36 @@ class PipelineOrchestrator:
         except Exception:
             return False
 
+    @staticmethod
+    def _extract_pymupdf_fallback_metadata(input_path: str) -> Dict[str, Any]:
+        """
+        Extract lightweight metadata from PDF text layer when GROBID/Docling are unavailable.
+        """
+        try:
+            import fitz  # type: ignore
+        except Exception:
+            return {}
+
+        try:
+            with fitz.open(input_path) as pdf_doc:
+                raw_metadata = dict(pdf_doc.metadata or {})
+                page_count = len(pdf_doc)
+                sample_chunks = []
+                for page_idx in range(min(2, page_count)):
+                    sample_chunks.append((pdf_doc[page_idx].get_text("text") or "").strip())
+                sample_text = "\n".join(chunk for chunk in sample_chunks if chunk).strip()
+                return {
+                    "source": "pymupdf",
+                    "page_count": page_count,
+                    "title": raw_metadata.get("title"),
+                    "author": raw_metadata.get("author"),
+                    "sample_text": sample_text[:1000],
+                    "sample_text_chars": len(sample_text),
+                }
+        except Exception as exc:
+            logger.debug("PyMuPDF fallback metadata extraction failed: %s", exc)
+            return {}
+
     def _sync_block_confidence(self, doc_obj: PipelineDocument) -> None:
         """
         Promote classifier confidence into metadata['nlp_confidence'] so review
@@ -624,6 +654,9 @@ class PipelineOrchestrator:
                         try:
                             # Define wrapper functions for safe execution
                             def run_grobid():
+                                if not settings.GROBID_ENABLED:
+                                    logger.info("GROBID fallback disabled (GROBID_ENABLED=false).")
+                                    return {}
                                 if self.grobid_client.is_available():
                                     try:
                                         logger.info("Extracting metadata with GROBID...")
@@ -633,6 +666,9 @@ class PipelineOrchestrator:
                                 return {}
 
                             def run_docling():
+                                if not settings.USE_DOCLING_FALLBACK:
+                                    logger.info("Docling fallback disabled (USE_DOCLING_FALLBACK=false).")
+                                    return {}
                                 if self._should_skip_docling_for_digital_pdf(input_path):
                                     logger.info(
                                         "Digital-native PDF detected for job %s; skipping Docling layout pass for speed.",
@@ -695,6 +731,25 @@ class PipelineOrchestrator:
                             logger.info("Docling analyzed: %d elements found", len(layout_result.get('elements', [])))
                         else:
                              logger.info("Docling result unavailable (file_ext=%s)", file_ext)
+
+                        if (
+                            settings.PYMUPDF_FALLBACK
+                            and not (grobid_metadata and isinstance(grobid_metadata, dict))
+                            and not (layout_result and isinstance(layout_result, dict))
+                        ):
+                            pymupdf_metadata = self._extract_pymupdf_fallback_metadata(input_path)
+                            if pymupdf_metadata:
+                                if not hasattr(doc_obj, 'metadata') or doc_obj.metadata is None:
+                                    from app.models import DocumentMetadata
+                                    doc_obj.metadata = DocumentMetadata()
+                                doc_obj.metadata.ai_hints["pymupdf_fallback"] = pymupdf_metadata
+                                if not doc_obj.metadata.title and pymupdf_metadata.get("title"):
+                                    doc_obj.metadata.title = str(pymupdf_metadata.get("title"))
+                                logger.info(
+                                    "PyMuPDF fallback metadata extracted for job %s (pages=%s).",
+                                    job_id,
+                                    pymupdf_metadata.get("page_count"),
+                                )
 
                 # Phase 2.5: Equation Standardization
                 self._update_status(job_id, "EXTRACTION", "PROCESSING", "Standardizing equations...", progress=25)

@@ -1,8 +1,27 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
-ScholarForm AI -- Production Application Documentation Generator
-Generates a company-grade .docx documentation like Stripe/Vercel/Notion docs.
+⚠️ DEPRECATED — ScholarForm AI Documentation Generator
+
+This script generates a DOCX documentation file. It contains STALE INFORMATION
+and should NOT be used as a reference for the current codebase:
+
+  STALE REFERENCES IN THIS FILE:
+  - References "Vite" as the frontend bundler (current: Next.js 14)
+  - Uses VITE_* env var names (current: NEXT_PUBLIC_*)
+  - References port 5173 (current: 3000 for Next.js dev server)
+  - References Python 3.10 requirements (current: Python 3.12 pinned)
+  - References "React SPA" architecture (current: Next.js App Router SSR)
+
+  AUTHORITATIVE DOCUMENTATION IS IN:
+  - docs/TechStack.md
+  - docs/Deployment.md
+  - docs/API.md
+  - README.md
+
+This script can still be run to generate a DOCX for distribution, but the
+generated content reflects an outdated architecture snapshot.
 """
+
 from docx import Document
 from docx.shared import Pt, Cm, RGBColor, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH

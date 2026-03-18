@@ -1,6 +1,7 @@
 const EXPORT_FORMAT_OPTIONS = [
     { value: 'docx', label: 'DOCX (.docx)' },
     { value: 'pdf', label: 'PDF (.pdf)' },
+    { value: 'tex', label: 'LaTeX (.tex)' },
 ];
 
 export default function ProcessingOptions({

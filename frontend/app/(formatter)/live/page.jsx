@@ -7,26 +7,11 @@ import SplitEditor from '@/src/components/live-preview/SplitEditor';
 import useLivePreviewSocket from '@/src/hooks/useLivePreviewSocket';
 import { getAiSuggestion } from '@/src/services/api.preview.v1';
 import { fetchWithAuth } from '@/src/services/api.core';
+import { getBuiltinTemplates } from '@/src/services/api.templates';
 
-// ── 17 built-in templates ───────────────────────────────────────────────────
-const BUILTIN_TEMPLATES = [
+// We will fetch templates dynamically, providing a minimal fallback.
+const FALLBACK_TEMPLATES = [
     { id: 'ieee', label: 'IEEE' },
-    { id: 'apa7', label: 'APA 7th Edition' },
-    { id: 'mla9', label: 'MLA 9th Edition' },
-    { id: 'chicago-author-date', label: 'Chicago Author-Date' },
-    { id: 'chicago-notes', label: 'Chicago Notes & Bibliography' },
-    { id: 'harvard', label: 'Harvard' },
-    { id: 'vancouver', label: 'Vancouver' },
-    { id: 'ama', label: 'AMA' },
-    { id: 'acs', label: 'ACS' },
-    { id: 'acm', label: 'ACM' },
-    { id: 'elsevier', label: 'Elsevier' },
-    { id: 'springer', label: 'Springer' },
-    { id: 'nature', label: 'Nature' },
-    { id: 'science', label: 'Science' },
-    { id: 'plos', label: 'PLOS ONE' },
-    { id: 'oxford', label: 'Oxford' },
-    { id: 'turabian', label: 'Turabian' },
 ];
 
 // Generate a UUID — same utility as api.core.js
@@ -212,6 +197,17 @@ export default function LiveFormatterPage() {
 
     // Template
     const [templateId, setTemplateId] = useState('ieee');
+    const [templateList, setTemplateList] = useState(FALLBACK_TEMPLATES);
+
+    useEffect(() => {
+        getBuiltinTemplates()
+            .then(data => {
+                if (data && data.length > 0) {
+                    setTemplateList(data);
+                }
+            })
+            .catch(console.error);
+    }, []);
 
     // AI sidebar
     const [aiOpen, setAiOpen] = useState(true);
@@ -304,8 +300,8 @@ export default function LiveFormatterPage() {
                             max-w-[180px] sm:max-w-none
                         "
                     >
-                        {BUILTIN_TEMPLATES.map((t) => (
-                            <option key={t.id} value={t.id}>{t.label}</option>
+                        {templateList.map((t) => (
+                            <option key={t.id} value={t.id}>{t.label || t.name}</option>
                         ))}
                     </select>
                 </div>
@@ -357,7 +353,7 @@ export default function LiveFormatterPage() {
                     Export DOCX
                 </button>
 
-                {/* Export PDF */}
+                    {/* Export PDF */}
                 <button
                     id="export-pdf-btn"
                     onClick={() => handleExport('pdf')}
@@ -376,6 +372,27 @@ export default function LiveFormatterPage() {
                 >
                     <span className="material-symbols-outlined text-[14px]">picture_as_pdf</span>
                     Export PDF
+                </button>
+
+                {/* Export TEX */}
+                <button
+                    id="export-tex-btn"
+                    onClick={() => handleExport('tex')}
+                    disabled={isExporting}
+                    className="
+                        flex items-center gap-1.5 px-3 py-1.5 rounded-lg
+                        border border-slate-200 dark:border-slate-700
+                        bg-white dark:bg-slate-800
+                        text-slate-700 dark:text-slate-300
+                        text-xs font-bold
+                        hover:bg-slate-50 dark:hover:bg-slate-700
+                        hover:-translate-y-0.5 active:translate-y-0
+                        disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none
+                        transition-all duration-150
+                    "
+                >
+                    <span className="material-symbols-outlined text-[14px]">code</span>
+                    Export LaTeX
                 </button>
 
                 {/* AI Toggle */}
@@ -420,9 +437,9 @@ export default function LiveFormatterPage() {
             </div>
 
             {/* ── Bottom status bar ────────────────────────────────────── */}
-            <div className="flex items-center gap-4 px-4 py-1.5 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0 text-[10px] font-medium text-slate-400 dark:text-slate-600">
+            <div className="flex flex-wrap items-center gap-4 px-4 py-1.5 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0 text-[10px] font-medium text-slate-400 dark:text-slate-600">
                 <span>Session: <span className="font-mono">{sessionId.slice(0, 8)}…</span></span>
-                <span>Template: <span className="text-slate-600 dark:text-slate-400">{BUILTIN_TEMPLATES.find(t => t.id === templateId)?.label}</span></span>
+                <span>Template: <span className="text-slate-600 dark:text-slate-400">{templateList.find(t => t.id === templateId)?.label || templateList.find(t => t.id === templateId)?.name || templateId}</span></span>
                 {latencyMs !== null && <span>Latency: {latencyMs}ms</span>}
                 <div className="ml-auto flex items-center gap-1.5">
                     <ConnectionDot isConnected={isConnected} />

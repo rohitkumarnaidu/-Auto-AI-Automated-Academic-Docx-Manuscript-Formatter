@@ -74,3 +74,8 @@ devserver.*.log
 proxy.js
 proxy_clean.js
 *.js.tmp
+
+# Local one-off scripts / generated css
+fix-tests.js
+update-tests.js
+app/clean.css

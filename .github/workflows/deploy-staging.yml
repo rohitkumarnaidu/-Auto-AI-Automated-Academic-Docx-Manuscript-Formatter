@@ -1,0 +1,52 @@
+name: deploy-staging
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: true
+
+jobs:
+  deploy-staging:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Trigger Render staging deploy hook
+        env:
+          RENDER_STAGING_SERVICE_NAME: ${{ secrets.RENDER_STAGING_SERVICE_NAME }}
+          RENDER_STAGING_DEPLOY_HOOK_URL: ${{ secrets.RENDER_STAGING_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "${RENDER_STAGING_DEPLOY_HOOK_URL}" ]; then
+            echo "Missing required secret: RENDER_STAGING_DEPLOY_HOOK_URL"
+            exit 1
+          fi
+
+          echo "Triggering staging deploy for ${RENDER_STAGING_SERVICE_NAME:-unknown-service}"
+          curl -fsS -X POST "${RENDER_STAGING_DEPLOY_HOOK_URL}"
+
+      - name: Wait for staging backend health
+        env:
+          STAGING_BACKEND_URL: ${{ secrets.STAGING_BACKEND_URL }}
+        run: |
+          if [ -z "${STAGING_BACKEND_URL}" ]; then
+            echo "Missing required secret: STAGING_BACKEND_URL"
+            exit 1
+          fi
+
+          for i in {1..30}; do
+            if curl -fsS "${STAGING_BACKEND_URL}/api/v1/health/ready" >/dev/null; then
+              echo "Staging backend is healthy."
+              exit 0
+            fi
+            echo "Waiting for staging backend health..."
+            sleep 10
+          done
+
+          echo "Staging backend failed health check."
+          exit 1

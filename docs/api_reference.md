@@ -1,4 +1,12 @@
-# ScholarForm AI - API Reference
+# ⚠️ DEPRECATED — ScholarForm AI Legacy API Reference
+
+> **DEPRECATED:** This file describes legacy API routes (without `/v1/` prefix) that are no longer the canonical API.  
+> **Use Instead:** [`docs/API.md`](API.md) — the current v1 API reference with runtime-verified endpoints.  
+> **Reason for deprecation:** All routes have migrated to `/api/v1/` with envelope response format. Legacy routes still work but carry `Deprecation` headers.
+
+---
+
+# ScholarForm AI - API Reference (Legacy)
 
 Base URL: `http://localhost:8000/api`
 

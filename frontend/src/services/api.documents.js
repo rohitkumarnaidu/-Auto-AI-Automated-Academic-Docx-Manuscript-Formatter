@@ -10,7 +10,7 @@ import {
     sanitizeText,
 } from './api.core';
 
-const SUPPORTED_EXPORT_FORMATS = ['docx', 'pdf'];
+const SUPPORTED_EXPORT_FORMATS = ['docx', 'pdf', 'tex'];
 const DEFAULT_DEBOUNCE_MS = 250;
 const DEBOUNCED_REQUESTS = new Map();
 
@@ -371,46 +371,6 @@ export const downloadFile = async (jobId, format = 'docx') => {
 export const downloadExport = async (jobId, format = 'docx') => (
     downloadFile(jobId, normalizeExportFormat(format))
 );
-
-/**
- * Download a LaTeX (.tex) export — bypasses the normalizer since 'tex'
- * is not yet in SUPPORTED_EXPORT_FORMATS (enabled via feature flag).
- * TODO: Remove bypass once 'tex' is added to SUPPORTED_EXPORT_FORMATS (Module 2).
- */
-export const downloadLatex = async (jobId) => {
-    try {
-        const headers = await getAuthorizedHeaders();
-        const response = await fetchWithRetry(
-            `${API_BASE_URL}/api/documents/${encodeURIComponent(jobId)}/download?format=tex`,
-            { headers, method: 'GET', credentials: 'include' }
-        );
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(
-                getFriendlyErrorMessage({
-                    status: response.status,
-                    errorData,
-                    fallbackMessage: 'LaTeX download failed. Please try again.',
-                })
-            );
-        }
-
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        return {
-            url,
-            cleanup: () => window.URL.revokeObjectURL(url),
-        };
-    } catch (error) {
-        const message = getFriendlyErrorMessage({
-            error,
-            fallbackMessage: 'LaTeX download failed. Please try again.',
-        });
-        console.error('LaTeX download error:', message, error);
-        throw new Error(message);
-    }
-};
 
 export const deleteDocument = async (jobId) => (
     fetchWithAuth(`/api/documents/${encodeURIComponent(jobId)}`, {

@@ -1,24 +1,40 @@
 # 🔍 ScholarForm AI — Comprehensive Project Audit Report
 
 > **Date:** March 17, 2026  
+> **Last Updated:** March 18, 2026 (Codex 5.4 findings merged)  
 > **Auditor:** Antigravity AI Agent  
 > **Scope:** Full codebase analysis against 4 plan files + Master Plan v4  
 > **Method:** File existence verification + structural analysis + architectural review
+
+> **Codex 5.4 Verdict:** "Feature-rich but operationally unstable"
+
+### Codex 5.4 Specific Findings (Merged)
+
+| Finding | Detail |
+|---------|--------|
+| Python 3.11.9 issue | Python 3.11.9 causes `pytest` import collision — stdlib `pytest` shadows test runner. **Fix:** Pin to Python 3.12.x. |
+| Pytest import collision | `INTERNAL ERROR` during collection on Python 3.11.9. Resolved by upgrading to 3.12 + `asyncio_mode = "auto"`. |
+| `@testing-library/dom` | Required for vitest unit tests. Missing dep caused `npm test` failures. Must be added as devDependency. |
+| 34 frontend routes | Master plan cited 25 routes. Actual count is **34** in `frontend/src/app/`. |
+| Stale Vite references | `generate_docs.py` and `docs/api_reference.md` reference Vite, port 5173, and `VITE_*` env vars. These are **stale** — project uses Next.js 14. Both files are now marked `DEPRECATED`. |
+| Spring Boot gateway | Referenced in early plan docs as a future component. Never built. **Obsolete/incorrect requirement.** Architecture doc now correctly marks FastAPI-only. |
 
 ---
 
 ## 📊 Executive Summary
 
-| Metric | Score |
-|--------|-------|
-| **Overall Project Completion** | **62%** |
-| **Backend File Coverage** | **90%** (files exist) |
-| **Frontend File Coverage** | **88%** (files exist) |
-| **Runtime Verification** | **⚠️ Unknown** (needs testing) |
-| **Code Quality (estimated)** | **6.5/10** |
-| **UI/UX Quality** | **7/10** |
-| **Production Readiness** | **3/10** |
-| **Documentation Coverage** | **5/10** |
+| Metric | Score | Codex Update |
+|--------|-------|--------------|
+| **Overall Project Completion** | **62%** | Unchanged |
+| **Backend File Coverage** | **90%** (files exist) | Unchanged |
+| **Frontend File Coverage** | **88%** (files exist) | Unchanged |
+| **Runtime Verification** | **⚠️ Unknown** (needs testing) | Phase 2 will address |
+| **Code Quality (estimated)** | **6.5/10** | Unchanged |
+| **UI/UX Quality** | **7/10** | Unchanged |
+| **Production Readiness** | **3/10** | Unchanged |
+| **QA / Testing** | **3/10** *(Codex-updated)* | Was 5/10 — 93 E2E files but most are <700B stubs |
+| **Developer Experience (DevEx)** | **4/10** *(Codex-updated)* | Was 6.5/10 — build issues, Python version mismatch |
+| **Documentation Coverage** | **7/10** *(Post-reset target)* | Was 5/10 → 3/10 (Codex) → 7/10 after Phase 1 reset |
 
 > [!IMPORTANT]
 > Files existing ≠ files working. Most files are scaffolded (created with correct structure and interfaces), but **runtime testing is critical** to verify actual functionality. Many backend services and frontend components likely have partial implementations or stubs.

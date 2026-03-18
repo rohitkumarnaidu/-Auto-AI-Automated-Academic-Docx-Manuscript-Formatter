@@ -14,6 +14,12 @@ logger = logging.getLogger(__name__)
 router = APIRouter(dependencies=[Depends(bind_request_context)])
 
 
+@router.get("")
+async def health(request: Request):
+    """Compatibility health endpoint for /api/v1/health."""
+    return build_success_response(request, {"status": "alive"})
+
+
 @router.get("/live")
 async def live(request: Request):
     return build_success_response(request, {"status": "alive"})

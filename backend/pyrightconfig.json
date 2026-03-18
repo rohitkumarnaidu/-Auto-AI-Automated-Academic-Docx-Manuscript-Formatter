@@ -1,0 +1,18 @@
+{
+  "include": ["app", "tests"],
+  "exclude": [
+    ".venv",
+    "__pycache__",
+    "*.pyc"
+  ],
+  "venvPath": ".",
+  "venv": ".venv",
+  "pythonVersion": "3.12",
+  "pythonPlatform": "Windows",
+  "typeCheckingMode": "basic",
+  "useLibraryCodeForTypes": true,
+  "reportMissingImports": "warning",
+  "reportMissingModuleSource": "none",
+  "reportUnusedImport": "none",
+  "reportAttributeAccessIssue": "none"
+}

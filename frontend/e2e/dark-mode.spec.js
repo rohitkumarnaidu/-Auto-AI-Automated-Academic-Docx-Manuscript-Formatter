@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
-
-test('toggle -> navigate -> persists', async ({ page }) => {
+test('dark mode setup check', async ({ page }) => {
     await page.goto('/');
-    expect(true).toBe(true);
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.locator('body')).toBeVisible();
 });

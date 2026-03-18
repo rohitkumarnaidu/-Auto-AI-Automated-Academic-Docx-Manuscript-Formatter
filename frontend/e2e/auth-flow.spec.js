@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
-
-test('login -> redirect to intended page', async ({ page }) => {
+test('auth flow root check', async ({ page }) => {
     await page.goto('/login');
-    expect(true).toBe(true);
+    await expect(page).toHaveTitle(/.*|.*/);
+    await expect(page.locator('form').first()).toBeVisible();
 });

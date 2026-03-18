@@ -44,3 +44,7 @@ export async function sendSynthesisMessage(sessionId, content) {
     const response = await postV1(`/synthesis/sessions/${sessionId}/messages`, { content });
     return unwrapResponse(response);
 }
+
+export function getSynthesisEventsEndpoint(sessionId) {
+    return `${BASE_V1_URL}/synthesis/sessions/${sessionId}/events`;
+}

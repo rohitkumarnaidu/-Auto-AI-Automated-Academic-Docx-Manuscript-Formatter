@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { API_BASE_URL } from '../services/api.v1';
+import { getSynthesisEventsEndpoint } from '../services/api.synthesis';
 
 export function useSynthesisSessionStream(sessionId) {
     const [stages, setStages] = useState([]);
@@ -17,7 +17,7 @@ export function useSynthesisSessionStream(sessionId) {
         const maxRetries = 5;
 
         const connect = () => {
-            const url = `${API_BASE_URL}/api/v1/synthesis/sessions/${sessionId}/events`;
+            const url = getSynthesisEventsEndpoint(sessionId);
             eventSource = new EventSource(url, { withCredentials: true });
 
             eventSource.onmessage = (event) => {

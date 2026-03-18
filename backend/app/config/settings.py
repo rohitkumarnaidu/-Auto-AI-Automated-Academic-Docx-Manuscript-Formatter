@@ -136,6 +136,8 @@ if _PS:
         GROBID_TIMEOUT: int
         GROBID_MAX_RETRIES: int
         GROBID_ENABLED: bool
+        USE_DOCLING_FALLBACK: bool = True
+        PYMUPDF_FALLBACK: bool = True
 
         OLLAMA_URL: str
         OLLAMA_BASE_URL: str
@@ -190,6 +192,8 @@ if _PS:
             "ENHANCEMENT_KEYWORD_ENABLED",
             "ENABLE_FILE_CLEANUP",
             "GROBID_ENABLED",
+            "USE_DOCLING_FALLBACK",
+            "PYMUPDF_FALLBACK",
             "REDIS_ENABLED",
             "PIPELINE_DOCLING_SKIP_DIGITAL_PDF",
             "PIPELINE_DOCLING_FORCE",
@@ -308,6 +312,12 @@ else:
         GROBID_TIMEOUT: int = int(_require_env("GROBID_TIMEOUT"))
         GROBID_MAX_RETRIES: int = int(_require_env("GROBID_MAX_RETRIES"))
         GROBID_ENABLED: bool = bool(_parse_boolish(_require_env("GROBID_ENABLED"), "GROBID_ENABLED"))
+        USE_DOCLING_FALLBACK: bool = bool(
+            _parse_boolish(os.getenv("USE_DOCLING_FALLBACK", "true"), "USE_DOCLING_FALLBACK")
+        )
+        PYMUPDF_FALLBACK: bool = bool(
+            _parse_boolish(os.getenv("PYMUPDF_FALLBACK", "true"), "PYMUPDF_FALLBACK")
+        )
         OLLAMA_URL: str = _require_env("OLLAMA_URL")
         OLLAMA_BASE_URL: str = _require_env("OLLAMA_BASE_URL")
         CLAMAV_HOST: str = _require_env("CLAMAV_HOST")

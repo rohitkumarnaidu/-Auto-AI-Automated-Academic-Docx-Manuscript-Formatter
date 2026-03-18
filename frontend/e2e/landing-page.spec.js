@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
-
-test('landing page loads, CTAs work', async ({ page }) => {
+test('landing page loads hero section', async ({ page }) => {
     await page.goto('/');
-    expect(true).toBe(true);
+    await page.waitForLoadState('domcontentloaded');
+    const heading = page.locator('h1').first();
+    await expect(heading).toBeVisible();
 });
