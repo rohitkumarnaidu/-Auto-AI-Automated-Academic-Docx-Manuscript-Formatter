@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, User, Bot, Loader2, Sparkles, AlertCircle } from 'lucide-react';
+import { Send, User, Bot, Loader2, Sparkles, AlertCircle, Square } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const formatSourceLabel = (source) => {
@@ -108,6 +108,7 @@ const MessageBubble = ({ message }) => {
 const AgentChatPane = ({ 
   messages, 
   onSendMessage, 
+  onStop,
   isTyping,
   error 
 }) => {
@@ -235,6 +236,16 @@ const AgentChatPane = ({
               e.target.style.height = `${e.target.scrollHeight}px`;
             }}
           />
+          {isTyping && onStop && (
+            <button
+              type="button"
+              onClick={onStop}
+              className="flex-shrink-0 p-2 rounded-lg bg-red-100 dark:bg-red-500/10 hover:bg-red-200 dark:hover:bg-red-500/20 text-red-600 dark:text-red-400 transition-colors"
+              title="Stop Agent"
+            >
+              <Square className="w-4 h-4 fill-current" />
+            </button>
+          )}
           <button
             type="submit"
             disabled={!input.trim() || isTyping}

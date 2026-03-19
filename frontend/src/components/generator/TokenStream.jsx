@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, ChevronDown, ChevronRight } from 'lucide-react';
+import { supabase } from '../../lib/supabaseClient';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const WORD_FLUSH_INTERVAL = 40;
@@ -51,6 +52,7 @@ const TokenStream = ({ sessionId, isGenerating, initialSections = [] }) => {
   const reconnectTimeoutRef = useRef(null);
   const wordQueueRef = useRef(new Map());
   const flushTimerRef = useRef(null);
+  const eventSourceRef = useRef(null);
 
   const resetStreamState = useCallback(() => {
     setSections([]);
@@ -149,12 +151,35 @@ const TokenStream = ({ sessionId, isGenerating, initialSections = [] }) => {
   useEffect(() => {
     if (!sessionId) return;
 
-    let eventSource;
     let retryCount = 0;
     const maxRetries = 5;
+    let isMounted = true;
 
-    const connectSSE = () => {
-      eventSource = new EventSource(`${API_BASE_URL}/api/v1/generator/sessions/${sessionId}/events`, { withCredentials: true });
+    const connectSSE = async () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+      }
+
+      if (!isMounted) return;
+
+      let authToken = null;
+      if (supabase) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          authToken = session?.access_token;
+        } catch (err) {
+          console.error("[TokenStream] Failed to get auth session:", err);
+        }
+      }
+
+      const url = new URL(`${API_BASE_URL}/api/v1/generator/sessions/${sessionId}/events`);
+      if (authToken) {
+        url.searchParams.set('token', authToken);
+      }
+
+      const eventSource = new EventSource(url.toString(), { withCredentials: true });
+      eventSourceRef.current = eventSource;
+
       const handleWritingChunk = (event) => {
         try {
           const data = JSON.parse(event.data);
@@ -220,7 +245,7 @@ const TokenStream = ({ sessionId, isGenerating, initialSections = [] }) => {
       eventSource.onerror = (error) => {
         console.error("SSE Error:", error);
         eventSource.close();
-        if (retryCount < maxRetries) {
+        if (retryCount < maxRetries && isMounted) {
           retryCount += 1;
           const delay = Math.min(3000 * retryCount, 15000);
           reconnectTimeoutRef.current = setTimeout(connectSSE, delay);
@@ -231,8 +256,9 @@ const TokenStream = ({ sessionId, isGenerating, initialSections = [] }) => {
     connectSSE();
 
     return () => {
-      if (eventSource) {
-        eventSource.close();
+      isMounted = false;
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
       }
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);

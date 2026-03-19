@@ -17,11 +17,11 @@ class StyleMapper:
         contract = self.contract_loader.load(publisher)
         style_map = contract.get("styles", {})
         
-        # Determine the key for lookup
-        bt = block.block_type
-        if bt.startswith("heading_"):
-            # Map level specific headings
-            return style_map.get(bt.upper(), "Normal")
-        
-        # Map other types
-        return style_map.get(bt.upper(), "Normal")
+        # Standardize key (e.g. "heading_1" -> "BLOCK_HEADING_1")
+        bt = str(block.block_type).upper()
+        if bt.startswith("BLOCK_"):
+            key = bt
+        else:
+            key = f"BLOCK_{bt}"
+            
+        return style_map.get(key, "Normal")

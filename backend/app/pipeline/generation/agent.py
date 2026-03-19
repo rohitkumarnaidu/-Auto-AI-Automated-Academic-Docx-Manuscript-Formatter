@@ -62,6 +62,7 @@ class AgentPipeline:
                 parser.last_turn.get("user", ""),
                 parser.last_turn.get("assistant", ""),
             )
+        if await self._is_canceled(session_id): return
         config.update(task_spec)
         await self._update_status(
             session_id,
@@ -99,6 +100,7 @@ class AgentPipeline:
         )
 
         # Step 5: Outline Generation
+        if await self._is_canceled(session_id): return
         outline = await self._generate_outline(session_id, task_spec, template_rules, web_results)
         await self._update_status(
             session_id,
@@ -164,6 +166,7 @@ class AgentPipeline:
                 "previous_sections": sections_map,
             }
             prompt = get_section_prompt(section_name, context)
+            if await self._is_canceled(session_id): return
             section_text = await self._generate_section(session_id, section_name, prompt)
 
             sections_map[section_name] = section_text
@@ -466,6 +469,7 @@ class AgentPipeline:
         await self._emit_sse(session_id, stage="quality_boost", progress=96, message="Improving draft quality.")
 
         for section_name in low_sections:
+            if await self._is_canceled(session_id): return
             context = {
                 "task_spec": task_spec,
                 "template_rules": template_rules,
@@ -878,3 +882,14 @@ class AgentPipeline:
             message=message,
             extra={"status": status},
         )
+
+    async def _is_canceled(self, session_id: str) -> bool:
+        """Check if the current session has been canceled by the user."""
+        try:
+            session = await self.session_service.get_session(session_id)
+            if session and session.get("status") in ("canceled", "stopping"):
+                logger.info(f"Agent task for session {session_id} detected cancellation status: {session.get('status')}")
+                return True
+        except Exception as exc:
+            logger.warning(f"Error checking cancellation status for session {session_id}: {exc}")
+        return False

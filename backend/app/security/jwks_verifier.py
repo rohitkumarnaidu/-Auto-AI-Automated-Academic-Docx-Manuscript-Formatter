@@ -25,7 +25,11 @@ class _RetryableJWTError(Exception):
 
 def _resolve_jwks_url() -> Optional[str]:
     if settings.SUPABASE_JWKS_URL:
-        return settings.SUPABASE_JWKS_URL
+        explicit = settings.SUPABASE_JWKS_URL.rstrip("/")
+        if explicit.endswith("/auth/v1/keys"):
+            base = explicit[: -len("/auth/v1/keys")]
+            return f"{base}/auth/v1/.well-known/jwks.json"
+        return explicit
     if settings.SUPABASE_URL:
         base = settings.SUPABASE_URL.rstrip("/")
         return f"{base}/auth/v1/.well-known/jwks.json"
@@ -83,6 +87,22 @@ def _decode_with_secret(token: str, *, expected_issuer: Optional[str]) -> dict:
     )
 
 
+def _public_key_from_jwk(jwk: dict):
+    kty = (jwk.get("kty") or "").upper()
+    if kty == "RSA":
+        return jwt.algorithms.RSAAlgorithm.from_jwk(json.dumps(jwk))
+    if kty == "EC":
+        return jwt.algorithms.ECAlgorithm.from_jwk(json.dumps(jwk))
+    if kty == "OKP":
+        return jwt.algorithms.OKPAlgorithm.from_jwk(json.dumps(jwk))
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Unsupported JWT key type",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
 def _decode_with_jwks(token: str, *, expected_issuer: Optional[str], refresh: bool = False) -> dict:
     header = jwt.get_unverified_header(token)
     kid = header.get("kid")
@@ -95,15 +115,7 @@ def _decode_with_jwks(token: str, *, expected_issuer: Optional[str], refresh: bo
     if not jwk:
         raise _RetryableJWTError("Key not found in JWKS cache")
 
-    kty = jwk.get("kty")
-    if kty != "RSA":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Unsupported JWT key type",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    public_key = jwt.algorithms.RSAAlgorithm.from_jwk(json.dumps(jwk))
+    public_key = _public_key_from_jwk(jwk)
     try:
         return jwt.decode(
             token,

@@ -459,7 +459,11 @@ class DocumentService:
                 .maybe_single()
                 .execute()
             )
-            return result.data
+            if result is None:
+                return None
+            if isinstance(result, dict):
+                return result.get("data")
+            return getattr(result, "data", None)
         except Exception as exc:
             logger.error("get_document_result(%s) failed: %s", doc_id, exc, extra=log_extra(job_id=doc_id))
             return None

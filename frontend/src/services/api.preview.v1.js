@@ -25,13 +25,17 @@ export async function getPreviewHtml(content, templateId) {
  * @param {string} sessionId   - Session UUID
  * @param {string} content     - Current editor content (sent as query param)
  * @param {string} templateId  - Template identifier slug
+ * @param {string} [token]     - Optional auth token for query-param auth
  * @returns {EventSource}
  */
-export function getAiSuggestion(sessionId, content, templateId) {
+export function getAiSuggestion(sessionId, content, templateId, token) {
     const params = new URLSearchParams({
         template_id: templateId || '',
         content_hash: String(content?.length ?? 0), // lightweight hint, not full content in URL
     });
+    if (token) {
+        params.set('token', token);
+    }
     const url = `${API_BASE_URL}/api/v1/preview/${encodeURIComponent(sessionId)}/ai-suggest?${params.toString()}`;
     return new EventSource(url, { withCredentials: true });
 }

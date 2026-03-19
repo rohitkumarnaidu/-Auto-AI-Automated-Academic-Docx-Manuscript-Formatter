@@ -41,6 +41,14 @@ def _lookup_user_id_by_customer(sb, customer_id: Optional[str]) -> Optional[str]
         return None
 
 
+def _legacy_profile_updates(updates: dict) -> dict:
+    """Map modern billing columns to legacy profile schema when needed."""
+    mapped = {}
+    if "plan_tier" in updates:
+        mapped["plan"] = updates["plan_tier"]
+    return mapped
+
+
 @router.post("/webhook")
 async def stripe_webhook(request: Request):
     if not settings.STRIPE_WEBHOOK_SECRET:
@@ -96,7 +104,19 @@ async def stripe_webhook(request: Request):
         try:
             sb.table("profiles").update(updates).eq("id", str(user_id)).execute()
         except Exception as exc:
-            logger.warning("Failed to update billing for user %s: %s", user_id, exc)
+            legacy_updates = _legacy_profile_updates(updates)
+            if not legacy_updates:
+                logger.warning("Failed to update billing for user %s: %s", user_id, exc)
+            else:
+                try:
+                    sb.table("profiles").update(legacy_updates).eq("id", str(user_id)).execute()
+                except Exception as legacy_exc:
+                    logger.warning(
+                        "Failed to update billing for user %s (modern + legacy schema): %s / %s",
+                        user_id,
+                        exc,
+                        legacy_exc,
+                    )
 
     await audit_log_service.log(
         user_id=str(user_id) if user_id else None,

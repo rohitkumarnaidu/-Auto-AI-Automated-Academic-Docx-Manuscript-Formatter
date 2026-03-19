@@ -8,6 +8,7 @@ import useLivePreviewSocket from '@/src/hooks/useLivePreviewSocket';
 import { getAiSuggestion } from '@/src/services/api.preview.v1';
 import { fetchWithAuth } from '@/src/services/api.core';
 import { getBuiltinTemplates } from '@/src/services/api.templates';
+import { supabase } from '@/src/lib/supabaseClient';
 
 // We will fetch templates dynamically, providing a minimal fallback.
 const FALLBACK_TEMPLATES = [
@@ -45,7 +46,7 @@ function AiSidebar({ isOpen, onToggle, sessionId, templateId, editorContentRef }
     const [streamError, setStreamError] = useState(null);
     const esRef = useRef(null);
 
-    const handleAiSuggest = useCallback(() => {
+    const handleAiSuggest = useCallback(async () => {
         // Close any existing stream
         if (esRef.current) {
             esRef.current.close();
@@ -56,8 +57,18 @@ function AiSidebar({ isOpen, onToggle, sessionId, templateId, editorContentRef }
         setStreamError(null);
         setIsStreaming(true);
 
+        let token = null;
+        if (supabase) {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                token = session?.access_token;
+            } catch (err) {
+                console.error('Auth session retrieval failed for AI Suggest:', err);
+            }
+        }
+
         const content = editorContentRef.current || '';
-        const es = getAiSuggestion(sessionId, content, templateId);
+        const es = getAiSuggestion(sessionId, content, templateId, token);
         esRef.current = es;
 
         es.onmessage = (event) => {

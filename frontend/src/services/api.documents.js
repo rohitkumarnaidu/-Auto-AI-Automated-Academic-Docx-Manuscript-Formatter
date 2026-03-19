@@ -336,7 +336,7 @@ export const downloadFile = async (jobId, format = 'docx') => {
 
     try {
         const headers = await getAuthorizedHeaders();
-        const response = await fetchWithRetry(
+        let response = await fetchWithRetry(
             `${API_BASE_URL}/api/documents/${encodeURIComponent(jobId)}/download?format=${normalizedFormat}`,
             { headers, method: 'GET', credentials: 'include' }
         );
@@ -350,6 +350,32 @@ export const downloadFile = async (jobId, format = 'docx') => {
                     fallbackMessage: 'Download failed. Please try again.',
                 })
             );
+        }
+
+        const responseContentType = String(response.headers?.get?.('content-type') || '').toLowerCase();
+        if (responseContentType.includes('application/json')) {
+            const signedPayload = await response.json().catch(() => null);
+            const signedUrl = signedPayload?.url;
+            if (!signedUrl) {
+                throw new Error('Download link was not returned by the server.');
+            }
+
+            response = await fetchWithRetry(signedUrl, {
+                headers,
+                method: 'GET',
+                credentials: 'include',
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(
+                    getFriendlyErrorMessage({
+                        status: response.status,
+                        errorData,
+                        fallbackMessage: 'Download link expired or invalid. Please try again.',
+                    })
+                );
+            }
         }
 
         const blob = await response.blob();

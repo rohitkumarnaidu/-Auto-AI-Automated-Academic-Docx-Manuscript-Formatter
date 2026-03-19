@@ -15,6 +15,9 @@ WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
 
 class AuditLogService:
+    _audit_table_available: Optional[bool] = None
+    _audit_table_warning_logged: bool = False
+
     @staticmethod
     def _utc_now_iso() -> str:
         return datetime.now(timezone.utc).isoformat()
@@ -58,6 +61,9 @@ class AuditLogService:
         ip_address: Optional[str],
         details: Optional[Dict[str, Any]] = None,
     ) -> None:
+        if self._audit_table_available is False:
+            return
+
         sb = get_supabase_client()
         if sb is None:
             logger.warning("Audit log skipped: Supabase client unavailable.")
@@ -78,7 +84,21 @@ class AuditLogService:
         }
         try:
             sb.table("audit_log").insert(payload).execute()
+            self._audit_table_available = True
         except Exception as exc:
+            error_text = str(exc)
+            missing_audit_table = (
+                "audit_log" in error_text
+                and "Could not find the table" in error_text
+            )
+            if missing_audit_table:
+                self._audit_table_available = False
+                if not self._audit_table_warning_logged:
+                    logger.warning(
+                        "Supabase table 'audit_log' not found; audit logging disabled until migration is applied."
+                    )
+                    self._audit_table_warning_logged = True
+                return
             logger.warning("Audit log insert failed: %s", exc)
 
     async def log_http_write(

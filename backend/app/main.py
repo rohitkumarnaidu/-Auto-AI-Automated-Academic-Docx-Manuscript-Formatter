@@ -256,7 +256,7 @@ app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(MaxBodySizeMiddleware, max_size=60 * 1024 * 1024)  # 60MB global limit
 
 # HTTPS Redirect (production only)
-if settings.FORCE_HTTPS:
+if settings.FORCE_HTTPS and not settings.DEBUG:
     from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
 
     app.add_middleware(HTTPSRedirectMiddleware)

@@ -30,6 +30,26 @@ export const AuthProvider = ({ children }) => {
         ].forEach((key) => sessionStorage.removeItem(key));
     };
 
+    const clearSupabaseAuthStorage = () => {
+        if (typeof window === 'undefined') return;
+
+        const clearStorageKeys = (storage) => {
+            if (!storage) return;
+            const toDelete = [];
+            for (let idx = 0; idx < storage.length; idx += 1) {
+                const key = storage.key(idx);
+                if (!key) continue;
+                if (key.startsWith('sb-') && key.includes('-auth-token')) {
+                    toDelete.push(key);
+                }
+            }
+            toDelete.forEach((key) => storage.removeItem(key));
+        };
+
+        clearStorageKeys(window.localStorage);
+        clearStorageKeys(window.sessionStorage);
+    };
+
     const debugAuthLog = (...args) => {
         if (process.env.NODE_ENV !== 'production') {
             console.log(...args);
@@ -63,28 +83,41 @@ export const AuthProvider = ({ children }) => {
                     debugAuthLog('Auth: getSession error', error);
                 }
 
-                if (session?.access_token && session?.user) {
-                    // Set auth state immediately — don't block on getUser() network call.
-                    // This ensures AuthGuard sees isLoggedIn=true before setLoading(false),
-                    // preventing the redirect loop.
+                if (session?.access_token) {
+                    // Keep unauthenticated state until the cached session is verified.
                     if (mounted) {
-                        setUser(session.user);
-                        setIsLoggedIn(true);
+                        setUser(null);
+                        setIsLoggedIn(false);
                     }
 
-                    // Call getUser() in background to upgrade to server-verified user object.
-                    // This silences the Supabase "session.user is insecure" warning and
-                    // gives us authoritative user data (e.g. for admin role checks)
-                    // without delaying the auth state resolution.
-                    supabase.auth.getUser().then(({ data: { user: serverUser } }) => {
-                        if (serverUser && mounted) {
+                    // getUser() confirms token validity against Supabase.
+                    try {
+                        const { data: { user: serverUser }, error: getUserError } = await supabase.auth.getUser();
+                        if (getUserError || !serverUser) {
+                            debugAuthLog('Auth: getUser rejected cached session, clearing local auth state');
+                            await supabase.auth.signOut({ scope: 'local' });
+                            clearSupabaseAuthStorage();
+                            if (mounted) {
+                                setUser(null);
+                                setIsLoggedIn(false);
+                            }
+                        } else if (mounted) {
                             setUser(serverUser);
+                            setIsLoggedIn(true);
                         }
-                    }).catch(() => {
-                        // Non-fatal — session.user from JWT is already in state
-                    });
+                    } catch (getUserErr) {
+                        debugAuthLog('Auth: getUser failed during initialization', getUserErr);
+                        await supabase.auth.signOut({ scope: 'local' });
+                        clearSupabaseAuthStorage();
+                        if (mounted) {
+                            setUser(null);
+                            setIsLoggedIn(false);
+                        }
+                        // Keep guest mode when session verification fails.
+                    }
                 } else {
                     if (mounted) {
+                        clearSupabaseAuthStorage();
                         setUser(null);
                         setIsLoggedIn(false);
                     }
@@ -92,6 +125,7 @@ export const AuthProvider = ({ children }) => {
             } catch (err) {
                 console.error('Auth: Initialization error', err);
                 if (mounted) {
+                    clearSupabaseAuthStorage();
                     setUser(null);
                     setIsLoggedIn(false);
                 }
@@ -118,6 +152,7 @@ export const AuthProvider = ({ children }) => {
                     setUser(null);
                     setIsLoggedIn(false);
                     clearAppSessionStorage();
+                    clearSupabaseAuthStorage();
                 } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
                     // Keep this synchronous — no async getUser() here.
                     // Async getUser() inside onAuthStateChange creates a race where
@@ -226,7 +261,7 @@ export const AuthProvider = ({ children }) => {
 
     const signOut = async ({ redirectToLogin = false } = {}) => {
         try {
-            if (supabase) await supabase.auth.signOut();
+            if (supabase) await supabase.auth.signOut({ scope: 'local' });
         } catch (error) {
             console.error('Error signing out:', error);
         } finally {
@@ -234,6 +269,7 @@ export const AuthProvider = ({ children }) => {
             setUser(null);
             setIsLoggedIn(false);
             clearAppSessionStorage();
+            clearSupabaseAuthStorage();
 
             if (redirectToLogin && typeof window !== 'undefined') {
                 window.location.replace('/login');
@@ -247,6 +283,10 @@ export const AuthProvider = ({ children }) => {
         if (refreshedUser && !error) {
             setUser(refreshedUser);
             setIsLoggedIn(true);
+        } else {
+            clearSupabaseAuthStorage();
+            setUser(null);
+            setIsLoggedIn(false);
         }
     };
 

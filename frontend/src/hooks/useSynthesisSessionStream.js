@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getSynthesisEventsEndpoint } from '../services/api.synthesis';
+import { supabase } from '../lib/supabaseClient';
 
 export function useSynthesisSessionStream(sessionId) {
     const [stages, setStages] = useState([]);
@@ -15,10 +16,28 @@ export function useSynthesisSessionStream(sessionId) {
         let reconnectTimeout = null;
         let retryCount = 0;
         const maxRetries = 5;
+        let isMounted = true;
 
-        const connect = () => {
-            const url = getSynthesisEventsEndpoint(sessionId);
-            eventSource = new EventSource(url, { withCredentials: true });
+        const connect = async () => {
+            if (!isMounted) return;
+
+            let token = null;
+            if (supabase) {
+                try {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    token = session?.access_token;
+                } catch (err) {
+                    console.error("[useSynthesisSessionStream] Auth session retrieval failed:", err);
+                }
+            }
+
+            const baseUrl = getSynthesisEventsEndpoint(sessionId);
+            const url = new URL(baseUrl);
+            if (token) {
+                url.searchParams.set('token', token);
+            }
+
+            eventSource = new EventSource(url.toString(), { withCredentials: true });
 
             eventSource.onmessage = (event) => {
                 try {
@@ -61,11 +80,11 @@ export function useSynthesisSessionStream(sessionId) {
                 console.error("SSE Error", err);
                 eventSource.close();
                 
-                if (retryCount < maxRetries) {
+                if (retryCount < maxRetries && isMounted) {
                     retryCount++;
                     const backoff = Math.pow(2, retryCount) * 1000;
                     reconnectTimeout = setTimeout(connect, backoff);
-                } else {
+                } else if (isMounted) {
                     setError(new Error("Lost connection to synthesis stream. Please refresh."));
                 }
             };
@@ -74,6 +93,7 @@ export function useSynthesisSessionStream(sessionId) {
         connect();
 
         return () => {
+            isMounted = false;
             if (eventSource) eventSource.close();
             if (reconnectTimeout) clearTimeout(reconnectTimeout);
         };

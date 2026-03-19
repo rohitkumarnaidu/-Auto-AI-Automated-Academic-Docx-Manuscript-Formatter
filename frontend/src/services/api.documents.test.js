@@ -98,6 +98,27 @@ describe('api.documents', () => {
         expect(globalThis.URL.revokeObjectURL).toHaveBeenCalledWith('blob:test-url');
     });
 
+    it('follows signed download URL when backend responds with JSON link', async () => {
+        fetchWithRetryMock
+            .mockResolvedValueOnce({
+                ok: true,
+                headers: { get: () => 'application/json' },
+                json: async () => ({ url: 'http://localhost:8000/api/documents/job-789/download?format=docx&token=abc&expires=123' }),
+            })
+            .mockResolvedValueOnce({
+                ok: true,
+                headers: { get: () => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' },
+                blob: async () => new Blob(['document']),
+            });
+
+        const download = await downloadFile('job-789', 'docx');
+
+        expect(fetchWithRetryMock).toHaveBeenCalledTimes(2);
+        expect(fetchWithRetryMock.mock.calls[0][0]).toContain('/api/documents/job-789/download?format=docx');
+        expect(fetchWithRetryMock.mock.calls[1][0]).toContain('token=abc');
+        expect(download.url).toBe('blob:test-url');
+    });
+
     it('normalizes export format through downloadExport', async () => {
         fetchWithRetryMock.mockResolvedValue({
             ok: true,

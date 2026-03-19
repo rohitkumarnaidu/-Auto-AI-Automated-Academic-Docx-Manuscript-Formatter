@@ -72,3 +72,8 @@ export async function approveOutline(sessionId, outline) {
     const response = await postV1(`/generator/sessions/${sessionId}/outline/approve`, payload);
     return unwrapResponse(response);
 }
+
+export async function stopSession(sessionId) {
+    const response = await postV1(`/generator/sessions/${sessionId}/stop`);
+    return unwrapResponse(response);
+}

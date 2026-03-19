@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useRef, useState, Suspense } from 'react
 import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
 import { Bot, PanelLeftClose, PanelLeft, LayoutTemplate } from 'lucide-react';
-import { approveOutline, createAgentSession, getSession, getSessionDocument, getSessionMessages, sendMessage } from '../../../../src/services/api.generator.v1';
+import { approveOutline, createAgentSession, getSession, getSessionDocument, getSessionMessages, sendMessage, stopSession } from '../../../../src/services/api.generator.v1';
 
 const PanelGroup = dynamic(() => import('react-resizable-panels').then(mod => mod.PanelGroup || mod.Group), { ssr: false });
 const Panel = dynamic(() => import('react-resizable-panels').then(mod => mod.Panel), { ssr: false });
@@ -24,6 +24,7 @@ const deriveSessionState = (session) => {
   if (status === 'awaiting_approval' || stage === 'awaiting_approval' || stage === 'outline') return 'outline_review';
   if (stage === 'writing' || stage === 'citations' || stage === 'rendering' || stage === 'scoring' || stage === 'rewriting' || stage === 'quality_boost') return 'generating';
   if (status === 'processing' || stage) return 'parsing';
+  if (status === 'canceled') return 'idle';
   return 'idle';
 };
 
@@ -299,6 +300,24 @@ function AgentWorkspaceContent() {
     }
   };
 
+  const handleStopSession = async () => {
+    if (!activeSessionId) return;
+    try {
+      await stopSession(activeSessionId);
+      setMessages(prev => [...prev, {
+        id: Date.now(),
+        role: 'assistant',
+        content: 'I have stopped the current task as requested.',
+        timestamp: Date.now(),
+        isStatus: true
+      }]);
+      setSessionState('idle');
+      setIsTyping(false);
+    } catch (err) {
+      setError(err.message || 'Failed to stop session.');
+    }
+  };
+
   const handleDownload = (format) => {
     if (!activeSessionId) return;
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -413,6 +432,12 @@ function AgentWorkspaceContent() {
 
         if (stage === 'writing' || stage === 'citations' || stage === 'rendering' || stage === 'scoring' || stage === 'rewriting' || stage === 'quality_boost') {
           setSessionState('generating');
+        }
+
+        if (stage === 'stopped' || status === 'canceled') {
+          setSessionState('idle');
+          setIsTyping(false);
+          lastStageRef.current = 'stopped';
         }
 
         if (stage === 'done' || status === 'completed') {
@@ -543,6 +568,7 @@ function AgentWorkspaceContent() {
                   sessionId={activeSessionId}
                   messages={messages}
                   onSendMessage={handleSendMessage}
+                  onStop={handleStopSession}
                   isTyping={isTyping}
                   error={error}
                 />

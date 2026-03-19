@@ -166,7 +166,10 @@ class ReasoningEngine:
                 self.ollama_available = False
         else:
             self.llm = None
-            logger.warning("Ollama server unavailable at %s", self.ollama_base_url)
+            logger.info(
+                "Ollama fallback unavailable at %s; continuing with NVIDIA/rule-based fallbacks.",
+                self.ollama_base_url,
+            )
         
         # Always have rule-based fallback
         logger.info("Rule-based heuristics available (final fallback)")

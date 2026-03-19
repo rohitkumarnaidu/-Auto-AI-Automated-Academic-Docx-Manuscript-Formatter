@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { API_BASE_URL } from '../services/api.v1';
+import { supabase } from '../lib/supabaseClient';
 
 export function useGeneratorSessionStream(sessionId) {
     const [stages, setStages] = useState([]);
@@ -15,10 +16,27 @@ export function useGeneratorSessionStream(sessionId) {
         let reconnectTimeout = null;
         let retryCount = 0;
         const maxRetries = 5;
+        let isMounted = true;
 
-        const connect = () => {
-            const url = `${API_BASE_URL}/api/v1/generator/sessions/${sessionId}/events`;
-            eventSource = new EventSource(url, { withCredentials: true });
+        const connect = async () => {
+            if (!isMounted) return;
+
+            let token = null;
+            if (supabase) {
+                try {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    token = session?.access_token;
+                } catch (err) {
+                    console.error("[useGeneratorSessionStream] Auth session retrieval failed:", err);
+                }
+            }
+
+            const url = new URL(`${API_BASE_URL}/api/v1/generator/sessions/${sessionId}/events`);
+            if (token) {
+                url.searchParams.set('token', token);
+            }
+
+            eventSource = new EventSource(url.toString(), { withCredentials: true });
 
             eventSource.onmessage = (event) => {
                 try {
@@ -61,11 +79,11 @@ export function useGeneratorSessionStream(sessionId) {
                 console.error("SSE Error", err);
                 eventSource.close();
                 
-                if (retryCount < maxRetries) {
+                if (retryCount < maxRetries && isMounted) {
                     retryCount++;
                     const backoff = Math.pow(2, retryCount) * 1000;
                     reconnectTimeout = setTimeout(connect, backoff);
-                } else {
+                } else if (isMounted) {
                     setError(new Error("Lost connection to synthesis stream. Please refresh."));
                 }
             };
@@ -74,6 +92,7 @@ export function useGeneratorSessionStream(sessionId) {
         connect();
 
         return () => {
+            isMounted = false;
             if (eventSource) eventSource.close();
             if (reconnectTimeout) clearTimeout(reconnectTimeout);
         };

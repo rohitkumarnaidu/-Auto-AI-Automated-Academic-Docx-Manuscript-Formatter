@@ -2,14 +2,19 @@
 
 import Header from '@/src/components/layout/Header';
 import Sidebar from '@/src/components/layout/Sidebar';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import React, { useEffect, useState, Suspense } from 'react';
 import OnboardingTour from '@/src/components/OnboardingTour';
+import { useAuth } from '@/src/context/AuthContext';
 
 const AUTH_ROUTES = ['/login', '/signup', '/forgot-password', '/verify-otp', '/reset-password', '/auth/callback'];
 
 export default function AppShell({ children, section = 'shared' }) {
     const pathname = usePathname();
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const { isLoggedIn, loading } = useAuth();
+    const forceGuestMode = searchParams?.get('guest') === '1';
 
     const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(false);
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -22,6 +27,13 @@ export default function AppShell({ children, section = 'shared' }) {
     // Landing + auth pages get simple layout.
     // Sidebar.jsx handles guest vs user links internally (APP_GUEST_LINKS vs USER_LINKS).
     const showSidebarLayout = !isLandingRoute && !isAuthRoute;
+
+    useEffect(() => {
+        if (loading) return;
+        if (pathname === '/' && isLoggedIn && !forceGuestMode) {
+            router.replace('/dashboard');
+        }
+    }, [forceGuestMode, isLoggedIn, loading, pathname, router]);
 
     useEffect(() => {
         if (typeof window === 'undefined') {

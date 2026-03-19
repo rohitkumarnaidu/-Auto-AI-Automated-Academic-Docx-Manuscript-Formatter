@@ -37,10 +37,18 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const router = useRouter();
-    const { user } = useAuth();
+    const { isLoggedIn, loading } = useAuth();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const forceGuestMode = searchParams?.get('guest') === '1';
-    const uiUser = forceGuestMode ? null : user;
+    const authUiState = forceGuestMode
+        ? 'guest'
+        : loading
+            ? 'loading'
+            : isLoggedIn
+                ? 'authenticated'
+                : 'guest';
+    const isAuthLoading = authUiState === 'loading';
+    const isAuthenticated = authUiState === 'authenticated';
     const guestParam = forceGuestMode ? '?guest=1' : '';
 
     const isAuthRoute = AUTH_ROUTES.some((route) => pathname.startsWith(route));
@@ -56,8 +64,8 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
                 ? 'generator'
                 : 'formatter';
 
-    const navLinks = uiUser ? USER_LINKS_BY_MODE[activeMode] : APP_GUEST_LINKS;
-    const logoHref = uiUser ? '/dashboard' : '/';
+    const navLinks = authUiState === 'guest' ? APP_GUEST_LINKS : USER_LINKS_BY_MODE[activeMode];
+    const logoHref = authUiState === 'guest' ? '/' : '/dashboard';
 
     useEffect(() => {
         setIsMobileMenuOpen(false);
@@ -95,7 +103,9 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
                 ))}
                 
                 <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-2">
-                    {uiUser ? (
+                    {isAuthLoading ? (
+                        <div className="h-10 rounded-xl bg-slate-100 dark:bg-slate-800 animate-pulse" aria-hidden="true" />
+                    ) : isAuthenticated ? (
                         <Link href="/dashboard" className="px-4 py-3 text-center text-[15px] font-bold text-white bg-primary hover:bg-primary-hover rounded-xl shadow-lg shadow-primary/20 transition-all">
                             Go to Dashboard
                         </Link>
@@ -138,7 +148,9 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
                             
                             {/* Desktop Actions */}
                             <div className="hidden lg:flex items-center gap-4">
-                                {uiUser ? (
+                                {isAuthLoading ? (
+                                    <div className="h-10 w-40 rounded-xl bg-slate-100 dark:bg-slate-800 animate-pulse" aria-hidden="true" />
+                                ) : isAuthenticated ? (
                                     <>
                                         <Link href="/dashboard" className="text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-primary transition-colors">Dashboard</Link>
                                         <button onClick={() => router.push('/settings')} className="h-10 w-10 rounded-full border border-slate-200 dark:border-white/10 surface-ladder-border-10 bg-white dark:bg-slate-800 hover:bg-slate-50 transition-all p-0.5" aria-label="Profile">
@@ -199,7 +211,9 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
 
                         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                             <ThemeToggle />
-                            {uiUser ? (
+                            {isAuthLoading ? (
+                                <div className="h-9 w-28 rounded-lg bg-slate-100 dark:bg-slate-800 animate-pulse" aria-hidden="true" />
+                            ) : isAuthenticated ? (
                                 <>
                                     <NotificationBell />
                                     <button onClick={() => router.push('/settings')} className="h-10 w-10 hidden sm:inline-flex items-center justify-center rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 transition-all" aria-label="Settings">
@@ -251,7 +265,9 @@ export default function Header({ section = 'shared', isSidebarLayout = false, on
                         )}
 
                         <div className="hidden lg:flex items-center gap-3 ml-2">
-                            {uiUser ? (
+                            {isAuthLoading ? (
+                                <div className="h-10 w-28 rounded-xl bg-slate-100 dark:bg-slate-800 animate-pulse" aria-hidden="true" />
+                            ) : isAuthenticated ? (
                                 <>
                                     <NotificationBell />
                                     <button onClick={() => router.push('/settings')} className="h-10 w-10 rounded-full border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-800 hover:bg-slate-50 transition-all p-0.5">

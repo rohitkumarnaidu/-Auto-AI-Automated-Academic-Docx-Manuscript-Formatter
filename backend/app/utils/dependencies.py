@@ -1,5 +1,5 @@
 from typing import Optional
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.services.auth_service import AuthService
 from app.schemas.user import User
@@ -10,41 +10,72 @@ import jwt
 # Set up logging for authentication monitoring
 logger = logging.getLogger(__name__)
 
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False) # Disable auto_error to handle fallback manually
 
-def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> User:
+def get_current_user(
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
+) -> User:
     """
-    FastAPI dependency to extract and verify the user from the Bearer token.
-    Uses AuthService for token decoding and validation.
+    FastAPI dependency to extract and verify the user from either:
+    1. Authorization Bearer header (Preferred)
+    2. 'token' query parameter (Fallback for SSE/EventSource)
     """
-    token = credentials.credentials
-    payload = AuthService.decode_token(token)
-    user_id = AuthService.get_user_id_from_payload(payload)
+    token = None
+    if credentials:
+        token = credentials.credentials
+    else:
+        # Fallback to query parameter for EventSource compatibility
+        token = request.query_params.get("token")
     
-    # In a full valid flow, we might also check if the user exists in our local DB here
-    # For now, we trust the token and construct the User schema directly
-    email = payload.get("email")
-    role = payload.get("role", "authenticated")
-    app_metadata = payload.get("app_metadata")
-
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
     try:
-        from app.middleware.prometheus_metrics import MetricsManager
-        MetricsManager.record_user_activity(str(user_id))
-    except Exception:
-        pass
+        payload = AuthService.decode_token(token)
+        user_id = AuthService.get_user_id_from_payload(payload)
+        
+        email = payload.get("email")
+        role = payload.get("role", "authenticated")
+        app_metadata = payload.get("app_metadata")
 
-    return User(id=user_id, email=email, role=role, app_metadata=app_metadata)
+        try:
+            from app.middleware.prometheus_metrics import MetricsManager
+            MetricsManager.record_user_activity(str(user_id))
+        except Exception:
+            pass
 
-def get_optional_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False))) -> Optional[User]:
+        return User(id=user_id, email=email, role=role, app_metadata=app_metadata)
+    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, HTTPException) as e:
+        logger.warning(f"Authentication failed: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+def get_optional_user(
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False))
+) -> Optional[User]:
     """
-    FastAPI dependency that returns a User if a valid token is present, 
-    otherwise returns None. Used for anonymous-friendly endpoints.
+    FastAPI dependency that returns a User if a valid token is present 
+    (in header or query param), otherwise returns None.
     """
-    if not credentials:
+    token = None
+    if credentials:
+        token = credentials.credentials
+    else:
+        token = request.query_params.get("token")
+        
+    if not token:
         return None
         
     try:
-        token = credentials.credentials
         payload = AuthService.decode_token(token)
         user_id = AuthService.get_user_id_from_payload(payload)
         email = payload.get("email")
@@ -56,11 +87,6 @@ def get_optional_user(credentials: Optional[HTTPAuthorizationCredentials] = Depe
         except Exception:
             pass
         return User(id=user_id, email=email, role=role, app_metadata=app_metadata)
-    except (HTTPException, jwt.InvalidTokenError, jwt.ExpiredSignatureError, jwt.InvalidIssuerError) as e:
-        # Log authentication failures for security monitoring
-        logger.warning(f"Token validation failed in optional auth: {type(e).__name__}: {str(e)}")
-        return None
     except Exception as e:
-        # Catch any other unexpected errors but log them
-        logger.error(f"Unexpected error in optional auth: {type(e).__name__}: {str(e)}", exc_info=True)
+        logger.warning(f"Optional token validation failed: {str(e)}")
         return None

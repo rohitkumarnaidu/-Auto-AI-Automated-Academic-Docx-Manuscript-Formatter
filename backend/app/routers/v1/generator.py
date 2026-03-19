@@ -69,12 +69,24 @@ def _serialize_session(session: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _require_celery_for_agent() -> None:
-    if not enhancement_manager.is_celery_queue_active():
-        raise HTTPException(
-            status_code=503,
-            detail="Celery queue is required for agent pipeline execution.",
-        )
+def _dispatch_agent_task(background_tasks: BackgroundTasks, task_name: str, *args) -> None:
+    if enhancement_manager.is_celery_queue_active():
+        if task_name == "pipeline":
+            from app.tasks.celery_tasks import process_agent_pipeline_task
+            process_agent_pipeline_task.delay(*args)
+        elif task_name == "resume":
+            from app.tasks.celery_tasks import process_agent_resume_task
+            process_agent_resume_task.delay(*args)
+        elif task_name == "rewrite":
+            from app.tasks.celery_tasks import process_agent_rewrite_task
+            process_agent_rewrite_task.delay(*args)
+    else:
+        if task_name == "pipeline":
+            background_tasks.add_task(_agent_pipeline.run, *args)
+        elif task_name == "resume":
+            background_tasks.add_task(_agent_pipeline.resume, *args)
+        elif task_name == "rewrite":
+            background_tasks.add_task(_agent_pipeline.rewrite_section, *args)
 
 
 def _parse_config(raw_config: str) -> Dict[str, Any]:
@@ -129,7 +141,6 @@ async def start_generation(
         session_type = str(payload.get("session_type") or "multi_doc")
         if session_type != "agent":
             raise HTTPException(status_code=422, detail="JSON requests are only supported for agent sessions.")
-        _require_celery_for_agent()
 
         user_prompt = str(
             payload.get("prompt")
@@ -159,16 +170,13 @@ async def start_generation(
             details={"session_type": "agent", "template": template},
         )
 
-        from app.tasks.celery_tasks import process_agent_pipeline_task
-
-        process_agent_pipeline_task.delay(session_id, user_prompt)
+        _dispatch_agent_task(background_tasks, "pipeline", session_id, user_prompt)
 
         return {"session_id": session_id, "status": "started"}
 
     form = await request.form()
     session_type = str(form.get("session_type") or "multi_doc")
     if session_type == "agent":
-        _require_celery_for_agent()
         user_prompt = str(
             form.get("prompt")
             or form.get("user_prompt")
@@ -195,9 +203,7 @@ async def start_generation(
             details={"session_type": "agent", "template": template},
         )
 
-        from app.tasks.celery_tasks import process_agent_pipeline_task
-
-        process_agent_pipeline_task.delay(session_id, user_prompt)
+        _dispatch_agent_task(background_tasks, "pipeline", session_id, user_prompt)
 
         return {"session_id": session_id, "status": "started"}
 
@@ -431,10 +437,7 @@ async def generation_messages(
                 ]
         rewrite_section = _detect_section_rewrite(question, sections)
         if rewrite_section:
-            _require_celery_for_agent()
-            from app.tasks.celery_tasks import process_agent_rewrite_task
-
-            process_agent_rewrite_task.delay(sessionId, rewrite_section, question)
+            _dispatch_agent_task(background_tasks, "rewrite", sessionId, rewrite_section, question)
 
             await _session_service.add_message(
                 sessionId,
@@ -506,9 +509,38 @@ async def approve_outline(
 
     await _session_service.add_message(sessionId, "user", "Outline approved.", token_count=0)
 
-    _require_celery_for_agent()
-    from app.tasks.celery_tasks import process_agent_resume_task
-
-    process_agent_resume_task.delay(sessionId)
+    _dispatch_agent_task(background_tasks, "resume", sessionId)
 
     return {"session_id": sessionId, "status": "resuming"}
+
+
+@router.post("/sessions/{sessionId}/stop")
+async def stop_session(
+    sessionId: str,
+    user=Depends(get_current_user),
+):
+    session = await _session_service.get_session(sessionId)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found.")
+    
+    # Update status to canceled in both DB and config
+    config = session.get("config_json") or {}
+    config["status"] = "canceled"
+    config["message"] = "Task stopped by user."
+    
+    await _session_service.update_session(
+        sessionId, 
+        status="canceled",
+        config_json=config
+    )
+    
+    # Emit SSE to notify UI immediately
+    await _agent_pipeline._emit_sse(
+        sessionId,
+        stage="stopped",
+        progress=session.get("progress") or 0,
+        message="Task stopped by user.",
+        extra={"status": "canceled"}
+    )
+    
+    return {"status": "stopping", "session_id": sessionId}

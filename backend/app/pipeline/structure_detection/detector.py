@@ -268,10 +268,6 @@ class StructureDetector(PipelineStage):
         Assign section names to all blocks based on detected headings.
         
         Blocks inherit the section name from the most recent heading before them.
-        
-        Args:
-            blocks: All blocks in document
-            heading_candidates: Detected headings
         """
         # Build a mapping of block_id -> heading info
         heading_map = {h["block_id"]: h for h in heading_candidates}
@@ -289,7 +285,11 @@ class StructureDetector(PipelineStage):
                 heading = heading_map[block.block_id]
                 
                 # Use block text as section name (cleaned)
-                section_name = block.text.strip()
+                # SPECIAL CASE: For Title level (0) or explicitly TITLE type, use canonical "title"
+                if heading.get("level") == 0 or block.block_type == BlockType.TITLE:
+                    section_name = "title"
+                else:
+                    section_name = block.text.strip()
                 
                 # Remove numbering if present
                 if "numbering_info" in block.metadata:
@@ -313,10 +313,6 @@ class StructureDetector(PipelineStage):
         
         A heading's parent is the nearest preceding heading with a lower level number
         (e.g., level 2's parent is the nearest level 1).
-        
-        Args:
-            blocks: All blocks in document
-            heading_candidates: Detected headings
         """
         # Build list of headings in order
         heading_stack: List[Dict[str, Any]] = []
