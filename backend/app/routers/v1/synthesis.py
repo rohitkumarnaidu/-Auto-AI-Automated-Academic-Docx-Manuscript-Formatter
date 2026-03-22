@@ -34,14 +34,28 @@ _pubsub = RedisPubSub()
 
 _session_service = GeneratorSessionService()
 _vector_store = SessionVectorStore()
-_orchestrator = PipelineOrchestrator()
-_synthesizer = MultiDocSynthesizer(
-    session_service=_session_service,
-    vector_store=_vector_store,
-    llm_service=None,
-    pipeline_orchestrator=_orchestrator,
-    pubsub=_pubsub,
-)
+_orchestrator = None
+_synthesizer = None
+
+
+def _get_orchestrator() -> PipelineOrchestrator:
+    global _orchestrator
+    if _orchestrator is None:
+        _orchestrator = PipelineOrchestrator()
+    return _orchestrator
+
+
+def _get_synthesizer() -> MultiDocSynthesizer:
+    global _synthesizer
+    if _synthesizer is None:
+        _synthesizer = MultiDocSynthesizer(
+            session_service=_session_service,
+            vector_store=_vector_store,
+            llm_service=None,
+            pipeline_orchestrator=_get_orchestrator(),
+            pubsub=_pubsub,
+        )
+    return _synthesizer
 
 
 def _parse_config(raw_config: str) -> Dict[str, Any]:
@@ -104,7 +118,12 @@ async def create_session(
         config_payload.update({"template": template, "uploaded_files": file_entries})
         await _session_service.update_session(session_id, config_json=config_payload)
 
-        background_tasks.add_task(_synthesizer.run, session_id, [f["path"] for f in file_entries], template)
+        background_tasks.add_task(
+            _get_synthesizer().run,
+            session_id,
+            [f["path"] for f in file_entries],
+            template,
+        )
         return {"session_id": session_id, "status": "started"}
 
     return await run_enveloped(

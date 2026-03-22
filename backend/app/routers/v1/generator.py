@@ -39,19 +39,40 @@ _pubsub = RedisPubSub()
 
 _session_service = GeneratorSessionService()
 _vector_store = SessionVectorStore()
-_orchestrator = PipelineOrchestrator()
-_agent_pipeline = AgentPipeline(
-    session_service=_session_service,
-    pipeline_orchestrator=_orchestrator,
-    pubsub=_pubsub,
-)
-_synthesizer = MultiDocSynthesizer(
-    session_service=_session_service,
-    vector_store=_vector_store,
-    llm_service=None,
-    pipeline_orchestrator=_orchestrator,
-    pubsub=_pubsub,
-)
+_orchestrator = None
+_agent_pipeline = None
+_synthesizer = None
+
+
+def _get_orchestrator() -> PipelineOrchestrator:
+    global _orchestrator
+    if _orchestrator is None:
+        _orchestrator = PipelineOrchestrator()
+    return _orchestrator
+
+
+def _get_agent_pipeline() -> AgentPipeline:
+    global _agent_pipeline
+    if _agent_pipeline is None:
+        _agent_pipeline = AgentPipeline(
+            session_service=_session_service,
+            pipeline_orchestrator=_get_orchestrator(),
+            pubsub=_pubsub,
+        )
+    return _agent_pipeline
+
+
+def _get_synthesizer() -> MultiDocSynthesizer:
+    global _synthesizer
+    if _synthesizer is None:
+        _synthesizer = MultiDocSynthesizer(
+            session_service=_session_service,
+            vector_store=_vector_store,
+            llm_service=None,
+            pipeline_orchestrator=_get_orchestrator(),
+            pubsub=_pubsub,
+        )
+    return _synthesizer
 
 
 def _serialize_session(session: Dict[str, Any]) -> Dict[str, Any]:
@@ -82,11 +103,11 @@ def _dispatch_agent_task(background_tasks: BackgroundTasks, task_name: str, *arg
             process_agent_rewrite_task.delay(*args)
     else:
         if task_name == "pipeline":
-            background_tasks.add_task(_agent_pipeline.run, *args)
+            background_tasks.add_task(_get_agent_pipeline().run, *args)
         elif task_name == "resume":
-            background_tasks.add_task(_agent_pipeline.resume, *args)
+            background_tasks.add_task(_get_agent_pipeline().resume, *args)
         elif task_name == "rewrite":
-            background_tasks.add_task(_agent_pipeline.rewrite_section, *args)
+            background_tasks.add_task(_get_agent_pipeline().rewrite_section, *args)
 
 
 def _parse_config(raw_config: str) -> Dict[str, Any]:
@@ -258,7 +279,12 @@ async def start_generation(
     config_payload.update({"template": template, "uploaded_files": file_entries})
     await _session_service.update_session(session_id, config_json=config_payload)
 
-    background_tasks.add_task(_synthesizer.run, session_id, [f["path"] for f in file_entries], template)
+    background_tasks.add_task(
+        _get_synthesizer().run,
+        session_id,
+        [f["path"] for f in file_entries],
+        template,
+    )
     return {"session_id": session_id, "status": "started"}
 
 
@@ -535,7 +561,7 @@ async def stop_session(
     )
     
     # Emit SSE to notify UI immediately
-    await _agent_pipeline._emit_sse(
+    await _get_agent_pipeline()._emit_sse(
         sessionId,
         stage="stopped",
         progress=session.get("progress") or 0,

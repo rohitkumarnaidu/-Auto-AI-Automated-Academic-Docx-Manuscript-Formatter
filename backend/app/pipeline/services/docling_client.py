@@ -17,9 +17,11 @@ from __future__ import annotations
 import logging
 import warnings
 from pathlib import Path
+import importlib.util
 from typing import Any, Dict, List, Optional, Tuple
 from contextlib import contextmanager
 
+from app.config.settings import settings
 from app.pipeline.safety import safe_function
 
 logger = logging.getLogger(__name__)
@@ -45,18 +47,29 @@ def _suppress_docling_warnings():
             warnings.filterwarnings("ignore", message=pattern, category=DeprecationWarning)
         yield
 
-try:
-    import os
-    # Windows Symlink Fix: Disable warning and force copy
-    os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
+def _docling_enabled() -> bool:
+    if not settings.USE_DOCLING_FALLBACK:
+        return False
+    if settings.LOW_MEMORY_MODE:
+        return False
+    return True
 
-    with _suppress_docling_warnings():
-        from docling.document_converter import DocumentConverter
-    
-    DOCLING_AVAILABLE = True
-except ImportError:
-    DOCLING_AVAILABLE = False
-    logger.warning("Docling library not available. Install with: pip install docling")
+
+def _load_docling_converter():
+    if not _docling_enabled():
+        return None
+    if importlib.util.find_spec("docling") is None:
+        return None
+    try:
+        import os
+        # Windows Symlink Fix: Disable warning and force copy
+        os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
+        with _suppress_docling_warnings():
+            from docling.document_converter import DocumentConverter
+        return DocumentConverter
+    except Exception as exc:
+        logger.warning("Docling import failed: %s", exc)
+        return None
 
 
 class BoundingBox:
@@ -141,23 +154,28 @@ class DoclingClient:
     
     def __init__(self):
         """Initialize the Docling client."""
-        if not DOCLING_AVAILABLE:
-            logger.warning("Docling not available - layout analysis will be limited")
-        
         self.converter = None
-        if DOCLING_AVAILABLE:
-            try:
-                # Initialize DocumentConverter with defaults
-                with _suppress_docling_warnings():
-                    self.converter = DocumentConverter()
-                logger.info("Docling client initialized successfully")
-            except Exception as e:
-                logger.error(f"Failed to initialize Docling converter: {e}")
-                self.converter = None
+        self._available = False
+
+        docling_converter = _load_docling_converter()
+        if docling_converter is None:
+            logger.warning("Docling not available - layout analysis will be limited")
+            return
+
+        try:
+            # Initialize DocumentConverter with defaults
+            with _suppress_docling_warnings():
+                self.converter = docling_converter()
+            self._available = True
+            logger.info("Docling client initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize Docling converter: {e}")
+            self.converter = None
+            self._available = False
     
     def is_available(self) -> bool:
         """Check if Docling is available and initialized."""
-        return DOCLING_AVAILABLE and self.converter is not None
+        return self._available and self.converter is not None
     
     @safe_function(
         fallback_value={
@@ -181,7 +199,7 @@ class DoclingClient:
         Returns:
             Dictionary containing layout information (elements, boxes, etc.)
         """
-        if not DOCLING_AVAILABLE:
+        if not self.is_available():
             logger.warning("Docling is not installed or failed to load.")
             return self._empty_layout()
             

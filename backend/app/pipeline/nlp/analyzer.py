@@ -4,6 +4,7 @@ NLP Content Analyzer - Enriches document with AI/NLP hints (Read-Only).
 
 import re
 import logging
+import importlib.util
 from typing import List, Dict, Any
 from app.models import PipelineDocument as Document, Block, BlockType
 from app.utils.singleton import get_or_create_safe
@@ -17,12 +18,8 @@ except ImportError:
     yake = None
     YAKE_AVAILABLE = False
 
-try:
-    from keybert import KeyBERT
-    KEYBERT_AVAILABLE = True
-except ImportError:
-    KeyBERT = None  # type: ignore[assignment]
-    KEYBERT_AVAILABLE = False
+# KeyBERT import is heavy; defer to runtime to avoid startup OOM on low-memory deploys.
+KEYBERT_AVAILABLE = False
 
 NLP_AVAILABLE = YAKE_AVAILABLE or KEYBERT_AVAILABLE
 _KEYBERT_MODEL = None
@@ -144,15 +141,21 @@ def methods_detect_abstract(text: str) -> bool:
 
 def _get_keybert_model():
     global _KEYBERT_MODEL
-    if not KEYBERT_AVAILABLE:
-        return None
-    _KEYBERT_MODEL = get_or_create_safe(
-        _KEYBERT_MODEL,
-        KeyBERT,
-        logger=logger,
-        name="KeyBERT model",
-        log_level="warning",
-    )
+    if _KEYBERT_MODEL is None:
+        try:
+            if importlib.util.find_spec("keybert") is None:
+                return None
+            from keybert import KeyBERT  # local import to avoid startup cost
+        except Exception as exc:
+            logger.warning("KeyBERT import failed: %s", exc)
+            return None
+        _KEYBERT_MODEL = get_or_create_safe(
+            _KEYBERT_MODEL,
+            KeyBERT,
+            logger=logger,
+            name="KeyBERT model",
+            log_level="warning",
+        )
     return _KEYBERT_MODEL
 
 
