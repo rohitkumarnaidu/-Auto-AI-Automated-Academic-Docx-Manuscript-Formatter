@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Download, FileText, CheckCircle2, ShieldAlert, Award } from 'lucide-react';
 import TokenStream from './TokenStream';
 
-const QualityScoreBadge = ({ score }) => {
+const QualityScoreBadge = React.memo(({ score }) => {
   if (!score) return null;
   const overallScore = score.overallScore ?? score.overall_score ?? score.overall ?? score.score;
   if (typeof overallScore !== 'number') return null;
@@ -45,9 +45,11 @@ const QualityScoreBadge = ({ score }) => {
       </div>
     </motion.div>
   );
-};
+});
 
-const DocumentBuildPane = ({ 
+QualityScoreBadge.displayName = 'QualityScoreBadge';
+
+const DocumentBuildPane = React.memo(({ 
   sessionId, 
   stage, // 'idle', 'generating', 'complete'
   qualityScore,
@@ -142,6 +144,8 @@ const DocumentBuildPane = ({
       </AnimatePresence>
     </div>
   );
-};
+});
+
+DocumentBuildPane.displayName = 'DocumentBuildPane';
 
 export default DocumentBuildPane;

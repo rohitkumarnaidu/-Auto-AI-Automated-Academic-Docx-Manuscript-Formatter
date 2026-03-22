@@ -147,7 +147,7 @@ class TestBackendSmokeContracts:
         }
 
         with (
-            patch("app.routers.v1.generator._require_celery_for_agent", return_value=None),
+            patch("app.routers.v1.generator._dispatch_agent_task"),
             patch(
                 "app.routers.v1.generator._session_service.create_session",
                 new_callable=AsyncMock,

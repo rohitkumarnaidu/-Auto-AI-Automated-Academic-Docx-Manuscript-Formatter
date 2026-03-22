@@ -10,6 +10,7 @@ import {
 } from '@/src/services/api';
 import { useAutosave } from '@/src/hooks/useAutosave';
 import { useUnsavedChanges } from '@/src/hooks/useUnsavedChanges';
+import { GeneratorStartSchema, getFirstZodError } from '@/src/lib/schemas';
 
 // ── Exported constants (used by MetadataStep) ───────────────────────────
 export const DEFAULT_PAPER_SECTIONS = [
@@ -165,6 +166,20 @@ export function useGeneratorState() {
     const handleGenerate = useCallback(async () => {
         if (isSubmitting) return;
 
+        const validation = GeneratorStartSchema.safeParse({
+            doc_type: docType,
+            template,
+            metadata,
+        });
+        if (!validation.success) {
+            showToast({
+                message: getFirstZodError(validation.error?.issues, 'Generator input is invalid.'),
+                type: 'error',
+            });
+            return;
+        }
+        const payload = validation.data;
+
         if (abortRef.current) {
             abortRef.current();
             abortRef.current = null;
@@ -175,7 +190,6 @@ export function useGeneratorState() {
         setJobStatus({ status: 'generating', progress: 0, stage: 'generating', message: 'Starting generation…', error: '', outline: [] });
 
         try {
-            const payload = { doc_type: docType, template, metadata };
             const response = await generateDocument(payload);
             const jobId = response?.job_id || response?.id;
 

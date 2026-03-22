@@ -314,6 +314,7 @@ class StructureDetector(PipelineStage):
         A heading's parent is the nearest preceding heading with a lower level number
         (e.g., level 2's parent is the nearest level 1).
         """
+        heading_map = {h["block_id"]: h for h in heading_candidates}
         # Build list of headings in order
         heading_stack: List[Dict[str, Any]] = []
         
@@ -323,10 +324,7 @@ class StructureDetector(PipelineStage):
                 continue
 
             # Check if this block is a heading
-            heading_info = next(
-                (h for h in heading_candidates if h["block_id"] == block.block_id),
-                None
-            )
+            heading_info = heading_map.get(block.block_id)
             
             if heading_info is None:
                 continue
@@ -413,6 +411,20 @@ class StructureDetector(PipelineStage):
         if not elements:
             logger.warning("Docling layout data empty. Fallback to standard detection.")
             return self._detect_heading_candidates(blocks)
+
+        prepared_elements: List[Dict[str, Any]] = []
+        for element in elements:
+            normalized_text = _normalize(element.get("text", ""))
+            if not normalized_text:
+                continue
+            prepared_elements.append(
+                {
+                    "raw": element,
+                    "normalized_text": normalized_text,
+                    "sample": normalized_text[:80],
+                    "tokens": set(normalized_text.split()),
+                }
+            )
             
         # 2. Identify Visual Hierarchy (Font Sizes)
         font_sizes = [e.get("font_size", 0) for e in elements if e.get("type") in ["title", "heading"]]
@@ -437,26 +449,26 @@ class StructureDetector(PipelineStage):
             matched_element = None
             block_text_norm = _normalize(block.text)
             block_text_sample = block_text_norm[:80]
+            block_tokens = set(block_text_norm.split())
             
-            for element in elements:
-                element_text_norm = _normalize(element.get("text", ""))
-                if not element_text_norm:
-                    continue
+            for prepared in prepared_elements:
+                element = prepared["raw"]
+                element_text_norm = prepared["normalized_text"]
+                element_tokens = prepared["tokens"]
+                element_sample = prepared["sample"]
 
                 # Primary: exact/contains check on normalized text
                 if (
                     block_text_sample
                     and (
                         block_text_sample in element_text_norm
-                        or element_text_norm[:80] in block_text_norm
+                        or element_sample in block_text_norm
                     )
                 ):
                     matched_element = element
                     break
 
                 # Secondary: token overlap for OCR/noise variation
-                block_tokens = set(block_text_norm.split())
-                element_tokens = set(element_text_norm.split())
                 if not block_tokens or not element_tokens:
                     continue
                 overlap = len(block_tokens & element_tokens) / max(1, len(block_tokens))

@@ -8,6 +8,7 @@ ScholarForm AI formats academic manuscripts into publisher-ready outputs using d
 
 - **Frontend:** `http://localhost:3000` (Next.js 14)
 - **Backend API:** `http://localhost:8000` — Swagger at `http://localhost:8000/docs`
+- **OpenAPI Schema:** `http://localhost:8000/openapi.json`
 - **Framework:** Next.js 14 (App Router), **NOT** Vite
 - **Python:** 3.12.x (pinned)
 - **Routes:** 34 pages in `frontend/src/app/`
@@ -46,6 +47,11 @@ GROBID_ENABLED=false            # true only if GROBID Docker is running locally
 FORCE_HTTPS=true
 ENABLE_FILE_CLEANUP=true
 USE_SCIBERT_CLASSIFICATION=false
+LOW_MEMORY_MODE=true            # Render 512MB profile
+PRELOAD_AI_MODELS=false         # avoid startup model warmup
+RAG_USE_TRANSFORMERS=false      # deterministic lightweight embeddings
+DEFAULT_FAST_MODE=true          # disables heavy optional stages unless requested
+CROSSREF_MAX_WORKERS=1
 LLM_CACHE_TTL_SECONDS=3600
 CLAMAV_HOST=localhost:3310
 ```
@@ -59,6 +65,20 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbG...
 ```
 
 > **Important:** All frontend env vars are prefixed `NEXT_PUBLIC_*` — not `VITE_*`.
+
+### Syncing Templates
+If you've added new environment variables to the code, sync the template files automatically:
+```bash
+python scripts/generate_env_template.py
+```
+This scans the codebase and generates:
+- `backend/.env.template`
+- `frontend/.env.template`
+
+To also sync `.env.example` files with discovered keys:
+```bash
+python scripts/generate_env_template.py --sync-examples
+```
 
 ---
 
@@ -152,3 +172,56 @@ npx playwright test tests/e2e/upload.spec.js --headed
 ```
 
 See [`docs/Testing.md`](docs/Testing.md) for the full test strategy.
+
+---
+
+## Pre-commit Hooks (Ruff + ESLint)
+
+Pre-commit is configured in `.pre-commit-config.yaml` to run:
+
+- `ruff` + `ruff-format` on backend Python files
+- `eslint` on frontend JS/TS files
+
+Install and enable once:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+Windows one-liner bootstrap:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\setup_precommit.ps1
+```
+
+Run manually across the full repository:
+
+```bash
+pre-commit run --all-files
+```
+
+Notes:
+
+- `frontend-eslint` lints only staged frontend files via `scripts/run_frontend_eslint_precommit.py`; ensure frontend deps are installed (`cd frontend && npm install`).
+- `ruff` hook uses `--fix`, and if it rewrites files the commit exits non-zero so you can review and re-stage changes.
+
+---
+
+## Analytics (PostHog Free Tier)
+
+Frontend analytics is opt-in via env vars:
+
+```env
+NEXT_PUBLIC_POSTHOG_KEY=phc_xxx
+NEXT_PUBLIC_POSTHOG_HOST=https://app.posthog.com
+```
+
+When configured, the app captures:
+
+- `upload_started`
+- `upload_completed`
+- `generator_session_started`
+- `$pageview`
+
+If PostHog is not configured, analytics calls are no-ops and do not block user flows.

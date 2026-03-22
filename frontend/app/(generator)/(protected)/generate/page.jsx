@@ -1,6 +1,7 @@
 'use client';
 
 import usePageTitle from '@/src/hooks/usePageTitle';
+import { useEffect } from 'react';
 import DocTypeStep from './_components/DocTypeStep';
 import GenerateStep from './_components/GenerateStep';
 import MetadataStep from './_components/MetadataStep';
@@ -30,6 +31,28 @@ export default function DocumentGeneratorPage() {
         handleDownload,
         handleReset,
     } = useGeneratorState();
+
+    useEffect(() => {
+        const handleKeyDown = (event) => {
+            if (!(event.ctrlKey || event.metaKey) || event.key !== 'Enter') return;
+            if (step >= 4) return;
+
+            event.preventDefault();
+            if (step === 3) {
+                if (canAdvance && !isSubmitting) {
+                    handleGenerate();
+                }
+                return;
+            }
+
+            if (canAdvance) {
+                goNext();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [step, canAdvance, isSubmitting, goNext, handleGenerate]);
 
     return (
         <div className="min-h-screen bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100">
@@ -69,6 +92,7 @@ export default function DocumentGeneratorPage() {
                                     id="btn-generate"
                                     onClick={handleGenerate}
                                     disabled={!canAdvance || isSubmitting}
+                                    title="Generate (Ctrl+Enter)"
                                     className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary-hover shadow-lg shadow-primary/30 hover:shadow-primary/50 text-white text-sm font-semibold hover:scale-[1.02] disabled:opacity-40 disabled:cursor-not-allowed transition min-h-[44px] active:scale-95"
                                 >
                                     {isSubmitting ? (
@@ -88,6 +112,7 @@ export default function DocumentGeneratorPage() {
                                     id="btn-next"
                                     onClick={goNext}
                                     disabled={!canAdvance}
+                                    title="Continue (Ctrl+Enter)"
                                     className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary-hover shadow-lg shadow-primary/30 hover:shadow-primary/50 text-white text-sm font-semibold hover:scale-[1.02] disabled:opacity-40 disabled:cursor-not-allowed transition min-h-[44px] active:scale-95"
                                 >
                                     Continue

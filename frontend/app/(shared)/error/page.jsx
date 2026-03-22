@@ -111,7 +111,7 @@ function ErrorContent() {
             </div>
 
             <footer className="w-full py-8 px-4 sm:px-10 text-center border-t border-[#e7ecf3] dark:border-slate-800 text-slate-400 text-xs mt-8">
-                <p>(c) {new Date().getFullYear()} ManuscriptFormatter. Professional Academic Tools for Researchers.</p>
+                <p suppressHydrationWarning>(c) {new Date().getFullYear()} ManuscriptFormatter. Professional Academic Tools for Researchers.</p>
             </footer>
         </main>
     );

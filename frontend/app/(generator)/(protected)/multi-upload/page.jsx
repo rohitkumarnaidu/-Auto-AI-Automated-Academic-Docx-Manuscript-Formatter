@@ -10,6 +10,7 @@ import { useSynthesisSessionStream } from '@/src/hooks/useSynthesisSessionStream
 import { useAuth } from '@/src/context/AuthContext';
 import { canAccess } from '@/src/lib/planTier';
 import UpgradeModal from '@/src/components/UpgradeModal';
+import { AgentMessageSchema, SynthesisSessionStartSchema, getFirstZodError } from '@/src/lib/schemas';
 
 export default function MultiUploadPage() {
     const router = useRouter();
@@ -38,15 +39,25 @@ export default function MultiUploadPage() {
     }, [chatMessages]);
 
     const handleStartSynthesis = async (files, templateId) => {
+        const validation = SynthesisSessionStartSchema.safeParse({
+            files,
+            template: templateId,
+            config: {
+                preserve_citations: true,
+                focus_areas: ['methodology', 'results'],
+            },
+        });
+        if (!validation.success) {
+            setCreateError(getFirstZodError(validation.error?.issues, 'Invalid synthesis request.'));
+            return;
+        }
+
+        const { files: validatedFiles, template: validatedTemplate, config: validatedConfig } = validation.data;
+
         setIsSynthesizing(true);
         setCreateError('');
         try {
-            // Default config for synthesis session
-            const config = {
-                preserve_citations: true,
-                focus_areas: ['methodology', 'results'],
-            };
-            const res = await createSynthesisSession(files, templateId, config);
+            const res = await createSynthesisSession(validatedFiles, validatedTemplate, validatedConfig || {});
             
             if (res && (res.id || res.session_id)) {
                 setSessionId(res.id || res.session_id);
@@ -64,8 +75,18 @@ export default function MultiUploadPage() {
     const handleSendMessage = async (e) => {
         e.preventDefault();
         if (!chatInput.trim() || !sessionId || isSending) return;
-        
-        const text = chatInput.trim();
+
+        const validation = AgentMessageSchema.safeParse({ content: chatInput });
+        if (!validation.success) {
+            setChatMessages(prev => [...prev, {
+                role: 'assistant',
+                content: getFirstZodError(validation.error?.issues, 'Invalid message input.'),
+                isError: true
+            }]);
+            return;
+        }
+
+        const text = validation.data.content;
         setChatInput('');
         setChatMessages(prev => [...prev, { role: 'user', content: text }]);
         setIsSending(true);

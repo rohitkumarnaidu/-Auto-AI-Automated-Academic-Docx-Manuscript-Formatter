@@ -162,6 +162,15 @@ if _PS:
         CELERY_RESULT_BACKEND: str
         CROSSREF_MAILTO: str
         LLM_CACHE_TTL_SECONDS: int = 3600
+        READINESS_CACHE_TTL_SECONDS: int = 15
+        HEALTH_CACHE_TTL_SECONDS: int = 15
+        CSL_SEARCH_CACHE_TTL_SECONDS: int = 300
+        CSL_FETCH_CACHE_TTL_SECONDS: int = 1800
+        GENERATOR_SESSION_CACHE_TTL_SECONDS: float = 2.0
+        GENERATOR_MESSAGES_CACHE_TTL_SECONDS: float = 1.0
+        GENERATOR_SESSION_LIST_CACHE_TTL_SECONDS: float = 3.0
+        GENERATOR_DOCUMENT_CACHE_TTL_SECONDS: float = 2.0
+        DOCUMENT_STATUS_CACHE_TTL_SECONDS: float = 1.0
 
         # Pipeline tuning / feature toggles
         PIPELINE_GROBID_TIMEOUT_SECONDS: int
@@ -174,6 +183,11 @@ if _PS:
         ENABLE_NOUGAT_PARSER: bool
         ENABLE_NVIDIA_REASONER: bool
         USE_SCIBERT_CLASSIFICATION: bool = False
+        LOW_MEMORY_MODE: bool = False
+        PRELOAD_AI_MODELS: bool = True
+        RAG_USE_TRANSFORMERS: bool = True
+        DEFAULT_FAST_MODE: bool = False
+        CROSSREF_MAX_WORKERS: int = 4
 
         model_config = {
             "env_file": ENV_FILE,
@@ -200,6 +214,10 @@ if _PS:
             "ENABLE_NOUGAT_PARSER",
             "ENABLE_NVIDIA_REASONER",
             "USE_SCIBERT_CLASSIFICATION",
+            "LOW_MEMORY_MODE",
+            "PRELOAD_AI_MODELS",
+            "RAG_USE_TRANSFORMERS",
+            "DEFAULT_FAST_MODE",
             mode="before",
         )
         @classmethod
@@ -339,6 +357,25 @@ else:
         CELERY_RESULT_BACKEND: str = _require_env("CELERY_RESULT_BACKEND")
         CROSSREF_MAILTO: str = _require_env("CROSSREF_MAILTO")
         LLM_CACHE_TTL_SECONDS: int = int(os.getenv("LLM_CACHE_TTL_SECONDS", "3600"))
+        READINESS_CACHE_TTL_SECONDS: int = int(os.getenv("READINESS_CACHE_TTL_SECONDS", "15"))
+        HEALTH_CACHE_TTL_SECONDS: int = int(os.getenv("HEALTH_CACHE_TTL_SECONDS", "15"))
+        CSL_SEARCH_CACHE_TTL_SECONDS: int = int(os.getenv("CSL_SEARCH_CACHE_TTL_SECONDS", "300"))
+        CSL_FETCH_CACHE_TTL_SECONDS: int = int(os.getenv("CSL_FETCH_CACHE_TTL_SECONDS", "1800"))
+        GENERATOR_SESSION_CACHE_TTL_SECONDS: float = float(
+            os.getenv("GENERATOR_SESSION_CACHE_TTL_SECONDS", "2")
+        )
+        GENERATOR_MESSAGES_CACHE_TTL_SECONDS: float = float(
+            os.getenv("GENERATOR_MESSAGES_CACHE_TTL_SECONDS", "1")
+        )
+        GENERATOR_SESSION_LIST_CACHE_TTL_SECONDS: float = float(
+            os.getenv("GENERATOR_SESSION_LIST_CACHE_TTL_SECONDS", "3")
+        )
+        GENERATOR_DOCUMENT_CACHE_TTL_SECONDS: float = float(
+            os.getenv("GENERATOR_DOCUMENT_CACHE_TTL_SECONDS", "2")
+        )
+        DOCUMENT_STATUS_CACHE_TTL_SECONDS: float = float(
+            os.getenv("DOCUMENT_STATUS_CACHE_TTL_SECONDS", "1")
+        )
 
         # Pipeline tuning / feature toggles
         PIPELINE_GROBID_TIMEOUT_SECONDS: int = int(_require_env("PIPELINE_GROBID_TIMEOUT_SECONDS"))
@@ -361,6 +398,19 @@ else:
         USE_SCIBERT_CLASSIFICATION: bool = bool(
             _parse_boolish(os.getenv("USE_SCIBERT_CLASSIFICATION", "false"), "USE_SCIBERT_CLASSIFICATION")
         )
+        LOW_MEMORY_MODE: bool = bool(
+            _parse_boolish(os.getenv("LOW_MEMORY_MODE", "false"), "LOW_MEMORY_MODE")
+        )
+        PRELOAD_AI_MODELS: bool = bool(
+            _parse_boolish(os.getenv("PRELOAD_AI_MODELS", "true"), "PRELOAD_AI_MODELS")
+        )
+        RAG_USE_TRANSFORMERS: bool = bool(
+            _parse_boolish(os.getenv("RAG_USE_TRANSFORMERS", "true"), "RAG_USE_TRANSFORMERS")
+        )
+        DEFAULT_FAST_MODE: bool = bool(
+            _parse_boolish(os.getenv("DEFAULT_FAST_MODE", "false"), "DEFAULT_FAST_MODE")
+        )
+        CROSSREF_MAX_WORKERS: int = int(os.getenv("CROSSREF_MAX_WORKERS", "4"))
 
         def validate(self) -> None:
             if self.RETENTION_DAYS <= 0:

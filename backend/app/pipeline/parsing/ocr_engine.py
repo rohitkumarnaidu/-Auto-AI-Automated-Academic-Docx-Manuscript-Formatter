@@ -9,6 +9,8 @@ Provides three capabilities:
 Falls back gracefully if Surya is not installed.
 """
 
+from __future__ import annotations
+
 import logging
 from typing import List, Dict, Any, Optional
 from app.utils.singleton import get_or_create_catching
@@ -126,7 +128,7 @@ class OCREngine:
     # ------------------------------------------------------------------ #
     def detect_text(
         self,
-        images: List["Image.Image"],
+        images: List[Any],
         languages: Optional[List[str]] = None,
     ) -> List[Dict[str, Any]]:
         """
@@ -177,7 +179,7 @@ class OCREngine:
         return pages
 
     def detect_layout(
-        self, images: List["Image.Image"]
+        self, images: List[Any]
     ) -> List[List[Dict[str, Any]]]:
         """
         Detect page layout regions (headers, figures, tables, text blocks).
@@ -213,7 +215,7 @@ class OCREngine:
         return pages
 
     def detect_reading_order(
-        self, images: List["Image.Image"]
+        self, images: List[Any]
     ) -> List[List[Dict[str, Any]]]:
         """
         Detect the correct reading order for multi-column pages.

@@ -1,5 +1,7 @@
+"use client";
+
 import Link from 'next/link';
-import { useMetricsHealth } from '@/src/services/api';
+import { useMetricsHealth } from '@/src/services/api.hooks';
 
 export default function Footer({ variant = 'app' }) {
     const { data: health } = useMetricsHealth({ staleTime: 60000, retry: false });
@@ -72,8 +74,17 @@ export default function Footer({ variant = 'app' }) {
                                 <h5 className="text-slate-900 dark:text-white font-bold text-sm mb-4 uppercase tracking-wider">Stay Updated</h5>
                                 <p className="text-sm text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">Join our newsletter to get updates on new academic templates and formatting features.</p>
                                 <form className="flex gap-2">
-                                    <input type="email" placeholder="Email address" className="w-full bg-slate-50 dark:bg-slate-800/50 surface-ladder-06 border border-slate-200 dark:border-slate-700/50 surface-ladder-border-10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-slate-900 dark:text-white transition-all shadow-sm" />
-                                    <button type="button" className="bg-primary hover:bg-primary-hover text-white px-5 rounded-xl transition-all shadow-md shadow-primary/20 flex items-center justify-center hover:-translate-y-0.5 active:translate-y-0">
+                                    <input 
+                                        type="email" 
+                                        placeholder="Email address" 
+                                        className="w-full bg-slate-50 dark:bg-slate-800/50 surface-ladder-06 border border-slate-200 dark:border-slate-700/50 surface-ladder-border-10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-slate-900 dark:text-white transition-all shadow-sm"
+                                        suppressHydrationWarning
+                                    />
+                                    <button 
+                                        type="button" 
+                                        className="bg-primary hover:bg-primary-hover text-white px-5 rounded-xl transition-all shadow-md shadow-primary/20 flex items-center justify-center hover:-translate-y-0.5 active:translate-y-0"
+                                        suppressHydrationWarning
+                                    >
                                         <span className="material-symbols-outlined text-[20px]">send</span>
                                     </button>
                                 </form>
@@ -83,7 +94,7 @@ export default function Footer({ variant = 'app' }) {
 
                     <div className="pt-8 flex flex-col md:flex-row justify-between items-center gap-6">
                         <div className="flex flex-wrap items-center justify-center md:justify-start gap-x-6 gap-y-2">
-                            <span className="text-[13px] text-slate-400">© {new Date().getFullYear()} ScholarForm AI. All rights reserved.</span>
+                            <span className="text-[13px] text-slate-400" suppressHydrationWarning>© {new Date().getFullYear()} ScholarForm AI. All rights reserved.</span>
                             <div className="hidden sm:block h-3 w-px bg-slate-200 dark:bg-slate-700" />
                             <Link href="/privacy" className="text-[13px] text-slate-500 hover:text-primary transition-colors">Privacy Policy</Link>
                             <Link href="/terms" className="text-[13px] text-slate-500 hover:text-primary transition-colors">Terms of Service</Link>
@@ -107,7 +118,7 @@ export default function Footer({ variant = 'app' }) {
     return (
         <footer className="app-footer max-w-[1280px] mx-auto px-4 sm:px-6 py-8 sm:py-10 mt-10 sm:mt-12">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4 sm:gap-6">
-                <div className="flex items-center gap-2 text-slate-400">
+                <div className="flex items-center gap-2 text-slate-400" suppressHydrationWarning>
                     <span className="material-symbols-outlined text-xl">auto_stories</span>
                     <span className="text-sm font-medium text-center md:text-left">© {new Date().getFullYear()} ScholarForm AI. Built for academics.</span>
                 </div>

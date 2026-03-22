@@ -3,6 +3,8 @@ import usePageTitle from '@/src/hooks/usePageTitle';
 import { useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { LoginSchema } from '@/src/lib/schemas';
+import { z } from 'zod';
 
 import { useAuth } from '@/src/context/AuthContext';
 
@@ -15,6 +17,7 @@ function LoginContent() {
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
+    const [fieldErrors, setFieldErrors] = useState({});
     const [localLoading, setLocalLoading] = useState(false);
     const nextPath = searchParams.get('next');
     const redirectPath = nextPath?.startsWith('/') && !nextPath.startsWith('//')
@@ -24,6 +27,22 @@ function LoginContent() {
     const handleEmailLogin = async (e) => {
         e.preventDefault();
         setError('');
+        setFieldErrors({});
+
+        // Frontend validation with Zod
+        try {
+            LoginSchema.parse({ email, password });
+        } catch (err) {
+            if (err instanceof z.ZodError) {
+                const errors = {};
+                err.errors.forEach(e => {
+                    errors[e.path[0]] = e.message;
+                });
+                setFieldErrors(errors);
+                return;
+            }
+        }
+
         setLocalLoading(true);
         const { data, error: signInError } = await signIn(email, password);
 
@@ -123,13 +142,13 @@ function LoginContent() {
                                         <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 group-focus-within:text-primary transition-colors text-[20px] pointer-events-none">mail</span>
                                         <input
                                             id="email"
-                                            className="w-full rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/30 border border-slate-200 dark:border-slate-600/60 surface-ladder-border-14 bg-slate-50 dark:bg-slate-800 surface-ladder-06 hover:border-slate-300 dark:hover:border-slate-500 focus:border-primary dark:focus:border-primary h-12 pl-12 pr-4 text-sm font-medium transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
+                                            className={`w-full rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/30 border bg-slate-50 dark:bg-slate-800 surface-ladder-06 hover:border-slate-300 dark:hover:border-slate-500 focus:border-primary dark:focus:border-primary h-12 pl-12 pr-4 text-sm font-medium transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm ${fieldErrors.email ? 'border-red-500' : 'border-slate-200 dark:border-slate-600/60 surface-ladder-border-14'}`}
                                             placeholder="your@email.com"
                                             type="email"
-                                            required
                                             value={email}
                                             onChange={(e) => setEmail(e.target.value)}
                                         />
+                                        {fieldErrors.email && <p className="text-[10px] text-red-500 mt-1 px-1 font-medium">{fieldErrors.email}</p>}
                                     </div>
                                 </div>
 
@@ -140,13 +159,13 @@ function LoginContent() {
                                         <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 group-focus-within:text-primary transition-colors text-[20px] pointer-events-none">lock</span>
                                         <input
                                             id="password"
-                                            className="w-full rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/30 border border-slate-200 dark:border-slate-600/60 surface-ladder-border-14 bg-slate-50 dark:bg-slate-800 surface-ladder-06 hover:border-slate-300 dark:hover:border-slate-500 focus:border-primary dark:focus:border-primary h-12 pl-12 pr-11 text-sm font-medium transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
+                                            className={`w-full rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/30 border bg-slate-50 dark:bg-slate-800 surface-ladder-06 hover:border-slate-300 dark:hover:border-slate-500 focus:border-primary dark:focus:border-primary h-12 pl-12 pr-11 text-sm font-medium transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm ${fieldErrors.password ? 'border-red-500' : 'border-slate-200 dark:border-slate-600/60 surface-ladder-border-14'}`}
                                             placeholder="Enter your password"
                                             type={showPassword ? 'text' : 'password'}
-                                            required
                                             value={password}
                                             onChange={(e) => setPassword(e.target.value)}
                                         />
+                                        {fieldErrors.password && <p className="text-[10px] text-red-500 mt-1 px-1 font-medium">{fieldErrors.password}</p>}
                                         <button
                                             type="button"
                                             onClick={() => setShowPassword(!showPassword)}

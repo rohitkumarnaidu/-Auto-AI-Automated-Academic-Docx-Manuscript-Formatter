@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 import { useAuth } from '@/src/context/AuthContext';
+import { SignupSchema } from '@/src/lib/schemas';
+import { z } from 'zod';
 
 function SignupContent() {
     usePageTitle('Create Account');
@@ -27,6 +29,7 @@ function SignupContent() {
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
     const [error, setError] = useState('');
+    const [fieldErrors, setFieldErrors] = useState({});
     const [localLoading, setLocalLoading] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
     const [termsAccepted, setTermsAccepted] = useState(false);
@@ -55,11 +58,32 @@ function SignupContent() {
     const handleSignup = async (e) => {
         e.preventDefault();
         setError('');
+        setFieldErrors({});
         setSuccessMessage('');
 
         if (password !== confirmPassword) {
             setError("Passwords do not match.");
             return;
+        }
+
+        // Frontend validation with Zod
+        try {
+            SignupSchema.parse({
+                full_name: fullName,
+                email: email,
+                institution: institution,
+                password: password,
+                terms_accepted: termsAccepted
+            });
+        } catch (err) {
+            if (err instanceof z.ZodError) {
+                const errors = {};
+                err.errors.forEach(e => {
+                    errors[e.path[0]] = e.message;
+                });
+                setFieldErrors(errors);
+                return;
+            }
         }
 
         setLocalLoading(true);
@@ -172,13 +196,13 @@ function SignupContent() {
                                         <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 transition-colors text-[20px] pointer-events-none">person</span>
                                         <input
                                             id="fullName"
-                                            className="w-full rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/30 border border-slate-200 dark:border-slate-600/60 surface-ladder-border-14 bg-slate-50 dark:bg-slate-800 surface-ladder-06 hover:border-slate-300 dark:hover:border-slate-500 focus:border-primary dark:focus:border-primary h-12 pl-12 pr-4 text-sm font-medium transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
+                                            className={`w-full rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/30 border bg-slate-50 dark:bg-slate-800 surface-ladder-06 hover:border-slate-300 dark:hover:border-slate-500 focus:border-primary dark:focus:border-primary h-12 pl-12 pr-4 text-sm font-medium transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm ${fieldErrors.full_name ? 'border-red-500' : 'border-slate-200 dark:border-slate-600/60 surface-ladder-border-14'}`}
                                             placeholder="e.g. Jane Doe"
                                             type="text"
-                                            required
                                             value={fullName}
                                             onChange={(e) => setFullName(e.target.value)}
                                         />
+                                        {fieldErrors.full_name && <p className="text-[10px] text-red-500 mt-1 px-1 font-medium">{fieldErrors.full_name}</p>}
                                     </div>
                                 </div>
 
@@ -189,13 +213,13 @@ function SignupContent() {
                                         <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 transition-colors text-[20px] pointer-events-none">alternate_email</span>
                                         <input
                                             id="email"
-                                            className="w-full rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/30 border border-slate-200 dark:border-slate-600/60 surface-ladder-border-14 bg-slate-50 dark:bg-slate-800 surface-ladder-06 hover:border-slate-300 dark:hover:border-slate-500 focus:border-primary dark:focus:border-primary h-12 pl-12 pr-4 text-sm font-medium transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
+                                            className={`w-full rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/30 border bg-slate-50 dark:bg-slate-800 surface-ladder-06 hover:border-slate-300 dark:hover:border-slate-500 focus:border-primary dark:focus:border-primary h-12 pl-12 pr-4 text-sm font-medium transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm ${fieldErrors.email ? 'border-red-500' : 'border-slate-200 dark:border-slate-600/60 surface-ladder-border-14'}`}
                                             placeholder="Enter your email address"
                                             type="email"
-                                            required
                                             value={email}
                                             onChange={(e) => setEmail(e.target.value)}
                                         />
+                                        {fieldErrors.email && <p className="text-[10px] text-red-500 mt-1 px-1 font-medium">{fieldErrors.email}</p>}
                                     </div>
                                 </div>
 
@@ -208,12 +232,13 @@ function SignupContent() {
                                         <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 transition-colors text-[20px] pointer-events-none">school</span>
                                         <input
                                             id="institution"
-                                            className="w-full rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/30 border border-slate-200 dark:border-slate-600/60 surface-ladder-border-14 bg-slate-50 dark:bg-slate-800 surface-ladder-06 hover:border-slate-300 dark:hover:border-slate-500 focus:border-primary dark:focus:border-primary h-12 pl-12 pr-4 text-sm font-medium transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
+                                            className={`w-full rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/30 border bg-slate-50 dark:bg-slate-800 surface-ladder-06 hover:border-slate-300 dark:hover:border-slate-500 focus:border-primary dark:focus:border-primary h-12 pl-12 pr-4 text-sm font-medium transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm ${fieldErrors.institution ? 'border-red-500' : 'border-slate-200 dark:border-slate-600/60 surface-ladder-border-14'}`}
                                             placeholder="Enter your university"
                                             type="text"
                                             value={institution}
                                             onChange={(e) => setInstitution(e.target.value)}
                                         />
+                                        {fieldErrors.institution && <p className="text-[10px] text-red-500 mt-1 px-1 font-medium">{fieldErrors.institution}</p>}
                                     </div>
                                 </div>
 
@@ -225,13 +250,13 @@ function SignupContent() {
                                             <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 transition-colors text-[20px] pointer-events-none">lock</span>
                                             <input
                                                 id="password"
-                                                className="w-full rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/30 border border-slate-200 dark:border-slate-600/60 surface-ladder-border-14 bg-slate-50 dark:bg-slate-800 surface-ladder-06 hover:border-slate-300 dark:hover:border-slate-500 focus:border-primary dark:focus:border-primary h-12 pl-12 pr-12 text-sm font-medium transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
+                                                className={`w-full rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/30 border bg-slate-50 dark:bg-slate-800 surface-ladder-06 hover:border-slate-300 dark:hover:border-slate-500 focus:border-primary dark:focus:border-primary h-12 pl-12 pr-12 text-sm font-medium transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm ${fieldErrors.password ? 'border-red-500' : 'border-slate-200 dark:border-slate-600/60 surface-ladder-border-14'}`}
                                                 placeholder="Create a password"
                                                 type={showPassword ? 'text' : 'password'}
-                                                required
                                                 value={password}
                                                 onChange={(e) => setPassword(e.target.value)}
                                             />
+                                            {fieldErrors.password && <p className="text-[10px] text-red-500 mt-1 px-1 font-medium">{fieldErrors.password}</p>}
                                             <button
                                                 type="button"
                                                 onClick={() => setShowPassword(!showPassword)}
@@ -301,9 +326,12 @@ function SignupContent() {
                                         checked={termsAccepted}
                                         onChange={(e) => setTermsAccepted(e.target.checked)}
                                     />
-                                    <label className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed cursor-pointer" htmlFor="terms">
-                                        I agree to the <Link className="text-primary font-semibold hover:text-primary-hover transition-colors" href="/terms">Terms of Service</Link> and <Link className="text-primary font-semibold hover:text-primary-hover transition-colors" href="/privacy">Privacy Policy</Link>.
-                                    </label>
+                                    <div>
+                                        <label className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed cursor-pointer" htmlFor="terms">
+                                            I agree to the <Link className="text-primary font-semibold hover:text-primary-hover transition-colors" href="/terms">Terms of Service</Link> and <Link className="text-primary font-semibold hover:text-primary-hover transition-colors" href="/privacy">Privacy Policy</Link>.
+                                        </label>
+                                        {fieldErrors.terms_accepted && <p className="text-[10px] text-red-500 mt-1 font-medium">{fieldErrors.terms_accepted}</p>}
+                                    </div>
                                 </div>
 
                                 {/* Submit Button */}

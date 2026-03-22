@@ -28,13 +28,23 @@ function generateUUID() {
 }
 
 // ── Connection Status Dot ──────────────────────────────────────────────────
-function ConnectionDot({ isConnected }) {
+function ConnectionDot({ isConnected, isReconnecting = false, reconnectAttempt = 0 }) {
+    const title = isConnected
+        ? 'WebSocket connected'
+        : isReconnecting
+            ? `WebSocket reconnecting (attempt ${reconnectAttempt})`
+            : 'WebSocket disconnected - using HTTP fallback';
+
+    const colorClass = isConnected
+        ? 'bg-emerald-400 shadow-[0_0_6px_#34d399]'
+        : isReconnecting
+            ? 'bg-amber-400 shadow-[0_0_6px_#f59e0b] animate-pulse'
+            : 'bg-slate-400';
+
     return (
         <span
-            title={isConnected ? 'WebSocket connected' : 'WebSocket disconnected — using HTTP fallback'}
-            className={`inline-block w-2 h-2 rounded-full transition-colors duration-500 ${
-                isConnected ? 'bg-emerald-400 shadow-[0_0_6px_#34d399]' : 'bg-slate-400'
-            }`}
+            title={title}
+            className={`inline-block w-2 h-2 rounded-full transition-colors duration-500 ${colorClass}`}
         />
     );
 }
@@ -231,7 +241,7 @@ export default function LiveFormatterPage() {
     const editorContentRef = useRef('');
 
     // WebSocket hook
-    const { html, latencyMs, warnings, isConnected, isAnalyzing, sendContent } = useLivePreviewSocket(sessionId);
+    const { html, latencyMs, warnings, isConnected, isReconnecting, reconnectAttempt, isAnalyzing, sendContent } = useLivePreviewSocket(sessionId);
 
     // Wrap sendContent to also update the content ref
     const handleSendContent = useCallback((content, tplId) => {
@@ -319,8 +329,16 @@ export default function LiveFormatterPage() {
 
                 {/* Connection indicator + latency */}
                 <div className="flex items-center gap-1.5 ml-1">
-                    <ConnectionDot isConnected={isConnected} />
-                    {latencyMs !== null && (
+                    <ConnectionDot
+                        isConnected={isConnected}
+                        isReconnecting={isReconnecting}
+                        reconnectAttempt={reconnectAttempt}
+                    />
+                    {isReconnecting ? (
+                        <span className="text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                            Reconnecting... (attempt {reconnectAttempt})
+                        </span>
+                    ) : latencyMs !== null && (
                         <span className="text-[10px] text-slate-400 font-mono">{latencyMs}ms</span>
                     )}
                 </div>
@@ -453,8 +471,18 @@ export default function LiveFormatterPage() {
                 <span>Template: <span className="text-slate-600 dark:text-slate-400">{templateList.find(t => t.id === templateId)?.label || templateList.find(t => t.id === templateId)?.name || templateId}</span></span>
                 {latencyMs !== null && <span>Latency: {latencyMs}ms</span>}
                 <div className="ml-auto flex items-center gap-1.5">
-                    <ConnectionDot isConnected={isConnected} />
-                    <span>{isConnected ? 'Live' : 'Reconnecting…'}</span>
+                    <ConnectionDot
+                        isConnected={isConnected}
+                        isReconnecting={isReconnecting}
+                        reconnectAttempt={reconnectAttempt}
+                    />
+                    <span>
+                        {isConnected
+                            ? 'Live'
+                            : isReconnecting
+                                ? `Reconnecting... (attempt ${reconnectAttempt})`
+                                : 'Offline'}
+                    </span>
                 </div>
             </div>
         </div>

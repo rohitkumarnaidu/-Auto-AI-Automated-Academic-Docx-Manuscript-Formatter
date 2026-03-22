@@ -1,28 +1,25 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Clock, Trash2, ChevronRight, File, Loader2 } from 'lucide-react';
-import { createBrowserClient } from '@supabase/ssr';
+import { supabase } from '../../lib/supabaseClient';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-const SessionHistory = ({ activeSessionId, onSelectSession }) => {
+const SessionHistory = React.memo(({ activeSessionId, onSelectSession }) => {
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  );
-
   const fetchSessions = useCallback(async () => {
     try {
       setLoading(true);
+      if (!supabase) return;
       
-      // Note: This endpoint must exist on backend. If not, mocking 
-      // the data for Alpha/frontend until integrated.
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
       const response = await fetch(`${API_BASE_URL}/api/v1/generator/sessions`, {
         headers: {
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+          'Authorization': `Bearer ${session.access_token}`
         }
       });
       
@@ -42,10 +39,15 @@ const SessionHistory = ({ activeSessionId, onSelectSession }) => {
     } finally {
       setLoading(false);
     }
-  }, [supabase]);
+  }, []);
 
   useEffect(() => {
     const checkAuthAndLoad = async () => {
+      if (!supabase) {
+        setLoading(false);
+        return;
+      }
+
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       setUser(currentUser);
       
@@ -57,7 +59,7 @@ const SessionHistory = ({ activeSessionId, onSelectSession }) => {
     };
     
     checkAuthAndLoad();
-  }, [supabase, fetchSessions]);
+  }, [fetchSessions]);
 
   const handleDelete = async (e, id) => {
     e.stopPropagation();
@@ -65,15 +67,18 @@ const SessionHistory = ({ activeSessionId, onSelectSession }) => {
     
     try {
       setSessions(prev => prev.filter(s => s.id !== id));
+      if (!supabase) return;
       
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
       // Call DELETE API
       await fetch(`${API_BASE_URL}/api/v1/generator/sessions/${id}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+          'Authorization': `Bearer ${session.access_token}`
         }
       });
-      // Optionally handle failure and revert state
     } catch (err) {
       console.error('Failed to delete session:', err);
     }
@@ -184,6 +189,8 @@ const SessionHistory = ({ activeSessionId, onSelectSession }) => {
       </div>
     </div>
   );
-};
+});
+
+SessionHistory.displayName = 'SessionHistory';
 
 export default SessionHistory;

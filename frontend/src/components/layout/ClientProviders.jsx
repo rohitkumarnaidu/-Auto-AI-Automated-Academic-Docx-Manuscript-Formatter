@@ -7,9 +7,12 @@ import { ToastProvider } from '@/src/context/ToastContext';
 import { DocumentProvider } from '@/src/context/DocumentContext';
 import FocusManager from '@/src/components/layout/FocusManager';
 import DynamicMeta from '@/src/components/layout/DynamicMeta';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { capturePostHogPageView, initPostHog } from '@/src/lib/posthog';
 
 export default function ClientProviders({ children }) {
+    const pathname = usePathname();
     const [queryClient] = useState(() => new QueryClient({
         defaultOptions: {
             queries: {
@@ -19,6 +22,15 @@ export default function ClientProviders({ children }) {
             },
         },
     }));
+
+    useEffect(() => {
+        initPostHog();
+    }, []);
+
+    useEffect(() => {
+        if (!pathname) return;
+        capturePostHogPageView(pathname);
+    }, [pathname]);
 
     return (
         <QueryClientProvider client={queryClient}>

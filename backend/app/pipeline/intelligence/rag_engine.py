@@ -314,7 +314,17 @@ class RagEngine:
     def _load_embedding_model(self):
         """Load the embedding model with graceful fallback."""
         # 1. Check ModelStore for a pre-loaded model
+        from app.config.settings import settings
         from app.services.model_store import model_store
+
+        if settings.LOW_MEMORY_MODE or not settings.RAG_USE_TRANSFORMERS:
+            reason = (
+                "Low-memory mode enabled."
+                if settings.LOW_MEMORY_MODE
+                else "RAG_USE_TRANSFORMERS=false."
+            )
+            self._activate_deterministic_embedding(model_store, reason)
+            return
 
         try:
             from sentence_transformers import SentenceTransformer

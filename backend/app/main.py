@@ -10,7 +10,7 @@ from app.middleware.request_id import RequestIdMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.middleware.tier_rate_limit import TierRateLimitMiddleware
 from app.routers.v1 import v1_router
-from app.services.health_checks import get_readiness_payload
+from app.services.health_checks import get_health_payload, get_readiness_payload
 from contextlib import asynccontextmanager
 from prometheus_fastapi_instrumentator import Instrumentator
 
@@ -30,8 +30,9 @@ if settings.ENABLE_STRUCTURED_LOGGING:
 # DISABLED: Auto-delete feature temporarily removed per user request
 # from app.utils.cleanup import cleanup_old_uploads
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
-from transformers import logging as transformers_logging
-transformers_logging.set_verbosity_error()
+# Keep transformer/tokenizer noise low without importing heavy modules at startup.
+os.environ.setdefault("TRANSFORMERS_VERBOSITY", "error")
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
 # Basic logger for this module (terminal output preserved)
 logger = logging.getLogger(__name__)
@@ -39,6 +40,8 @@ logger = logging.getLogger(__name__)
 from app.pipeline.safety import safe_execution
 from app.services.enhancement_manager import enhancement_manager
 from app.services.audit_log_service import audit_log_service
+
+_queue_depth_redis_client = None
 
 
 def _build_cors_origins(raw_origins: str) -> list[str]:
@@ -92,14 +95,20 @@ def _fetch_queue_depths() -> dict[str, int]:
     if not settings.REDIS_ENABLED:
         return {"interactive": 0, "batch": 0}
     try:
-        import redis
-        client = redis.Redis.from_url(settings.REDIS_URL, decode_responses=True)
+        global _queue_depth_redis_client
+        if _queue_depth_redis_client is None:
+            import redis
+            _queue_depth_redis_client = redis.Redis.from_url(
+                settings.REDIS_URL,
+                decode_responses=True,
+            )
         return {
-            queue: int(client.llen(queue) or 0)
+            queue: int(_queue_depth_redis_client.llen(queue) or 0)
             for queue in ("interactive", "batch")
         }
     except Exception as exc:
         logger.debug("Queue depth fetch failed: %s", exc)
+        _queue_depth_redis_client = None
         return {"interactive": 0, "batch": 0}
 
 
@@ -163,28 +172,38 @@ async def lifespan(app: FastAPI):
             logger.warning("Startup DB Link Status: UNREACHABLE. Error: %s", e)
             logger.info("Note: App is starting in degraded mode. DB-dependent endpoints will fail at request-time.")
                 
-        # Phase 2: AI Model Pre-loading
-        from app.services.model_store import model_store
-        from app.pipeline.intelligence.semantic_parser import get_semantic_parser
-        from app.pipeline.intelligence.rag_engine import get_rag_engine
-        
-        logger.info("Startup: Pre-loading AI models into memory...")
-        try:
-            if settings.USE_SCIBERT_CLASSIFICATION:
-                parser = get_semantic_parser()
-                parser._load_model()
-                model_store.set_model("scibert_tokenizer", parser.tokenizer)
-                model_store.set_model("scibert_model", parser.model)
-                logger.info("SciBERT loaded.")
-            
-            rag = get_rag_engine()
-            model_store.set_model("rag_engine", rag)
-            model_store.set_model("embedding_model", rag.embedding_model)
-            logger.info("RAG Engine initialized.")
-            
-            logger.info("Startup: AI models loaded and registered successfully.")
-        except Exception as e:
-            logger.warning("AI Model Pre-load Warning: %s. Falling back to lazy-loading.", e)
+        if settings.PRELOAD_AI_MODELS and not settings.LOW_MEMORY_MODE:
+            # Phase 2: AI Model Pre-loading (optional, can be disabled for low-memory deploys)
+            from app.services.model_store import model_store
+
+            logger.info("Startup: Pre-loading AI models into memory...")
+            try:
+                if settings.USE_SCIBERT_CLASSIFICATION:
+                    from app.pipeline.intelligence.semantic_parser import get_semantic_parser
+
+                    parser = get_semantic_parser()
+                    parser._load_model()
+                    model_store.set_model("scibert_tokenizer", parser.tokenizer)
+                    model_store.set_model("scibert_model", parser.model)
+                    logger.info("SciBERT loaded.")
+
+                from app.pipeline.intelligence.rag_engine import get_rag_engine
+
+                rag = get_rag_engine()
+                model_store.set_model("rag_engine", rag)
+                model_store.set_model("embedding_model", rag.embedding_model)
+                logger.info("RAG Engine initialized.")
+
+                logger.info("Startup: AI models loaded and registered successfully.")
+            except Exception as e:
+                logger.warning("AI Model Pre-load Warning: %s. Falling back to lazy-loading.", e)
+        else:
+            logger.info(
+                "Startup: Skipping AI model pre-load "
+                "(PRELOAD_AI_MODELS=%s, LOW_MEMORY_MODE=%s).",
+                settings.PRELOAD_AI_MODELS,
+                settings.LOW_MEMORY_MODE,
+            )
 
         try:
             profile = enhancement_manager.refresh()
@@ -222,6 +241,9 @@ app = FastAPI(
     title="ScholarForm AI Backend",
     description="Backend API for ScholarForm AI with Supabase Auth",
     version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
     lifespan=lifespan,
 )
 
@@ -321,59 +343,6 @@ async def readiness_probe():
     payload, status_code = await get_readiness_payload()
     return JSONResponse(content=payload, status_code=status_code)
 
-    import httpx
-    from app.db.supabase_client import get_supabase_client, check_supabase_health
-    from app.services.model_store import model_store
-    
-    checks = {}
-    is_ready = True
-    
-    # ── Check Supabase ──
-    try:
-        sb_health = check_supabase_health()
-        checks["database"] = sb_health.get("status", "unknown")
-        if sb_health.get("status") != "healthy":
-            is_ready = False
-    except Exception as e:
-        checks["database"] = f"unhealthy: {str(e)}"
-        is_ready = False
-
-    # ── Check GROBID ──
-    try:
-        async with httpx.AsyncClient(timeout=2) as client:
-            response = await client.get(f"{settings.GROBID_URL}/api/isalive")
-            checks["grobid"] = "ready" if response.status_code == 200 else "unavailable"
-    except (httpx.RequestError, Exception):
-        checks["grobid"] = "unavailable"
-
-    # ── Check Ollama/Local LLM ──
-    try:
-        from app.services.llm_service import check_health as llm_check_health
-        results = await llm_check_health()
-        checks["llm_status"] = results
-    except Exception:
-        checks["llm_status"] = "unknown"
-
-    # ── Check AI Models ──
-    try:
-        if model_store.get_model("scibert_model") is not None:
-            checks["ai_models"] = "loaded"
-        else:
-            checks["ai_models"] = "not_loaded"
-            is_ready = False
-    except Exception:
-        checks["ai_models"] = "error"
-        is_ready = False
-
-    return JSONResponse(
-        content={
-            "ready": is_ready, 
-            "checks": checks,
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        },
-        status_code=200 if is_ready else 503
-    )
-
 @app.get("/")
 async def root():
     return {"message": "ScholarForm AI Backend is running"}
@@ -384,50 +353,7 @@ async def health_check():
     Health check endpoint for monitoring.
     Returns status of Supabase DB, AI models, and Ollama server.
     """
-    import httpx
-    from app.db.supabase_client import check_supabase_health
-
-    health_status = {
-        "status": "healthy",
-        "version": "1.0.0",
-        "components": {},
-    }
-
-    # Check Supabase DB
-    try:
-        sb_health = check_supabase_health()
-        health_status["components"]["supabase_db"] = sb_health.get("status", "unknown")
-        if sb_health.get("status") != "healthy":
-            health_status["status"] = "degraded"
-    except Exception as e:
-        health_status["components"]["supabase_db"] = f"unhealthy: {str(e)}"
-        health_status["status"] = "degraded"
-
-    # Check Ollama server (non-blocking)
-    try:
-        async with httpx.AsyncClient(timeout=2) as client:
-            response = await client.get(f"{settings.OLLAMA_URL}/api/tags")
-            if response.status_code == 200:
-                health_status["components"]["ollama"] = "healthy"
-            else:
-                health_status["components"]["ollama"] = "unhealthy"
-                health_status["status"] = "degraded"
-    except (httpx.RequestError, Exception):
-        health_status["components"]["ollama"] = "unavailable (fallback active)"
-        health_status["status"] = "degraded"
-
-    # Check AI models
-    try:
-        from app.services.model_store import model_store
-        if model_store.get_model("scibert_model") is not None:
-            health_status["components"]["ai_models"] = "loaded"
-        else:
-            health_status["components"]["ai_models"] = "not_loaded"
-    except Exception:
-        health_status["components"]["ai_models"] = "error"
-
-    # Return 503 if any component is degraded
-    status_code = 200 if health_status["status"] == "healthy" else 503
-    return JSONResponse(content=health_status, status_code=status_code)
+    payload, status_code = await get_health_payload()
+    return JSONResponse(content=payload, status_code=status_code)
 
 

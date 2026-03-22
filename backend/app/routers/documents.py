@@ -1,3 +1,5 @@
+import asyncio
+import copy
 import logging
 import os
 import uuid
@@ -5,6 +7,7 @@ import hashlib
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from typing import Optional, Dict, Any, List
 from datetime import datetime
+from time import monotonic
 
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, BackgroundTasks, Query, Form, Request
 from app.routers.deprecation import DeprecatedRoute
@@ -28,6 +31,9 @@ from app.utils.virus_scanner import scan_file
 # from app.models import Document, ProcessingStatus, DocumentResult
 
 logger = logging.getLogger(__name__)
+_STATUS_CACHE_MISS = object()
+_status_cache_lock: asyncio.Lock | None = None
+_status_response_cache: dict[str, tuple[float, Dict[str, Any]]] = {}
 
 _LEGACY_SUCCESSORS = {
     "/api/documents": "/api/v1/documents",
@@ -86,6 +92,69 @@ MAGIC_BYTES_MAP = {
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
+
+def _get_status_cache_lock() -> asyncio.Lock:
+    global _status_cache_lock
+    if _status_cache_lock is None:
+        _status_cache_lock = asyncio.Lock()
+    return _status_cache_lock
+
+
+def _document_status_ttl_seconds() -> float:
+    raw_ttl = getattr(settings, "DOCUMENT_STATUS_CACHE_TTL_SECONDS", 1)
+    try:
+        ttl = float(raw_ttl)
+    except (TypeError, ValueError):
+        ttl = 1.0
+    return max(0.0, ttl)
+
+
+def _status_cache_key(job_id: str, current_user: Optional[User]) -> str:
+    user_id = getattr(current_user, "id", None) if current_user is not None else None
+    owner_segment = str(user_id) if user_id is not None else "__anon__"
+    return f"{owner_segment}|{str(job_id)}"
+
+
+def _clone_status_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    return copy.deepcopy(payload)
+
+
+async def _get_cached_status_response(cache_key: str) -> Any:
+    ttl_seconds = _document_status_ttl_seconds()
+    if ttl_seconds <= 0:
+        return _STATUS_CACHE_MISS
+
+    now = monotonic()
+    async with _get_status_cache_lock():
+        cached = _status_response_cache.get(cache_key)
+        if not cached:
+            return _STATUS_CACHE_MISS
+
+        expiry, payload = cached
+        if now >= expiry:
+            _status_response_cache.pop(cache_key, None)
+            return _STATUS_CACHE_MISS
+
+        return _clone_status_payload(payload)
+
+
+async def _set_cached_status_response(cache_key: str, payload: Dict[str, Any]) -> None:
+    ttl_seconds = _document_status_ttl_seconds()
+    async with _get_status_cache_lock():
+        if ttl_seconds <= 0:
+            _status_response_cache.pop(cache_key, None)
+            return
+        _status_response_cache[cache_key] = (
+            monotonic() + ttl_seconds,
+            _clone_status_payload(payload),
+        )
+
+
+def _reset_document_status_cache_for_tests() -> None:
+    global _status_cache_lock
+    _status_response_cache.clear()
+    _status_cache_lock = None
+
 
 def _require_db():
     """Raise HTTP 503 when the Supabase client is not configured."""
@@ -556,6 +625,11 @@ async def get_status(
     Get the detailed processing status of a document.
     """
     try:
+        cache_key = _status_cache_key(job_id, current_user)
+        cached_payload = await _get_cached_status_response(cache_key)
+        if cached_payload is not _STATUS_CACHE_MISS:
+            return cached_payload
+
         doc = DocumentService.get_document(job_id)
         if not doc:
             raise HTTPException(status_code=404, detail="Document job not found")
@@ -569,7 +643,7 @@ async def get_status(
         result = DocumentService.get_document_result(job_id)
         quality_payload = _extract_quality_payload(result)
 
-        return {
+        payload = {
             "job_id": job_id,
             "status": doc.get("status"),
             "current_phase": doc.get("current_stage") or "UPLOADED",
@@ -592,6 +666,8 @@ async def get_status(
             "quality_score": quality_payload["quality_score"],
             "quality_summary": quality_payload["quality_summary"],
         }
+        await _set_cached_status_response(cache_key, payload)
+        return payload
     except HTTPException:
         raise
     except Exception as e:

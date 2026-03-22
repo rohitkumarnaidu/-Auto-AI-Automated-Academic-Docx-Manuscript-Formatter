@@ -8,6 +8,8 @@ Uses two specialized models:
 Falls back gracefully if dependencies are unavailable.
 """
 
+from __future__ import annotations
+
 import logging
 from typing import List, Dict, Any, Optional, Tuple
 from app.utils.singleton import get_or_create_catching
@@ -278,7 +280,7 @@ class TableExtractor:
         table_index: int,
         block_index: int,
         page_number: Optional[int] = None,
-    ) -> "Table":
+    ) -> Any:
         """
         Convert extracted table data to the project's Table model.
 

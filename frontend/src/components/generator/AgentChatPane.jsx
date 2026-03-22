@@ -19,7 +19,7 @@ const SourceBadge = ({ source }) => (
   </span>
 );
 
-const MessageBubble = ({ message }) => {
+const MessageBubble = React.memo(({ message }) => {
   const isUser = message.role === 'user';
   const isStatus = Boolean(message.isStatus);
   const renderStructuredContent = () => {
@@ -103,9 +103,11 @@ const MessageBubble = ({ message }) => {
       </div>
     </motion.div>
   );
-};
+});
 
-const AgentChatPane = ({ 
+MessageBubble.displayName = 'MessageBubble';
+
+const AgentChatPane = React.memo(({ 
   messages, 
   onSendMessage, 
   onStop,
@@ -140,7 +142,8 @@ const AgentChatPane = ({
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    // Ctrl+Enter or Cmd+Enter to submit
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       handleSubmit(e);
     }
@@ -250,6 +253,7 @@ const AgentChatPane = ({
             type="submit"
             disabled={!input.trim() || isTyping}
             className="flex-shrink-0 p-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:bg-zinc-200 dark:disabled:bg-zinc-800 text-white disabled:text-zinc-400 transition-colors"
+            title="Submit (Ctrl+Enter)"
           >
             {isTyping ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -266,6 +270,8 @@ const AgentChatPane = ({
       </div>
     </div>
   );
-};
+});
+
+AgentChatPane.displayName = 'AgentChatPane';
 
 export default AgentChatPane;

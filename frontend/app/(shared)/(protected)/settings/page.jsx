@@ -1,11 +1,13 @@
 'use client';
 import usePageTitle from '@/src/hooks/usePageTitle';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useTheme } from '@/src/context/ThemeContext';
 import Footer from '@/src/components/Footer';
 import { useAuth } from '@/src/context/AuthContext';
 import { getUserTier, getRemainingQuota } from '@/src/lib/planTier';
 import { supabase } from '@/src/lib/supabaseClient';
+import { SettingsSchema } from '@/src/lib/schemas';
+import { z } from 'zod';
 
 const SETTINGS_KEY = 'scholarform_settings';
 
@@ -138,18 +140,25 @@ export default function SettingsPage() {
         setSaved(false);
     };
 
-    const handleSave = () => {
+    const handleSave = useCallback(() => {
         try {
+            // Validate settings with Zod
+            SettingsSchema.parse(settings);
+
             localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
             setSaved(true);
             setError('');
             setTimeout(() => setSaved(false), 3000);
         } catch (err) {
-            setError(err.message || 'Failed to save settings');
+            if (err instanceof z.ZodError) {
+                setError(err.errors[0].message);
+            } else {
+                setError(err.message || 'Failed to save settings');
+            }
             setSaved(false);
             setTimeout(() => setError(''), 3000);
         }
-    };
+    }, [settings]);
 
     const handleReset = () => {
         const resetState = { ...defaultSettings, darkMode: theme === 'dark' };
@@ -161,6 +170,18 @@ export default function SettingsPage() {
     useEffect(() => {
         setSettings((prev) => ({ ...prev, darkMode: theme === 'dark' }));
     }, [theme]);
+
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 's' || e.key === 'Enter')) {
+                e.preventDefault();
+                handleSave();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [handleSave]);
 
     const Toggle = ({ checked, onChange }) => (
         <button
@@ -294,7 +315,9 @@ export default function SettingsPage() {
                         Reset to Defaults
                     </button>
                     <button onClick={handleSave}
-                        className="px-6 py-3 bg-primary hover:bg-primary-hover text-white font-bold rounded-xl shadow-lg shadow-primary/25 transition-all flex items-center gap-2 active:scale-95">
+                        disabled={saved}
+                        title="Save Changes (Ctrl+S or Ctrl+Enter)"
+                        className="px-6 py-3 bg-primary hover:bg-primary-hover text-white font-bold rounded-xl shadow-lg shadow-primary/25 transition-all flex items-center gap-2 active:scale-95 disabled:opacity-50">
                         <span className="material-symbols-outlined">save</span>
                         Save Settings
                     </button>

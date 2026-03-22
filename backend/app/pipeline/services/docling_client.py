@@ -189,33 +189,11 @@ class DoclingClient:
             logger.info(f"Starting Docling layout analysis for: {file_path}")
             
             try:
-                # 🚀 PERFORMANCE OPTIMIZATION: Check for Digital-Native PDF
-                # If the PDF has a dense text layer, we DISABLE OCR to save ~95% processing time.
-                do_ocr = True
-                # try:
-                #     import pypdf
-                #     reader = pypdf.PdfReader(file_path)
-                #     if len(reader.pages) > 0:
-                #         page = reader.pages[0]
-                #         text = page.extract_text()
-                #         # Heuristic: If >50 chars of text found on first page, assume digital-native
-                #         if text and len(text.strip()) > 50:
-                #             logger.info(f"Digital-native PDF detected ({len(text)} chars on p1). Disabling OCR for speed.")
-                #             do_ocr = False
-                # except Exception as e:
-                #     logger.warning(f"Failed to check text density: {e}. Defaulting to OCR=True")
-
-                # Configure pipeline options
-                # do_ocr=True/False based on density check
-                # pipeline_options = PdfPipelineOptions(do_ocr=do_ocr)
-                
-                # If we MUST do OCR, prevent full page force to save some time
-                # if do_ocr:
-                #    pipeline_options.ocr_options.force_full_page_ocr = False
-                
-                # Use default options to prevent 'backend' attribute error in newer docling versions
                 with _suppress_docling_warnings():
-                    doc_converter = DocumentConverter()
+                    doc_converter = self.converter
+                    if doc_converter is None:
+                        doc_converter = DocumentConverter()
+                        self.converter = doc_converter
                     doc = doc_converter.convert(file_path).document
             
             except Exception as e:

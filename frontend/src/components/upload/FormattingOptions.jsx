@@ -1,4 +1,6 @@
-export default function FormattingOptions({
+import React, { memo } from 'react';
+
+const FormattingOptions = memo(function FormattingOptions({
     addPageNumbers,
     setAddPageNumbers,
     addBorders,
@@ -141,4 +143,8 @@ export default function FormattingOptions({
             </button>
         </div>
     );
-}
+});
+
+FormattingOptions.displayName = 'FormattingOptions';
+
+export default FormattingOptions;

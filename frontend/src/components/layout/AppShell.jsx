@@ -2,8 +2,8 @@
 
 import Header from '@/src/components/layout/Header';
 import Sidebar from '@/src/components/layout/Sidebar';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import React, { useEffect, useState, Suspense } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import React, { useEffect, useState, Suspense, useMemo, useCallback } from 'react';
 import OnboardingTour from '@/src/components/OnboardingTour';
 import { useAuth } from '@/src/context/AuthContext';
 
@@ -12,21 +12,32 @@ const AUTH_ROUTES = ['/login', '/signup', '/forgot-password', '/verify-otp', '/r
 export default function AppShell({ children, section = 'shared' }) {
     const pathname = usePathname();
     const router = useRouter();
-    const searchParams = useSearchParams();
     const { isLoggedIn, loading } = useAuth();
-    const forceGuestMode = searchParams?.get('guest') === '1';
+    const [forceGuestMode, setForceGuestMode] = useState(false);
 
     const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(false);
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
     const [isDesktop, setIsDesktop] = useState(false);
 
-    const isAuthRoute = AUTH_ROUTES.some((route) => pathname.startsWith(route));
-    const isLandingRoute = pathname === '/' || pathname === '/terms' || pathname === '/privacy';
+    const isAuthRoute = useMemo(
+        () => AUTH_ROUTES.some((route) => pathname.startsWith(route)),
+        [pathname]
+    );
+    const isLandingRoute = useMemo(
+        () => pathname === '/' || pathname === '/terms' || pathname === '/privacy',
+        [pathname]
+    );
 
-    // Route-based: app routes (upload, dashboard, templates, etc.) get sidebar layout.
-    // Landing + auth pages get simple layout.
-    // Sidebar.jsx handles guest vs user links internally (APP_GUEST_LINKS vs USER_LINKS).
-    const showSidebarLayout = !isLandingRoute && !isAuthRoute;
+    const showSidebarLayout = useMemo(
+        () => !isLandingRoute && !isAuthRoute,
+        [isLandingRoute, isAuthRoute]
+    );
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const params = new URLSearchParams(window.location.search || '');
+        setForceGuestMode(params.get('guest') === '1');
+    }, [pathname]);
 
     useEffect(() => {
         if (loading) return;
@@ -59,19 +70,25 @@ export default function AppShell({ children, section = 'shared' }) {
         return () => mediaQuery.removeListener(handleChange);
     }, []);
 
-    const toggleSidebar = () => {
+    const toggleSidebar = useCallback(() => {
         if (isDesktop) {
             setIsDesktopSidebarOpen((prev) => !prev);
         } else {
             setIsMobileSidebarOpen(true);
         }
-    };
+    }, [isDesktop]);
 
-    // Simple layout for landing + auth pages only
+    // Header height 48px (h-12)
+    const appHeaderHeightPx = 48;
+    const sidebarW = isDesktopSidebarOpen ? 240 : 72;
+
+    // Unified glassmorphism configuration
+    const glassClasses = "backdrop-blur-xl saturate-[160%] bg-white/40 dark:bg-slate-950/40";
+
     if (!showSidebarLayout) {
         return (
             <div className="relative z-10 flex flex-col min-h-screen">
-                <Suspense fallback={<div className="h-16 w-full bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800" />}>
+                <Suspense fallback={<div className={`h-12 w-full border-b border-black/5 dark:border-white/5 ${glassClasses}`} />}>
                     <Header section={section} />
                 </Suspense>
                 <main id="main-content" tabIndex="-1" className="flex-grow flex flex-col items-center w-full relative z-10 focus:outline-none">
@@ -82,21 +99,18 @@ export default function AppShell({ children, section = 'shared' }) {
         );
     }
 
-    // ── APP ROUTES: sidebar layout for both guests and logged-in users ──
-    // Sidebar.jsx shows guest links (Upload, Templates, Template Editor) or user links (Dashboard, etc.)
-    const appHeaderHeightPx = 48;
-    const sidebarW = isDesktopSidebarOpen ? 240 : 72;
-
     return (
         <>
-            {/* Background */}
+            {/* Theme-Adaptive Background layer */}
             <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
-                <div className="absolute inset-0 bg-[#f6f6f8] dark:bg-background-dark" />
+                <div className="absolute inset-0 bg-[#f6f6f8] dark:bg-[#09090b]" />
+                <div className="absolute top-[20%] left-[10%] w-[40vw] h-[40vw] rounded-full bg-blue-600/5 dark:bg-blue-600/10 blur-[120px]" />
+                <div className="absolute bottom-[10%] right-[15%] w-[30vw] h-[30vw] rounded-full bg-indigo-600/5 dark:bg-indigo-600/10 blur-[100px]" />
             </div>
 
-            {/* Fixed Header */}
+            {/* Sticky Header */}
             <div className="fixed top-0 left-0 right-0 z-50">
-                <Suspense fallback={<div className="h-12 w-full bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800" />}>
+                <Suspense fallback={<div className={`h-12 w-full border-b border-black/5 dark:border-white/5 ${glassClasses}`} />}>
                     <Header
                         section={section}
                         isSidebarLayout={true}
@@ -105,31 +119,31 @@ export default function AppShell({ children, section = 'shared' }) {
                 </Suspense>
             </div>
 
-            {/* Sidebar — shows for all users on app routes */}
-            {/* Sidebar.jsx handles guest vs user links internally */}
-            <div
-                className={`fixed left-0 hidden lg:flex flex-col justify-start z-40 transition-all duration-300 ease-in-out overflow-y-auto sidebar-desktop bg-background-light dark:bg-background-dark ${isDesktopSidebarOpen ? 'w-[240px]' : 'w-[72px] items-center'}`}
-                style={{ top: `${appHeaderHeightPx}px`, bottom: 0 }}
-            >
-                <div className="w-full h-full flex flex-col">
-                    <Suspense fallback={<div className="w-full h-full bg-background-light dark:bg-background-dark" />}>
-                        <Sidebar section={section} isCollapsed={!isDesktopSidebarOpen} />
-                    </Suspense>
-                </div>
-            </div>
-
-            {/* Mobile Sidebar — for all users on app routes */}
+            {/* Mobile Sidebar Back-drop */}
             {isMobileSidebarOpen && (
-                <div className="lg:hidden fixed inset-0 z-50 flex">
-                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsMobileSidebarOpen(false)} />
-                    <div className="sidebar-mobile relative flex flex-col w-[260px] h-full shadow-2xl animate-in slide-in-from-left duration-300 bg-background-light dark:bg-background-dark">
-                        <Suspense fallback={<div className="w-full h-full bg-background-light dark:bg-background-dark" />}>
+                <div className="lg:hidden fixed inset-0 z-[60] flex">
+                    <div className="fixed inset-0 bg-black/40 dark:bg-black/60 backdrop-blur-sm" onClick={() => setIsMobileSidebarOpen(false)} />
+                    <div className={`sidebar-mobile relative flex flex-col w-[260px] h-full shadow-2xl animate-in slide-in-from-left duration-300 border-r border-black/5 dark:border-white/10 ${glassClasses}`}>
+                        <Suspense fallback={<div className="w-full h-full bg-white/20 dark:bg-slate-950/20" />}>
                             <Sidebar section={section} onClose={() => setIsMobileSidebarOpen(false)} isCollapsed={false} />
                         </Suspense>
                     </div>
                 </div>
             )}
-            {/* Main content — sidebar padding only for logged-in users */}
+
+            {/* Desktop Sidebar (Theme and Color perfectly unified with Header) */}
+            <div
+                className={`fixed left-0 hidden lg:flex flex-col justify-start z-40 transition-all duration-300 ease-in-out sidebar-desktop border-r border-black/5 dark:border-white/10 ${glassClasses} ${isDesktopSidebarOpen ? 'w-[240px]' : 'w-[72px] items-center'}`}
+                style={{ top: `${appHeaderHeightPx}px`, bottom: 0 }}
+            >
+                <div className="w-full h-full flex flex-col">
+                    <Suspense fallback={<div className="w-full h-full bg-white/20 dark:bg-slate-950/20" />}>
+                        <Sidebar section={section} isCollapsed={!isDesktopSidebarOpen} />
+                    </Suspense>
+                </div>
+            </div>
+
+            {/* Main Content Area */}
             <main
                 id="main-content"
                 tabIndex="-1"

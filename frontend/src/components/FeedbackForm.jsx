@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { submitFeedback } from '@/src/services/api';
+import { FeedbackSubmissionSchema, getFirstZodError } from '@/src/lib/schemas';
 
 export default function FeedbackForm({ documentId: propDocId, onSubmitted }) {
+    const formRef = useRef(null);
     const [documentId, setDocumentId] = useState(propDocId || '');
     const [fieldName, setFieldName] = useState('');
     const [originalValue, setOriginalValue] = useState('');
@@ -13,8 +15,15 @@ export default function FeedbackForm({ documentId: propDocId, onSubmitted }) {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!documentId.trim() || !fieldName.trim() || !correctedValue.trim()) {
-            setError('Document ID, field name, and corrected value are required.');
+        const validation = FeedbackSubmissionSchema.safeParse({
+            document_id: documentId,
+            field: fieldName,
+            original_value: originalValue,
+            corrected_value: correctedValue,
+            comments: comment,
+        });
+        if (!validation.success) {
+            setError(getFirstZodError(validation.error?.issues, 'Feedback input is invalid.'));
             return;
         }
 
@@ -23,13 +32,7 @@ export default function FeedbackForm({ documentId: propDocId, onSubmitted }) {
         setSuccess(false);
 
         try {
-            await submitFeedback({
-                document_id: documentId.trim(),
-                field_name: fieldName.trim(),
-                original_value: originalValue.trim(),
-                corrected_value: correctedValue.trim(),
-                comment: comment.trim(),
-            });
+            await submitFeedback(validation.data);
             setSuccess(true);
             setFieldName('');
             setOriginalValue('');
@@ -43,8 +46,15 @@ export default function FeedbackForm({ documentId: propDocId, onSubmitted }) {
         }
     };
 
+    const handleFormKeyDown = (event) => {
+        if (!(event.ctrlKey || event.metaKey) || event.key !== 'Enter') return;
+        event.preventDefault();
+        if (submitting) return;
+        formRef.current?.requestSubmit();
+    };
+
     return (
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form ref={formRef} onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className="space-y-4">
             {!propDocId && (
                 <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
@@ -150,6 +160,7 @@ export default function FeedbackForm({ documentId: propDocId, onSubmitted }) {
             <button
                 type="submit"
                 disabled={submitting}
+                title="Submit Correction (Ctrl+Enter)"
                 className="w-full py-3 bg-primary hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-primary/25 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             >
                 {submitting ? (

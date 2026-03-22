@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { Edit2, Trash2, Plus, GripVertical, Check, X, RefreshCw, ArrowRight } from 'lucide-react';
 import { motion, Reorder } from 'framer-motion';
 
-const OutlineApproval = ({ outline, onApprove, onEdit, onRegenerate }) => {
+const OutlineApproval = React.memo(({ outline, onApprove, onEdit, onRegenerate }) => {
   const [sections, setSections] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState("");
   const [editWordCount, setEditWordCount] = useState("");
 
-  const buildOutline = (nextSections = sections) => ({
+  const buildOutline = useCallback((nextSections) => ({
     ...(outline || {}),
     sections: nextSections.map((s, index) => ({
       number: index + 1,
@@ -16,7 +16,7 @@ const OutlineApproval = ({ outline, onApprove, onEdit, onRegenerate }) => {
       title: s.title,
       expectedWordCount: s.expectedWordCount
     }))
-  });
+  }), [outline]);
 
   useEffect(() => {
     if (outline && outline.sections) {
@@ -39,7 +39,7 @@ const OutlineApproval = ({ outline, onApprove, onEdit, onRegenerate }) => {
     setEditWordCount(section.expectedWordCount.toString());
   };
 
-  const handleSaveEdit = (id) => {
+  const handleSaveEdit = useCallback((id) => {
     const nextSections = sections.map(s => 
       s.id === id 
         ? { ...s, title: editTitle, expectedWordCount: parseInt(editWordCount, 10) || 0 }
@@ -50,7 +50,7 @@ const OutlineApproval = ({ outline, onApprove, onEdit, onRegenerate }) => {
       onEdit(buildOutline(nextSections));
     }
     setEditingId(null);
-  };
+  }, [sections, editTitle, editWordCount, onEdit, buildOutline]);
 
   const handleCancelEdit = () => {
     setEditingId(null);
@@ -81,10 +81,10 @@ const OutlineApproval = ({ outline, onApprove, onEdit, onRegenerate }) => {
     setEditWordCount("500");
   };
 
-  const handleApprove = () => {
+  const handleApprove = useCallback(() => {
     const cleanOutline = buildOutline(sections);
     onApprove(cleanOutline);
-  };
+  }, [buildOutline, sections, onApprove]);
 
   const handleRegenerate = () => {
     if (onRegenerate) {
@@ -95,6 +95,32 @@ const OutlineApproval = ({ outline, onApprove, onEdit, onRegenerate }) => {
       onEdit(buildOutline(sections));
     }
   };
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      const isMod = event.ctrlKey || event.metaKey;
+      if (!isMod) return;
+
+      const key = event.key.toLowerCase();
+      if (key === 's' && editingId) {
+        event.preventDefault();
+        handleSaveEdit(editingId);
+        return;
+      }
+
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        if (editingId) {
+          handleSaveEdit(editingId);
+        } else {
+          handleApprove();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [editingId, handleApprove, handleSaveEdit]);
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm">
@@ -186,7 +212,7 @@ const OutlineApproval = ({ outline, onApprove, onEdit, onRegenerate }) => {
                       <button 
                         onClick={() => handleSaveEdit(section.id)}
                         className="p-1.5 text-green-600 hover:bg-green-50 dark:hover:bg-green-500/10 rounded-md transition-colors"
-                        title="Save"
+                        title="Save (Ctrl+S or Ctrl+Enter)"
                       >
                         <Check className="w-4 h-4" />
                       </button>
@@ -243,6 +269,7 @@ const OutlineApproval = ({ outline, onApprove, onEdit, onRegenerate }) => {
         <button
           onClick={handleApprove}
           className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+          title="Proceed (Ctrl+Enter)"
         >
           Proceed to Write
           <ArrowRight className="w-4 h-4" />
@@ -250,6 +277,8 @@ const OutlineApproval = ({ outline, onApprove, onEdit, onRegenerate }) => {
       </div>
     </div>
   );
-};
+});
+
+OutlineApproval.displayName = 'OutlineApproval';
 
 export default OutlineApproval;

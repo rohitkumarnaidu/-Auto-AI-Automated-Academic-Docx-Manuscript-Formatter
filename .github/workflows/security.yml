@@ -1,9 +1,13 @@
 name: security
 
 on:
-  push:
+  pull_request:
     branches:
-      - "**"
+      - main
+      - develop
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * 1"
 
 jobs:
   security:

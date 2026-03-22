@@ -1,4 +1,6 @@
-export default function ProcessingStepper({
+import React, { memo } from 'react';
+
+const ProcessingStepper = memo(function ProcessingStepper({
     isProcessing,
     progress,
     statusMessage,
@@ -77,4 +79,8 @@ export default function ProcessingStepper({
             </div>
         </div>
     );
-}
+});
+
+ProcessingStepper.displayName = 'ProcessingStepper';
+
+export default ProcessingStepper;

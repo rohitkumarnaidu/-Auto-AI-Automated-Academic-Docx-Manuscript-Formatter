@@ -257,7 +257,9 @@ class PipelineOrchestrator:
         """
         options = formatting_options or {}
         in_pytest = bool(os.environ.get("PYTEST_CURRENT_TEST"))
-        default_fast_mode = True if in_pytest else False
+        default_fast_mode = bool(getattr(settings, "DEFAULT_FAST_MODE", False))
+        if in_pytest or bool(getattr(settings, "LOW_MEMORY_MODE", False)):
+            default_fast_mode = True
         fast_mode = self._coerce_bool(options.get("fast_mode"), default_fast_mode)
         return {
             "fast_mode": fast_mode,
@@ -832,7 +834,11 @@ class PipelineOrchestrator:
                                     "Validating %d references against CrossRef...",
                                     len(doc_obj.references),
                                 )
-                                with ThreadPoolExecutor(max_workers=4) as cr_exec:
+                                crossref_workers = max(
+                                    1,
+                                    int(getattr(settings, "CROSSREF_MAX_WORKERS", 4)),
+                                )
+                                with ThreadPoolExecutor(max_workers=crossref_workers) as cr_exec:
                                     def validate_ref(ref):
                                         raw = getattr(ref, "raw_text", getattr(ref, "text", None))
                                         if raw:

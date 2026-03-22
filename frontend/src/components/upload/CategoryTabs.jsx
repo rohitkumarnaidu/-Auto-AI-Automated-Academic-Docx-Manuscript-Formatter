@@ -1,4 +1,6 @@
-export default function CategoryTabs() {
+import React, { memo } from 'react';
+
+const CategoryTabs = memo(function CategoryTabs() {
     return (
         <div className="flex flex-col items-center gap-4">
             <h2 className="text-lg font-bold text-slate-900 dark:text-white text-center">Select Category</h2>
@@ -33,4 +35,8 @@ export default function CategoryTabs() {
             </div>
         </div>
     );
-}
+});
+
+CategoryTabs.displayName = 'CategoryTabs';
+
+export default CategoryTabs;

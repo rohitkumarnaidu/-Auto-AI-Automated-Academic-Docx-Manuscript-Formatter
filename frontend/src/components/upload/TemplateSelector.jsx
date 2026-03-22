@@ -1,3 +1,4 @@
+import React, { memo } from 'react';
 import Link from 'next/link';
 
 const TEMPLATE_OPTIONS = [
@@ -18,7 +19,7 @@ const TEMPLATE_OPTIONS = [
     { value: 'modern_red', label: 'Modern Red' },
 ];
 
-export default function TemplateSelector({
+const TemplateSelector = memo(function TemplateSelector({
     category,
     template,
     isProcessing,
@@ -68,4 +69,8 @@ export default function TemplateSelector({
             </div>
         </div>
     );
-}
+});
+
+TemplateSelector.displayName = 'TemplateSelector';
+
+export default TemplateSelector;

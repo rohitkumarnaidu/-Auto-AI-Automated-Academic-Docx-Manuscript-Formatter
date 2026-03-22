@@ -10,7 +10,6 @@ test.describe('Phase 4 Core Flows', () => {
         
         // 1. Upload sample DOCX
         const filePath = path.resolve('../ScholarForm_AI_Documentation.docx');
-        const fileChooserPromise = page.waitForEvent('filechooser');
         
         // Find upload area/button. In many apps it's an input type=file or a drop zone.
         // Assuming there is an input[type="file"]:

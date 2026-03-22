@@ -201,7 +201,7 @@ export default function Edit() {
 
     useEffect(() => {
         const handler = (e) => {
-            if (e.ctrlKey && e.key === 'Enter') {
+            if ((e.ctrlKey || e.metaKey) && (e.key === 'Enter' || e.key.toLowerCase() === 's')) {
                 e.preventDefault();
                 handleSave();
             }
@@ -270,7 +270,10 @@ export default function Edit() {
                         </span>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                        <button onClick={handleSave} className="flex items-center gap-1.5 px-3 py-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors" aria-label="Save">
+                        <button onClick={handleSave} 
+                            disabled={isSaving}
+                            title="Save (Ctrl+S or Ctrl+Enter)"
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors" aria-label="Save">
                             <span className="material-symbols-outlined text-[18px]" aria-hidden="true">save</span>
                             <span className="text-sm font-medium hidden sm:inline">Save</span>
                         </button>

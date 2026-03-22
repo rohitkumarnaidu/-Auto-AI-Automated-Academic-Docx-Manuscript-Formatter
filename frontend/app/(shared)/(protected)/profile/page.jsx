@@ -1,12 +1,14 @@
 'use client';
 import usePageTitle from '@/src/hooks/usePageTitle';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/context/AuthContext';
 import { useToast } from '@/src/context/ToastContext';
 import { useTheme } from '@/src/context/ThemeContext';
 import Footer from '@/src/components/Footer';
 import { supabase } from '@/src/lib/supabaseClient';
+import { UserProfileSchema } from '@/src/lib/schemas';
+import { z } from 'zod';
 
 export default function Profile() {
     usePageTitle('Profile');
@@ -18,8 +20,9 @@ export default function Profile() {
     const [editName, setEditName] = useState('');
     const [editInstitution, setEditInstitution] = useState('');
     const [editSaving, setEditSaving] = useState(false);
-    const [editSuccess, setEditSuccess] = useState('');
-    const [editError, setEditError] = useState('');
+    const [editError, setEditError] = useState(null);
+    const [fieldErrors, setFieldErrors] = useState({});
+    const [editSuccess, setEditSuccess] = useState(null);
     const [showPasswordForm, setShowPasswordForm] = useState(false);
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -97,29 +100,72 @@ export default function Profile() {
     const handleEditProfile = () => {
         setEditName(fullName);
         setEditInstitution(user?.user_metadata?.institution || '');
-        setEditSuccess('');
-        setEditError('');
+        setEditSuccess(null);
+        setEditError(null);
+        setFieldErrors({});
         setIsEditing(true);
     };
 
-    const handleSaveProfile = async () => {
+    const handleSaveProfile = useCallback(async () => {
         setEditSaving(true);
-        setEditError('');
-        setEditSuccess('');
+        setEditError(null);
+        setFieldErrors({});
+        setEditSuccess(null);
+
+        // Frontend validation with Zod
         try {
-            const { error } = await supabase.auth.updateUser({
-                data: { full_name: editName, institution: editInstitution }
+            UserProfileSchema.parse({
+                name: editName,
+                institution: editInstitution
             });
-            if (error) throw error;
-            await refreshSession();
-            setEditSuccess('Profile updated successfully!');
-            setTimeout(() => { setIsEditing(false); setEditSuccess(''); }, 1500);
         } catch (err) {
+            if (err instanceof z.ZodError) {
+                const errors = {};
+                err.errors.forEach(e => {
+                    errors[e.path[0]] = e.message;
+                });
+                setFieldErrors(errors);
+                setEditSaving(false);
+                return;
+            }
+        }
+
+        try {
+            const { error: updateError } = await supabase.auth.updateUser({
+                data: {
+                    full_name: editName,
+                    institution: editInstitution
+                }
+            });
+
+            if (updateError) throw updateError;
+
+            await refreshSession();
+            
+            setIsEditing(false);
+            setEditSuccess('Profile updated successfully!');
+            setTimeout(() => setEditSuccess(null), 3000);
+        } catch (err) {
+            console.error('Error updating profile:', err);
             setEditError(err.message || 'Failed to update profile');
         } finally {
             setEditSaving(false);
         }
-    };
+    }, [editInstitution, editName, refreshSession]);
+
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 's' || e.key === 'Enter')) {
+                if (isEditing && !editSaving) {
+                    e.preventDefault();
+                    handleSaveProfile();
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isEditing, editSaving, handleSaveProfile]);
 
     const handleVerifyInstitution = async () => {
         setVerifyStatus('sending');
@@ -190,20 +236,33 @@ export default function Profile() {
                             <div className="flex-1 flex flex-col gap-4 text-center md:text-left">
                                 {isEditing ? (
                                     <div className="flex flex-col gap-3">
-                                        <div>
-                                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Full Name</label>
-                                            <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)}
-                                                className="w-full mt-1 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none" />
-                                        </div>
-                                        <div>
-                                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Institution</label>
-                                            <input type="text" value={editInstitution} onChange={(e) => setEditInstitution(e.target.value)}
-                                                className="w-full mt-1 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none" />
-                                        </div>
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1 px-1">Full Name</label>
+                                                <input
+                                                    type="text"
+                                                    value={editName}
+                                                    onChange={(e) => setEditName(e.target.value)}
+                                                    className={`w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border ${fieldErrors.name ? 'border-red-500' : 'border-slate-200 dark:border-slate-700'} focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm outline-none`}
+                                                    placeholder="Enter your name"
+                                                />
+                                                {fieldErrors.name && <p className="text-[10px] text-red-500 mt-1 px-1 font-medium">{fieldErrors.name}</p>}
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1 px-1">Institution</label>
+                                                <input
+                                                    type="text"
+                                                    value={editInstitution}
+                                                    onChange={(e) => setEditInstitution(e.target.value)}
+                                                    className={`w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border ${fieldErrors.institution ? 'border-red-500' : 'border-slate-200 dark:border-slate-700'} focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm outline-none`}
+                                                    placeholder="University or Organisation"
+                                                />
+                                                {fieldErrors.institution && <p className="text-[10px] text-red-500 mt-1 px-1 font-medium">{fieldErrors.institution}</p>}
+                                            </div>
                                         {editError && <p className="text-sm text-red-500">{editError}</p>}
                                         {editSuccess && <p className="text-sm text-green-500">{editSuccess}</p>}
                                         <div className="flex gap-3">
                                             <button onClick={handleSaveProfile} disabled={editSaving}
+                                                title="Save Changes (Ctrl+S or Ctrl+Enter)"
                                                 className="px-5 py-2.5 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary-hover transition-colors disabled:opacity-50 active:scale-95">
                                                 {editSaving ? 'Saving...' : 'Save Changes'}
                                             </button>
