@@ -61,6 +61,9 @@ python-dateutil==2.9.0.post0
 Jinja2==3.1.6
 MarkupSafe==3.0.3
 docxtpl==0.20.2
+weasyprint==62.3
+reportlab==4.4.9
+pylatexenc==2.10
 
 # ─── LLM / AI (lightweight clients only — no torch/transformers) ───────────────
 litellm==1.81.13
@@ -71,6 +74,8 @@ langchain-core==1.2.14
 langchain-openai==1.1.10
 langchain-community==0.3.30
 langchain==1.2.10
+langchain-anthropic
+langdetect
 tiktoken==0.12.0
 tenacity==9.1.4
 
@@ -78,6 +83,7 @@ tenacity==9.1.4
 prometheus_client==0.24.1
 prometheus-fastapi-instrumentator==6.1.0
 structlog==25.5.0
+posthog==5.4.0
 
 # ─── Utilities ─────────────────────────────────────────────────────────────────
 celery==5.6.2
