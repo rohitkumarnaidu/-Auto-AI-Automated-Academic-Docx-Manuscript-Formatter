@@ -20,15 +20,19 @@ class RedisCache:
             return
 
         try:
-            self.client = redis.Redis(
-                host=settings.REDIS_HOST or host,
-                port=int(settings.REDIS_PORT or port),
+            # Prefer REDIS_URL so managed providers (e.g., Upstash) work with TLS.
+            redis_url = settings.REDIS_URL or f"redis://{settings.REDIS_HOST or host}:{int(settings.REDIS_PORT or port)}"
+            self.client = redis.Redis.from_url(
+                redis_url,
                 db=db,
-                decode_responses=True
+                decode_responses=True,
+                socket_connect_timeout=1,
+                socket_timeout=1,
+                retry_on_timeout=False,
             )
-            # Test connection
+            # Test connection quickly; fail fast if unreachable.
             self.client.ping()
-            logger.info(f"Connected to Redis at {host}:{port}")
+            logger.info("Connected to Redis at %s", redis_url)
         except Exception as e:
             logger.info("Redis cache unavailable (%s). Caching disabled; pipeline continues normally.", e)
             self.client = None
