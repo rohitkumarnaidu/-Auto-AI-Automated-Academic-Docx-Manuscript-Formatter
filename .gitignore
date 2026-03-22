@@ -134,5 +134,6 @@ docs/audits/
 
 
 *.txt
+!requirements-render.txt
 backend/generated_outputs/
 backend/tests_outputs/

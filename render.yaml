@@ -3,8 +3,12 @@ services:
     name: scholarform-backend
     runtime: python
     rootDir: backend
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    buildCommand: pip install -r requirements-render.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --log-level info
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.2
+      - key: FORCE_HTTPS
+        value: "false"
+      - key: REDIS_ENABLED
+        value: "false"
