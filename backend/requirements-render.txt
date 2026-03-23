@@ -104,7 +104,6 @@ python-Levenshtein==0.27.1
 RapidFuzz==3.12.2
 cachetools==5.5.2
 backoff==2.2.1
-tenacity==9.0.0
 pybreaker==1.2.0
 psutil==7.0.0
 filelock==3.18.0
