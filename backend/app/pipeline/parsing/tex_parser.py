@@ -1,4 +1,4 @@
-"""
+r"""
 LaTeX Parser - Extract content from LaTeX (.tex) files.
 
 Parses LaTeX source to extract:
@@ -308,7 +308,7 @@ class TexParser(BaseParser):
         return blocks
     
     def _remove_comments(self, text: str) -> str:
-        """Remove LaTeX comments (starting with %) but keep escaped \%."""
+        r"""Remove LaTeX comments (starting with %) but keep escaped \%."""
         # Simple regex: match % that is NOT preceded by \
         return re.sub(r'(?<!\\)%.*', '', text)
 
