@@ -92,38 +92,37 @@ celery==5.6.2
 kombu==5.6.2
 spacy==3.8.11
 python-clamd
-anyio==4.12.1
+anyio==4.9.0
 orjson==3.11.7
 PyYAML==6.0.2
 toml==0.10.2
 click==8.2.0
-rich==14.0.0
-tqdm==4.67.1
-regex==2024.11.6
-python-Levenshtein==0.27.1
-RapidFuzz==3.12.2
-cachetools==5.5.2
+rich
+tqdm
+regex
+python-Levenshtein
+RapidFuzz
+cachetools
 backoff==2.2.1
-pybreaker==1.2.0
-psutil==7.0.0
-filelock==3.18.0
-packaging==24.2
+pybreaker
+psutil
+filelock
+packaging
 setuptools
-pytz==2025.1
-tzdata==2025.1
+pytz
+tzdata>=2025.2
 
 # ─── Keyword Extraction (CPU-only, safe on 512MB) ──────────────────────────────
-yake==0.4.8
+yake
 
 # ─── NLP / Text (CPU-only) ─────────────────────────────────────────────────────
-nltk==3.9.1
-semchunk==2.2.0
+nltk
+semchunk
 
 # ─── ML (CPU-only, needed for classification + scoring) ────────────────────────
-scikit-learn==1.6.1
-scipy==1.15.2
-joblib==1.4.2
-
+scikit-learn
+scipy
+joblib
 
 # ─── Stripe ────────────────────────────────────────────────────────────────────
 stripe==8.10.0
@@ -132,5 +131,4 @@ stripe==8.10.0
 citeproc-py==0.9.0
 
 # ─── Async ─────────────────────────────────────────────────────────────────────
-asyncio
 sniffio==1.3.1
