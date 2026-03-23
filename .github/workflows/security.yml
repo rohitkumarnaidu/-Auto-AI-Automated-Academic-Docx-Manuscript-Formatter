@@ -25,7 +25,7 @@ jobs:
         run: docker build -f backend/docker/Dockerfile -t scholarform-backend backend
 
       - name: Trivy scan
-        uses: aquasecurity/trivy-action@0.20.0
+        uses: aquasecurity/trivy-action@master
         with:
           image-ref: scholarform-backend
           severity: CRITICAL,HIGH
@@ -37,7 +37,7 @@ jobs:
           bandit -r backend/app -f json -o bandit-report.json
 
       - name: OWASP Dependency Check
-        uses: dependency-check/Dependency-Check_Action@v3.0.2
+        uses: dependency-check/Dependency-Check_Action@main
         with:
           project: "scholarform-backend"
           path: "backend"
