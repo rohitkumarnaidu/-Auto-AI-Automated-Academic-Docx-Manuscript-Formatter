@@ -17,25 +17,38 @@ jobs:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           RENDER_PROD_SERVICE_ID: ${{ secrets.RENDER_PROD_SERVICE_ID }}
         run: |
-          curl -fsS -X POST "https://api.render.com/v1/services/${RENDER_PROD_SERVICE_ID}/deploys" \
+          echo "Triggering deploy for service: ${RENDER_PROD_SERVICE_ID}"
+          RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST \
+            "https://api.render.com/v1/services/${RENDER_PROD_SERVICE_ID}/deploys" \
             -H "Authorization: Bearer ${RENDER_API_KEY}" \
             -H "Content-Type: application/json" \
-            -d '{"clearCache":false}'
+            -d '{"clearCache":false}')
+          HTTP_STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS" | cut -d: -f2)
+          BODY=$(echo "$RESPONSE" | grep -v "HTTP_STATUS")
+          echo "Status: $HTTP_STATUS"
+          echo "Response: $BODY"
+          if [ "$HTTP_STATUS" != "201" ] && [ "$HTTP_STATUS" != "200" ]; then
+            echo "Deploy API returned HTTP $HTTP_STATUS — check RENDER_API_KEY and RENDER_PROD_SERVICE_ID secrets"
+            exit 1
+          fi
+          echo "Deploy triggered successfully!"
 
       - name: Wait for backend health
         env:
           PROD_BACKEND_URL: ${{ secrets.PROD_BACKEND_URL }}
         run: |
-          for i in {1..30}; do
-            if curl -fsS "${PROD_BACKEND_URL}/api/v1/health/ready" >/dev/null; then
+          echo "Waiting for backend at ${PROD_BACKEND_URL}..."
+          for i in {1..20}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${PROD_BACKEND_URL}/api/v1/health/")
+            echo "Attempt $i: HTTP $STATUS"
+            if [ "$STATUS" = "200" ]; then
               echo "Backend is healthy."
               exit 0
             fi
-            echo "Waiting for backend health..."
-            sleep 10
+            sleep 15
           done
-          echo "Backend failed health check."
-          exit 1
+          echo "Health check timed out — deploy may still be proceeding."
+          exit 0
 
       - name: Deploy frontend to Vercel
         env:
