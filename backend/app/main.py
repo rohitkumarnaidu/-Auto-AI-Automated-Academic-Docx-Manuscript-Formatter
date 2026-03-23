@@ -37,6 +37,29 @@ os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 # Basic logger for this module (terminal output preserved)
 logger = logging.getLogger(__name__)
 
+# --- Sentry Error Tracking ---
+import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.starlette import StarletteIntegration
+from sentry_sdk.integrations.logging import LoggingIntegration
+_sentry_dsn = os.getenv("SENTRY_DSN")
+if _sentry_dsn:
+    sentry_sdk.init(
+        dsn=_sentry_dsn,
+        integrations=[
+            StarletteIntegration(transaction_style="endpoint"),
+            FastApiIntegration(transaction_style="endpoint"),
+            LoggingIntegration(level=logging.INFO, event_level=logging.ERROR),
+        ],
+        traces_sample_rate=0.1,
+        environment=os.getenv("ENVIRONMENT", "production"),
+        release=os.getenv("APP_VERSION", "1.0.0"),
+        send_default_pii=False,
+    )
+    logger.info("Sentry initialized")
+# --------------------------------------------------------
+
+
 from app.pipeline.safety import safe_execution
 from app.services.enhancement_manager import enhancement_manager
 from app.services.audit_log_service import audit_log_service
