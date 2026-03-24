@@ -1,8 +1,24 @@
-import torch
 import logging
 import re
-from typing import List, Dict, Any
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, logging as transformers_logging
+from typing import Any, Dict, List
+
+try:
+    import torch
+except ImportError:
+    torch = None
+
+try:
+    from transformers import AutoTokenizer, AutoModelForSequenceClassification, logging as transformers_logging
+except ImportError:
+    AutoTokenizer = None
+    AutoModelForSequenceClassification = None
+
+    class _TransformersLoggingNoop:
+        @staticmethod
+        def set_verbosity_error() -> None:
+            return
+
+    transformers_logging = _TransformersLoggingNoop()
 from app.config.settings import settings
 from app.models import PipelineDocument as Document, Block, BlockType
 from app.pipeline.safety import safe_function
@@ -55,6 +71,15 @@ class SemanticParser:
             self.model = None
             self._is_loaded = True
             return
+
+        if AutoTokenizer is None or AutoModel is None or torch is None:
+            logger.warning(
+                "SemanticParser: torch/transformers not available; using heuristic-only mode."
+            )
+            self.tokenizer = None
+            self.model = None
+            self._is_loaded = True
+            return
             
         from app.services.model_store import model_store
         
@@ -77,6 +102,7 @@ class SemanticParser:
             logger.info("SemanticParser: Model loaded successfully.")
         except Exception as e:
             logger.warning("Failed to load transformer %s: %s", self.model_name, e)
+            self.tokenizer = None
             self.model = None
             self._is_loaded = True
 
@@ -161,7 +187,7 @@ class SemanticParser:
     def _predict_block_type(self, text: str) -> Dict[str, Any]:
         """Perform semantic classification on block text."""
         # Ensure model is checked correctly
-        if not self.model:
+        if not self.model or not self.tokenizer or torch is None:
             return {"type": "UNKNOWN", "confidence": 0.0}
             
         # Actual Transformer Inference
@@ -186,7 +212,7 @@ class SemanticParser:
 
     def _predict_block_types_batch(self, texts: List[str]) -> List[Dict[str, Any]]:
         """Batch semantic classification for a list of block texts."""
-        if not self.model or not self.tokenizer:
+        if not self.model or not self.tokenizer or torch is None:
             return [self._heuristic_classify(text) for text in texts]
 
         if not texts:
@@ -291,10 +317,6 @@ class SemanticParser:
             repaired.append(current)
             i += 1
         return repaired
-
-# Silence transformers logging globally for SentenceTransformers
-from transformers import logging as transformers_logging
-transformers_logging.set_verbosity_error()
 
 # Singleton Access
 _semantic_parser = None
