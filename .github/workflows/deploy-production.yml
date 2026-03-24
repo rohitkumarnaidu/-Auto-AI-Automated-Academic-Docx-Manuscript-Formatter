@@ -10,25 +10,37 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Validate deploy secrets
         id: preflight
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           RENDER_PROD_SERVICE_ID: ${{ secrets.RENDER_PROD_SERVICE_ID }}
+          RENDER_PROD_DEPLOY_HOOK_URL: ${{ secrets.RENDER_PROD_DEPLOY_HOOK_URL }}
           PROD_BACKEND_URL: ${{ secrets.PROD_BACKEND_URL }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROD_PROJECT_ID: ${{ secrets.VERCEL_PROD_PROJECT_ID }}
         run: |
           missing=()
-          [ -z "${RENDER_API_KEY}" ] && missing+=("RENDER_API_KEY")
-          [ -z "${RENDER_PROD_SERVICE_ID}" ] && missing+=("RENDER_PROD_SERVICE_ID")
           [ -z "${PROD_BACKEND_URL}" ] && missing+=("PROD_BACKEND_URL")
           [ -z "${VERCEL_TOKEN}" ] && missing+=("VERCEL_TOKEN")
           [ -z "${VERCEL_ORG_ID}" ] && missing+=("VERCEL_ORG_ID")
           [ -z "${VERCEL_PROD_PROJECT_ID}" ] && missing+=("VERCEL_PROD_PROJECT_ID")
+
+          deploy_mode=""
+          if [ -n "${RENDER_PROD_DEPLOY_HOOK_URL}" ]; then
+            deploy_mode="hook"
+          elif [ -n "${RENDER_API_KEY}" ] && [ -n "${RENDER_PROD_SERVICE_ID}" ]; then
+            if [[ "${RENDER_PROD_SERVICE_ID}" =~ ^srv- ]]; then
+              deploy_mode="api"
+            else
+              missing+=("RENDER_PROD_SERVICE_ID (must start with srv-)")
+            fi
+          else
+            missing+=("RENDER_PROD_DEPLOY_HOOK_URL or (RENDER_API_KEY + RENDER_PROD_SERVICE_ID)")
+          fi
 
           if [ ${#missing[@]} -gt 0 ]; then
             echo "ready=false" >> "$GITHUB_OUTPUT"
@@ -36,10 +48,25 @@ jobs:
             echo "::warning::Skipping production deploy. Missing secrets: ${missing[*]}"
           else
             echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "deploy_mode=${deploy_mode}" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Deploy backend to Render (Deploy Hook)
+        if: steps.preflight.outputs.ready == 'true' && steps.preflight.outputs.deploy_mode == 'hook'
+        env:
+          RENDER_PROD_DEPLOY_HOOK_URL: ${{ secrets.RENDER_PROD_DEPLOY_HOOK_URL }}
+        run: |
+          echo "Triggering backend deploy via Render deploy hook..."
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${RENDER_PROD_DEPLOY_HOOK_URL}")
+          echo "Status: $HTTP_STATUS"
+          if [[ "$HTTP_STATUS" != 2* ]]; then
+            echo "Deploy hook returned HTTP $HTTP_STATUS. Check RENDER_PROD_DEPLOY_HOOK_URL."
+            exit 1
+          fi
+          echo "Deploy hook triggered successfully."
+
       - name: Deploy backend to Render
-        if: steps.preflight.outputs.ready == 'true'
+        if: steps.preflight.outputs.ready == 'true' && steps.preflight.outputs.deploy_mode == 'api'
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           RENDER_PROD_SERVICE_ID: ${{ secrets.RENDER_PROD_SERVICE_ID }}

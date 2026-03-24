@@ -17,7 +17,7 @@ jobs:
         working-directory: frontend
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Validate E2E secrets
         id: preflight
@@ -33,7 +33,7 @@ jobs:
 
       - name: Set up Node
         if: steps.preflight.outputs.ready == 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "20"
 
