@@ -42,6 +42,29 @@ import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.starlette import StarletteIntegration
 from sentry_sdk.integrations.logging import LoggingIntegration
+
+
+def _sentry_before_send(event, hint):
+    exc_info = (hint or {}).get("exc_info")
+    if exc_info:
+        exc_type, exc_value, _traceback = exc_info
+        if isinstance(exc_value, (asyncio.CancelledError, KeyboardInterrupt)):
+            return None
+        if exc_type:
+            try:
+                if issubclass(exc_type, (asyncio.CancelledError, KeyboardInterrupt)):
+                    return None
+            except TypeError:
+                pass
+
+    exception_values = event.get("exception", {}).get("values", [])
+    for value in exception_values:
+        exc_type_name = str(value.get("type") or "").lower()
+        if exc_type_name in {"cancellederror", "keyboardinterrupt"}:
+            return None
+
+    return event
+
 _sentry_dsn = os.getenv("SENTRY_DSN")
 if _sentry_dsn:
     sentry_sdk.init(
@@ -55,6 +78,7 @@ if _sentry_dsn:
         environment=os.getenv("ENVIRONMENT", "production"),
         release=os.getenv("APP_VERSION", "1.0.0"),
         send_default_pii=False,
+        before_send=_sentry_before_send,
     )
     logger.info("Sentry initialized")
 # --------------------------------------------------------

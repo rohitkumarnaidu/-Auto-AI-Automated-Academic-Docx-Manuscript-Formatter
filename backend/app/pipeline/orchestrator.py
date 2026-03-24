@@ -5,6 +5,7 @@ Pipeline Orchestrator - Coordinates all processing stages.
 import os
 import asyncio
 import hashlib
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any
@@ -113,6 +114,41 @@ class PipelineOrchestrator:
             return
 
         try:
+            def _is_transient_db_error(exc: Exception) -> bool:
+                text = str(exc).lower()
+                return (
+                    "remoteprotocolerror" in text
+                    or "server disconnected" in text
+                    or "timeout" in text
+                    or "connection reset" in text
+                    or "connection aborted" in text
+                )
+
+            def _run_with_retry(operation_name: str, callback):
+                nonlocal sb
+                attempts = 3
+                for attempt in range(1, attempts + 1):
+                    try:
+                        return callback()
+                    except Exception as exc:
+                        is_retryable = _is_transient_db_error(exc) and attempt < attempts
+                        if not is_retryable:
+                            raise
+                        sleep_for = 0.15 * (2 ** (attempt - 1))
+                        logger.warning(
+                            "Transient Supabase error during %s for job %s (attempt %s/%s): %s; retrying in %.2fs",
+                            operation_name,
+                            document_id,
+                            attempt,
+                            attempts,
+                            exc,
+                            sleep_for,
+                        )
+                        refreshed = get_supabase_client(refresh=True)
+                        if refreshed:
+                            sb = refreshed
+                        time.sleep(sleep_for)
+
             # Phase 5: Redis Pub/Sub for SSE
             from app.routers.stream import emit_event
             # 1. Update/Upsert ProcessingStatus
@@ -127,12 +163,27 @@ class PipelineOrchestrator:
             }
             
             # Check if record exists
-            existing = sb.table("processing_status").select("id").match({"document_id": document_id, "phase": phase}).execute()
+            existing = _run_with_retry(
+                "processing_status.select",
+                lambda: sb.table("processing_status")
+                .select("id")
+                .match({"document_id": document_id, "phase": phase})
+                .execute(),
+            )
             
             if existing.data:
-                sb.table("processing_status").update(data).match({"document_id": document_id, "phase": phase}).execute()
+                _run_with_retry(
+                    "processing_status.update",
+                    lambda: sb.table("processing_status")
+                    .update(data)
+                    .match({"document_id": document_id, "phase": phase})
+                    .execute(),
+                )
             else:
-                sb.table("processing_status").insert(data).execute()
+                _run_with_retry(
+                    "processing_status.insert",
+                    lambda: sb.table("processing_status").insert(data).execute(),
+                )
 
             # 2. Update Parent Document
             doc_data = {
@@ -154,7 +205,10 @@ class PipelineOrchestrator:
             if progress is not None:
                 doc_data["progress"] = progress
             
-            sb.table("documents").update(doc_data).eq("id", document_id).execute()
+            _run_with_retry(
+                "documents.update",
+                lambda: sb.table("documents").update(doc_data).eq("id", document_id).execute(),
+            )
 
             # 3. Emit SSE Event for Real-time Feedback
             emit_event(document_id, "status_update", {

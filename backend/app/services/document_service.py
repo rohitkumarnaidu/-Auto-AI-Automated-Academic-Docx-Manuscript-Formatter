@@ -40,6 +40,62 @@ class DocumentService:
     _file_hash_warning_logged: bool = False
     _supports_output_hash: Optional[bool] = None
     _output_hash_warning_logged: bool = False
+    _TRANSIENT_ERROR_MARKERS = (
+        "remoteprotocolerror",
+        "server disconnected",
+        "connection reset",
+        "connection aborted",
+        "connection refused",
+        "read timed out",
+        "connect timeout",
+        "timed out",
+        "temporarily unavailable",
+        "network is unreachable",
+    )
+
+    @staticmethod
+    def _is_transient_supabase_error(exc: Exception) -> bool:
+        exc_name = type(exc).__name__.lower()
+        if exc_name in {"remoteprotocolerror", "connecterror", "readtimeout", "writetimeout"}:
+            return True
+
+        message = str(exc).lower()
+        return any(marker in message for marker in DocumentService._TRANSIENT_ERROR_MARKERS)
+
+    @staticmethod
+    def _execute_with_transient_retry(
+        operation_name: str,
+        operation,
+        *,
+        job_id: Optional[str] = None,
+        max_attempts: int = 3,
+    ):
+        attempt = 0
+        while True:
+            try:
+                return operation()
+            except Exception as exc:
+                attempt += 1
+                should_retry = (
+                    DocumentService._is_transient_supabase_error(exc)
+                    and attempt < max_attempts
+                )
+                if not should_retry:
+                    raise
+
+                delay_seconds = 0.15 * (2 ** (attempt - 1))
+                logger.warning(
+                    "%s transient Supabase error (attempt %s/%s): %s; retrying in %.2fs",
+                    operation_name,
+                    attempt,
+                    max_attempts,
+                    exc,
+                    delay_seconds,
+                    extra=log_extra(job_id=job_id),
+                )
+                # Refresh singleton client in case underlying HTTP pool/socket is stale.
+                get_supabase_client(refresh=True)
+                time.sleep(delay_seconds)
 
     @staticmethod
     def generate_signed_download_url(
@@ -103,10 +159,20 @@ class DocumentService:
             logger.error("get_document: Supabase client not available.", extra=log_extra(job_id=doc_id))
             return None
         try:
-            query = sb.table("documents").select("*").eq("id", str(doc_id))
-            if user_id:
-                query = query.eq("user_id", str(user_id))
-            result = query.maybe_single().execute()
+            def run_query():
+                client = get_supabase_client()
+                if client is None:
+                    raise RuntimeError("Supabase client not available.")
+                query = client.table("documents").select("*").eq("id", str(doc_id))
+                if user_id:
+                    query = query.eq("user_id", str(user_id))
+                return query.maybe_single().execute()
+
+            result = DocumentService._execute_with_transient_retry(
+                "get_document",
+                run_query,
+                job_id=doc_id,
+            )
             return result.data
         except Exception as exc:
             logger.error("get_document(%s) failed: %s", doc_id, exc, extra=log_extra(job_id=doc_id))
@@ -452,12 +518,22 @@ class DocumentService:
         if sb is None:
             return None
         try:
-            result = (
-                sb.table("document_results")
-                .select("*")
-                .eq("document_id", str(doc_id))
-                .maybe_single()
-                .execute()
+            def run_query():
+                client = get_supabase_client()
+                if client is None:
+                    raise RuntimeError("Supabase client not available.")
+                return (
+                    client.table("document_results")
+                    .select("*")
+                    .eq("document_id", str(doc_id))
+                    .maybe_single()
+                    .execute()
+                )
+
+            result = DocumentService._execute_with_transient_retry(
+                "get_document_result",
+                run_query,
+                job_id=doc_id,
             )
             if result is None:
                 return None
@@ -508,11 +584,21 @@ class DocumentService:
         if sb is None:
             return []
         try:
-            result = (
-                sb.table("processing_status")
-                .select("*")
-                .eq("document_id", str(doc_id))
-                .execute()
+            def run_query():
+                client = get_supabase_client()
+                if client is None:
+                    raise RuntimeError("Supabase client not available.")
+                return (
+                    client.table("processing_status")
+                    .select("*")
+                    .eq("document_id", str(doc_id))
+                    .execute()
+                )
+
+            result = DocumentService._execute_with_transient_retry(
+                "get_processing_statuses",
+                run_query,
+                job_id=doc_id,
             )
             return result.data or []
         except Exception as exc:
