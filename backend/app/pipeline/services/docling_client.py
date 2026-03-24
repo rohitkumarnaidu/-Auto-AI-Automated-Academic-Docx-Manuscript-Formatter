@@ -55,10 +55,12 @@ def _docling_enabled() -> bool:
     return True
 
 
+# Backward-compatible availability flag used by tests and external callers.
+DOCLING_AVAILABLE = _docling_enabled() and importlib.util.find_spec("docling") is not None
+
+
 def _load_docling_converter():
-    if not _docling_enabled():
-        return None
-    if importlib.util.find_spec("docling") is None:
+    if not DOCLING_AVAILABLE:
         return None
     try:
         import os
@@ -210,8 +212,8 @@ class DoclingClient:
                 with _suppress_docling_warnings():
                     doc_converter = self.converter
                     if doc_converter is None:
-                        doc_converter = DocumentConverter()
-                        self.converter = doc_converter
+                        logger.warning("Docling converter is unavailable during layout analysis.")
+                        return self._empty_layout()
                     doc = doc_converter.convert(file_path).document
             
             except Exception as e:
