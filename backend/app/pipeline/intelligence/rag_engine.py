@@ -10,6 +10,7 @@ import os
 import json
 import logging
 import hashlib
+import time
 import numpy as np
 import requests
 from typing import List, Dict, Any, Optional
@@ -112,17 +113,47 @@ class _HuggingFaceAPIEmbeddingModel:
 
     def __init__(self, model_id: str = "sentence-transformers/all-MiniLM-L6-v2"):
         self.model_id = model_id
-        
-        # Pull URL directly from env if provided, otherwise build default
-        custom_url = os.getenv("RAG_EMBEDDING_API_URL")
-        self.api_url = custom_url if custom_url else f"https://router.huggingface.co/hf-inference/models/{model_id}"
+
+        # Pull URL directly from env if provided; normalize to feature-extraction endpoint.
+        custom_url = os.getenv("RAG_EMBEDDING_API_URL", "").strip()
+        self.api_url = self._normalize_embedding_api_url(custom_url, model_id)
         
         self.token = os.getenv("HF_TOKEN")
+        self.timeout_seconds = float(os.getenv("RAG_HF_TIMEOUT_SECONDS", "30"))
+        self.max_retries = max(1, int(os.getenv("RAG_HF_MAX_RETRIES", "3")))
+        self.retry_backoff_seconds = max(
+            0.0, float(os.getenv("RAG_HF_RETRY_BACKOFF_SECONDS", "1.0"))
+        )
         
         # We need to know the dimension. all-MiniLM-L6-v2 is 384
         self.dimension = 384
         if "bge-m3" in model_id.lower():
             self.dimension = 1024
+
+    @staticmethod
+    def _default_feature_extraction_url(model_id: str) -> str:
+        return (
+            f"https://router.huggingface.co/hf-inference/models/{model_id}"
+            "/pipeline/feature-extraction"
+        )
+
+    @classmethod
+    def _normalize_embedding_api_url(cls, api_url: str, model_id: str) -> str:
+        if not api_url:
+            return cls._default_feature_extraction_url(model_id)
+
+        normalized = api_url.rstrip("/")
+        if (
+            "router.huggingface.co/hf-inference/models/" in normalized
+            and "/pipeline/" not in normalized
+        ):
+            fixed = normalized + "/pipeline/feature-extraction"
+            logger.warning(
+                "RagEngine: RAG_EMBEDDING_API_URL missing pipeline path; using '%s'.",
+                fixed,
+            )
+            return fixed
+        return normalized
 
     def get_sentence_embedding_dimension(self) -> int:
         return self.dimension
@@ -138,19 +169,62 @@ class _HuggingFaceAPIEmbeddingModel:
         is_single = isinstance(texts, str)
         payload = {"inputs": [texts] if is_single else texts}
 
-        try:
-            response = requests.post(self.api_url, headers=headers, json=payload, timeout=10)
-            if response.status_code != 200:
-                logger.error(f"RagEngine: HF API error {response.status_code}: {response.text}")
+        last_error: Optional[str] = None
+        request_url = self.api_url
+        for attempt in range(1, self.max_retries + 1):
+            try:
+                response = requests.post(
+                    request_url,
+                    headers=headers,
+                    json=payload,
+                    timeout=self.timeout_seconds,
+                )
+                if response.status_code != 200:
+                    last_error = f"HTTP {response.status_code}: {response.text}"
+
+                    # Recover automatically when a root model endpoint resolves to sentence-similarity.
+                    if (
+                        response.status_code == 400
+                        and "SentenceSimilarityPipeline" in response.text
+                        and "/pipeline/feature-extraction" not in request_url
+                        and "router.huggingface.co/hf-inference/models/" in request_url
+                    ):
+                        request_url = request_url + "/pipeline/feature-extraction"
+                        self.api_url = request_url
+                        logger.warning(
+                            "RagEngine: HF endpoint expected sentence-similarity payload. "
+                            "Switching to feature-extraction endpoint '%s'.",
+                            request_url,
+                        )
+                        continue
+
+                    logger.error("RagEngine: HF API error %s", last_error)
+                    if 500 <= response.status_code < 600 and attempt < self.max_retries:
+                        time.sleep(self.retry_backoff_seconds * attempt)
+                        continue
+                    return []
+
+                embeddings = response.json()
+                if is_single and len(embeddings) > 0:
+                    return embeddings[0]
+                return embeddings
+            except Exception as e:
+                last_error = str(e)
+                if attempt < self.max_retries:
+                    logger.warning(
+                        "RagEngine: HF API request failed (attempt %d/%d): %s",
+                        attempt,
+                        self.max_retries,
+                        e,
+                    )
+                    time.sleep(self.retry_backoff_seconds * attempt)
+                    continue
+                logger.error("RagEngine: HF API request failed: %s", e)
                 return []
-                
-            embeddings = response.json()
-            if is_single and len(embeddings) > 0:
-                return embeddings[0]
-            return embeddings
-        except Exception as e:
-            logger.error(f"RagEngine: HF API request failed: {e}")
-            return []
+
+        if last_error:
+            logger.error("RagEngine: HF API request failed after retries: %s", last_error)
+        return []
 
 
 class RagEngine:
