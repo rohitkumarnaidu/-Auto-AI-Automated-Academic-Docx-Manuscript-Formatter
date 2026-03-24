@@ -2,10 +2,18 @@
 Deep learning integration using transformers for pattern detection.
 """
 import logging
-import torch
 import numpy as np
 from typing import List, Dict, Any, Optional, Tuple
-from transformers import AutoTokenizer, AutoModel
+try:
+    import torch
+except ImportError:
+    torch = None
+
+try:
+    from transformers import AutoTokenizer, AutoModel
+except ImportError:
+    AutoTokenizer = None
+    AutoModel = None
 from sklearn.cluster import KMeans
 import json
 from app.pipeline.safety import safe_function
@@ -38,16 +46,28 @@ class TransformerPatternDetector:
         """
         self.device = device
         self.model_name = model_name
+        self.tokenizer = None
+        self.model = None
         
-        try:
-            logger.info(f"Loading transformer model: {model_name}")
-            self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-            self.model = AutoModel.from_pretrained(model_name).to(device)
-            self.model.eval()
-            logger.info("Transformer model loaded successfully")
-        except Exception as e:
-            logger.error(f"Failed to load transformer model: {e}")
-            raise
+        if torch is None or AutoTokenizer is None or AutoModel is None:
+            logger.warning(
+                "TransformerPatternDetector: torch/transformers unavailable; running in fallback mode."
+            )
+        else:
+            try:
+                logger.info(f"Loading transformer model: {model_name}")
+                self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+                self.model = AutoModel.from_pretrained(model_name).to(device)
+                self.model.eval()
+                logger.info("Transformer model loaded successfully")
+            except Exception as e:
+                logger.warning(
+                    "Failed to load transformer model %s: %s. Falling back to zero embeddings.",
+                    model_name,
+                    e,
+                )
+                self.tokenizer = None
+                self.model = None
         
         self.embeddings_cache = {}
         self.clusters = None
@@ -72,6 +92,9 @@ class TransformerPatternDetector:
         # Check cache
         if text in self.embeddings_cache:
             return self.embeddings_cache[text]
+
+        if self.tokenizer is None or self.model is None or torch is None:
+            return np.zeros(768)
         
         try:
             # Tokenize

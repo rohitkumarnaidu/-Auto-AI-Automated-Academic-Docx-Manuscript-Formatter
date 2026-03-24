@@ -28,9 +28,10 @@ class TestMetadataExtractionTool:
         }
         mock_grobid_class.return_value = mock_client
         
-        # Create and run tool
-        tool = MetadataExtractionTool()
-        result = tool._run("test.pdf")
+        # Create and run tool (bypass cache for deterministic behavior)
+        with patch("app.cache.redis_cache.redis_cache.get_grobid_result", return_value=None):
+            tool = MetadataExtractionTool()
+            result = tool._run("test.pdf")
         
         # Verify
         assert "success" in result
@@ -45,8 +46,10 @@ class TestMetadataExtractionTool:
         mock_client.is_available.return_value = False
         mock_grobid_class.return_value = mock_client
         
-        tool = MetadataExtractionTool()
-        result = tool._run("test.pdf")
+        with patch("app.cache.redis_cache.redis_cache.get_grobid_result", return_value=None):
+            tool = MetadataExtractionTool()
+            # Use a unique path to avoid cache hits from the success test.
+            result = tool._run("service_unavailable_test.pdf")
         
         assert "ERROR" in result
         assert "not available" in result

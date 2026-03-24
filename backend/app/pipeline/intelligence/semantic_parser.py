@@ -72,9 +72,9 @@ class SemanticParser:
             self._is_loaded = True
             return
 
-        if AutoTokenizer is None or AutoModel is None or torch is None:
+        if AutoTokenizer is None or AutoModel is None:
             logger.warning(
-                "SemanticParser: torch/transformers not available; using heuristic-only mode."
+                "SemanticParser: transformers not available; using heuristic-only mode."
             )
             self.tokenizer = None
             self.model = None
