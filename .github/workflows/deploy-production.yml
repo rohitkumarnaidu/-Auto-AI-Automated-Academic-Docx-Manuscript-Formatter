@@ -12,7 +12,34 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Validate deploy secrets
+        id: preflight
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_PROD_SERVICE_ID: ${{ secrets.RENDER_PROD_SERVICE_ID }}
+          PROD_BACKEND_URL: ${{ secrets.PROD_BACKEND_URL }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROD_PROJECT_ID: ${{ secrets.VERCEL_PROD_PROJECT_ID }}
+        run: |
+          missing=()
+          [ -z "${RENDER_API_KEY}" ] && missing+=("RENDER_API_KEY")
+          [ -z "${RENDER_PROD_SERVICE_ID}" ] && missing+=("RENDER_PROD_SERVICE_ID")
+          [ -z "${PROD_BACKEND_URL}" ] && missing+=("PROD_BACKEND_URL")
+          [ -z "${VERCEL_TOKEN}" ] && missing+=("VERCEL_TOKEN")
+          [ -z "${VERCEL_ORG_ID}" ] && missing+=("VERCEL_ORG_ID")
+          [ -z "${VERCEL_PROD_PROJECT_ID}" ] && missing+=("VERCEL_PROD_PROJECT_ID")
+
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "missing=${missing[*]}" >> "$GITHUB_OUTPUT"
+            echo "::warning::Skipping production deploy. Missing secrets: ${missing[*]}"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Deploy backend to Render
+        if: steps.preflight.outputs.ready == 'true'
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           RENDER_PROD_SERVICE_ID: ${{ secrets.RENDER_PROD_SERVICE_ID }}
@@ -28,12 +55,13 @@ jobs:
           echo "Status: $HTTP_STATUS"
           echo "Response: $BODY"
           if [ "$HTTP_STATUS" != "201" ] && [ "$HTTP_STATUS" != "200" ]; then
-            echo "Deploy API returned HTTP $HTTP_STATUS — check RENDER_API_KEY and RENDER_PROD_SERVICE_ID secrets"
+            echo "Deploy API returned HTTP $HTTP_STATUS. Check RENDER_API_KEY and RENDER_PROD_SERVICE_ID secrets."
             exit 1
           fi
-          echo "Deploy triggered successfully!"
+          echo "Deploy triggered successfully."
 
       - name: Wait for backend health
+        if: steps.preflight.outputs.ready == 'true'
         env:
           PROD_BACKEND_URL: ${{ secrets.PROD_BACKEND_URL }}
         run: |
@@ -47,10 +75,11 @@ jobs:
             fi
             sleep 15
           done
-          echo "Health check timed out — deploy may still be proceeding."
+          echo "Health check timed out; deploy may still be proceeding."
           exit 0
 
       - name: Deploy frontend to Vercel
+        if: steps.preflight.outputs.ready == 'true'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -60,3 +89,9 @@ jobs:
           npm i -g vercel
           VERCEL_ORG_ID=${VERCEL_ORG_ID} VERCEL_PROJECT_ID=${VERCEL_PROD_PROJECT_ID} \
             vercel deploy --prod --yes --token ${VERCEL_TOKEN}
+
+      - name: Deployment skipped
+        if: steps.preflight.outputs.ready != 'true'
+        run: |
+          echo "Production deploy skipped because required secrets are not configured."
+          echo "Missing: ${{ steps.preflight.outputs.missing }}"
