@@ -2,10 +2,10 @@
 
 <cite>
 **Referenced Files in This Document**
+- [main.py](file://backend/app/main.py)
 - [prometheus_metrics.py](file://backend/app/middleware/prometheus_metrics.py)
 - [monitoring.py](file://backend/app/middleware/monitoring.py)
 - [metrics.py](file://backend/app/routers/metrics.py)
-- [main.py](file://backend/app/main.py)
 - [settings.py](file://backend/app/config/settings.py)
 - [health_checks.py](file://backend/app/services/health_checks.py)
 - [model_metrics.py](file://backend/app/services/model_metrics.py)
@@ -15,7 +15,17 @@
 - [prometheus.yml](file://backend/docker/prometheus/prometheus.yml)
 - [prometheus.yml](file://backend/ops/prometheus/prometheus.yml)
 - [docker-compose.yml](file://backend/docker/docker-compose.yml)
+- [sentry.client.config.js](file://frontend/sentry.client.config.js)
+- [sentry.server.config.js](file://frontend/sentry.server.config.js)
+- [sentry.edge.config.js](file://frontend/sentry.edge.config.js)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Enhanced Sentry error filtering section to document the new `_sentry_before_send` function
+- Added detailed explanation of cancellation event filtering for improved error reporting accuracy
+- Updated error handling and monitoring integration sections
+- Expanded troubleshooting guide with Sentry-specific guidance
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -30,14 +40,15 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document describes the monitoring and metrics system for the Automated Academic Docx Manuscript Formatter. It covers Prometheus instrumentation, custom metrics collection, Grafana dashboards, health and readiness checks, alerting strategies, log aggregation, and distributed tracing integration. It also provides guidance on metric retention, capacity planning, and production best practices.
+This document describes the monitoring and metrics system for the Automated Academic Docx Manuscript Formatter. It covers Prometheus instrumentation, custom metrics collection, Grafana dashboards, health and readiness checks, alerting strategies, log aggregation, distributed tracing integration, and enhanced error filtering with Sentry. It also provides guidance on metric retention, capacity planning, and production best practices.
 
 ## Project Structure
 The monitoring stack integrates:
-- Prometheus scraping of the FastAPI application’s /metrics endpoint
+- Prometheus scraping of the FastAPI application's /metrics endpoint
 - Grafana dashboards for pipeline, LLM, and business KPIs
 - Health and readiness endpoints for platform observability
 - Custom metrics for pipeline performance, queue depths, processing times, and error rates
+- Enhanced Sentry error filtering that removes cancellation events and keyboard interrupts
 - Optional persistence of model metrics to Supabase
 
 ```mermaid
@@ -48,10 +59,12 @@ B["Monitoring Middleware<br/>request logs, timing"]
 C["Prometheus Metrics Middleware<br/>custom metrics"]
 D["Health/Readiness Services"]
 E["Model Metrics Persistence"]
+F["Sentry Error Filtering<br/>_sentry_before_send"]
 end
 subgraph "Observability"
 P["Prometheus Scrape Config"]
 G["Grafana Dashboards"]
+S["Sentry Error Tracking"]
 end
 subgraph "External Systems"
 R["Redis/Celery Broker"]
@@ -61,8 +74,10 @@ A --> B
 A --> C
 A --> D
 A --> E
+A --> F
 C --> P
 P --> G
+F --> S
 A --> R
 A --> L
 ```
@@ -73,6 +88,7 @@ A --> L
 - [monitoring.py:13-51](file://backend/app/middleware/monitoring.py#L13-L51)
 - [health_checks.py:85-127](file://backend/app/services/health_checks.py#L85-L127)
 - [model_metrics.py:101-137](file://backend/app/services/model_metrics.py#L101-L137)
+- [main.py:47-66](file://backend/app/main.py#L47-L66)
 - [prometheus.yml:5-16](file://backend/docker/prometheus/prometheus.yml#L5-L16)
 - [scholarform-overview.json:1-239](file://backend/ops/grafana/dashboards/scholarform-overview.json#L1-L239)
 
@@ -82,6 +98,7 @@ A --> L
 - [monitoring.py:13-51](file://backend/app/middleware/monitoring.py#L13-L51)
 - [health_checks.py:85-127](file://backend/app/services/health_checks.py#L85-L127)
 - [model_metrics.py:101-137](file://backend/app/services/model_metrics.py#L101-L137)
+- [main.py:47-66](file://backend/app/main.py#L47-L66)
 - [prometheus.yml:5-16](file://backend/docker/prometheus/prometheus.yml#L5-L16)
 - [scholarform-overview.json:1-239](file://backend/ops/grafana/dashboards/scholarform-overview.json#L1-L239)
 
@@ -91,6 +108,10 @@ A --> L
   - Agent tool usage, LLM token consumption, TTFT, cache hits/misses, failures
   - Queue depths (Celery), real-time connections (SSE/WebSocket)
   - Active users and ClamAV scan durations
+- Enhanced Sentry error filtering:
+  - Automatic filtering of asyncio.CancelledError and KeyboardInterrupt exceptions
+  - Prevention of noise in monitoring system from intentional cancellations
+  - Improved accuracy of error reporting for genuine issues
 - Metrics exposure:
   - FastAPI instrumentation exposes /metrics
   - Dedicated metrics router endpoints for DB health, dashboard summary, and enhancements
@@ -114,9 +135,10 @@ A --> L
 - [metrics.py:48-260](file://backend/app/pipeline/agents/metrics.py#L48-L260)
 - [pipeline.json:1-448](file://backend/docker/grafana/dashboards/pipeline.json#L1-L448)
 - [scholarform-overview.json:1-239](file://backend/ops/grafana/dashboards/scholarform-overview.json#L1-L239)
+- [main.py:47-66](file://backend/app/main.py#L47-L66)
 
 ## Architecture Overview
-The monitoring architecture integrates Prometheus scraping, custom metrics recording, and Grafana visualization. Health and readiness endpoints provide operational signals. Optional Supabase persistence captures model performance for long-term analysis.
+The monitoring architecture integrates Prometheus scraping, custom metrics recording, and Grafana visualization. Enhanced Sentry error filtering prevents cancellation events from cluttering error reports. Health and readiness endpoints provide operational signals. Optional Supabase persistence captures model performance for long-term analysis.
 
 ```mermaid
 sequenceDiagram
@@ -124,12 +146,15 @@ participant Client as "Client"
 participant App as "FastAPI App"
 participant PromMW as "Prometheus Metrics Middleware"
 participant Inst as "FastAPI Instrumentator"
+participant Sentry as "Sentry Error Filter"
 participant Prom as "Prometheus"
 participant Graf as "Grafana"
 Client->>App : HTTP request
 App->>PromMW : Dispatch request
 PromMW-->>App : Continue chain
 App->>Inst : Instrument route metrics
+App->>Sentry : Process exceptions
+Sentry-->>App : Filter cancellation events
 App-->>Client : Response
 App->>Prom : Expose /metrics
 Prom->>Prom : Scrape targets
@@ -140,6 +165,7 @@ Graf-->>Client : Render panels
 **Diagram sources**
 - [main.py:273-274](file://backend/app/main.py#L273-L274)
 - [prometheus_metrics.py:135-142](file://backend/app/middleware/prometheus_metrics.py#L135-L142)
+- [main.py:47-66](file://backend/app/main.py#L47-L66)
 - [prometheus.yml:5-16](file://backend/docker/prometheus/prometheus.yml#L5-L16)
 - [scholarform-overview.json:1-239](file://backend/ops/grafana/dashboards/scholarform-overview.json#L1-L239)
 
@@ -181,6 +207,30 @@ class MetricsManager {
 **Section sources**
 - [prometheus_metrics.py:15-131](file://backend/app/middleware/prometheus_metrics.py#L15-L131)
 - [prometheus_metrics.py:144-235](file://backend/app/middleware/prometheus_metrics.py#L144-L235)
+
+### Enhanced Sentry Error Filtering
+The backend now includes sophisticated error filtering that prevents cancellation events and keyboard interrupts from appearing in Sentry error reports. This improves the accuracy of monitoring by eliminating noise from intentional cancellations.
+
+**Updated** Enhanced error filtering with _sentry_before_send function that automatically filters out asyncio.CancelledError and KeyboardInterrupt exceptions
+
+```mermaid
+flowchart TD
+Start(["Exception Occurs"]) --> CheckHint["Check exception hint"]
+CheckHint --> TypeCheck{"Is instance of<br/>CancelledError or<br/>KeyboardInterrupt?"}
+TypeCheck --> |Yes| FilterOut["Filter out event<br/>(return None)"]
+TypeCheck --> |No| CheckTypes["Check exception types<br/>in event.values"]
+CheckTypes --> TypeFilter{"Type contains<br/>cancellederror or<br/>keyboardinterrupt?"}
+TypeFilter --> |Yes| FilterOut
+TypeFilter --> |No| AllowThrough["Allow event<br/>through"]
+FilterOut --> End(["Event filtered"])
+AllowThrough --> End
+```
+
+**Diagram sources**
+- [main.py:47-66](file://backend/app/main.py#L47-L66)
+
+**Section sources**
+- [main.py:47-66](file://backend/app/main.py#L47-L66)
 
 ### Metrics Exposure and Endpoints
 - /metrics: Prometheus scrape endpoint handled by middleware
@@ -319,19 +369,22 @@ Key dependencies and relationships:
 - FastAPI instrumentation exposes /metrics
 - Prometheus scrapes the backend target defined in prometheus.yml
 - Grafana queries Prometheus for dashboards
+- Enhanced Sentry error filtering prevents cancellation events from reaching monitoring
 - Metrics router depends on Supabase client for DB health and counts
 - Health/Readiness services depend on external systems (DB, LLM providers, AI models)
 - Model metrics persistence depends on Supabase client and runs in background threads
 
 ```mermaid
 graph TB
-M["main.py<br/>Instrumentator /metrics"] --> PMW["prometheus_metrics.py<br/>MetricsManager"]
+M["main.py<br/>Instrumentator /metrics<br/>_sentry_before_send"] --> PMW["prometheus_metrics.py<br/>MetricsManager"]
 M --> HR["health_checks.py<br/>/health & /ready"]
 M --> MR["metrics.py<br/>/api/metrics/*"]
+M --> SF["Sentry Filtering<br/>Cancellation Events"]
 PMW --> PR["Prometheus"]
 MR --> DB["Supabase Client"]
 HR --> EXT["External Services"]
 PMW --> SYS["System Metrics"]
+SF --> MON["Monitoring Accuracy"]
 ```
 
 **Diagram sources**
@@ -339,12 +392,14 @@ PMW --> SYS["System Metrics"]
 - [prometheus_metrics.py:144-235](file://backend/app/middleware/prometheus_metrics.py#L144-L235)
 - [metrics.py:25-181](file://backend/app/routers/metrics.py#L25-L181)
 - [health_checks.py:85-127](file://backend/app/services/health_checks.py#L85-L127)
+- [main.py:47-66](file://backend/app/main.py#L47-L66)
 
 **Section sources**
 - [main.py:273-274](file://backend/app/main.py#L273-L274)
 - [prometheus_metrics.py:144-235](file://backend/app/middleware/prometheus_metrics.py#L144-L235)
 - [metrics.py:25-181](file://backend/app/routers/metrics.py#L25-L181)
 - [health_checks.py:85-127](file://backend/app/services/health_checks.py#L85-L127)
+- [main.py:47-66](file://backend/app/main.py#L47-L66)
 
 ## Performance Considerations
 - Scraping cadence and intervals:
@@ -358,12 +413,15 @@ PMW --> SYS["System Metrics"]
   - Periodic updates reduce overhead while keeping queue metrics fresh
 - Caching:
   - Health and readiness payloads are cached with TTLs to reduce repeated checks
+- Error filtering efficiency:
+  - Sentry filtering reduces processing overhead by preventing cancellation events from being logged
 
 **Section sources**
 - [prometheus.yml:5-16](file://backend/docker/prometheus/prometheus.yml#L5-L16)
 - [model_metrics.py:101-137](file://backend/app/services/model_metrics.py#L101-L137)
 - [main.py:138-147](file://backend/app/main.py#L138-L147)
 - [health_checks.py:195-226](file://backend/app/services/health_checks.py#L195-L226)
+- [main.py:47-66](file://backend/app/main.py#L47-L66)
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -378,15 +436,21 @@ Common issues and resolutions:
   - Inspect pipeline P95 duration and step averages; correlate with queue depths and LLM cache hit rates
 - Real-time connection churn:
   - Monitor SSE/WS reconnect rates and active connections to detect client-side instability
+- **Sentry error filtering issues**:
+  - **Updated** Verify that cancellation events (asyncio.CancelledError, KeyboardInterrupt) are properly filtered out
+  - Check _sentry_before_send function configuration in main.py
+  - Ensure legitimate errors are still being reported while cancellations are suppressed
+  - Review Sentry dashboard to confirm reduced noise from intentional cancellations
 
 **Section sources**
 - [prometheus.yml:5-16](file://backend/docker/prometheus/prometheus.yml#L5-L16)
 - [model_metrics.py:123-135](file://backend/app/services/model_metrics.py#L123-L135)
 - [health_checks.py:85-127](file://backend/app/services/health_checks.py#L85-L127)
 - [scholarform-overview.json:41-202](file://backend/ops/grafana/dashboards/scholarform-overview.json#L41-L202)
+- [main.py:47-66](file://backend/app/main.py#L47-L66)
 
 ## Conclusion
-The monitoring and metrics system provides comprehensive observability for the manuscript formatter pipeline. It combines Prometheus instrumentation, custom metrics, health/readiness endpoints, and Grafana dashboards. Optional Supabase persistence enables long-term analysis of model performance. With proper alerting and capacity planning aligned to queue depths and LLM usage, the system supports reliable production operations.
+The monitoring and metrics system provides comprehensive observability for the manuscript formatter pipeline. It combines Prometheus instrumentation, custom metrics, health/readiness endpoints, and Grafana dashboards. Enhanced Sentry error filtering with cancellation event suppression improves error reporting accuracy by reducing noise from intentional cancellations. Optional Supabase persistence enables long-term analysis of model performance. With proper alerting and capacity planning aligned to queue depths and LLM usage, the system supports reliable production operations.
 
 ## Appendices
 
@@ -417,18 +481,24 @@ The monitoring and metrics system provides comprehensive observability for the m
   - Elevated error rate from HTTP instrumentor
   - Rising queue depths without corresponding worker throughput
   - Declining active users or generation jobs
-
-[No sources needed since this section provides general guidance]
+  - **Enhanced Sentry monitoring**: Reduced error volume due to cancellation filtering, allowing focus on genuine issues
 
 ### Log Aggregation and Distributed Tracing
 - Structured logging can be enabled via settings for production environments
-- Sentry SDK is integrated for error tracking and sampling
-- Request IDs are attached to responses for correlation across services
+- **Enhanced Sentry integration**:
+  - Backend: _sentry_before_send filters cancellation events and keyboard interrupts
+  - Frontend: Separate client/server configurations for comprehensive coverage
+  - Request IDs are attached to responses for correlation across services
+  - Replay integration for frontend error analysis
 
 **Section sources**
 - [settings.py:26-28](file://backend/app/config/settings.py#L26-L28)
 - [main.py:40-59](file://backend/app/main.py#L40-L59)
 - [monitoring.py:17-50](file://backend/app/middleware/monitoring.py#L17-L50)
+- [main.py:47-66](file://backend/app/main.py#L47-L66)
+- [sentry.client.config.js:1-20](file://frontend/sentry.client.config.js#L1-L20)
+- [sentry.server.config.js:1-12](file://frontend/sentry.server.config.js#L1-L12)
+- [sentry.edge.config.js:1-11](file://frontend/sentry.edge.config.js#L1-L11)
 
 ### Metric Retention and Capacity Planning
 - Retention policy:
@@ -437,6 +507,7 @@ The monitoring and metrics system provides comprehensive observability for the m
   - Monitor queue_depth and active_processing_jobs to size Celery workers
   - Track LLM tokens_total and cache hit rates to right-size provider resources
   - Observe pipeline step durations to optimize slowest stages
+  - **Enhanced error monitoring**: Reduced error volume allows better focus on genuine performance issues
 
 **Section sources**
 - [settings.py:128-131](file://backend/app/config/settings.py#L128-L131)
@@ -450,8 +521,11 @@ The monitoring and metrics system provides comprehensive observability for the m
 - Use readiness probes to gate traffic until dependencies are ready
 - Set appropriate scrape intervals and alert thresholds
 - Back up and monitor dashboards and recording rules
+- **Implement enhanced error filtering**: Configure _sentry_before_send for optimal error reporting
+- **Monitor cancellation patterns**: Track cancellation events separately from other errors for system health insights
 
 **Section sources**
 - [main.py:303-313](file://backend/app/main.py#L303-L313)
 - [settings.py:76-82](file://backend/app/config/settings.py#L76-L82)
 - [health_checks.py:130-192](file://backend/app/services/health_checks.py#L130-L192)
+- [main.py:47-66](file://backend/app/main.py#L47-L66)

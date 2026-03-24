@@ -4,6 +4,7 @@
 **Referenced Files in This Document**
 - [playwright.config.js](file://frontend/playwright.config.js)
 - [package.json](file://frontend/package.json)
+- [phase4-flows.spec.js](file://frontend/e2e/phase4-flows.spec.js)
 - [auth-flow.spec.js](file://frontend/e2e/auth-flow.spec.js)
 - [formatter-upload.spec.js](file://frontend/e2e/formatter-upload.spec.js)
 - [generator-streaming.spec.js](file://frontend/e2e/generator-streaming.spec.js)
@@ -13,6 +14,7 @@
 - [smoke.spec.js](file://frontend/e2e/smoke.spec.js)
 - [template-list.spec.js](file://frontend/e2e/template-list.spec.js)
 - [e2e-production.yml](file://.github/workflows/e2e-production.yml)
+- [AuthContext.jsx](file://frontend/src/context/AuthContext.jsx)
 - [api.auth.js](file://frontend/src/services/api.auth.js)
 - [api.documents.js](file://frontend/src/services/api.documents.js)
 - [useUpload.js](file://frontend/src/hooks/useUpload.js)
@@ -20,49 +22,65 @@
 - [useGeneratorSessionStream.js](file://frontend/src/hooks/useGeneratorSessionStream.js)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Added comprehensive documentation for enhanced Phase 4 flows testing with improved authentication handling
+- Documented new state monitoring using Promise.any() for concurrent UI state detection
+- Enhanced selector strategy documentation with improved accessibility label matching
+- Added CI/CD environment variable configuration for agent authentication
+- Updated authentication flow testing with production-ready environment variable handling
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
 3. [Core Components](#core-components)
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Dependency Analysis](#dependency-analysis)
-7. [Performance Considerations](#performance-considerations)
-8. [Troubleshooting Guide](#troubleshooting-guide)
-9. [Conclusion](#conclusion)
-10. [Appendices](#appendices)
+6. [Enhanced Phase 4 Flows Testing](#enhanced-phase-4-flows-testing)
+7. [Authentication and State Management](#authentication-and-state-management)
+8. [Dependency Analysis](#dependency-analysis)
+9. [Performance Considerations](#performance-considerations)
+10. [Troubleshooting Guide](#troubleshooting-guide)
+11. [Conclusion](#conclusion)
+12. [Appendices](#appendices)
 
 ## Introduction
-This document provides comprehensive Playwright End-to-End (E2E) testing documentation for the Next.js frontend application. It covers configuration, setup, test categories, and testing patterns for critical user workflows such as authentication, document formatting, generator functionality, and template management. It also includes guidance for writing robust E2E tests, handling asynchronous operations, managing test data, debugging failures, browser compatibility, responsive design validation, and performance testing scenarios.
+This document provides comprehensive Playwright End-to-End (E2E) testing documentation for the Next.js frontend application. It covers configuration, setup, test categories, and testing patterns for critical user workflows such as authentication, document formatting, generator functionality, and template management. The documentation now includes enhanced Phase 4 flows testing with improved authentication handling, state monitoring using Promise.any(), better selector strategies, and CI/CD environment variable configuration for agent authentication. It also includes guidance for writing robust E2E tests, handling asynchronous operations, managing test data, debugging failures, browser compatibility, responsive design validation, and performance testing scenarios.
 
 ## Project Structure
-The E2E tests reside under the frontend directory in the e2e folder. The Playwright configuration defines test execution behavior, browser targets, and local development server integration. The GitHub Actions workflow executes E2E tests against a production-like frontend URL.
+The E2E tests reside under the frontend directory in the e2e folder. The Playwright configuration defines test execution behavior, browser targets, and local development server integration. The GitHub Actions workflow executes E2E tests against a production-like frontend URL with proper environment variable configuration for agent authentication.
 
 ```mermaid
 graph TB
 PW["Playwright Config<br/>frontend/playwright.config.js"]
 PKG["Frontend Scripts<br/>frontend/package.json"]
 E2E_DIR["E2E Specs<br/>frontend/e2e/*.spec.js"]
+PHASE4["Phase 4 Flows<br/>frontend/e2e/phase4-flows.spec.js"]
 GH_WORKFLOW["CI Workflow<br/>.github/workflows/e2e-production.yml"]
+ENV_VARS["Environment Variables<br/>E2E_EMAIL, E2E_PASSWORD"]
 PW --> E2E_DIR
 PKG --> PW
 GH_WORKFLOW --> PW
+GH_WORKFLOW --> ENV_VARS
+E2E_DIR --> PHASE4
 ```
 
 **Diagram sources**
 - [playwright.config.js:1-48](file://frontend/playwright.config.js#L1-L48)
 - [package.json:1-62](file://frontend/package.json#L1-L62)
-- [e2e-production.yml:1-38](file://.github/workflows/e2e-production.yml#L1-L38)
+- [e2e-production.yml:1-60](file://.github/workflows/e2e-production.yml#L1-L60)
+- [phase4-flows.spec.js:1-88](file://frontend/e2e/phase4-flows.spec.js#L1-L88)
 
 **Section sources**
 - [playwright.config.js:1-48](file://frontend/playwright.config.js#L1-L48)
 - [package.json:1-62](file://frontend/package.json#L1-L62)
-- [.github/workflows/e2e-production.yml:1-38](file://.github/workflows/e2e-production.yml#L1-L38)
+- [.github/workflows/e2e-production.yml:1-60](file://.github/workflows/e2e-production.yml#L1-L60)
 
 ## Core Components
 - Playwright configuration controls test execution, browser selection, tracing, and local dev server lifecycle.
-- Test suites cover authentication flows, dashboard interactions, formatter workflows, generator features, and responsive design.
+- Test suites cover authentication flows, dashboard interactions, formatter workflows, generator features, responsive design, and enhanced Phase 4 flows.
 - Services and hooks encapsulate API interactions and real-time features used by the tested pages.
+- Environment variable configuration enables secure agent authentication in CI/CD pipelines.
 
 Key configuration highlights:
 - Test directory: frontend/e2e
@@ -71,13 +89,15 @@ Key configuration highlights:
 - Retries: 2 on CI
 - Trace: collected on first retry
 - Web server: starts Next.js dev server automatically when no external base URL is provided
+- Environment variables: E2E_EMAIL, E2E_PASSWORD for agent authentication
 
 **Section sources**
 - [playwright.config.js:10-47](file://frontend/playwright.config.js#L10-L47)
 - [package.json:6-16](file://frontend/package.json#L6-L16)
+- [e2e-production.yml:50-55](file://.github/workflows/e2e-production.yml#L50-L55)
 
 ## Architecture Overview
-The E2E architecture integrates Playwright with the Next.js frontend and backend APIs. Tests navigate to routes, interact with UI components, and assert expected outcomes. Authentication relies on Supabase, while document and generator features leverage dedicated services and hooks.
+The E2E architecture integrates Playwright with the Next.js frontend and backend APIs. Tests navigate to routes, interact with UI components, and assert expected outcomes. Enhanced authentication relies on Supabase with improved state monitoring, while document and generator features leverage dedicated services and hooks with better selector strategies.
 
 ```mermaid
 graph TB
@@ -85,6 +105,8 @@ subgraph "Testing Layer"
 PW["Playwright Runner"]
 CFG["Playwright Config"]
 SPEC["Spec Files (*.spec.js)"]
+PHASE4["Phase 4 Flows"]
+ENV["Env Vars<br/>E2E_EMAIL/E2E_PASSWORD"]
 end
 subgraph "Application Layer"
 NEXT["Next.js Frontend"]
@@ -93,6 +115,7 @@ DOCS["Documents Service<br/>api.documents.js"]
 GEN["Generator Service<br/>api.generator.v1.js"]
 UPLOAD_HOOK["Upload Hook<br/>useUpload.js"]
 GEN_STREAM["Generator Stream Hook<br/>useGeneratorSessionStream.js"]
+AUTH_CTX["Auth Context<br/>AuthContext.jsx"]
 end
 subgraph "Backend Layer"
 API_AUTH["/api/auth/*"]
@@ -101,6 +124,8 @@ API_GEN["/api/v1/generator/*"]
 end
 PW --> CFG
 CFG --> SPEC
+SPEC --> PHASE4
+PHASE4 --> ENV
 SPEC --> NEXT
 NEXT --> AUTH
 NEXT --> DOCS
@@ -110,10 +135,14 @@ GEN --> API_GEN
 AUTH --> API_AUTH
 NEXT --> UPLOAD_HOOK
 NEXT --> GEN_STREAM
+NEXT --> AUTH_CTX
+AUTH_CTX --> AUTH
 ```
 
 **Diagram sources**
 - [playwright.config.js:1-48](file://frontend/playwright.config.js#L1-L48)
+- [phase4-flows.spec.js:7-29](file://frontend/e2e/phase4-flows.spec.js#L7-L29)
+- [AuthContext.jsx:65-172](file://frontend/src/context/AuthContext.jsx#L65-L172)
 - [api.auth.js:1-39](file://frontend/src/services/api.auth.js#L1-L39)
 - [api.documents.js:1-412](file://frontend/src/services/api.documents.js#L1-L412)
 - [api.generator.v1.js:1-80](file://frontend/src/services/api.generator.v1.js#L1-L80)
@@ -123,7 +152,7 @@ NEXT --> GEN_STREAM
 ## Detailed Component Analysis
 
 ### Authentication Flow Testing
-Tests verify the authentication root check and basic login behavior. The auth service integrates with Supabase for OAuth and OTP-based flows.
+Tests verify the authentication root check and basic login behavior with enhanced environment variable handling. The auth service integrates with Supabase for OAuth and OTP-based flows, now supporting production-grade authentication in CI/CD environments.
 
 ```mermaid
 sequenceDiagram
@@ -140,18 +169,19 @@ S->>B : "Supabase auth request"
 B-->>S : "Auth response"
 S-->>UI : "Redirect or error"
 UI-->>P : "Updated page state"
+Note over T,E2E : Uses E2E_EMAIL/E2E_PASSWORD from environment
 ```
 
 **Diagram sources**
-- [auth-flow.spec.js:1-7](file://frontend/e2e/auth-flow.spec.js#L1-L7)
+- [auth-flow.spec.js:1-6](file://frontend/e2e/auth-flow.spec.js#L1-L6)
 - [api.auth.js:18-38](file://frontend/src/services/api.auth.js#L18-L38)
 
 **Section sources**
-- [auth-flow.spec.js:1-7](file://frontend/e2e/auth-flow.spec.js#L1-L7)
+- [auth-flow.spec.js:1-6](file://frontend/e2e/auth-flow.spec.js#L1-L6)
 - [api.auth.js:1-39](file://frontend/src/services/api.auth.js#L1-L39)
 
 ### Document Upload and Formatting Workflows
-Tests cover upload routes and formatter pages. The upload hook manages progress, chunked uploads, and status polling. The documents service handles file uploads, previews, comparisons, exports, and deletions.
+Tests cover upload routes and formatter pages with improved selector strategies. The upload hook manages progress, chunked uploads, and status polling. The documents service handles file uploads, previews, comparisons, exports, and deletions.
 
 ```mermaid
 flowchart TD
@@ -270,7 +300,7 @@ Template list tests ensure the templates page loads without crashing and display
 **Section sources**
 - [generator-history.spec.js:1-11](file://frontend/e2e/generator-history.spec.js#L1-L11)
 - [formatter-live-preview.spec.js:1-5](file://frontend/e2e/formatter-live-preview.spec.js#L1-L5)
-- [protected-routes.spec.js:1-50](file://frontend/e2e/protected-routes.spec.js#L1-L50)
+- [protected-routes.spec.js:1-10](file://frontend/e2e/protected-routes.spec.js#L1-L10)
 - [onboarding-tour-next.spec.js:1-50](file://frontend/e2e/onboarding-tour-next.spec.js#L1-L50)
 - [onboarding-tour-skip.spec.js:1-50](file://frontend/e2e/onboarding-tour-skip.spec.js#L1-L50)
 - [generator-multi-upload.spec.js:1-50](file://frontend/e2e/generator-multi-upload.spec.js#L1-L50)
@@ -296,8 +326,124 @@ Template list tests ensure the templates page loads without crashing and display
 - [landing-page.spec.js:1-50](file://frontend/e2e/landing-page.spec.js#L1-L50)
 - [smoke.spec.js:1-68](file://frontend/e2e/smoke.spec.js#L1-L68)
 
+## Enhanced Phase 4 Flows Testing
+
+### Improved Authentication Handling
+The Phase 4 flows testing introduces enhanced authentication handling with production-ready environment variable configuration. The `ensureAgentAccess` function provides robust authentication for agent flows with proper error handling and test skipping when credentials are unavailable.
+
+```mermaid
+flowchart TD
+Start(["Phase 4 Test Start"]) --> CheckAuth["Check if already authenticated"]
+CheckAuth --> |Already Authenticated| Proceed["Proceed with test"]
+CheckAuth --> |Not Authenticated| ValidateCreds["Validate E2E_EMAIL/E2E_PASSWORD"]
+ValidateCreds --> |Missing Credentials| SkipTest["Skip test with explanation"]
+ValidateCreds --> |Credentials Available| FillForm["Fill login form with regex selectors"]
+FillForm --> SubmitForm["Submit login form"]
+SubmitForm --> WaitRedirect["Wait for non-login URL"]
+WaitRedirect --> AttachURL["Attach authenticated URL for debugging"]
+Proceed --> ExecuteFlow["Execute Phase 4 flow"]
+SkipTest --> End(["Test Skipped"])
+AttachURL --> ExecuteFlow
+ExecuteFlow --> End(["Test Complete"])
+```
+
+**Diagram sources**
+- [phase4-flows.spec.js:7-29](file://frontend/e2e/phase4-flows.spec.js#L7-L29)
+
+**Section sources**
+- [phase4-flows.spec.js:1-88](file://frontend/e2e/phase4-flows.spec.js#L1-L88)
+
+### State Monitoring with Promise.any()
+Phase 4 flows implement advanced state monitoring using `Promise.any()` to handle concurrent UI state detection. This approach monitors multiple possible states (proceed to write, writing, error) simultaneously and responds to whichever appears first.
+
+```mermaid
+sequenceDiagram
+participant T as "Test Spec"
+participant P as "Playwright Page"
+participant UI as "Agent Interface"
+T->>P : "Send prompt and press Control+Enter"
+P->>UI : "Display submitted prompt"
+UI-->>P : "Show initial state"
+T->>T : "Promise.any([proceedToWrite, writingState, errorState])"
+UI-->>P : "proceedToWrite visible"
+Note over T : First promise resolves
+T->>P : "Click proceed to write"
+P->>UI : "Transition to writing state"
+UI-->>P : "Writing indicators visible"
+```
+
+**Diagram sources**
+- [phase4-flows.spec.js:75-85](file://frontend/e2e/phase4-flows.spec.js#L75-L85)
+
+**Section sources**
+- [phase4-flows.spec.js:61-86](file://frontend/e2e/phase4-flows.spec.js#L61-L86)
+
+### Enhanced Selector Strategies
+Phase 4 flows demonstrate improved selector strategies using regular expressions for more robust element identification. These selectors handle multiple language variations and edge cases common in internationalized applications.
+
+Selector examples from Phase 4 flows:
+- Email/password fields: `/email address|email/i`, `/password/i`
+- Process buttons: `/process document|re-process manuscript/i`
+- Chat placeholders: `/type your prompt here|message|type|prompt|ask/i`
+- Action buttons: `/proceed to write/i`, `/download/i`
+
+**Section sources**
+- [phase4-flows.spec.js:19-22](file://frontend/e2e/phase4-flows.spec.js#L19-L22)
+- [phase4-flows.spec.js:40-44](file://frontend/e2e/phase4-flows.spec.js#L40-L44)
+- [phase4-flows.spec.js:63-67](file://frontend/e2e/phase4-flows.spec.js#L63-L67)
+- [phase4-flows.spec.js:71-74](file://frontend/e2e/phase4-flows.spec.js#L71-L74)
+
+### CI/CD Environment Variable Configuration
+The CI/CD pipeline includes comprehensive environment variable configuration for agent authentication, enabling automated testing in production-like environments without exposing sensitive credentials.
+
+Environment variables configured:
+- `PLAYWRIGHT_BASE_URL`: Production frontend URL for test execution
+- `E2E_EMAIL`: Email for agent authentication
+- `E2E_PASSWORD`: Password for agent authentication
+- `CI`: Flag indicating CI environment for test configuration
+
+**Section sources**
+- [e2e-production.yml:50-55](file://.github/workflows/e2e-production.yml#L50-L55)
+
+## Authentication and State Management
+
+### Enhanced Auth Context Implementation
+The authentication system implements sophisticated state management with improved error handling and race condition prevention. The AuthContext provides robust authentication state monitoring with proper cleanup procedures.
+
+Key authentication features:
+- Session verification against Supabase server
+- Race condition prevention during sign-in/sign-up
+- Automatic cleanup of stale authentication data
+- Support for multiple authentication providers
+
+**Section sources**
+- [AuthContext.jsx:65-172](file://frontend/src/context/AuthContext.jsx#L65-L172)
+
+### Production-Ready Authentication Flow
+The enhanced authentication flow supports production environments with proper error handling and graceful degradation when authentication services are unavailable.
+
+```mermaid
+flowchart TD
+Init(["Initialize Auth"]) --> GetSession["Get cached session"]
+GetSession --> HasToken{"Has access token?"}
+HasToken --> |No| ClearAuth["Clear stale auth data"]
+HasToken --> |Yes| VerifyToken["Verify token with Supabase"]
+VerifyToken --> ValidToken{"Token valid?"}
+ValidToken --> |Yes| SetUser["Set authenticated user"]
+ValidToken --> |No| ClearAuth
+ClearAuth --> SetGuest["Set guest mode"]
+SetUser --> Ready["Auth ready"]
+SetGuest --> Ready
+```
+
+**Diagram sources**
+- [AuthContext.jsx:68-135](file://frontend/src/context/AuthContext.jsx#L68-L135)
+
+**Section sources**
+- [AuthContext.jsx:16-340](file://frontend/src/context/AuthContext.jsx#L16-L340)
+
 ## Dependency Analysis
-Playwright depends on the frontend package scripts and configuration. The CI workflow installs Playwright browsers and runs tests against a configured base URL.
+Playwright depends on the frontend package scripts and configuration. The CI workflow installs Playwright browsers and runs tests against a configured base URL with environment variables for agent authentication.
 
 ```mermaid
 graph TB
@@ -305,20 +451,24 @@ PKG["frontend/package.json"]
 PWCFG["frontend/playwright.config.js"]
 WF["e2e-production.yml"]
 TESTS["frontend/e2e/*.spec.js"]
+PHASE4["phase4-flows.spec.js"]
+ENV["E2E Secrets"]
 PKG --> PWCFG
 WF --> PWCFG
+WF --> ENV
 PWCFG --> TESTS
+TESTS --> PHASE4
 ```
 
 **Diagram sources**
 - [package.json:6-16](file://frontend/package.json#L6-L16)
 - [playwright.config.js:1-48](file://frontend/playwright.config.js#L1-L48)
-- [e2e-production.yml:1-38](file://.github/workflows/e2e-production.yml#L1-L38)
+- [e2e-production.yml:1-60](file://.github/workflows/e2e-production.yml#L1-L60)
 
 **Section sources**
 - [package.json:1-62](file://frontend/package.json#L1-L62)
 - [playwright.config.js:1-48](file://frontend/playwright.config.js#L1-L48)
-- [.github/workflows/e2e-production.yml:1-38](file://.github/workflows/e2e-production.yml#L1-L38)
+- [.github/workflows/e2e-production.yml:1-60](file://.github/workflows/e2e-production.yml#L1-L60)
 
 ## Performance Considerations
 - Parallelism: Disable full parallelism locally; use 4 workers; CI uses 1 worker for stability.
@@ -326,17 +476,17 @@ PWCFG --> TESTS
 - Tracing: Enable trace collection on first retry to capture failure context.
 - Local dev server: Reuse existing server to avoid repeated startup overhead.
 - Viewport testing: Use targeted viewport sizes to reduce test runtime while validating responsiveness.
-
-[No sources needed since this section provides general guidance]
+- State monitoring: Use Promise.any() for efficient concurrent state detection in complex workflows.
 
 ## Troubleshooting Guide
 Common issues and resolutions:
 - Flaky tests: Increase retries on CI; collect traces on first retry for failure analysis.
-- Local vs. CI differences: Ensure consistent environment variables (e.g., PLAYWRIGHT_BASE_URL).
-- Authentication failures: Verify Supabase client initialization and redirect paths.
+- Local vs. CI differences: Ensure consistent environment variables (e.g., PLAYWRIGHT_BASE_URL, E2E_EMAIL, E2E_PASSWORD).
+- Authentication failures: Verify Supabase client initialization and redirect paths; check environment variable configuration.
 - Upload timeouts: Adjust waitUntil and timeout options; consider chunked uploads for large files.
 - Real-time updates: Confirm event stream URLs and hook subscriptions.
 - Mock data: Initialize session storage with required job data for routes dependent on active jobs.
+- Phase 4 flow failures: Verify agent authentication credentials and network connectivity to backend services.
 
 **Section sources**
 - [playwright.config.js:14-28](file://frontend/playwright.config.js#L14-L28)
@@ -345,11 +495,10 @@ Common issues and resolutions:
 - [useUpload.js:267-290](file://frontend/src/hooks/useUpload.js#L267-L290)
 - [useGeneratorSessionStream.js:5-11](file://frontend/src/hooks/useGeneratorSessionStream.js#L5-L11)
 - [smoke.spec.js:5-23](file://frontend/e2e/smoke.spec.js#L5-L23)
+- [phase4-flows.spec.js:15-18](file://frontend/e2e/phase4-flows.spec.js#L15-L18)
 
 ## Conclusion
-The Playwright E2E suite comprehensively validates the Next.js application’s critical user workflows. With focused test categories, robust configuration, and clear testing patterns, teams can maintain reliable coverage for authentication, document formatting, generator features, and responsive design. Adhering to the guidelines in this document ensures consistent, maintainable, and effective E2E testing.
-
-[No sources needed since this section summarizes without analyzing specific files]
+The Playwright E2E suite comprehensively validates the Next.js application's critical user workflows with enhanced Phase 4 flows testing. The improvements include robust authentication handling with environment variable configuration, advanced state monitoring using Promise.any(), better selector strategies for internationalized applications, and CI/CD integration for production-like testing. With focused test categories, robust configuration, and clear testing patterns, teams can maintain reliable coverage for authentication, document formatting, generator features, and responsive design. Adhering to the guidelines in this document ensures consistent, maintainable, and effective E2E testing with production-grade reliability.
 
 ## Appendices
 
@@ -359,25 +508,28 @@ The Playwright E2E suite comprehensively validates the Next.js application’s c
 - Isolate tests with minimal shared state.
 - Capture traces on failure to aid debugging.
 - Validate both happy paths and error conditions.
-
-[No sources needed since this section provides general guidance]
+- Implement Promise.any() for concurrent state monitoring in complex workflows.
 
 ### Handling Asynchronous Operations
 - Use hooks/services that expose status polling and event streams.
 - Assert real-time updates by subscribing to event endpoints.
 - Manage upload progress and cancellation via AbortController.
+- Implement Promise.any() for efficient concurrent state detection.
 
 **Section sources**
 - [useUpload.js:89-196](file://frontend/src/hooks/useUpload.js#L89-L196)
 - [useGeneratorSessionStream.js:5-11](file://frontend/src/hooks/useGeneratorSessionStream.js#L5-L11)
+- [phase4-flows.spec.js:75-85](file://frontend/e2e/phase4-flows.spec.js#L75-L85)
 
 ### Managing Test Data
 - Initialize mock jobs via addInitScript for routes requiring active jobs.
 - Use fixture-like patterns to seed data for authenticated flows.
 - Keep test data minimal and deterministic.
+- Leverage environment variables for production-like test data.
 
 **Section sources**
 - [smoke.spec.js:5-23](file://frontend/e2e/smoke.spec.js#L5-L23)
+- [phase4-flows.spec.js:4-5](file://frontend/e2e/phase4-flows.spec.js#L4-L5)
 
 ### Browser Compatibility and Responsive Testing
 - Extend projects to include Firefox and Safari for broader compatibility.
@@ -392,5 +544,15 @@ The Playwright E2E suite comprehensively validates the Next.js application’s c
 - Measure page load times for key routes.
 - Benchmark upload throughput with chunked uploads.
 - Track generator session latency and token streaming rates.
+- Monitor authentication flow performance with environment variable configuration.
 
-[No sources needed since this section provides general guidance]
+### Enhanced Authentication Testing Patterns
+- Implement environment variable-based authentication for CI/CD pipelines.
+- Use regex-based selectors for robust internationalized UI element identification.
+- Leverage Promise.any() for efficient state monitoring in complex workflows.
+- Handle authentication failures gracefully with proper test skipping and error reporting.
+
+**Section sources**
+- [phase4-flows.spec.js:7-29](file://frontend/e2e/phase4-flows.spec.js#L7-L29)
+- [phase4-flows.spec.js:75-85](file://frontend/e2e/phase4-flows.spec.js#L75-L85)
+- [e2e-production.yml:50-55](file://.github/workflows/e2e-production.yml#L50-L55)
