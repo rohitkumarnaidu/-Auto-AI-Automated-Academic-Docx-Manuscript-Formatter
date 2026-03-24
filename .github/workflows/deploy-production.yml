@@ -80,7 +80,7 @@ jobs:
           BODY=$(echo "$RESPONSE" | grep -v "HTTP_STATUS")
           echo "Status: $HTTP_STATUS"
           echo "Response: $BODY"
-          if [ "$HTTP_STATUS" != "201" ] && [ "$HTTP_STATUS" != "200" ]; then
+          if [[ "$HTTP_STATUS" != 2* ]]; then
             echo "Deploy API returned HTTP $HTTP_STATUS. Check RENDER_API_KEY and RENDER_PROD_SERVICE_ID secrets."
             exit 1
           fi
