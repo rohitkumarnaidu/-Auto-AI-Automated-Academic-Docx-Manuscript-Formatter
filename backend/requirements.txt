@@ -150,7 +150,7 @@ Levenshtein==0.27.3
 license-expression==30.4.4
 lightning==2.6.1
 lightning-utilities==0.15.2
-litellm==1.81.13
+litellm @ https://github.com/BerriAI/litellm/archive/refs/tags/v1.81.13.tar.gz
 locust==2.29.1
 lxml==6.0.2
 Mako==1.3.10
