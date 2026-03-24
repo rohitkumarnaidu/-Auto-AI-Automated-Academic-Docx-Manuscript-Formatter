@@ -11,6 +11,7 @@ import json
 import logging
 import hashlib
 import numpy as np
+import requests
 from typing import List, Dict, Any, Optional
 from app.utils.singleton import get_or_create
 
@@ -101,6 +102,55 @@ class _DeterministicEmbeddingModel:
         if isinstance(texts, (list, tuple)):
             return [self._encode_one(t) for t in texts]
         return self._encode_one(texts)
+
+
+class _HuggingFaceAPIEmbeddingModel:
+    """
+    Uses the free Hugging Face Inference API to compute embeddings remotely.
+    Saves ~1.5GB of RAM locally.
+    """
+
+    def __init__(self, model_id: str = "sentence-transformers/all-MiniLM-L6-v2"):
+        self.model_id = model_id
+        
+        # Pull URL directly from env if provided, otherwise build default
+        custom_url = os.getenv("RAG_EMBEDDING_API_URL")
+        self.api_url = custom_url if custom_url else f"https://api-inference.huggingface.co/pipeline/feature-extraction/{model_id}"
+        
+        self.token = os.getenv("HF_TOKEN")
+        
+        # We need to know the dimension. all-MiniLM-L6-v2 is 384
+        self.dimension = 384
+        if "bge-m3" in model_id.lower():
+            self.dimension = 1024
+
+    def get_sentence_embedding_dimension(self) -> int:
+        return self.dimension
+
+    def encode(self, texts: Any) -> List[Any]:
+        if not self.token:
+            logger.error("RagEngine: HF_TOKEN is missing. Cannot use HuggingFace API.")
+            return []
+
+        headers = {"Authorization": f"Bearer {self.token}"}
+        
+        # The HF feature-extraction API expects a dict: {"inputs": [...texts...]}
+        is_single = isinstance(texts, str)
+        payload = {"inputs": [texts] if is_single else texts}
+
+        try:
+            response = requests.post(self.api_url, headers=headers, json=payload, timeout=10)
+            if response.status_code != 200:
+                logger.error(f"RagEngine: HF API error {response.status_code}: {response.text}")
+                return []
+                
+            embeddings = response.json()
+            if is_single and len(embeddings) > 0:
+                return embeddings[0]
+            return embeddings
+        except Exception as e:
+            logger.error(f"RagEngine: HF API request failed: {e}")
+            return []
 
 
 class RagEngine:
@@ -316,6 +366,24 @@ class RagEngine:
         # 1. Check ModelStore for a pre-loaded model
         from app.config.settings import settings
         from app.services.model_store import model_store
+
+        # Check for remote API override first
+        provider = os.getenv("RAG_EMBEDDING_PROVIDER", "").lower()
+        if (settings.LOW_MEMORY_MODE or not settings.RAG_USE_TRANSFORMERS) and provider in ("huggingface_api", "hf_api"):
+            model_id = os.getenv("RAG_EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
+            logger.info(f"RagEngine: RAG_USE_TRANSFORMERS=false. Using HuggingFace API remotely with '{model_id}'.")
+            
+            hf_model = _HuggingFaceAPIEmbeddingModel(model_id=model_id)
+            # Do a quick test
+            probe = self._coerce_embedding_vector(hf_model.encode("healthcheck"))
+            if probe:
+                self.embedding_model = hf_model
+                self.active_model_name = "huggingface_api_" + model_id
+                model_store.set_model("embedding_model", self.embedding_model)
+                logger.info(f"RagEngine: HuggingFace API connected successfully (dim={hf_model.dimension}).")
+                return
+            else:
+                logger.warning("RagEngine: HuggingFace API failed health check. Falling back to deterministic hash.")
 
         if settings.LOW_MEMORY_MODE or not settings.RAG_USE_TRANSFORMERS:
             reason = (
