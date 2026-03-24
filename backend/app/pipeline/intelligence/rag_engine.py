@@ -115,7 +115,7 @@ class _HuggingFaceAPIEmbeddingModel:
         
         # Pull URL directly from env if provided, otherwise build default
         custom_url = os.getenv("RAG_EMBEDDING_API_URL")
-        self.api_url = custom_url if custom_url else f"https://api-inference.huggingface.co/pipeline/feature-extraction/{model_id}"
+        self.api_url = custom_url if custom_url else f"https://router.huggingface.co/hf-inference/models/{model_id}"
         
         self.token = os.getenv("HF_TOKEN")
         
