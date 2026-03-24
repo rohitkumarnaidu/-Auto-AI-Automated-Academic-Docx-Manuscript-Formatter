@@ -20,6 +20,15 @@
 - [mypy.ini](file://backend/mypy.ini)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Enhanced production deployment workflow with comprehensive secret validation preflight check
+- Added dual deployment modes (Render API and webhook) with automatic mode detection
+- Implemented robust error handling with HTTP status code validation
+- Added graceful degradation when deployment hooks fail
+- Updated frontend deployment to use latest npx vercel@latest approach
+- Improved deployment workflow reliability and error handling mechanisms
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
@@ -35,11 +44,13 @@
 ## Introduction
 This document describes the CI/CD pipeline for the automated manuscript formatter project, covering automated testing, deployment workflows, and release management. It explains the GitHub Actions workflows for backend and frontend, including build processes, testing phases, and deployment triggers. It also details the multi-stage deployment pipeline from development to production, including quality gates, security scanning, and rollback procedures. Branch protection rules, code review requirements, and automated deployment strategies are covered. Finally, it includes troubleshooting common CI/CD issues, performance optimization tips, and monitoring deployment success rates.
 
+**Updated** Enhanced with comprehensive secret validation, dual deployment modes, and improved error handling mechanisms.
+
 ## Project Structure
 The CI/CD system is organized around GitHub Actions workflows and platform-specific deployment configurations:
 - Workflows are defined under .github/workflows for backend-ci, frontend-ci, security scanning, production deployment, and end-to-end testing.
 - Backend deployment is configured for Render via render.yaml and a containerized build using backend/docker/Dockerfile.
-- Frontend deployment targets Vercel, orchestrated by the production deployment workflow.
+- Frontend deployment targets Vercel, orchestrated by the production deployment workflow using the latest npx vercel@latest approach.
 - Quality gates are enforced by linters (Ruff, ESLint), type checking (Mypy), and unit/integration tests.
 - Security scanning uses Trivy, Bandit, and OWASP Dependency Check.
 - End-to-end tests run against the production frontend after successful deployments.
@@ -74,12 +85,12 @@ SEC --> DK
 **Diagram sources**
 - [backend-ci.yml:1-41](file://.github/workflows/backend-ci.yml#L1-L41)
 - [frontend-ci.yml:1-31](file://.github/workflows/frontend-ci.yml#L1-L31)
-- [security.yml:1-47](file://.github/workflows/security.yml#L1-L47)
-- [deploy-production.yml:1-63](file://.github/workflows/deploy-production.yml#L1-L63)
-- [e2e-production.yml:1-38](file://.github/workflows/e2e-production.yml#L1-L38)
+- [security.yml:1-51](file://.github/workflows/security.yml#L1-L51)
+- [deploy-production.yml:1-123](file://.github/workflows/deploy-production.yml#L1-L123)
+- [e2e-production.yml:1-58](file://.github/workflows/e2e-production.yml#L1-L58)
 - [render.yaml:1-15](file://render.yaml#L1-L15)
 - [Dockerfile:1-24](file://backend/docker/Dockerfile#L1-L24)
-- [requirements-render.txt:1-136](file://backend/requirements-render.txt#L1-L136)
+- [requirements-render.txt:1-138](file://backend/requirements-render.txt#L1-L138)
 - [pyproject.toml:1-9](file://backend/pyproject.toml#L1-L9)
 - [package.json:1-62](file://frontend/package.json#L1-L62)
 - [playwright.config.js:1-48](file://frontend/playwright.config.js#L1-L48)
@@ -87,12 +98,12 @@ SEC --> DK
 **Section sources**
 - [backend-ci.yml:1-41](file://.github/workflows/backend-ci.yml#L1-L41)
 - [frontend-ci.yml:1-31](file://.github/workflows/frontend-ci.yml#L1-L31)
-- [security.yml:1-47](file://.github/workflows/security.yml#L1-L47)
-- [deploy-production.yml:1-63](file://.github/workflows/deploy-production.yml#L1-L63)
-- [e2e-production.yml:1-38](file://.github/workflows/e2e-production.yml#L1-L38)
+- [security.yml:1-51](file://.github/workflows/security.yml#L1-L51)
+- [deploy-production.yml:1-123](file://.github/workflows/deploy-production.yml#L1-L123)
+- [e2e-production.yml:1-58](file://.github/workflows/e2e-production.yml#L1-L58)
 - [render.yaml:1-15](file://render.yaml#L1-L15)
 - [Dockerfile:1-24](file://backend/docker/Dockerfile#L1-L24)
-- [requirements-render.txt:1-136](file://backend/requirements-render.txt#L1-L136)
+- [requirements-render.txt:1-138](file://backend/requirements-render.txt#L1-L138)
 - [pyproject.toml:1-9](file://backend/pyproject.toml#L1-L9)
 - [package.json:1-62](file://frontend/package.json#L1-L62)
 - [playwright.config.js:1-48](file://frontend/playwright.config.js#L1-L48)
@@ -101,17 +112,19 @@ SEC --> DK
 - Backend CI workflow validates Python code with Ruff and MyPy, and runs unit tests excluding slow and integration suites.
 - Frontend CI workflow installs dependencies, runs ESLint, and builds the Next.js application.
 - Security workflow builds a backend image and scans it with Trivy, Bandit, and OWASP Dependency Check.
-- Production deployment workflow triggers backend deployment to Render and frontend deployment to Vercel, followed by a backend health check.
+- Production deployment workflow triggers backend deployment to Render and frontend deployment to Vercel, followed by a backend health check. **Enhanced** with comprehensive secret validation preflight check, dual deployment modes (API and webhook), automatic mode detection, robust error handling, and graceful degradation.
 - End-to-end workflow runs Playwright tests against the production frontend after a successful production deployment.
 - Branch protection enforces required status checks and pull request reviews before merging to main.
 - Rollback and incident response runbooks provide remediation playbooks for production issues.
 
+**Updated** Enhanced production deployment workflow with comprehensive secret validation and dual deployment modes.
+
 **Section sources**
 - [backend-ci.yml:1-41](file://.github/workflows/backend-ci.yml#L1-L41)
 - [frontend-ci.yml:1-31](file://.github/workflows/frontend-ci.yml#L1-L31)
-- [security.yml:1-47](file://.github/workflows/security.yml#L1-L47)
-- [deploy-production.yml:1-63](file://.github/workflows/deploy-production.yml#L1-L63)
-- [e2e-production.yml:1-38](file://.github/workflows/e2e-production.yml#L1-L38)
+- [security.yml:1-51](file://.github/workflows/security.yml#L1-L51)
+- [deploy-production.yml:1-123](file://.github/workflows/deploy-production.yml#L1-L123)
+- [e2e-production.yml:1-58](file://.github/workflows/e2e-production.yml#L1-L58)
 - [branch-protection.md:1-14](file://docs/runbooks/branch-protection.md#L1-L14)
 - [rollback.md:1-24](file://docs/runbooks/rollback.md#L1-L24)
 - [incident-response.md:1-47](file://docs/runbooks/incident-response.md#L1-L47)
@@ -122,14 +135,19 @@ The CI/CD pipeline consists of three stages:
 - Security Gate: security workflow validates the backend image for vulnerabilities and dependency issues.
 - Deploy and Validate: production deployment triggers backend and frontend deployments, followed by an end-to-end test suite.
 
+**Updated** Enhanced with comprehensive secret validation preflight check and dual deployment modes.
+
 ```mermaid
 sequenceDiagram
 participant Dev as "Developer"
 participant GH as "GitHub Actions"
 participant Sec as "Security Workflow"
 participant Prod as "Production Deployment"
-participant FE as "Frontend (Vercel)"
-participant BE as "Backend (Render)"
+participant Preflight as "Secret Validation"
+participant Render as "Render API/Webhook"
+participant BE as "Backend Service"
+participant Vercel as "Vercel CLI"
+participant FE as "Frontend Project"
 participant E2E as "End-to-End Tests"
 Dev->>GH : Push/PR to main
 GH->>GH : backend-ci.yml
@@ -137,8 +155,10 @@ GH->>GH : frontend-ci.yml
 GH->>Sec : security.yml (PR/main/cron/dispatch)
 Sec-->>GH : Security report
 GH->>Prod : deploy-production.yml (on main)
-Prod->>BE : Trigger Render deploy
-Prod->>FE : Deploy to Vercel
+Prod->>Preflight : Validate secrets & detect mode
+Preflight-->>Prod : Mode detected (API/Hook)
+Prod->>Render : Deploy via selected mode
+Render-->>Prod : HTTP 200/201 or error
 Prod->>BE : Health check
 GH->>E2E : e2e-production.yml (on dispatch/completion)
 E2E-->>GH : E2E results
@@ -147,9 +167,9 @@ E2E-->>GH : E2E results
 **Diagram sources**
 - [backend-ci.yml:1-41](file://.github/workflows/backend-ci.yml#L1-L41)
 - [frontend-ci.yml:1-31](file://.github/workflows/frontend-ci.yml#L1-L31)
-- [security.yml:1-47](file://.github/workflows/security.yml#L1-L47)
-- [deploy-production.yml:1-63](file://.github/workflows/deploy-production.yml#L1-L63)
-- [e2e-production.yml:1-38](file://.github/workflows/e2e-production.yml#L1-L38)
+- [security.yml:1-51](file://.github/workflows/security.yml#L1-L51)
+- [deploy-production.yml:1-123](file://.github/workflows/deploy-production.yml#L1-L123)
+- [e2e-production.yml:1-58](file://.github/workflows/e2e-production.yml#L1-L58)
 
 ## Detailed Component Analysis
 
@@ -171,7 +191,7 @@ Pytest --> End(["Workflow complete"])
 
 **Diagram sources**
 - [backend-ci.yml:1-41](file://.github/workflows/backend-ci.yml#L1-L41)
-- [requirements-render.txt:1-136](file://backend/requirements-render.txt#L1-L136)
+- [requirements-render.txt:1-138](file://backend/requirements-render.txt#L1-L138)
 - [ruff.toml:1-11](file://backend/ruff.toml#L1-L11)
 - [mypy.ini:1-10](file://backend/mypy.ini#L1-L10)
 
@@ -179,7 +199,7 @@ Pytest --> End(["Workflow complete"])
 - [backend-ci.yml:1-41](file://.github/workflows/backend-ci.yml#L1-L41)
 - [ruff.toml:1-11](file://backend/ruff.toml#L1-L11)
 - [mypy.ini:1-10](file://backend/mypy.ini#L1-L10)
-- [requirements-render.txt:1-136](file://backend/requirements-render.txt#L1-L136)
+- [requirements-render.txt:1-138](file://backend/requirements-render.txt#L1-L138)
 
 ### Frontend CI Workflow
 - Triggers on all pushes.
@@ -220,38 +240,50 @@ OWASP --> End(["Security workflow complete"])
 ```
 
 **Diagram sources**
-- [security.yml:1-47](file://.github/workflows/security.yml#L1-L47)
+- [security.yml:1-51](file://.github/workflows/security.yml#L1-L51)
 - [Dockerfile:1-24](file://backend/docker/Dockerfile#L1-L24)
 
 **Section sources**
-- [security.yml:1-47](file://.github/workflows/security.yml#L1-L47)
+- [security.yml:1-51](file://.github/workflows/security.yml#L1-L51)
 - [Dockerfile:1-24](file://backend/docker/Dockerfile#L1-L24)
 
-### Production Deployment Workflow
+### Enhanced Production Deployment Workflow
+**Updated** Comprehensive secret validation preflight check, dual deployment modes, automatic mode detection, robust error handling, and graceful degradation.
+
 - Triggers on push to main.
-- Deploys backend to Render via Render API, waits for backend health endpoint, then deploys frontend to Vercel using vercel CLI.
+- **New**: Comprehensive secret validation preflight check with automatic mode detection between Render API and webhook deployment.
+- **New**: Dual deployment modes with automatic detection based on available secrets.
+- **New**: Robust error handling with HTTP status code validation for both deployment methods.
+- **New**: Graceful degradation when deployment hooks fail, allowing alternative deployment methods.
+- Deploys backend to Render via selected mode (API or webhook), waits for backend health endpoint, then deploys frontend to Vercel using npx vercel@latest.
 
 ```mermaid
-sequenceDiagram
-participant GH as "GitHub Actions"
-participant Render as "Render API"
-participant BE as "Backend Service"
-participant Vercel as "Vercel CLI"
-participant FE as "Frontend Project"
-GH->>Render : POST service deploy
-Render-->>GH : HTTP 200/201
-GH->>BE : GET /api/v1/health/
-BE-->>GH : 200 OK
-GH->>Vercel : vercel deploy --prod
-Vercel-->>GH : Deploy complete
+flowchart TD
+Start(["Push to main"]) --> Preflight["Secret Validation & Mode Detection"]
+Preflight --> CheckAPI["Check RENDER_API_KEY + RENDER_PROD_SERVICE_ID"]
+CheckAPI --> CheckHook["Check RENDER_PROD_DEPLOY_HOOK_URL"]
+CheckHook --> ModeAPI{"Both present?"}
+ModeAPI --> |Yes| ModeDetect["Automatic Mode: API"]
+ModeAPI --> |No| ModeHook{"Hook present?"}
+ModeHook --> |Yes| ModeDetectHook["Automatic Mode: Hook"]
+ModeHook --> |No| ModeError["Missing required secrets"]
+ModeDetect --> DeployAPI["Deploy via Render API"]
+ModeDetectHook --> DeployHook["Deploy via Render Webhook"]
+ModeError --> SkipDeploy["Skip deployment with warning"]
+DeployAPI --> HealthCheck["Wait for backend health"]
+DeployHook --> HealthCheck
+HealthCheck --> VercelDeploy["Deploy frontend to Vercel (npx vercel@latest)"]
+SkipDeploy --> End(["Workflow complete"])
+VercelDeploy --> End
 ```
 
 **Diagram sources**
-- [deploy-production.yml:1-63](file://.github/workflows/deploy-production.yml#L1-L63)
-- [render.yaml:1-15](file://render.yaml#L1-L15)
+- [deploy-production.yml:15-52](file://.github/workflows/deploy-production.yml#L15-L52)
+- [deploy-production.yml:54-87](file://.github/workflows/deploy-production.yml#L54-L87)
+- [deploy-production.yml:107-116](file://.github/workflows/deploy-production.yml#L107-L116)
 
 **Section sources**
-- [deploy-production.yml:1-63](file://.github/workflows/deploy-production.yml#L1-L63)
+- [deploy-production.yml:1-123](file://.github/workflows/deploy-production.yml#L1-L123)
 - [render.yaml:1-15](file://render.yaml#L1-L15)
 
 ### End-to-End Production Workflow
@@ -270,11 +302,11 @@ PW-->>GH : Test results
 ```
 
 **Diagram sources**
-- [e2e-production.yml:1-38](file://.github/workflows/e2e-production.yml#L1-L38)
+- [e2e-production.yml:1-58](file://.github/workflows/e2e-production.yml#L1-L58)
 - [playwright.config.js:1-48](file://frontend/playwright.config.js#L1-L48)
 
 **Section sources**
-- [e2e-production.yml:1-38](file://.github/workflows/e2e-production.yml#L1-L38)
+- [e2e-production.yml:1-58](file://.github/workflows/e2e-production.yml#L1-L58)
 - [playwright.config.js:1-48](file://frontend/playwright.config.js#L1-L48)
 
 ### Branch Protection and Review Requirements
@@ -304,30 +336,34 @@ PW-->>GH : Test results
 ## Dependency Analysis
 The CI/CD pipeline depends on:
 - GitHub Actions runners for orchestration.
-- Render for backend hosting and deployment automation.
-- Vercel for frontend hosting and deployment automation.
+- Render for backend hosting and deployment automation with dual deployment modes.
+- Vercel for frontend hosting and deployment automation using npx vercel@latest.
 - Docker image built from backend/docker/Dockerfile for security scanning and production deployment.
 - Platform-specific toolchains (Python 3.12, Node 20) and dependency manifests (requirements-render.txt, package.json).
 
+**Updated** Enhanced with dual deployment modes and improved error handling mechanisms.
+
 ```mermaid
 graph TB
-GH[".github/workflows/*"] --> RND["Render API"]
-GH --> VCD["Vercel CLI"]
+GH[".github/workflows/*"] --> RND["Render API/Webhook"]
+GH --> VCD["Vercel CLI (npx vercel@latest)"]
 SEC["security.yml"] --> IMG["backend/docker/Dockerfile"]
 DP["deploy-production.yml"] --> IMG
 IMG --> RND
 FE_PKG["frontend/package.json"] --> VCD
+PREF["Secret Validation Preflight"] --> RND
+PREF --> VCD
 ```
 
 **Diagram sources**
-- [deploy-production.yml:1-63](file://.github/workflows/deploy-production.yml#L1-L63)
-- [security.yml:1-47](file://.github/workflows/security.yml#L1-L47)
+- [deploy-production.yml:1-123](file://.github/workflows/deploy-production.yml#L1-L123)
+- [security.yml:1-51](file://.github/workflows/security.yml#L1-L51)
 - [Dockerfile:1-24](file://backend/docker/Dockerfile#L1-L24)
 - [package.json:1-62](file://frontend/package.json#L1-L62)
 
 **Section sources**
-- [deploy-production.yml:1-63](file://.github/workflows/deploy-production.yml#L1-L63)
-- [security.yml:1-47](file://.github/workflows/security.yml#L1-L47)
+- [deploy-production.yml:1-123](file://.github/workflows/deploy-production.yml#L1-L123)
+- [security.yml:1-51](file://.github/workflows/security.yml#L1-L51)
 - [Dockerfile:1-24](file://backend/docker/Dockerfile#L1-L24)
 - [package.json:1-62](file://frontend/package.json#L1-L62)
 
@@ -337,42 +373,53 @@ FE_PKG["frontend/package.json"] --> VCD
 - Image size and build time: Keep backend dependencies minimal; consolidate Docker layers and leverage multi-stage builds if necessary.
 - E2E test execution: Limit browser fan-out in CI; the configuration sets workers to 1 in CI to reduce overhead.
 - Health checks: Post-deploy health checks prevent traffic redirection to unhealthy instances.
+- **New**: Secret validation preflight reduces deployment failures and improves reliability by catching configuration issues early.
+- **New**: Dual deployment modes provide fallback options when one deployment method fails, improving overall deployment success rates.
 
-[No sources needed since this section provides general guidance]
+**Updated** Enhanced with performance considerations for new deployment features.
 
 ## Troubleshooting Guide
 Common CI/CD issues and resolutions:
 - Backend lint/type failures: Fix Ruff violations or suppress selectively per ruff.toml; address MyPy issues or adjust mypy.ini.
 - Frontend lint failures: Resolve ESLint errors; ensure strictness and module resolution match tsconfig.json.
 - Security scan failures: Address Trivy critical/high findings; fix Bandit-reported issues; resolve OWASP dependency vulnerabilities.
-- Render deployment errors: Verify RENDER_API_KEY and RENDER_PROD_SERVICE_ID; check Render logs for build/start errors.
-- Vercel deployment errors: Verify VERCEL_TOKEN, VERCEL_ORG_ID, and VERCEL_PROD_PROJECT_ID; check Vercel logs.
+- Render deployment errors: **Updated** Verify RENDER_API_KEY and RENDER_PROD_SERVICE_ID for API mode, or RENDER_PROD_DEPLOY_HOOK_URL for webhook mode; check Render logs for build/start errors; the workflow automatically detects and uses the appropriate deployment method.
+- Vercel deployment errors: **Updated** Verify VERCEL_TOKEN, VERCEL_ORG_ID, and VERCEL_PROD_PROJECT_ID; check Vercel logs; the workflow uses npx vercel@latest for improved compatibility.
 - Health check timeouts: Confirm backend readiness endpoint and environment configuration; increase wait loops if necessary.
 - E2E test failures: Validate PLAYWRIGHT_BASE_URL; ensure browsers are installed; review test reports and traces.
+- **New**: Secret validation failures: Check that all required secrets are configured in GitHub Actions; the preflight check will indicate which secrets are missing.
+- **New**: Deployment mode detection issues: Ensure either RENDER_PROD_DEPLOY_HOOK_URL OR both RENDER_API_KEY and RENDER_PROD_SERVICE_ID are configured; the workflow will automatically detect the appropriate mode.
+
+**Updated** Enhanced troubleshooting guide with new deployment features and error scenarios.
 
 **Section sources**
 - [backend-ci.yml:1-41](file://.github/workflows/backend-ci.yml#L1-L41)
 - [frontend-ci.yml:1-31](file://.github/workflows/frontend-ci.yml#L1-L31)
-- [security.yml:1-47](file://.github/workflows/security.yml#L1-L47)
-- [deploy-production.yml:1-63](file://.github/workflows/deploy-production.yml#L1-L63)
-- [e2e-production.yml:1-38](file://.github/workflows/e2e-production.yml#L1-L38)
+- [security.yml:1-51](file://.github/workflows/security.yml#L1-L51)
+- [deploy-production.yml:1-123](file://.github/workflows/deploy-production.yml#L1-L123)
+- [e2e-production.yml:1-58](file://.github/workflows/e2e-production.yml#L1-L58)
 - [ruff.toml:1-11](file://backend/ruff.toml#L1-L11)
 - [mypy.ini:1-10](file://backend/mypy.ini#L1-L10)
 - [package.json:1-62](file://frontend/package.json#L1-L62)
 - [playwright.config.js:1-48](file://frontend/playwright.config.js#L1-L48)
 
 ## Conclusion
-The CI/CD pipeline establishes robust automated testing, security scanning, and deployment workflows for both backend and frontend. Quality gates through linting, type checking, and security scans ensure reliable releases. The production deployment integrates Render and Vercel with health checks and end-to-end validation. Branch protection and documented runbooks support safe, traceable releases with clear rollback and incident response procedures.
+The CI/CD pipeline establishes robust automated testing, security scanning, and deployment workflows for both backend and frontend. Quality gates through linting, type checking, and security scans ensure reliable releases. The production deployment integrates Render and Vercel with enhanced secret validation, dual deployment modes, automatic mode detection, robust error handling, and graceful degradation capabilities. The latest npx vercel@latest approach ensures compatibility with the newest Vercel features. Branch protection and documented runbooks support safe, traceable releases with clear rollback and incident response procedures.
 
-[No sources needed since this section summarizes without analyzing specific files]
+**Updated** Enhanced with comprehensive deployment validation and dual deployment mode capabilities.
 
 ## Appendices
 - Backend runtime and build configuration are defined in render.yaml and pyproject.toml.
 - Frontend build and test scripts are defined in package.json.
 - Playwright configuration controls E2E test execution and reporting.
+- **New**: Secret validation preflight ensures all required deployment secrets are configured before attempting deployments.
+- **New**: Dual deployment modes provide flexibility and reliability through automatic mode detection and fallback mechanisms.
+
+**Updated** Added information about new deployment features.
 
 **Section sources**
 - [render.yaml:1-15](file://render.yaml#L1-L15)
 - [pyproject.toml:1-9](file://backend/pyproject.toml#L1-L9)
 - [package.json:1-62](file://frontend/package.json#L1-L62)
 - [playwright.config.js:1-48](file://frontend/playwright.config.js#L1-L48)
+- [deploy-production.yml:15-52](file://.github/workflows/deploy-production.yml#L15-L52)
