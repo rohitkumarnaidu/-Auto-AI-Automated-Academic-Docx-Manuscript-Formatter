@@ -64,10 +64,10 @@ docxtpl==0.20.2
 weasyprint==62.3
 reportlab==4.4.9
 pylatexenc==2.10
-numpy>=1.26.0,<3.0
+numpy==1.26.4
 
 # ─── LLM / AI (lightweight clients only — no torch/transformers) ───────────────
-litellm
+litellm @ https://github.com/BerriAI/litellm/archive/refs/tags/v1.81.13.tar.gz
 openai==2.21.0
 groq
 anthropic
@@ -132,4 +132,3 @@ citeproc-py==0.9.0
 
 # ─── Async ─────────────────────────────────────────────────────────────────────
 sniffio==1.3.1
-
