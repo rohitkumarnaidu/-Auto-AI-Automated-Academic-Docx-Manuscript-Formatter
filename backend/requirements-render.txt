@@ -67,7 +67,7 @@ pylatexenc==2.10
 numpy>=1.26.0,<3.0
 
 # ─── LLM / AI (lightweight clients only — no torch/transformers) ───────────────
-litellm==1.81.13
+litellm
 openai==2.21.0
 groq
 anthropic
