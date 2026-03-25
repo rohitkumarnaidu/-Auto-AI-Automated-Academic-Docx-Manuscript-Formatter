@@ -4,43 +4,32 @@ import path from 'path';
 const E2E_EMAIL = process.env.E2E_EMAIL || '';
 const E2E_PASSWORD = process.env.E2E_PASSWORD || '';
 
-async function waitForFormatterCompletion(page, jobId, timeoutMs = 180000) {
-    const deadline = Date.now() + timeoutMs;
-    let lastStatus = 'UNKNOWN';
-    let lastMessage = '';
-    let transient404Count = 0;
-
-    while (Date.now() < deadline) {
-        const response = await page.request.get(`/api/documents/${encodeURIComponent(jobId)}/status`, {
-            failOnStatusCode: false,
-        });
-
-        if (response.status() === 200) {
-            const payload = await response.json().catch(() => ({}));
-            const statusData = payload?.data ?? payload ?? {};
-            lastStatus = String(statusData?.status || '').toUpperCase();
-            lastMessage = String(statusData?.message || '');
-
-            if (['COMPLETED', 'COMPLETED_WITH_WARNINGS'].includes(lastStatus)) {
-                return statusData;
-            }
-
-            if (['FAILED', 'ERROR'].includes(lastStatus)) {
-                throw new Error(
-                    `Formatter job failed. status=${lastStatus}, message=${lastMessage || 'n/a'}`
-                );
-            }
-        } else if (response.status() === 404) {
-            // Backend can briefly return 404 during eventual consistency / transient DB reconnects.
-            transient404Count += 1;
+async function getCurrentJobFromSession(page) {
+    return page.evaluate(() => {
+        const raw = window.sessionStorage.getItem('scholarform_currentJob');
+        if (!raw) return null;
+        try {
+            return JSON.parse(raw);
+        } catch {
+            return null;
         }
+    });
+}
 
-        await page.waitForTimeout(1500);
-    }
+async function waitForFormatterCompletion(page, timeoutMs = 180000) {
+    const finalStatus = await expect.poll(async () => {
+        const currentJob = await getCurrentJobFromSession(page);
+        const normalizedStatus = String(currentJob?.status || '').toUpperCase();
+        if (['FAILED', 'ERROR'].includes(normalizedStatus)) {
+            throw new Error(`Formatter job failed early with status=${normalizedStatus}`);
+        }
+        return normalizedStatus;
+    }, {
+        timeout: timeoutMs,
+        intervals: [1000, 1500, 2000, 2500],
+    }).toMatch(/COMPLETED|COMPLETED_WITH_WARNINGS/);
 
-    throw new Error(
-        `Timed out waiting for formatter completion. lastStatus=${lastStatus}, lastMessage=${lastMessage || 'n/a'}, transient404Count=${transient404Count}`
-    );
+    return finalStatus;
 }
 
 async function ensureAgentAccess(page, testInfo) {
@@ -81,25 +70,24 @@ test.describe('Phase 4 Core Flows', () => {
         await expect(processBtn).toBeVisible();
         await expect(processBtn).toBeEnabled();
 
-        const [uploadResponse] = await Promise.all([
-            page.waitForResponse((response) => (
-                response.request().method() === 'POST'
-                && response.url().includes('/api/documents/upload')
-                && response.status() >= 200
-                && response.status() < 300
-            )),
-            processBtn.click(),
-        ]);
+        await processBtn.click();
 
-        const uploadPayloadRaw = await uploadResponse.json().catch(() => ({}));
-        const uploadPayload = uploadPayloadRaw?.data ?? uploadPayloadRaw ?? {};
-        const jobId = uploadPayload?.job_id;
+        await expect.poll(async () => {
+            const currentJob = await getCurrentJobFromSession(page);
+            return String(currentJob?.id || '');
+        }, {
+            timeout: 120000,
+            intervals: [500, 1000, 1500, 2000],
+        }).not.toBe('');
+
+        const currentJob = await getCurrentJobFromSession(page);
+        const jobId = currentJob?.id;
         expect(jobId).toBeTruthy();
 
         await expect(page.locator('text=/initiating upload|processing|upload complete/i').first())
             .toBeVisible({ timeout: 20000 });
 
-        await waitForFormatterCompletion(page, jobId, 180000);
+        await waitForFormatterCompletion(page, 180000);
 
         await page.goto(`/jobs/${encodeURIComponent(jobId)}/download`);
 
@@ -109,12 +97,19 @@ test.describe('Phase 4 Core Flows', () => {
 
     test('Test full agent flow (Prompt -> Outline -> Approve -> Write)', async ({ page }, testInfo) => {
         await ensureAgentAccess(page, testInfo);
-        
-        const chatInput = page.getByPlaceholder(/type your prompt here|message|type|prompt|ask/i).first();
+
+        const proGateTitle = page.getByText(/AI Agent is a Pro Feature/i);
+        if (await proGateTitle.isVisible().catch(() => false)) {
+            test.skip(true, 'Agent workspace unavailable for non-Pro account in production environment.');
+        }
+
+        const chatInput = page.locator('textarea[placeholder*="Type your prompt"]').first();
         await expect(chatInput).toBeVisible({ timeout: 20000 });
         await chatInput.fill('Write a short paper about machine learning');
-        
-        await chatInput.press('Control+Enter');
+
+        const submitBtn = page.locator('button[title*="Submit"]').first();
+        await expect(submitBtn).toBeVisible({ timeout: 10000 });
+        await submitBtn.click();
         
         await expect(page.getByText('Write a short paper about machine learning')).toBeVisible({ timeout: 20000 });
 
