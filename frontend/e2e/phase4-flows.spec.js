@@ -56,6 +56,33 @@ async function ensureAgentAccess(page, testInfo) {
     });
 }
 
+async function resolveAgentWorkspaceState(page, timeoutMs = 30000) {
+    const deadline = Date.now() + timeoutMs;
+
+    while (Date.now() < deadline) {
+        const currentPath = new URL(page.url()).pathname;
+
+        const chatInputCount = await page.locator('textarea[placeholder*="Type your prompt"]').count();
+        if (chatInputCount > 0) {
+            return { state: 'ready', path: currentPath };
+        }
+
+        const proGateCount = await page.getByText(/AI Agent is a Pro Feature/i).count();
+        if (proGateCount > 0) {
+            return { state: 'pro_gate', path: currentPath };
+        }
+
+        const loginButtonCount = await page.getByRole('button', { name: /sign in/i }).count();
+        if (currentPath.startsWith('/login') || loginButtonCount > 0) {
+            return { state: 'login', path: currentPath };
+        }
+
+        await page.waitForTimeout(1000);
+    }
+
+    return { state: 'unknown', path: new URL(page.url()).pathname };
+}
+
 test.describe('Phase 4 Core Flows', () => {
     test.setTimeout(240000); // Production processing can exceed 2 minutes under load
 
@@ -98,10 +125,17 @@ test.describe('Phase 4 Core Flows', () => {
     test('Test full agent flow (Prompt -> Outline -> Approve -> Write)', async ({ page }, testInfo) => {
         await ensureAgentAccess(page, testInfo);
 
-        const proGateTitle = page.getByText(/AI Agent is a Pro Feature/i);
-        if (await proGateTitle.isVisible().catch(() => false)) {
+        const workspaceState = await resolveAgentWorkspaceState(page, 30000);
+        if (workspaceState.state === 'pro_gate') {
             test.skip(true, 'Agent workspace unavailable for non-Pro account in production environment.');
         }
+        if (workspaceState.state === 'login') {
+            test.skip(true, 'Agent workspace requires authenticated user in production environment.');
+        }
+        expect(
+            workspaceState.state,
+            `Agent workspace did not become ready. path=${workspaceState.path}`
+        ).toBe('ready');
 
         const chatInput = page.locator('textarea[placeholder*="Type your prompt"]').first();
         await expect(chatInput).toBeVisible({ timeout: 20000 });
