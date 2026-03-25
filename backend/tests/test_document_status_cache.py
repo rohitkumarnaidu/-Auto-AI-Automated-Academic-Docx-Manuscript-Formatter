@@ -62,7 +62,7 @@ async def test_document_status_cache_hits_within_ttl(monkeypatch):
     assert first_payload == second_payload
     assert mock_get_doc.call_count == 1
     assert mock_get_statuses.call_count == 1
-    assert mock_get_result.call_count == 1
+    assert mock_get_result.call_count == 0
 
 
 @pytest.mark.asyncio
@@ -90,7 +90,7 @@ async def test_document_status_cache_scoped_by_user(monkeypatch):
     assert exc_info.value.status_code == 403
     assert mock_get_doc.call_count == 2
     assert mock_get_statuses.call_count == 1
-    assert mock_get_result.call_count == 1
+    assert mock_get_result.call_count == 0
 
 
 @pytest.mark.asyncio
@@ -116,4 +116,29 @@ async def test_document_status_cache_expires_after_ttl(monkeypatch):
 
     assert mock_get_doc.call_count == 2
     assert mock_get_statuses.call_count == 2
-    assert mock_get_result.call_count == 2
+    assert mock_get_result.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_document_status_cache_fetches_result_for_terminal_status(monkeypatch):
+    _configure_status_cache(monkeypatch, ttl_seconds=5.0)
+    user = SimpleNamespace(id="user-1")
+
+    with patch(
+        "app.routers.documents.DocumentService.get_document",
+        return_value=_mock_document(status="COMPLETED"),
+    ) as mock_get_doc:
+        with patch(
+            "app.routers.documents.DocumentService.get_processing_statuses",
+            return_value=[{"phase": "PERSISTENCE", "status": "done", "message": "saved"}],
+        ) as mock_get_statuses:
+            with patch(
+                "app.routers.documents.DocumentService.get_document_result",
+                return_value={"validation_results": {"quality_summary": {"quality_score": 0.91}}},
+            ) as mock_get_result:
+                await legacy_documents.get_status("job-1", current_user=user)
+                await legacy_documents.get_status("job-1", current_user=user)
+
+    assert mock_get_doc.call_count == 1
+    assert mock_get_statuses.call_count == 1
+    assert mock_get_result.call_count == 1
