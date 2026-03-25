@@ -299,9 +299,19 @@ export const uploadChunked = async (file, options = {}) => {
     return { file_id: fileId, total_chunks: totalChunks, status: 'complete' };
 };
 
-export const getJobStatus = async (jobId, options = {}) => (
-    fetchWithAuth(`/api/documents/${encodeURIComponent(jobId)}/status`, options)
-);
+export const getJobStatus = async (jobId, options = {}) => {
+    const {
+        suppressConsoleError = true,
+        suppressMonitoring = true,
+        ...requestOptions
+    } = options;
+
+    return fetchWithAuth(`/api/documents/${encodeURIComponent(jobId)}/status`, {
+        ...requestOptions,
+        suppressConsoleError,
+        suppressMonitoring,
+    });
+};
 
 export const getPreview = async (jobId, options = {}) => (
     fetchWithAuthDebounced(

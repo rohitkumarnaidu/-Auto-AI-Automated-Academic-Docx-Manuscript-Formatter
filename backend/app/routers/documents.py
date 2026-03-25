@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 _STATUS_CACHE_MISS = object()
 _status_cache_lock: asyncio.Lock | None = None
 _status_response_cache: dict[str, tuple[float, Dict[str, Any]]] = {}
+_MAX_STALE_STATUS_SECONDS = 90.0
 
 _LEGACY_SUCCESSORS = {
     "/api/documents": "/api/v1/documents",
@@ -132,6 +133,25 @@ async def _get_cached_status_response(cache_key: str) -> Any:
 
         expiry, payload = cached
         if now >= expiry:
+            return _STATUS_CACHE_MISS
+
+        return _clone_status_payload(payload)
+
+
+async def _get_stale_status_response(cache_key: str, *, max_stale_seconds: float = _MAX_STALE_STATUS_SECONDS) -> Any:
+    ttl_seconds = _document_status_ttl_seconds()
+    if ttl_seconds <= 0:
+        return _STATUS_CACHE_MISS
+
+    now = monotonic()
+    async with _get_status_cache_lock():
+        cached = _status_response_cache.get(cache_key)
+        if not cached:
+            return _STATUS_CACHE_MISS
+
+        expiry, payload = cached
+        stale_age = max(0.0, now - expiry)
+        if stale_age > max_stale_seconds:
             _status_response_cache.pop(cache_key, None)
             return _STATUS_CACHE_MISS
 
@@ -144,10 +164,19 @@ async def _set_cached_status_response(cache_key: str, payload: Dict[str, Any]) -
         if ttl_seconds <= 0:
             _status_response_cache.pop(cache_key, None)
             return
+        now = monotonic()
         _status_response_cache[cache_key] = (
-            monotonic() + ttl_seconds,
+            now + ttl_seconds,
             _clone_status_payload(payload),
         )
+        stale_cutoff = now - _MAX_STALE_STATUS_SECONDS
+        stale_keys = [
+            key
+            for key, (expiry, _) in _status_response_cache.items()
+            if (expiry - ttl_seconds) < stale_cutoff
+        ]
+        for key in stale_keys:
+            _status_response_cache.pop(key, None)
 
 
 def _reset_document_status_cache_for_tests() -> None:
@@ -186,6 +215,21 @@ def _extract_quality_payload(result: Optional[Dict[str, Any]]) -> Dict[str, Any]
     return {
         "quality_score": validation_results.get("quality_score") or quality_summary.get("quality_score"),
         "quality_summary": quality_summary or None,
+    }
+
+
+def _build_initial_status_payload(job_id: str) -> Dict[str, Any]:
+    return {
+        "job_id": job_id,
+        "status": "PROCESSING",
+        "current_phase": "UPLOAD",
+        "phase": "UPLOAD",
+        "progress_percentage": 0,
+        "message": "Upload complete. Processing started...",
+        "updated_at": None,
+        "phases": [],
+        "quality_score": None,
+        "quality_summary": None,
     }
 
 
@@ -388,6 +432,11 @@ async def upload_document_chunked(
                     "template": template,
                     "chunked": True,
                 },
+            )
+
+            await _set_cached_status_response(
+                _status_cache_key(str(job_id), current_user),
+                _build_initial_status_payload(str(job_id)),
             )
 
             return {
@@ -601,6 +650,11 @@ async def upload_document(
             },
         )
 
+        await _set_cached_status_response(
+            _status_cache_key(str(job_id), current_user),
+            _build_initial_status_payload(str(job_id)),
+        )
+
         return {"message": "Processing started", "job_id": str(job_id), "status": "PROCESSING"}
 
     except HTTPException:
@@ -666,6 +720,12 @@ async def get_status(
                 }
                 await _set_cached_status_response(cache_key, payload)
                 return payload
+
+            stale_payload = await _get_stale_status_response(cache_key)
+            if stale_payload is not _STATUS_CACHE_MISS:
+                stale_payload["message"] = "Reconnecting to status backend. Retrying..."
+                stale_payload["stale"] = True
+                return stale_payload
 
             raise HTTPException(status_code=404, detail="Document job not found")
 
