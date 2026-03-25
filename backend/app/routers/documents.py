@@ -735,7 +735,9 @@ async def get_status(
                 raise HTTPException(status_code=403, detail="Not authorized to access this document")
 
         statuses = DocumentService.get_processing_statuses(job_id)
-        result = DocumentService.get_document_result(job_id)
+        doc_status = str(doc.get("status") or "").upper()
+        should_fetch_result = doc_status in _READY_FOR_EXPORT_STATUSES
+        result = DocumentService.get_document_result(job_id) if should_fetch_result else None
         quality_payload = _extract_quality_payload(result)
 
         payload = {
