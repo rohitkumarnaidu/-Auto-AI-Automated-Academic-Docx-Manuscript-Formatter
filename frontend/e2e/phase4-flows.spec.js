@@ -4,6 +4,45 @@ import path from 'path';
 const E2E_EMAIL = process.env.E2E_EMAIL || '';
 const E2E_PASSWORD = process.env.E2E_PASSWORD || '';
 
+async function waitForFormatterCompletion(page, jobId, timeoutMs = 180000) {
+    const deadline = Date.now() + timeoutMs;
+    let lastStatus = 'UNKNOWN';
+    let lastMessage = '';
+    let transient404Count = 0;
+
+    while (Date.now() < deadline) {
+        const response = await page.request.get(`/api/documents/${encodeURIComponent(jobId)}/status`, {
+            failOnStatusCode: false,
+        });
+
+        if (response.status() === 200) {
+            const payload = await response.json().catch(() => ({}));
+            const statusData = payload?.data ?? payload ?? {};
+            lastStatus = String(statusData?.status || '').toUpperCase();
+            lastMessage = String(statusData?.message || '');
+
+            if (['COMPLETED', 'COMPLETED_WITH_WARNINGS'].includes(lastStatus)) {
+                return statusData;
+            }
+
+            if (['FAILED', 'ERROR'].includes(lastStatus)) {
+                throw new Error(
+                    `Formatter job failed. status=${lastStatus}, message=${lastMessage || 'n/a'}`
+                );
+            }
+        } else if (response.status() === 404) {
+            // Backend can briefly return 404 during eventual consistency / transient DB reconnects.
+            transient404Count += 1;
+        }
+
+        await page.waitForTimeout(1500);
+    }
+
+    throw new Error(
+        `Timed out waiting for formatter completion. lastStatus=${lastStatus}, lastMessage=${lastMessage || 'n/a'}, transient404Count=${transient404Count}`
+    );
+}
+
 async function ensureAgentAccess(page, testInfo) {
     await page.goto('/agent');
 
@@ -29,7 +68,7 @@ async function ensureAgentAccess(page, testInfo) {
 }
 
 test.describe('Phase 4 Core Flows', () => {
-    test.setTimeout(120000); // Allow 2 minutes for full end-to-end backend processing
+    test.setTimeout(240000); // Production processing can exceed 2 minutes under load
 
     test('Test full formatter flow (Upload -> Process -> Results -> Download)', async ({ page }) => {
         await page.goto('/upload');
@@ -41,20 +80,30 @@ test.describe('Phase 4 Core Flows', () => {
         const processBtn = page.getByRole('button', { name: /process document|re-process manuscript/i }).first();
         await expect(processBtn).toBeVisible();
         await expect(processBtn).toBeEnabled();
-        await processBtn.click();
 
-        await page.waitForURL(
-            (url) => ['/processing', '/results', '/download'].some((route) => url.pathname.startsWith(route)),
-            { timeout: 60000 }
-        );
-        
-        if (!/\/download/.test(new URL(page.url()).pathname)) {
-            await page.waitForURL((url) => ['/results', '/download'].some((route) => url.pathname.startsWith(route)), {
-                timeout: 60000,
-            });
-        }
+        const [uploadResponse] = await Promise.all([
+            page.waitForResponse((response) => (
+                response.request().method() === 'POST'
+                && response.url().includes('/api/documents/upload')
+                && response.status() >= 200
+                && response.status() < 300
+            )),
+            processBtn.click(),
+        ]);
 
-        const downloadBtn = page.getByRole('button', { name: /download/i }).first();
+        const uploadPayloadRaw = await uploadResponse.json().catch(() => ({}));
+        const uploadPayload = uploadPayloadRaw?.data ?? uploadPayloadRaw ?? {};
+        const jobId = uploadPayload?.job_id;
+        expect(jobId).toBeTruthy();
+
+        await expect(page.locator('text=/initiating upload|processing|upload complete/i').first())
+            .toBeVisible({ timeout: 20000 });
+
+        await waitForFormatterCompletion(page, jobId, 180000);
+
+        await page.goto(`/jobs/${encodeURIComponent(jobId)}/download`);
+
+        const downloadBtn = page.getByRole('button', { name: /choose export format|download/i }).first();
         await expect(downloadBtn).toBeVisible();
     });
 

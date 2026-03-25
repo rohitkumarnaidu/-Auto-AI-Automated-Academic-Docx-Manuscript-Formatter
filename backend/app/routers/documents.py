@@ -632,6 +632,41 @@ async def get_status(
 
         doc = DocumentService.get_document(job_id)
         if not doc:
+            # Briefly retry to tolerate transient DB reconnects / eventual consistency right after upload.
+            await asyncio.sleep(0.25)
+            doc = DocumentService.get_document(job_id)
+
+        if not doc:
+            statuses = DocumentService.get_processing_statuses(job_id)
+            if statuses:
+                latest = max(
+                    statuses,
+                    key=lambda item: str(item.get("updated_at") or item.get("created_at") or ""),
+                )
+                payload = {
+                    "job_id": job_id,
+                    "status": latest.get("status") or "PROCESSING",
+                    "current_phase": latest.get("phase") or "UPLOADED",
+                    "phase": latest.get("phase") or "UPLOADED",
+                    "progress_percentage": latest.get("progress_percentage") or 0,
+                    "message": latest.get("message") or "Processing...",
+                    "updated_at": latest.get("updated_at") or latest.get("created_at"),
+                    "phases": [
+                        {
+                            "phase": s.get("phase"),
+                            "status": s.get("status"),
+                            "message": s.get("message"),
+                            "progress": s.get("progress_percentage"),
+                            "updated_at": s.get("updated_at"),
+                        }
+                        for s in statuses
+                    ],
+                    "quality_score": None,
+                    "quality_summary": None,
+                }
+                await _set_cached_status_response(cache_key, payload)
+                return payload
+
             raise HTTPException(status_code=404, detail="Document job not found")
 
         # Security: ownership check
