@@ -42,7 +42,7 @@ vi.mock('@/src/hooks/useUnsavedChanges', () => ({
 
 const moveToMetadataStep = (result) => {
     act(() => {
-        result.current.selectDocType('paper');
+        result.current.selectDocType('academic_paper');
     });
     act(() => {
         result.current.setTemplate('ieee');

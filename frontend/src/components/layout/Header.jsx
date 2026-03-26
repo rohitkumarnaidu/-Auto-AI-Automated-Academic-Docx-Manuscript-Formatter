@@ -28,9 +28,9 @@ Logo.displayName = 'Logo';
 
 const Header = memo(function Header({ section = 'shared', isSidebarLayout = false, onOpenMobileSidebar }) {
     const pathname = usePathname();
-    const { user, loading } = useAuth();
+    const { user, loading, isLoggedIn } = useAuth();
     
-    const uiUser = loading ? null : user;
+    const uiUser = loading ? null : (isLoggedIn ? user : null);
 
     const dashboardHref = useMemo(() => {
         if (!uiUser) return '/';
@@ -65,7 +65,7 @@ const Header = memo(function Header({ section = 'shared', isSidebarLayout = fals
                         </button>
                     </div>
 
-                    {uiUser ? (
+                    {loading ? null : uiUser ? (
                         <div className="flex items-center gap-2 pl-2 sm:pl-3 border-l border-slate-200 dark:border-white/10">
                             <div className="hidden md:flex flex-col items-end">
                                 <span className="text-[13px] font-bold text-slate-900 dark:text-white leading-none">
@@ -85,7 +85,7 @@ const Header = memo(function Header({ section = 'shared', isSidebarLayout = fals
                                 href="/login"
                                 className="hidden sm:flex px-3 py-1.5 text-sm font-bold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors"
                             >
-                                Log in
+                                Login
                             </Link>
                             <Link 
                                 href="/signup"

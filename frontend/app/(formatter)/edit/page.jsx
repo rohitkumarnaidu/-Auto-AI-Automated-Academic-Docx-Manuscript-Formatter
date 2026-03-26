@@ -6,6 +6,11 @@ import ErrorBoundary from '@/src/components/ErrorBoundary';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
+import { Table } from '@tiptap/extension-table';
+import { TableRow } from '@tiptap/extension-table-row';
+import { TableCell } from '@tiptap/extension-table-cell';
+import { TableHeader } from '@tiptap/extension-table-header';
+import { CharacterCount } from '@tiptap/extension-character-count';
 
 import { useDocument } from '@/src/context/DocumentContext';
 import { useToast } from '@/src/context/ToastContext';
@@ -70,6 +75,11 @@ export default function Edit() {
             Placeholder.configure({
                 placeholder: 'Edit your document content here...',
             }),
+            Table.configure({ resizable: true }),
+            TableRow,
+            TableHeader,
+            TableCell,
+            CharacterCount.configure({ limit: null }),
         ],
         content: '',
         onUpdate: ({ editor: e }) => {
@@ -153,21 +163,15 @@ export default function Edit() {
         if (isSaving) return;
         setIsSaving(true);
         try {
-            // Get the raw text from TipTap editor (or fallback to content state)
-            const currentText = editor
-                ? editor.getText({ blockSeparator: '\n' })
-                : content;
+            // Get the structured TipTap data
+            const currentContent = editor
+                ? editor.getJSON()
+                : { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: content }] }] };
 
-            const structuredData = {
-                sections: {
-                    "BODY": currentText.split('\n').filter(line => line.trim() !== '')
-                }
-            };
-
-            await submitEdit(job.id, structuredData);
+            await submitEdit(job.id, currentContent);
 
             setLastSaved(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-            initialContentRef.current = currentText;
+            initialContentRef.current = editor ? editor.getText() : content;
 
             // Redirect to processing/upload page to show progress of re-formatting
             const updatedJob = { ...job, status: 'processing', progress: 0 };
@@ -413,6 +417,27 @@ export default function Edit() {
                                     >
                                         <span className="material-symbols-outlined text-[14px]">redo</span>
                                     </button>
+                                    <div className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-1" />
+                                    <button
+                                        type="button"
+                                        onClick={() => editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
+                                        className="px-2 py-1 rounded text-sm bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                                        title="Insert Table"
+                                    >
+                                        <span className="material-symbols-outlined text-[14px]">table</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => editor?.chain().focus().toggleCodeBlock().run()}
+                                        className={`px-2 py-1 rounded text-sm transition-colors ${
+                                            editor?.isActive('codeBlock')
+                                                ? 'bg-primary text-white'
+                                                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                        }`}
+                                        title="Code Block"
+                                    >
+                                        <span className="material-symbols-outlined text-[14px]">code</span>
+                                    </button>
                                 </div>
 
                                 {/* TipTap Editor */}
@@ -460,7 +485,7 @@ export default function Edit() {
                 {/* Bottom Status Bar */}
                 <footer className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 px-4 sm:px-6 py-2 text-[10px] font-medium text-slate-500 dark:text-slate-400">
                     <div className="flex flex-wrap items-center gap-4">
-                        <span>Words: {content.split(/\s+/).filter(Boolean).length}</span>
+                        <span>Words: {editor ? editor.storage.characterCount.words() : 0}</span>
                         <span>Status: {isSaving ? 'Syncing...' : 'Up to date'}</span>
                     </div>
                     <div className="flex flex-wrap items-center gap-4">

@@ -10,6 +10,7 @@ import StatusBadge from '@/src/components/StatusBadge';
 import { useDocument } from '@/src/context/DocumentContext';
 import { useDocumentStatus } from '@/src/services/api';
 import { isCompleted, isFailed } from '@/src/constants/status';
+import { trackPageView } from '@/src/lib/rum';
 
 const PHASE_MAPPING = {
     UPLOADED: 0,
@@ -45,6 +46,7 @@ const HUMAN_PHASE_LABELS = {
 
 export default function Processing() {
     usePageTitle('Processing');
+    useEffect(() => { trackPageView('/processing'); }, []);
     const router = useRouter();
     const navigate = useCallback((href, options = {}) => {
         if (options?.replace) {

@@ -1,5 +1,5 @@
 'use client';
-import { useCallback } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 
 const PanelGroup = dynamic(() => import('react-resizable-panels').then(mod => mod.PanelGroup || mod.Group), { ssr: false });
@@ -96,6 +96,15 @@ function Toolbar({ editor }) {
  */
 export default function SplitEditor({ sessionId, templateId, html, isAnalyzing, sendContent }) {
     const defaultSizes = loadSavedSizes();
+    const [isMobile, setIsMobile] = useState(false);
+    const [activeTab, setActiveTab] = useState('editor');
+
+    useEffect(() => {
+        const checkMobile = () => setIsMobile(window.innerWidth < 640);
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
 
     const handleLayout = useCallback((sizes) => {
         try {
@@ -133,71 +142,113 @@ export default function SplitEditor({ sessionId, templateId, html, isAnalyzing, 
             {/* Toolbar sits above both panels */}
             <Toolbar editor={editor} />
 
-            <PanelGroup
-                direction="horizontal"
-                onLayout={handleLayout}
-                className="flex-1 min-h-0"
-            >
-                {/* ── Left: Editor ──────────────────────────────────────── */}
-                <Panel
-                    defaultSize={defaultSizes[0]}
-                    minSize={20}
-                    className="flex flex-col min-h-0 bg-white dark:bg-slate-900"
-                >
-                    {/* Panel header */}
-                    <div className="flex items-center gap-2 px-3 py-1.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 shrink-0">
-                        <span className="material-symbols-outlined text-[14px] text-slate-400">edit_note</span>
-                        <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Editor</span>
-                        {sessionId && (
-                            <span className="ml-auto text-[10px] text-slate-300 dark:text-slate-700 font-mono truncate max-w-[120px]" title={sessionId}>
-                                {sessionId.slice(0, 8)}…
-                            </span>
-                        )}
+            {isMobile ? (
+                <div className="flex-1 min-h-0 flex flex-col bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
+                    <div className="flex shrink-0 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
+                        <button
+                            onClick={() => setActiveTab('editor')}
+                            className={`flex flex-1 items-center justify-center gap-2 py-3 text-xs font-bold uppercase tracking-wider transition-colors ${
+                                activeTab === 'editor' 
+                                    ? 'text-primary border-b-2 border-primary bg-primary/5' 
+                                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                            }`}
+                        >
+                            <span className="material-symbols-outlined text-[16px]">edit_note</span>
+                            Editor
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('preview')}
+                            className={`flex flex-1 items-center justify-center gap-2 py-3 text-xs font-bold uppercase tracking-wider transition-colors ${
+                                activeTab === 'preview' 
+                                    ? 'text-primary border-b-2 border-primary bg-primary/5' 
+                                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                            }`}
+                        >
+                            <span className="material-symbols-outlined text-[16px]">preview</span>
+                            Preview
+                            {isAnalyzing && (
+                                <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                            )}
+                        </button>
                     </div>
-
-                    {/* TipTap scroll area */}
-                    <div className="flex-1 overflow-y-auto p-4 sm:p-6 scroll-smooth">
+                    
+                    {/* Editor tab content */}
+                    <div className={`flex-1 overflow-y-auto p-4 scroll-smooth bg-white dark:bg-slate-900 ${activeTab !== 'editor' ? 'hidden' : 'block'}`}>
                         <EditorContent editor={editor} className="min-h-[500px] h-full" />
                     </div>
-                </Panel>
-
-                {/* ── Divider ────────────────────────────────────────────── */}
-                <PanelResizeHandle className="
-                    w-1.5 flex-shrink-0 cursor-col-resize
-                    bg-slate-200 dark:bg-slate-800
-                    hover:bg-primary/40 active:bg-primary/60
-                    transition-colors duration-150
-                    flex items-center justify-center
-                    group relative
-                ">
-                    {/* Drag grip dots */}
-                    <div className="absolute w-1 flex flex-col gap-0.5 pointer-events-none opacity-40 group-hover:opacity-100 transition-opacity">
-                        {[0, 1, 2, 3, 4].map(i => (
-                            <div key={i} className="w-1 h-1 rounded-full bg-slate-500 dark:bg-slate-400" />
-                        ))}
+                    
+                    {/* Preview tab content */}
+                    <div className={`flex-1 min-h-0 ${activeTab !== 'preview' ? 'hidden' : 'flex flex-col'}`}>
+                        <PreviewPane html={html} isLoading={isAnalyzing} />
                     </div>
-                </PanelResizeHandle>
-
-                {/* ── Right: Preview ─────────────────────────────────────── */}
-                <Panel
-                    defaultSize={defaultSizes[1]}
-                    minSize={20}
-                    className="flex flex-col min-h-0"
+                </div>
+            ) : (
+                <PanelGroup
+                    direction="horizontal"
+                    onLayout={handleLayout}
+                    className="flex-1 min-h-0 border-t border-slate-200 dark:border-slate-800"
                 >
-                    {/* Panel header */}
-                    <div className="flex items-center gap-2 px-3 py-1.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 shrink-0">
-                        <span className="material-symbols-outlined text-[14px] text-slate-400">preview</span>
-                        <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Preview</span>
-                        <div className="ml-auto flex items-center gap-1.5">
-                            {isAnalyzing && (
-                                <div className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" title="Analyzing…" />
+                    {/* ── Left: Editor ──────────────────────────────────────── */}
+                    <Panel
+                        defaultSize={defaultSizes[0]}
+                        minSize={20}
+                        className="flex flex-col min-h-0 bg-white dark:bg-slate-900"
+                    >
+                        {/* Panel header */}
+                        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 shrink-0">
+                            <span className="material-symbols-outlined text-[14px] text-slate-400">edit_note</span>
+                            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Editor</span>
+                            {sessionId && (
+                                <span className="ml-auto text-[10px] text-slate-300 dark:text-slate-700 font-mono truncate max-w-[120px]" title={sessionId}>
+                                    {sessionId.slice(0, 8)}…
+                                </span>
                             )}
                         </div>
-                    </div>
 
-                    <PreviewPane html={html} isLoading={isAnalyzing} />
-                </Panel>
-            </PanelGroup>
+                        {/* TipTap scroll area */}
+                        <div className="flex-1 overflow-y-auto p-4 sm:p-6 scroll-smooth">
+                            <EditorContent editor={editor} className="min-h-[500px] h-full" />
+                        </div>
+                    </Panel>
+
+                    {/* ── Divider ────────────────────────────────────────────── */}
+                    <PanelResizeHandle className="
+                        w-1.5 flex-shrink-0 cursor-col-resize
+                        bg-slate-200 dark:bg-slate-800
+                        hover:bg-primary/40 active:bg-primary/60
+                        transition-colors duration-150
+                        flex items-center justify-center
+                        group relative
+                    ">
+                        {/* Drag grip dots */}
+                        <div className="absolute w-1 flex flex-col gap-0.5 pointer-events-none opacity-40 group-hover:opacity-100 transition-opacity">
+                            {[0, 1, 2, 3, 4].map(i => (
+                                <div key={i} className="w-1 h-1 rounded-full bg-slate-500 dark:bg-slate-400" />
+                            ))}
+                        </div>
+                    </PanelResizeHandle>
+
+                    {/* ── Right: Preview ─────────────────────────────────────── */}
+                    <Panel
+                        defaultSize={defaultSizes[1]}
+                        minSize={20}
+                        className="flex flex-col min-h-0"
+                    >
+                        {/* Panel header */}
+                        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 shrink-0">
+                            <span className="material-symbols-outlined text-[14px] text-slate-400">preview</span>
+                            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Preview</span>
+                            <div className="ml-auto flex items-center gap-1.5">
+                                {isAnalyzing && (
+                                    <div className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" title="Analyzing…" />
+                                )}
+                            </div>
+                        </div>
+
+                        <PreviewPane html={html} isLoading={isAnalyzing} />
+                    </Panel>
+                </PanelGroup>
+            )}
         </div>
     );
 }

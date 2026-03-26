@@ -8,6 +8,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import Link from 'next/link';
 
 import DashboardRow from '@/src/components/dashboard/DashboardRow';
+import { trackPageView } from '@/src/lib/rum';
 
 const StatsCard = memo(({ 
     title, 
@@ -59,6 +60,7 @@ StatsCard.displayName = 'StatsCard';
 
 export default function DashboardPage() {
     usePageTitle('Dashboard');
+    useEffect(() => { trackPageView('/dashboard'); }, []);
     const { user } = useAuth();
     const {
         data: documentsPayload,

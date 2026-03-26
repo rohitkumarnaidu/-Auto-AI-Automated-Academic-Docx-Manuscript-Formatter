@@ -36,15 +36,14 @@ export default function AppShell({ children, section = 'shared' }) {
     useEffect(() => {
         if (typeof window === 'undefined') return;
         const params = new URLSearchParams(window.location.search || '');
-        setForceGuestMode(params.get('guest') === '1');
-    }, [pathname]);
+        const isGuest = params.get('guest') === '1';
+        setForceGuestMode(isGuest);
 
-    useEffect(() => {
         if (loading) return;
-        if (pathname === '/' && isLoggedIn && !forceGuestMode) {
+        if (pathname === '/' && isLoggedIn && !isGuest) {
             router.replace('/dashboard');
         }
-    }, [forceGuestMode, isLoggedIn, loading, pathname, router]);
+    }, [pathname, isLoggedIn, loading, router]);
 
     useEffect(() => {
         if (typeof window === 'undefined') {

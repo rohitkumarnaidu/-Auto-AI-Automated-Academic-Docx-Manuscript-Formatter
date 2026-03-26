@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import usePageTitle from '@/src/hooks/usePageTitle';
 import { useAuth } from '@/src/context/AuthContext';
 import { useUpload } from '@/src/hooks/useUpload';
+import { trackPageView } from '@/src/lib/rum';
 
 // Core Components
 import Footer from '@/src/components/Footer';
@@ -30,6 +31,7 @@ const STEPS = [
 
 function UploadContent() {
     usePageTitle('Upload Document');
+    useEffect(() => { trackPageView('/upload'); }, []);
     const { isLoggedIn } = useAuth();
     const searchParams = useSearchParams();
     const fileInputRef = useRef(null);

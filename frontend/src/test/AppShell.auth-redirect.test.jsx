@@ -68,6 +68,10 @@ describe('AppShell landing auth redirect', () => {
     it('does not redirect when guest mode is explicitly forced', async () => {
         usePathname.mockReturnValue('/');
         useSearchParams.mockReturnValue(new URLSearchParams('guest=1'));
+        
+        const originalLocation = window.location;
+        delete window.location;
+        window.location = { search: '?guest=1', href: 'http://localhost/?guest=1', origin: 'http://localhost' };
         useAuth.mockReturnValue({
             user: { id: 'u1' },
             isLoggedIn: true,
@@ -83,5 +87,8 @@ describe('AppShell landing auth redirect', () => {
         await waitFor(() => {
             expect(replaceMock).not.toHaveBeenCalled();
         });
+
+        // Cleanup
+        window.location = originalLocation;
     });
 });

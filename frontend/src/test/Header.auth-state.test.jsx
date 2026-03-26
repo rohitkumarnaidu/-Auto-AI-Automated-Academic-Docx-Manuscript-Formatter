@@ -42,7 +42,7 @@ describe('Header auth rendering', () => {
         render(<Header />);
 
         expect(screen.getByText('Login')).toBeInTheDocument();
-        expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
+        expect(screen.queryByText('Researcher')).not.toBeInTheDocument();
     });
 
     it('shows dashboard action only when isLoggedIn is true', () => {
@@ -54,7 +54,7 @@ describe('Header auth rendering', () => {
 
         render(<Header />);
 
-        expect(screen.getByText('Dashboard')).toBeInTheDocument();
+        expect(screen.getByText('Researcher')).toBeInTheDocument();
         expect(screen.queryByText('Login')).not.toBeInTheDocument();
     });
 

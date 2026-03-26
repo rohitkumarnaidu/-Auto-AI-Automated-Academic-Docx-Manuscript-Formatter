@@ -9,6 +9,7 @@ import { getAiSuggestion } from '@/src/services/api.preview.v1';
 import { fetchWithAuth } from '@/src/services/api.core';
 import { getBuiltinTemplates } from '@/src/services/api.templates';
 import { supabase } from '@/src/lib/supabaseClient';
+import { trackPageView } from '@/src/lib/rum';
 
 // We will fetch templates dynamically, providing a minimal fallback.
 const FALLBACK_TEMPLATES = [
@@ -210,6 +211,7 @@ function AiSidebar({ isOpen, onToggle, sessionId, templateId, editorContentRef }
 // ── Main Page ──────────────────────────────────────────────────────────────
 export default function LiveFormatterPage() {
     usePageTitle('Live Editor');
+    useEffect(() => { trackPageView('/live'); }, []);
 
     const router = useRouter();
 

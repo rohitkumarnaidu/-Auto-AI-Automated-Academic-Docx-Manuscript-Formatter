@@ -7,7 +7,7 @@ import Link from 'next/link';
 import Footer from '@/src/components/Footer';
 import ValidationCard from '@/src/components/ValidationCard';
 import { useDocument } from '@/src/context/DocumentContext';
-import { getPreview } from '@/src/services/api';
+import { getPreview, getJobSummary } from '@/src/services/api.documents';
 import useJobFromUrl from '@/src/hooks/useJobFromUrl';
 
 function ValidationResults() {
@@ -26,6 +26,9 @@ function ValidationResults() {
     const [isLoadingResult, setIsLoadingResult] = useState(false);
     const [resultLoadError, setResultLoadError] = useState('');
     const [ignoredIssues, setIgnoredIssues] = useState(new Set());
+    
+    const [jobSummary, setJobSummary] = useState(null);
+    const [isLoadingSummary, setIsLoadingSummary] = useState(false);
 
     const handleIgnore = useCallback((issue) => {
         const key = `${issue.type}:${issue.title}:${issue.description}`;
@@ -37,62 +40,50 @@ function ValidationResults() {
     }, []);
 
     useEffect(() => {
-        if (!job) {
+        if (!job?.id) {
             setResolvedResult(null);
             setResultLoadError('');
             setIsLoadingResult(false);
-            return;
-        }
-
-        if (job.result) {
-            setResolvedResult(job.result);
-            setResultLoadError('');
-            setIsLoadingResult(false);
-            return;
-        }
-
-        if (!job.id) {
-            setResolvedResult(null);
             return;
         }
 
         let isCancelled = false;
-        setIsLoadingResult(true);
-        setResultLoadError('');
-
-        getPreview(job.id, { debounceMs: 0 })
-            .then((data) => {
-                if (isCancelled) {
-                    return;
-                }
-
-                const validation = data?.validation_results || null;
-                setResolvedResult(validation);
-
-                if (validation) {
-                    setJob((previousJob) => ({
-                        ...(previousJob || {}),
-                        result: validation,
-                    }));
-                }
+        
+        if (!job.result) {
+            setIsLoadingResult(true);
+            setResultLoadError('');
+            getPreview(job.id, { debounceMs: 0 })
+                .then((data) => {
+                    if (isCancelled) return;
+                    const validation = data?.validation_results || null;
+                    setResolvedResult(validation);
+                    if (validation) {
+                        setJob((previousJob) => ({ ...(previousJob || {}), result: validation }));
+                    }
+                })
+                .catch((error) => {
+                    if (isCancelled) return;
+                    console.error('Failed to load validation results:', error);
+                    setResultLoadError(error?.message || 'Unable to load validation results.');
+                })
+                .finally(() => {
+                    if (!isCancelled) setIsLoadingResult(false);
+                });
+        }
+        
+        setIsLoadingSummary(true);
+        getJobSummary(job.id)
+            .then(data => {
+                if (isCancelled) return;
+                setJobSummary(data);
             })
-            .catch((error) => {
-                if (isCancelled) {
-                    return;
-                }
-                console.error('Failed to load validation results:', error);
-                setResultLoadError(error?.message || 'Unable to load validation results.');
-            })
+            .catch(error => console.error('Failed to load job summary:', error))
             .finally(() => {
-                if (!isCancelled) {
-                    setIsLoadingResult(false);
-                }
+                if (!isCancelled) setIsLoadingSummary(false);
             });
 
-        return () => {
-            isCancelled = true;
-        };
-    }, [job, job?.id, job?.result, setJob]);
+        return () => { isCancelled = true; };
+    }, [job?.id]);
 
     // Gate: loading job from URL
     if (isJobLoading && !job) {
@@ -288,84 +279,117 @@ function ValidationResults() {
                 </div>
 
                 {/* ── Quality Score Panel ── */}
-                {resolvedResult?.quality ? (
+                {isLoadingSummary ? (
+                    <div className="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 flex items-center justify-center min-h-[160px]">
+                        <div className="flex flex-col items-center">
+                            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mb-3"></div>
+                            <p className="text-sm text-slate-500 dark:text-slate-400">Loading quality analysis...</p>
+                        </div>
+                    </div>
+                ) : jobSummary ? (
                     (() => {
-                        const q = resolvedResult.quality;
-                        const overall = q.overall_score ?? null;
+                        const overall = jobSummary.overall_score ?? null;
                         const overallColor =
                             overall === null ? 'text-slate-500'
                             : overall >= 80 ? 'text-green-600 dark:text-green-400'
                             : overall >= 50 ? 'text-amber-600 dark:text-amber-400'
                             : 'text-red-600 dark:text-red-400';
                         const overallBg =
-                            overall === null ? 'bg-slate-500'
-                            : overall >= 80 ? 'bg-green-500'
-                            : overall >= 50 ? 'bg-amber-500'
-                            : 'bg-red-500';
+                            overall === null ? 'text-slate-200 dark:text-slate-700'
+                            : overall >= 80 ? 'text-green-500'
+                            : overall >= 50 ? 'text-amber-500'
+                            : 'text-red-500';
                         return (
                             <div className="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 space-y-5">
-                                <div className="flex items-center justify-between">
+                                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
                                     <h2 className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
                                         <span className="material-symbols-outlined text-primary">analytics</span>
-                                        Quality Analysis
+                                        Document Quality Analysis
                                     </h2>
-                                    {overall !== null && (
-                                        <span className={`text-2xl font-black ${overallColor}`}>{overall}%</span>
-                                    )}
                                 </div>
-                                {/* Overall bar */}
-                                {overall !== null && (
-                                    <div>
-                                        <div className="flex justify-between text-xs font-semibold mb-1 text-slate-500 dark:text-slate-400">
-                                            <span>Overall Score</span>
-                                            <span className={overallColor}>{overall >= 80 ? 'Excellent' : overall >= 50 ? 'Fair' : 'Needs Work'}</span>
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-start">
+                                    {/* Overall Score Ring */}
+                                    <div className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700/50">
+                                        <div className="relative w-24 h-24 mb-2">
+                                            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                                                <path className="text-slate-200 dark:text-slate-700" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
+                                                <path className={overallBg} strokeDasharray={`${overall !== null ? overall : 0}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                                            </svg>
+                                            <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                                <span className={`text-2xl font-black ${overallColor} leading-none`}>{overall !== null ? overall : '-'}</span>
+                                                <span className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">Score</span>
+                                            </div>
                                         </div>
-                                        <div className="h-2.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                                            <div className={`h-full rounded-full ${overallBg} transition-all duration-700`} style={{ width: `${overall}%` }} />
-                                        </div>
+                                        <span className={`text-xs font-bold uppercase tracking-wider ${overallColor}`}>
+                                            {overall === null ? 'Unknown' : overall >= 80 ? 'Excellent' : overall >= 50 ? 'Fair' : 'Needs Work'}
+                                        </span>
                                     </div>
-                                )}
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                    {/* Template Compliance */}
-                                    {(() => {
-                                        const tc = q.template_compliance ?? null;
-                                        const tcColor = tc === null ? 'bg-slate-400' : tc >= 80 ? 'bg-green-500' : tc >= 50 ? 'bg-amber-500' : 'bg-red-500';
-                                        const tcText = tc === null ? 'text-slate-500' : tc >= 80 ? 'text-green-600 dark:text-green-400' : tc >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400';
-                                        return (
-                                            <div className="space-y-2">
-                                                <div className="flex justify-between text-xs font-semibold text-slate-600 dark:text-slate-400">
-                                                    <span>Template Compliance</span>
-                                                    <span className={tcText}>{tc !== null ? `${tc}%` : '—'}</span>
+                                    
+                                    <div className="col-span-1 md:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        {/* Template Compliance */}
+                                        {(() => {
+                                            const tc = jobSummary.template_compliance ?? null;
+                                            const tcColor = tc === null ? 'bg-slate-400' : tc >= 80 ? 'bg-green-500' : tc >= 50 ? 'bg-amber-500' : 'bg-red-500';
+                                            const tcText = tc === null ? 'text-slate-500' : tc >= 80 ? 'text-green-600 dark:text-green-400' : tc >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400';
+                                            return (
+                                                <div className="space-y-2 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700/50">
+                                                    <div className="flex justify-between text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                                        <span>Template Compliance</span>
+                                                        <span className={tcText}>{tc !== null ? `${tc}%` : '—'}</span>
+                                                    </div>
+                                                    <div className="h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                                                        <div className={`h-full rounded-full ${tcColor} transition-all duration-700`} style={{ width: `${tc ?? 0}%` }} />
+                                                    </div>
                                                 </div>
-                                                <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                                                    <div className={`h-full rounded-full ${tcColor} transition-all duration-700`} style={{ width: `${tc ?? 0}%` }} />
+                                            );
+                                        })()}
+                                        
+                                        {/* Content Quality */}
+                                        {(() => {
+                                            const cc = jobSummary.content_quality ?? jobSummary.content_completeness ?? null;
+                                            const ccColor = cc === null ? 'bg-slate-400' : cc >= 80 ? 'bg-green-500' : cc >= 50 ? 'bg-amber-500' : 'bg-red-500';
+                                            const ccText = cc === null ? 'text-slate-500' : cc >= 80 ? 'text-green-600 dark:text-green-400' : cc >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400';
+                                            return (
+                                                <div className="space-y-2 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700/50">
+                                                    <div className="flex justify-between text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                                        <span>Content Quality</span>
+                                                        <span className={ccText}>{cc !== null ? `${cc}%` : '—'}</span>
+                                                    </div>
+                                                    <div className="h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                                                        <div className={`h-full rounded-full ${ccColor} transition-all duration-700`} style={{ width: `${cc ?? 0}%` }} />
+                                                    </div>
                                                 </div>
+                                            );
+                                        })()}
+                                        
+                                        {/* Citation Count Badge */}
+                                        <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700/50">
+                                            <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                                                <span className="material-symbols-outlined text-[18px]">format_quote</span>
                                             </div>
-                                        );
-                                    })()}
-                                    {/* Content Completeness */}
-                                    {(() => {
-                                        const cc = q.content_completeness ?? null;
-                                        const ccColor = cc === null ? 'bg-slate-400' : cc >= 80 ? 'bg-green-500' : cc >= 50 ? 'bg-amber-500' : 'bg-red-500';
-                                        const ccText = cc === null ? 'text-slate-500' : cc >= 80 ? 'text-green-600 dark:text-green-400' : cc >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400';
-                                        return (
-                                            <div className="space-y-2">
-                                                <div className="flex justify-between text-xs font-semibold text-slate-600 dark:text-slate-400">
-                                                    <span>Content Completeness</span>
-                                                    <span className={ccText}>{cc !== null ? `${cc}%` : '—'}</span>
-                                                </div>
-                                                <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                                                    <div className={`h-full rounded-full ${ccColor} transition-all duration-700`} style={{ width: `${cc ?? 0}%` }} />
-                                                </div>
+                                            <div>
+                                                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Citations Detected</p>
+                                                <p className="text-xl font-black text-slate-900 dark:text-white leading-none mt-1">{jobSummary.citation_count ?? '—'}</p>
                                             </div>
-                                        );
-                                    })()}
-                                    {/* Citation Count */}
-                                    <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3">
-                                        <span className="material-symbols-outlined text-primary">format_quote</span>
-                                        <div>
-                                            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Citations Detected</p>
-                                            <p className="text-xl font-black text-slate-900 dark:text-white">{q.citation_count ?? '—'}</p>
+                                        </div>
+                                        
+                                        {/* Missing Sections */}
+                                        <div className="flex flex-col justify-center bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700/50">
+                                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Missing Required Sections</p>
+                                            {jobSummary.missing_sections && jobSummary.missing_sections.length > 0 ? (
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {jobSummary.missing_sections.map((sec, idx) => (
+                                                        <span key={idx} className="px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-[10px] font-bold rounded">
+                                                            {sec}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-1 text-green-600 dark:text-green-400 text-xs font-bold">
+                                                    <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                                                    None detected
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -377,7 +401,7 @@ function ValidationResults() {
                         <span className="material-symbols-outlined text-slate-400 text-3xl">analytics</span>
                         <div>
                             <p className="font-semibold text-slate-700 dark:text-slate-300">Quality analysis not available</p>
-                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Quality scores (template compliance, content completeness &amp; citations) will appear here when the backend provides them.</p>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Quality scores (template compliance, content quality &amp; citations) will appear here when the backend provides them.</p>
                         </div>
                     </div>
                 )}

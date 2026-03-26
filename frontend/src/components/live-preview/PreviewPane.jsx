@@ -44,20 +44,12 @@ export default function PreviewPane({ html, isLoading }) {
                 aria-label="Document preview"
             >
                 {sanitized ? (
-                    <div
-                        className="
-                            mx-auto max-w-[780px] min-h-full
-                            bg-white dark:bg-slate-900
-                            rounded-lg shadow-lg
-                            border border-slate-200 dark:border-slate-800
-                            p-6 sm:p-10 lg:p-14
-                            prose dark:prose-invert max-w-none
-                            prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg
-                            font-serif text-[15px]
-                            transition-opacity duration-200
-                        "
-                        dangerouslySetInnerHTML={{ __html: sanitized }}
-                    />
+                    <div className="mx-auto max-w-[780px] min-h-full bg-white rounded-lg shadow-lg border border-slate-200 p-6 sm:p-10 lg:p-14 transition-opacity duration-200 preview-document">
+                        <div
+                            className="prose max-w-none prose-slate prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg font-serif text-[15px] text-slate-900"
+                            dangerouslySetInnerHTML={{ __html: sanitized }}
+                        />
+                    </div>
                 ) : (
                     <div className="flex flex-col items-center justify-center h-full text-center py-20 text-slate-400 dark:text-slate-600 select-none">
                         <span className="material-symbols-outlined text-[48px] mb-3 opacity-30">article</span>

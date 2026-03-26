@@ -8,6 +8,9 @@ import { getUserTier, getRemainingQuota } from '@/src/lib/planTier';
 import { supabase } from '@/src/lib/supabaseClient';
 import { SettingsSchema } from '@/src/lib/schemas';
 import { z } from 'zod';
+import { useToast } from '@/src/context/ToastContext';
+import { ConfirmDialog } from '@/src/components/ui';
+import { fetchWithAuth } from '@/src/services/api.core';
 
 const SETTINGS_KEY = 'scholarform_settings';
 
@@ -34,6 +37,7 @@ export default function SettingsPage() {
     usePageTitle('Settings');
     const { theme, setTheme } = useTheme();
     const { user } = useAuth();
+    const { addToast } = useToast();
     const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
     const initialTab = searchParams?.get('tab') || 'general';
     const [activeTab, setActiveTab] = useState(initialTab);
@@ -41,6 +45,7 @@ export default function SettingsPage() {
     const [saved, setSaved] = useState(false);
     const [error, setError] = useState('');
     const [billingLoading, setBillingLoading] = useState(false);
+    const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
 
     const tier = getUserTier(user);
     const { used, limit } = getRemainingQuota(user, user?.uploads_count || 0);
@@ -49,21 +54,11 @@ export default function SettingsPage() {
         setBillingLoading(true);
         setError('');
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-            const token = session?.access_token;
-            
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-            const res = await fetch(`${apiUrl}/api/v1/billing/create-checkout-session`, {
+            const data = await fetchWithAuth('/api/v1/billing/create-checkout-session', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-                }
             });
             
-            if (!res.ok) throw new Error('Failed to create checkout session');
-            const data = await res.json();
-            if (data.url) {
+            if (data?.url) {
                 window.location.href = data.url;
             } else {
                 throw new Error('No checkout URL returned');
@@ -79,22 +74,11 @@ export default function SettingsPage() {
         setBillingLoading(true);
         setError('');
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-            const token = session?.access_token;
-            
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-            // Assuming this is the customer portal endpoint, if not we fallback nicely
-            const res = await fetch(`${apiUrl}/api/v1/billing/customer-portal`, {
+            const data = await fetchWithAuth('/api/v1/billing/customer-portal', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-                }
             });
             
-            if (!res.ok) throw new Error('Failed to create customer portal session');
-            const data = await res.json();
-            if (data.url) {
+            if (data?.url) {
                 window.location.href = data.url;
             } else {
                 throw new Error('No portal URL returned');
@@ -106,27 +90,20 @@ export default function SettingsPage() {
         }
     };
 
-    const handleCancelSubscription = async () => {
-        if (!confirm("Are you sure you want to cancel your Pro subscription? You will lose access to Pro features at the end of your billing cycle.")) {
-            return;
-        }
+    const handleCancelSubscriptionClick = () => {
+        setCancelDialogOpen(true);
+    };
+
+    const confirmCancelSubscription = async () => {
+        setCancelDialogOpen(false);
         setBillingLoading(true);
         setError('');
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-            const token = session?.access_token;
-            
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-            const res = await fetch(`${apiUrl}/api/v1/billing/cancel-subscription`, {
+            await fetchWithAuth('/api/v1/billing/cancel-subscription', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-                }
             });
             
-            if (!res.ok) throw new Error('Failed to cancel subscription');
-            alert('Your subscription has been cancelled successfully.');
+            addToast('Your subscription has been cancelled successfully.', 'success');
             // Ideally trigger user refresh here
         } catch (err) {
             setError(err.message || 'Error cancelling subscription');
@@ -374,7 +351,7 @@ export default function SettingsPage() {
                                     Manage Subscription
                                 </button>
                                 <button 
-                                    onClick={handleCancelSubscription} 
+                                    onClick={handleCancelSubscriptionClick} 
                                     disabled={billingLoading}
                                     className="flex-1 py-3 bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-900/20 dark:hover:bg-red-900/40 dark:text-red-400 font-bold rounded-xl border border-red-200 dark:border-red-800 transition-all disabled:opacity-70 flex justify-center items-center"
                                 >
@@ -385,6 +362,16 @@ export default function SettingsPage() {
                     </section>
                 </div>
                 )}
+                <ConfirmDialog 
+                    isOpen={cancelDialogOpen}
+                    title="Cancel Subscription"
+                    message="Are you sure you want to cancel your Pro subscription? You will lose access to Pro features at the end of your billing cycle."
+                    confirmLabel="Yes, Cancel Subscription"
+                    cancelLabel="No, Keep Pro"
+                    onConfirm={confirmCancelSubscription}
+                    onCancel={() => setCancelDialogOpen(false)}
+                    isDestructive={true}
+                />
             </main>
             <Footer />
         </div>
