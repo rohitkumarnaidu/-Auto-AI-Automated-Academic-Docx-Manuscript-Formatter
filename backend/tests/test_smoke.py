@@ -97,7 +97,8 @@ class TestBackendSmokeContracts:
 
         with (
             patch(
-                "app.routers.documents.scan_file",
+                "app.routers.documents.virus_scanner.scan",
+                new_callable=AsyncMock,
                 return_value={"clean": True, "engine": "clamav", "result": "clean"},
             ) as mock_scan,
             patch(
@@ -122,7 +123,7 @@ class TestBackendSmokeContracts:
         payload = response.json()
         assert payload["data"]["status"] == "PROCESSING"
         assert payload["data"]["job_id"]
-        mock_scan.assert_called_once()
+        mock_scan.assert_awaited_once()
 
     def test_health_v1_contract_smoke(self, client: TestClient):
         response = client.get("/api/v1/health")

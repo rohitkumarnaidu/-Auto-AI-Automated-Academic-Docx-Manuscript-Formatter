@@ -147,6 +147,7 @@ if _PS:
         GROQ_API_KEY: Optional[str] = None
         GROQ_MODEL: str
         GROQ_API_BASE: str
+        SENTRY_DSN: Optional[str] = None
 
         NVIDIA_API_KEY: Optional[str] = None
         NVIDIA_MODEL: str
@@ -343,6 +344,7 @@ else:
         GROQ_API_KEY: Optional[str] = os.getenv("GROQ_API_KEY")
         GROQ_MODEL: str = _require_env("GROQ_MODEL")
         GROQ_API_BASE: str = _require_env("GROQ_API_BASE")
+        SENTRY_DSN: Optional[str] = os.getenv("SENTRY_DSN")
         NVIDIA_API_KEY: Optional[str] = os.getenv("NVIDIA_API_KEY")
         NVIDIA_MODEL: str = _require_env("NVIDIA_MODEL")
         OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY")

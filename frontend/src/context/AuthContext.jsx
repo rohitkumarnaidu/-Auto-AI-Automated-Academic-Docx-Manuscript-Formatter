@@ -17,6 +17,7 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [loading, setLoading] = useState(true);
+    const E2E_USER_STORAGE_KEY = 'scholarform_e2e_user';
 
     // Guard: prevents onAuthStateChange('SIGNED_OUT') from clearing state
     // while signIn/signUp is in progress (setSession fires SIGNED_OUT before SIGNED_IN)
@@ -27,7 +28,20 @@ export const AuthProvider = ({ children }) => {
             'scholarform_currentJob',
             'scholarform_job',
             'scholarform_active_job',
+            E2E_USER_STORAGE_KEY,
         ].forEach((key) => sessionStorage.removeItem(key));
+    };
+
+    const readE2EUser = () => {
+        if (typeof window === 'undefined') return null;
+        try {
+            const raw = window.sessionStorage.getItem(E2E_USER_STORAGE_KEY);
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            return parsed && typeof parsed === 'object' ? parsed : null;
+        } catch {
+            return null;
+        }
     };
 
     const clearSupabaseAuthStorage = () => {
@@ -66,10 +80,11 @@ export const AuthProvider = ({ children }) => {
         let mounted = true;
 
         const initializeAuth = async () => {
+            const e2eUser = readE2EUser();
             if (!supabase) {
                 if (mounted) {
-                    setUser(null);
-                    setIsLoggedIn(false);
+                    setUser(e2eUser);
+                    setIsLoggedIn(Boolean(e2eUser));
                     setLoading(false);
                 }
                 return;
@@ -118,16 +133,16 @@ export const AuthProvider = ({ children }) => {
                 } else {
                     if (mounted) {
                         clearSupabaseAuthStorage();
-                        setUser(null);
-                        setIsLoggedIn(false);
+                        setUser(e2eUser);
+                        setIsLoggedIn(Boolean(e2eUser));
                     }
                 }
             } catch (err) {
                 console.error('Auth: Initialization error', err);
                 if (mounted) {
                     clearSupabaseAuthStorage();
-                    setUser(null);
-                    setIsLoggedIn(false);
+                    setUser(e2eUser);
+                    setIsLoggedIn(Boolean(e2eUser));
                 }
             } finally {
                 if (mounted) setLoading(false);

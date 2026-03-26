@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import socket
 import struct
@@ -118,3 +119,15 @@ def scan_file(file_path: str) -> Dict[str, str | bool]:
             MetricsManager.record_clamav_scan_duration(duration)
         except Exception:
             pass
+
+
+async def scan(file_path: str) -> Dict[str, str | bool]:
+    return await asyncio.to_thread(scan_file, file_path)
+
+
+class VirusScanner:
+    async def scan(self, file_path: str) -> Dict[str, str | bool]:
+        return await scan(file_path)
+
+
+virus_scanner = VirusScanner()

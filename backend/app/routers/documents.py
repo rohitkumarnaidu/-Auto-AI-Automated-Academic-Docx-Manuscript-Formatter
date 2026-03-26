@@ -23,7 +23,7 @@ from app.pipeline.export.latex_exporter import LaTeXExporter
 from app.pipeline.export.pdf_exporter import PDFExporter
 from app.config.settings import settings
 from app.pipeline.safety.safe_execution import safe_async_function
-from app.utils.virus_scanner import scan_file
+from app.utils.virus_scanner import virus_scanner
 
 # ── Old SQLAlchemy imports (kept for reference, replaced by DocumentService) ───
 # from sqlalchemy import exc
@@ -81,6 +81,20 @@ ACCEPTED_EXTENSIONS = {
     ".md",
     ".markdown",
 }
+
+
+async def _scan_uploaded_file(file_path: str) -> dict[str, str | bool]:
+    scan_result = await virus_scanner.scan(file_path)
+    if not scan_result.get("clean", True):
+        try:
+            os.remove(file_path)
+        except OSError:
+            pass
+        raise HTTPException(
+            status_code=422,
+            detail=f"Malware detected: {scan_result.get('result', 'unknown')}",
+        )
+    return scan_result
 
 TEXT_EXTENSIONS = {".tex", ".txt", ".html", ".htm", ".md", ".markdown"}
 MAGIC_BYTES_MAP = {
@@ -366,16 +380,7 @@ async def upload_document_chunked(
                 raise HTTPException(status_code=400, detail="Invalid file path detected")
 
             os.replace(final_path, file_path)
-            scan_result = scan_file(file_path)
-            if not scan_result.get("clean", True):
-                try:
-                    os.remove(file_path)
-                except OSError:
-                    pass
-                raise HTTPException(
-                    status_code=422,
-                    detail=f"Malware detected: {scan_result.get('result', 'unknown')}",
-                )
+            scan_result = await _scan_uploaded_file(file_path)
 
             formatting_options = {
                 "page_numbers": add_page_numbers,
@@ -579,16 +584,7 @@ async def upload_document(
 
         with open(file_path, "wb") as buffer:
             buffer.write(file_content)
-        scan_result = scan_file(file_path)
-        if not scan_result.get("clean", True):
-            try:
-                os.remove(file_path)
-            except OSError:
-                pass
-            raise HTTPException(
-                status_code=422,
-                detail=f"Malware detected: {scan_result.get('result', 'unknown')}",
-            )
+        scan_result = await _scan_uploaded_file(file_path)
 
         # ── DB insert via DocumentService ──────────────────────────────────────
 

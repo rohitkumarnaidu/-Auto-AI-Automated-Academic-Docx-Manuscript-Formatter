@@ -12,6 +12,15 @@ from app.utils.logging_context import log_extra
 
 logger = logging.getLogger(__name__)
 
+
+def _normalize_model_name(model: str, provider: str) -> str:
+    raw_model = (model or "").strip()
+    if not raw_model:
+        return raw_model
+    if raw_model.startswith(f"{provider}/"):
+        return raw_model
+    return f"{provider}/{raw_model}"
+
 # ── LiteLLM import (optional) ────────────────────────────────────────────── #
 try:
     # LiteLLM currently emits Python 3.14 deprecation warnings via transitive
@@ -30,8 +39,8 @@ except ImportError:
         "LiteLLM unavailable - llm_service will use direct provider clients.",
         extra=log_extra(),
     )
-LLM_NVIDIA   = settings.NVIDIA_MODEL
-LLM_GROQ     = settings.GROQ_MODEL
+LLM_NVIDIA   = _normalize_model_name(settings.NVIDIA_MODEL, "nvidia_nim")
+LLM_GROQ     = _normalize_model_name(settings.GROQ_MODEL, "groq")
 LLM_DEEPSEEK = "ollama/deepseek-r1"
 LLM_GPT4     = "gpt-4"
 
@@ -208,7 +217,8 @@ def generate_with_fallback(
     max_tokens: int = 2048,
 ) -> Dict[str, Any]:
     """
-    3-tier fallback: NVIDIA -> Groq -> Ollama -> raises LLMUnavailableError.
+    4-step fallback contract: NVIDIA -> Groq -> Ollama/DeepSeek -> raises
+    LLMUnavailableError so callers can use rule-based heuristics.
 
     Returns:
         {"text": str, "model": str, "tier": int}
@@ -229,7 +239,7 @@ def generate_with_fallback(
             logger.warning("llm_service: Tier 1 (NVIDIA) failed: %s - trying Groq.", exc, extra=log_extra())
 
     # Tier 2: Groq
-    groq_model = settings.GROQ_MODEL or LLM_GROQ
+    groq_model = LLM_GROQ
     groq_key = settings.GROQ_API_KEY
     if groq_key:
         try:

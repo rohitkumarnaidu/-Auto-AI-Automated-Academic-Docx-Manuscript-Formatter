@@ -38,10 +38,19 @@ os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 logger = logging.getLogger(__name__)
 
 # --- Sentry Error Tracking ---
-import sentry_sdk
-from sentry_sdk.integrations.fastapi import FastApiIntegration
-from sentry_sdk.integrations.starlette import StarletteIntegration
-from sentry_sdk.integrations.logging import LoggingIntegration
+try:
+    import sentry_sdk
+    from sentry_sdk.integrations.fastapi import FastApiIntegration
+    from sentry_sdk.integrations.starlette import StarletteIntegration
+    from sentry_sdk.integrations.logging import LoggingIntegration
+
+    SENTRY_AVAILABLE = True
+except ImportError:
+    sentry_sdk = None
+    FastApiIntegration = None
+    StarletteIntegration = None
+    LoggingIntegration = None
+    SENTRY_AVAILABLE = False
 
 
 def _sentry_before_send(event, hint):
@@ -65,10 +74,18 @@ def _sentry_before_send(event, hint):
 
     return event
 
-_sentry_dsn = os.getenv("SENTRY_DSN")
-if _sentry_dsn:
+
+def _init_sentry() -> None:
+    if not SENTRY_AVAILABLE:
+        logger.info("Sentry SDK not installed. Skipping Sentry initialization.")
+        return
+    if not settings.SENTRY_DSN:
+        return
+    if sentry_sdk is None:
+        return
+
     sentry_sdk.init(
-        dsn=_sentry_dsn,
+        dsn=settings.SENTRY_DSN,
         integrations=[
             StarletteIntegration(transaction_style="endpoint"),
             FastApiIntegration(transaction_style="endpoint"),
@@ -183,6 +200,7 @@ async def lifespan(app: FastAPI):
     # cleanup_task = asyncio.create_task(cleanup_old_uploads())
     cleanup_task = None
     queue_metrics_task = None
+    _init_sentry()
     enable_cleanup = settings.ENABLE_FILE_CLEANUP
     retention_days = int(settings.RETENTION_DAYS)
     if enable_cleanup:

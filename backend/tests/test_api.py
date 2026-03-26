@@ -359,6 +359,38 @@ class TestAPIEndpoints:
         finally:
             app.dependency_overrides.pop(get_current_user, None)
 
+    def test_upload_rejects_infected_file_with_validation_code(self, tmp_path, monkeypatch):
+        """Infected uploads must fail validation before document creation or pipeline dispatch."""
+        monkeypatch.chdir(tmp_path)
+
+        with patch("app.routers.documents._require_db", return_value=None):
+            with patch(
+                "app.routers.documents.virus_scanner.scan",
+                new=AsyncMock(return_value={"clean": False, "engine": "clamav", "result": "Eicar-Test-Signature"}),
+            ):
+                with patch("app.routers.documents.DocumentService.create_document") as mock_create_document:
+                    with patch(
+                        "app.routers.documents.enhancement_manager.dispatch_document_pipeline"
+                    ) as mock_dispatch:
+                        response = client.post(
+                            "/api/v1/documents/upload",
+                            files={
+                                "file": (
+                                    "infected.docx",
+                                    b"PK\x03\x04infected-docx",
+                                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                )
+                            },
+                            data={"template": "IEEE"},
+                        )
+
+        assert response.status_code == 422
+        payload = response.json()
+        assert payload["error"]["code"] == "DOCUMENT_VALIDATION_FAILED"
+        assert "Malware detected" in payload["error"]["message"]
+        mock_create_document.assert_not_called()
+        mock_dispatch.assert_not_called()
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-m", "integration"])

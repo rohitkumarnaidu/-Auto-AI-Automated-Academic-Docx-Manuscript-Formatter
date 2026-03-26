@@ -156,30 +156,44 @@ export const useAgent = (initialSessionId = null) => {
 
     const { prompt, template: validatedTemplate, config } = validation.data;
     setSessionState('parsing');
+    setIsTyping(true);
+    setError(null);
     setLastPrompt(prompt);
     setDocumentSections([]);
     
-    // Add status message
-    setMessages(prev => [...prev, { 
-      id: Date.now(), 
+    // Add the initiating prompt plus a status message so the first turn is visible.
+    const messageTimestamp = Date.now();
+    setMessages(prev => [...prev, {
+      id: messageTimestamp,
+      role: 'user',
+      content: prompt,
+      timestamp: messageTimestamp
+    }, {
+      id: messageTimestamp + 1,
       role: 'assistant', 
       content: 'Parsing your request and preparing an outline...',
-      timestamp: Date.now(),
+      timestamp: messageTimestamp + 1,
       isStatus: true
     }]);
 
-    const response = await createAgentSession(prompt, validatedTemplate, config || {});
-    const sessionId = response?.session_id || response?.id || response?.sessionId;
-    if (!sessionId) throw new Error('No session ID returned from server.');
-    
-    setActiveSessionId(sessionId);
-    trackEvent('generator_session_started', {
-      session_id: sessionId,
-      template: String(validatedTemplate || selectedTemplate || '').toLowerCase(),
-      prompt_length: String(prompt || '').trim().length,
-      has_options: Boolean(config && Object.keys(config).length > 0),
-    });
-    return sessionId;
+    try {
+      const response = await createAgentSession(prompt, validatedTemplate, config || {});
+      const sessionId = response?.session_id || response?.id || response?.sessionId;
+      if (!sessionId) throw new Error('No session ID returned from server.');
+      
+      setActiveSessionId(sessionId);
+      trackEvent('generator_session_started', {
+        session_id: sessionId,
+        template: String(validatedTemplate || selectedTemplate || '').toLowerCase(),
+        prompt_length: String(prompt || '').trim().length,
+        has_options: Boolean(config && Object.keys(config).length > 0),
+      });
+      return sessionId;
+    } catch (err) {
+      setIsTyping(false);
+      setError(err.message || 'Failed to start the session.');
+      throw err;
+    }
   };
 
   const handleSendMessage = async (text) => {

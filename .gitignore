@@ -131,9 +131,11 @@ docs/audits/
 !docs/audits/
 !docs/audits/2026-03-17-repo-audit/
 !docs/audits/2026-03-17-repo-audit/*.md
+docs/audits/2026-03-25-full-audit/
 
 
 *.txt
 !requirements-render.txt
+!backend/runtime.txt
 backend/generated_outputs/
 backend/tests_outputs/

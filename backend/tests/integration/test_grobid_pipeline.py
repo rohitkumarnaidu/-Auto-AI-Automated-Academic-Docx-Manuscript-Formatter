@@ -7,11 +7,11 @@ Verifies metadata extraction, pipeline orchestration, and performance targets.
 
 import pytest
 import time
-from pathlib import Path
 from unittest.mock import MagicMock, patch
-import requests
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
 
-from app.pipeline.services.grobid_client import GROBIDClient, GROBIDException
+from app.pipeline.services.grobid_client import GROBIDClient
 from app.pipeline.orchestrator import PipelineOrchestrator
 from app.models import PipelineDocument, DocumentMetadata
 
@@ -26,20 +26,50 @@ class TestGROBIDPipelineIntegration:
         return GROBIDClient(base_url="http://localhost:8070")
     
     @pytest.fixture
-    def sample_pdf_path(self):
-        """Path to a sample PDF for testing."""
-        samples_dir = Path("samples")
-        pdf_files = list(samples_dir.glob("*.pdf"))
-        if pdf_files:
-            return pdf_files[0]
-        sample_pdf = samples_dir / "generated_grobid_sample.pdf"
-        sample_pdf.parent.mkdir(parents=True, exist_ok=True)
-        from pypdf import PdfWriter
-        writer = PdfWriter()
-        writer.add_blank_page(width=595, height=842)
-        writer.add_metadata({"/Title": "Generated GROBID Sample"})
-        with open(sample_pdf, "wb") as fh:
-            writer.write(fh)
+    def sample_pdf_path(self, tmp_path):
+        """Generate a small academic-looking PDF that GROBID can parse consistently."""
+        sample_pdf = tmp_path / "generated_grobid_sample.pdf"
+        doc = canvas.Canvas(str(sample_pdf), pagesize=letter)
+        _, height = letter
+        text = doc.beginText(72, height - 72)
+
+        text.setFont("Helvetica-Bold", 18)
+        text.textLine("Machine Learning Methods for Reliable Manuscript Formatting")
+        text.moveCursor(0, 8)
+
+        text.setFont("Helvetica", 11)
+        text.textLine("Amina Patel, Victor Chen")
+        text.textLine("ECLearnIX Research Lab")
+        text.moveCursor(0, 14)
+
+        text.setFont("Helvetica-Bold", 12)
+        text.textLine("Abstract")
+        text.setFont("Helvetica", 11)
+        text.textLines(
+            "This study evaluates practical machine learning workflows for academic\n"
+            "document formatting. We measure extraction quality, compare fallback\n"
+            "strategies, and highlight deterministic testing patterns for live services."
+        )
+        text.moveCursor(0, 14)
+
+        text.setFont("Helvetica-Bold", 12)
+        text.textLine("Keywords")
+        text.setFont("Helvetica", 11)
+        text.textLine("machine learning, document formatting, metadata extraction")
+        text.moveCursor(0, 14)
+
+        text.setFont("Helvetica-Bold", 12)
+        text.textLine("Introduction")
+        text.setFont("Helvetica", 11)
+        text.textLines(
+            "Reliable metadata extraction improves automated manuscript pipelines.\n"
+            "This sample is intentionally compact but includes the structures GROBID\n"
+            "expects near the top of a scholarly PDF."
+        )
+
+        doc.drawText(text)
+        doc.showPage()
+        doc.save()
         return sample_pdf
     
     @pytest.fixture
@@ -50,8 +80,8 @@ class TestGROBIDPipelineIntegration:
             temp_dir="temp"
         )
 
-    def _extract_metadata_or_skip(self, grobid_client, sample_pdf_path, *, attempts=2, timeout=None):
-        """Skip live-service assertions when GROBID is reachable but degraded."""
+    def _extract_metadata_or_fail(self, grobid_client, sample_pdf_path, *, attempts=2, timeout=None):
+        """Require parseable metadata from the live GROBID service."""
         required_fields = {"title", "authors", "abstract"}
         original_timeout = grobid_client.timeout
         if timeout is not None:
@@ -67,7 +97,10 @@ class TestGROBIDPipelineIntegration:
         finally:
             grobid_client.timeout = original_timeout
 
-        pytest.skip("GROBID service is reachable but not returning parseable header metadata")
+        pytest.fail(
+            f"GROBID did not return parseable header metadata for {sample_pdf_path.name} "
+            f"after {attempts} attempt(s)."
+        )
     
     def test_grobid_service_availability(self, grobid_client):
         """Test that GROBID service is available."""
@@ -85,7 +118,7 @@ class TestGROBIDPipelineIntegration:
             assert metadata == {}
             return
 
-        metadata = self._extract_metadata_or_skip(
+        metadata = self._extract_metadata_or_fail(
             grobid_client,
             sample_pdf_path,
             attempts=2,
@@ -109,15 +142,14 @@ class TestGROBIDPipelineIntegration:
     @pytest.mark.performance
     def test_grobid_response_time(self, grobid_client, sample_pdf_path):
         """Test that GROBID responds within 5 seconds."""
-        if not grobid_client.is_available():
-            pytest.skip("GROBID service not available")
+        assert grobid_client.is_available(), "GROBID service not available"
 
         # Warm the live service once so the SLA check measures steady-state behavior.
-        self._extract_metadata_or_skip(grobid_client, sample_pdf_path, attempts=1, timeout=5)
+        self._extract_metadata_or_fail(grobid_client, sample_pdf_path, attempts=1, timeout=5)
 
         # Measure response time
         start_time = time.time()
-        metadata = self._extract_metadata_or_skip(
+        metadata = self._extract_metadata_or_fail(
             grobid_client,
             sample_pdf_path,
             attempts=1,
@@ -210,7 +242,12 @@ class TestGROBIDPipelineIntegration:
         
         for i in range(num_requests):
             start_time = time.time()
-            metadata = grobid_client.process_header_document(str(sample_pdf_path))
+            metadata = self._extract_metadata_or_fail(
+                grobid_client,
+                sample_pdf_path,
+                attempts=1,
+                timeout=5,
+            )
             duration = time.time() - start_time
             durations.append(duration)
             

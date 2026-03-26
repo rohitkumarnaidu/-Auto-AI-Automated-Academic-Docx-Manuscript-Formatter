@@ -17,6 +17,8 @@ if str(BACKEND_ROOT) not in sys.path:
 if Path.cwd() != BACKEND_ROOT:
     os.chdir(BACKEND_ROOT)
 
+from app.services import health_checks
+
 
 def _service_reachable(host: str, port: int, timeout: float = 0.5) -> bool:
     try:
@@ -56,6 +58,15 @@ def mock_redis():
                     "rate_limit": mock_limit,
                     "cache": mock_cache,
                 }
+
+
+@pytest.fixture(autouse=True)
+def reset_health_check_caches():
+    """Avoid cross-test contamination from cached /health and /ready payloads."""
+    health_checks._reset_readiness_cache_for_tests()
+    yield
+    health_checks._reset_readiness_cache_for_tests()
+
 
 from app.models import (
     Block,

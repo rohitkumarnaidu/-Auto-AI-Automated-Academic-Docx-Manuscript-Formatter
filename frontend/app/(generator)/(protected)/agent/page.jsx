@@ -1,8 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from 'react';
-import dynamic from 'next/dynamic';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import {
+  Group as ResizablePanelGroup,
+  Panel as ResizablePanel,
+  Separator as ResizableHandle,
+} from 'react-resizable-panels';
 import { 
   BrainCircuit, 
   PanelLeftClose, 
@@ -10,11 +14,6 @@ import {
   Plus, 
   Settings2
 } from 'lucide-react';
-
-// Dynamic imports for heavy panels
-const ResizablePanelGroup = dynamic(() => import('react-resizable-panels').then(mod => mod.PanelGroup), { ssr: false });
-const ResizablePanel = dynamic(() => import('react-resizable-panels').then(mod => mod.Panel), { ssr: false });
-const ResizableHandle = dynamic(() => import('react-resizable-panels').then(mod => mod.PanelResizeHandle), { ssr: false });
 
 import AgentChatPane from '@/src/components/generator/AgentChatPane';
 import DocumentBuildPane from '@/src/components/generator/DocumentBuildPane';
@@ -26,6 +25,7 @@ import { useAgent } from '@/src/hooks/useAgent';
 import { useAgentEvents } from '@/src/hooks/useAgentEvents';
 import { useAuth } from '@/src/context/AuthContext';
 import { canAccess } from '@/src/lib/planTier';
+import { trackPageView } from '@/src/lib/rum';
 
 /**
  * AgentWorkspaceContent
@@ -36,9 +36,19 @@ import { canAccess } from '@/src/lib/planTier';
 function AgentWorkspaceContent() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
+  useEffect(() => { trackPageView('/agent'); }, []);
   
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [activeMobileTab, setActiveMobileTab] = useState('chat');
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
   
   // Use our optimized hooks
   const {
@@ -49,15 +59,38 @@ function AgentWorkspaceContent() {
     outlineData,
     qualityScore,
     documentSections,
+    error,
     setActiveSessionId,
+    setSessionState,
+    setMessages,
+    setOutlineData,
+    setQualityScore,
+    setIsTyping,
+    setLastPrompt,
+    setDocumentSections,
+    selectedTemplate,
+    lastPrompt,
+    handleStartSession,
     handleSendMessage,
     handleStop,
     handleApprove,
-    loadSession
+    loadSession,
+    fetchSessionData,
+    fetchLatestDocument
   } = useAgent();
 
   // Handle SSE events
-  useAgentEvents(activeSessionId, sessionState);
+  useAgentEvents({
+    activeSessionId,
+    setOutlineData,
+    setSessionState,
+    setIsTyping,
+    setMessages,
+    fetchSessionData,
+    fetchLatestDocument,
+    selectedTemplate,
+    lastPrompt,
+  });
 
   // Initial load from search params
   useEffect(() => {
@@ -83,7 +116,28 @@ function AgentWorkspaceContent() {
 
   const handleNewSession = () => {
     setActiveSessionId(null);
+    setMessages([]);
+    setOutlineData(null);
+    setQualityScore(null);
+    setSessionState('idle');
+    setIsTyping(false);
+    setLastPrompt('');
+    setDocumentSections([]);
   };
+
+  const handleChatSubmit = useCallback((text) => {
+    const submit = async () => {
+      if (activeSessionId) {
+        await handleSendMessage(text);
+        return;
+      }
+      await handleStartSession(text, selectedTemplate, {});
+    };
+
+    submit().catch((submitError) => {
+      console.error('Agent submission failed:', submitError);
+    });
+  }, [activeSessionId, handleSendMessage, handleStartSession, selectedTemplate]);
 
   if (user && !canAccess(user, 'generator_agent')) {
     return (
@@ -110,44 +164,77 @@ function AgentWorkspaceContent() {
     );
   }
 
+  // Chat panel content (shared between mobile + desktop)
+  const chatPanel = (
+    <div className="h-full flex flex-col relative">
+      {sessionState === 'outline_review' && outlineData && (
+        <div className="absolute inset-x-4 top-4 bottom-24 z-30 transition-all">
+          <OutlineApproval
+            outline={outlineData}
+            onApprove={handleApprove}
+            onRegenerate={() => handleSendMessage('Regenerate the outline with more focus on methodology.')}
+          />
+        </div>
+      )}
+      <AgentChatPane
+        messages={messages}
+        onSendMessage={handleChatSubmit}
+        onStop={handleStop}
+        isTyping={isTyping}
+        error={error}
+      />
+    </div>
+  );
+
+  const documentPanel = (
+    <DocumentBuildPane
+      sessionId={activeSessionId}
+      stage={sessionState}
+      qualityScore={qualityScore}
+      initialSections={documentSections}
+      onDownload={(format) => window.open(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/generator/sessions/${activeSessionId}/export?format=${format}`)}
+    />
+  );
+
   return (
     <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-white dark:bg-zinc-950">
-      <UpgradeModal 
-        isOpen={showUpgradeModal} 
-        onClose={() => setShowUpgradeModal(false)} 
-        title="Upgrade to Pro for AI Agent" 
+      <UpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        title="Upgrade to Pro for AI Agent"
       />
-      
+
       {/* Top Toolbar */}
-      <div className="h-12 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-zinc-50/50 dark:bg-zinc-900/50">
+      <div className="h-12 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-zinc-50/50 dark:bg-zinc-900/50 shrink-0">
         <div className="flex items-center gap-3">
-          <button 
-            onClick={toggleSidebar}
-            className="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-md transition-colors text-zinc-500"
-            title={isSidebarOpen ? "Hide History" : "Show History"}
-          >
-            {isSidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeftOpen className="w-4 h-4" />}
-          </button>
-          
-          <div className="h-4 w-px bg-zinc-300 dark:bg-zinc-700 mx-1" />
-          
+          {!isMobile && (
+            <button
+              onClick={toggleSidebar}
+              className="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-md transition-colors text-zinc-500"
+              title={isSidebarOpen ? 'Hide History' : 'Show History'}
+            >
+              {isSidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeftOpen className="w-4 h-4" />}
+            </button>
+          )}
+          <div className="h-4 w-px bg-zinc-300 dark:bg-zinc-700 mx-1 hidden sm:block" />
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-lg bg-indigo-600 flex items-center justify-center">
               <BrainCircuit className="w-3.5 h-3.5 text-white" />
             </div>
             <h1 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 italic">
-              ECLearnIX <span className="text-zinc-400 font-normal">Agent Workspace</span>
+              ECLearnIX <span className="text-zinc-400 font-normal hidden sm:inline">Agent Workspace</span>
             </h1>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <button 
+          <button
             onClick={handleNewSession}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700/50 transition-colors shadow-sm"
           >
             <Plus className="w-3.5 h-3.5" />
-            New Project
+            <span className="hidden sm:inline">New Project</span>
+            <span className="sm:hidden">New</span>
           </button>
           <button className="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-md transition-colors text-zinc-500">
             <Settings2 className="w-4 h-4" />
@@ -155,61 +242,72 @@ function AgentWorkspaceContent() {
         </div>
       </div>
 
-      {/* Main Resizable Layout */}
-      <ResizablePanelGroup direction="horizontal" className="flex-1">
-        
-        {/* Sidebar: History */}
-        {isSidebarOpen && (
-          <>
-            <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
-              <SessionHistory 
-                activeSessionId={activeSessionId} 
-                onSelectSession={handleSelectSession} 
-              />
-            </ResizablePanel>
-            <ResizableHandle withHandle className="bg-zinc-200 dark:bg-zinc-800" />
-          </>
-        )}
-
-        {/* Center: Chat & Actions */}
-        <ResizablePanel defaultSize={40} minSize={30}>
-          <div className="h-full flex flex-col relative">
-            
-            {/* Outline Approval Overlay - Dynamic based on sessionState */}
-            {sessionState === 'outline_review' && outlineData && (
-              <div className="absolute inset-x-4 top-4 bottom-24 z-30 transition-all">
-                <OutlineApproval 
-                  outline={outlineData}
-                  onApprove={handleApprove}
-                  onRegenerate={() => handleSendMessage("Regenerate the outline with more focus on methodology.")}
-                />
-              </div>
-            )}
-
-            <AgentChatPane 
-              messages={messages}
-              onSendMessage={handleSendMessage}
-              onStopSession={handleStop}
-              isProcessing={isTyping}
-              stage={sessionState}
-            />
+      {/* ── Mobile Tab Bar ──────────────────────────────────────────────── */}
+      {isMobile ? (
+        <div className="flex flex-col flex-1 min-h-0">
+          {/* Tab switcher */}
+          <div className="flex shrink-0 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+            <button
+              onClick={() => setActiveMobileTab('chat')}
+              className={`flex flex-1 items-center justify-center gap-2 py-3 text-xs font-bold uppercase tracking-wider transition-colors ${
+                activeMobileTab === 'chat'
+                  ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50/50 dark:bg-indigo-500/5'
+                  : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+              }`}
+            >
+              <BrainCircuit className="w-4 h-4" />
+              Chat
+            </button>
+            <button
+              onClick={() => setActiveMobileTab('document')}
+              className={`flex flex-1 items-center justify-center gap-2 py-3 text-xs font-bold uppercase tracking-wider transition-colors ${
+                activeMobileTab === 'document'
+                  ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50/50 dark:bg-indigo-500/5'
+                  : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+              }`}
+            >
+              <Settings2 className="w-4 h-4" />
+              Document
+            </button>
           </div>
-        </ResizablePanel>
 
-        <ResizableHandle withHandle className="bg-zinc-200 dark:bg-zinc-800" />
+          {/* Tab content */}
+          <div className={`flex-1 min-h-0 overflow-hidden ${activeMobileTab !== 'chat' ? 'hidden' : 'flex flex-col'}`}>
+            {chatPanel}
+          </div>
+          <div className={`flex-1 min-h-0 overflow-hidden ${activeMobileTab !== 'document' ? 'hidden' : 'flex flex-col'}`}>
+            {documentPanel}
+          </div>
+        </div>
+      ) : (
+        /* ── Desktop Resizable Layout ────────────────────────────────────── */
+        <ResizablePanelGroup direction="horizontal" className="flex-1">
+          {/* Sidebar: History */}
+          {isSidebarOpen && (
+            <>
+              <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
+                <SessionHistory
+                  activeSessionId={activeSessionId}
+                  onSelectSession={handleSelectSession}
+                />
+              </ResizablePanel>
+              <ResizableHandle className="bg-zinc-200 dark:bg-zinc-800" />
+            </>
+          )}
 
-        {/* Right: Live Preview */}
-        <ResizablePanel defaultSize={40} minSize={30}>
-          <DocumentBuildPane 
-            sessionId={activeSessionId}
-            stage={sessionState}
-            qualityScore={qualityScore}
-            initialSections={documentSections}
-            onDownload={(format) => window.open(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/generator/sessions/${activeSessionId}/export?format=${format}`)}
-          />
-        </ResizablePanel>
+          {/* Center: Chat */}
+          <ResizablePanel defaultSize={40} minSize={30}>
+            {chatPanel}
+          </ResizablePanel>
 
-      </ResizablePanelGroup>
+          <ResizableHandle className="bg-zinc-200 dark:bg-zinc-800" />
+
+          {/* Right: Document */}
+          <ResizablePanel defaultSize={40} minSize={30}>
+            {documentPanel}
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      )}
     </div>
   );
 }
