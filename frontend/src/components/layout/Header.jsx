@@ -60,7 +60,7 @@ const Header = memo(function Header({ section = 'shared', isSidebarLayout = fals
                     <div className="hidden sm:flex items-center gap-1.5 sm:gap-2">
                         <ThemeToggle />
                         <NotificationBell />
-                        <button className="p-1.5 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg transition-colors">
+                        <button aria-label="Settings" className="p-1.5 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg transition-colors">
                             <span className="material-symbols-outlined text-[20px]">settings</span>
                         </button>
                     </div>
@@ -75,7 +75,7 @@ const Header = memo(function Header({ section = 'shared', isSidebarLayout = fals
                                     {uiUser.app_metadata?.role || 'Free Plan'}
                                 </span>
                             </div>
-                            <button className="size-8 sm:size-9 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-primary-light transition-all rounded-lg hover:bg-slate-100 dark:hover:bg-white/10">
+                            <button aria-label="User Profile" className="size-8 sm:size-9 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-primary-light transition-all rounded-lg hover:bg-slate-100 dark:hover:bg-white/10">
                                 <span className="material-symbols-outlined text-[22px] sm:text-[26px]">person</span>
                             </button>
                         </div>

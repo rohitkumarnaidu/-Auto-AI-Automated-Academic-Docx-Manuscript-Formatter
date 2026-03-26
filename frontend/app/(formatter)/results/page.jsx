@@ -9,6 +9,7 @@ import ValidationCard from '@/src/components/ValidationCard';
 import { useDocument } from '@/src/context/DocumentContext';
 import { getPreview, getJobSummary } from '@/src/services/api.documents';
 import useJobFromUrl from '@/src/hooks/useJobFromUrl';
+import Skeleton from '@/src/components/ui/Skeleton';
 
 function ValidationResults() {
     const router = useRouter();
@@ -90,9 +91,21 @@ function ValidationResults() {
     if (isJobLoading && !job) {
         return (
             <div className="min-h-screen flex flex-col bg-background-light dark:bg-background-dark">
-                <main className="flex-1 flex flex-col items-center justify-center">
-                    <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
-                    <p className="text-slate-500 dark:text-slate-400">Loading document details...</p>
+                <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 sm:py-12 animate-in fade-in duration-300">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-8">
+                        <div className="space-y-3">
+                            <Skeleton className="h-10 w-64 md:w-80" />
+                            <Skeleton className="h-5 w-48 md:w-96" />
+                        </div>
+                        <Skeleton className="h-10 w-32" />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                        <Skeleton className="h-[120px] w-full" />
+                        <Skeleton className="h-[120px] w-full" />
+                        <Skeleton className="h-[120px] w-full" />
+                        <Skeleton className="h-[120px] w-full" />
+                    </div>
+                    <Skeleton className="h-[400px] w-full" />
                 </main>
                 <Footer variant="app" />
             </div>
@@ -133,9 +146,33 @@ function ValidationResults() {
     if (isLoadingResult && !resolvedResult) {
         return (
             <div className="min-h-screen flex flex-col bg-background-light dark:bg-background-dark">
-                <main className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-                    <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
-                    <p className="text-slate-500 dark:text-slate-400">Loading validation results...</p>
+                <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 sm:py-12 animate-in fade-in duration-300">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-8">
+                        <div>
+                            <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white mb-2 tracking-tight">
+                                Validation Results
+                            </h1>
+                            <p className="text-slate-500 dark:text-slate-400 text-lg break-all">
+                                Review your formatting score and applied fixes for {job.originalFileName || 'your document'}
+                            </p>
+                        </div>
+                        <Skeleton className="h-10 w-32" />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                        <Skeleton className="h-[120px] w-full" />
+                        <Skeleton className="h-[120px] w-full" />
+                        <Skeleton className="h-[120px] w-full" />
+                        <Skeleton className="h-[120px] w-full" />
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+                        <div className="lg:col-span-1 flex flex-col gap-6">
+                            <Skeleton className="h-[300px] w-full" />
+                            <Skeleton className="h-[200px] w-full" />
+                        </div>
+                        <div className="lg:col-span-2 space-y-6">
+                            <Skeleton className="h-[400px] w-full" />
+                        </div>
+                    </div>
                 </main>
                 <Footer variant="app" />
             </div>

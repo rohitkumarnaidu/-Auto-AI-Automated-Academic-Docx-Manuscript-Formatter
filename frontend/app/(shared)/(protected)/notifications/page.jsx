@@ -47,7 +47,7 @@ export default function NotificationsPage() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 animate-in fade-in duration-500 flex flex-col">
+        <div className="min-h-screen bg-background-light dark:bg-background-dark animate-in fade-in duration-500 flex flex-col">
             <main className="max-w-3xl mx-auto px-4 py-8">
                 <div className="flex items-center justify-between mb-8 gap-4">
                     <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-3">

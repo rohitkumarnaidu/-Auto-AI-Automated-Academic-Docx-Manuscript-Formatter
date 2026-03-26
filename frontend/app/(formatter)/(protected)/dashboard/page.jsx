@@ -102,7 +102,7 @@ export default function DashboardPage() {
     }, [refetch]);
 
     return (
-        <div className="min-h-screen bg-slate-50 dark:bg-[#0a0a0b] py-8">
+        <div className="min-h-screen bg-background-light dark:bg-background-dark py-8">
             <div className="mx-auto max-w-[1240px] px-4 sm:px-6">
                 <header className="mb-10">
                     <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight">
@@ -161,7 +161,7 @@ export default function DashboardPage() {
                     </div>
 
                     <div ref={parentRef} className="overflow-x-auto max-h-[600px] overflow-y-auto custom-scrollbar">
-                        <table className="w-full border-collapse min-w-[800px]">
+                        <table className="w-full border-collapse min-w-[500px] md:min-w-[800px]">
                             <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800/50 backdrop-blur-md z-10">
                                 <tr>
                                     <th className="text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest px-6 py-4 border-b border-slate-100 dark:border-white/5">Manuscript Title</th>

@@ -141,7 +141,7 @@ function AgentWorkspaceContent() {
 
   if (user && !canAccess(user, 'generator_agent')) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-white dark:bg-zinc-950">
+      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-background-light dark:bg-background-dark">
         <UpgradeModal 
           isOpen={showUpgradeModal} 
           onClose={() => setShowUpgradeModal(false)} 
@@ -150,8 +150,8 @@ function AgentWorkspaceContent() {
         <div className="w-16 h-16 rounded-2xl bg-indigo-100 dark:bg-indigo-500/10 flex items-center justify-center mb-6">
           <BrainCircuit className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
         </div>
-        <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-4">AI Agent is a Pro Feature</h2>
-        <p className="text-zinc-600 dark:text-zinc-400 mb-8 max-w-md">
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-4">AI Agent is a Pro Feature</h2>
+        <p className="text-slate-600 dark:text-slate-400 mb-8 max-w-md">
           Upgrade to our Pro plan to interact with the AI Agent for intelligent document synthesis and drafting.
         </p>
         <button 
@@ -197,7 +197,7 @@ function AgentWorkspaceContent() {
   );
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-white dark:bg-zinc-950">
+    <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background-light dark:bg-background-dark">
       <UpgradeModal
         isOpen={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}
@@ -205,24 +205,24 @@ function AgentWorkspaceContent() {
       />
 
       {/* Top Toolbar */}
-      <div className="h-12 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-zinc-50/50 dark:bg-zinc-900/50 shrink-0">
+      <div className="h-12 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 bg-slate-50/50 dark:bg-slate-900/50 shrink-0">
         <div className="flex items-center gap-3">
           {!isMobile && (
             <button
               onClick={toggleSidebar}
-              className="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-md transition-colors text-zinc-500"
+              className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-md transition-colors text-slate-500"
               title={isSidebarOpen ? 'Hide History' : 'Show History'}
             >
               {isSidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeftOpen className="w-4 h-4" />}
             </button>
           )}
-          <div className="h-4 w-px bg-zinc-300 dark:bg-zinc-700 mx-1 hidden sm:block" />
+          <div className="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-1 hidden sm:block" />
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-lg bg-indigo-600 flex items-center justify-center">
               <BrainCircuit className="w-3.5 h-3.5 text-white" />
             </div>
-            <h1 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 italic">
-              ECLearnIX <span className="text-zinc-400 font-normal hidden sm:inline">Agent Workspace</span>
+            <h1 className="text-sm font-semibold text-slate-900 dark:text-slate-100 italic">
+              ECLearnIX <span className="text-slate-400 font-normal hidden sm:inline">Agent Workspace</span>
             </h1>
           </div>
         </div>
@@ -230,13 +230,13 @@ function AgentWorkspaceContent() {
         <div className="flex items-center gap-2">
           <button
             onClick={handleNewSession}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700/50 transition-colors shadow-sm"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors shadow-sm"
           >
             <Plus className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">New Project</span>
             <span className="sm:hidden">New</span>
           </button>
-          <button className="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-md transition-colors text-zinc-500">
+          <button className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-md transition-colors text-slate-500">
             <Settings2 className="w-4 h-4" />
           </button>
         </div>
@@ -246,13 +246,13 @@ function AgentWorkspaceContent() {
       {isMobile ? (
         <div className="flex flex-col flex-1 min-h-0">
           {/* Tab switcher */}
-          <div className="flex shrink-0 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+          <div className="flex shrink-0 border-b border-slate-200 dark:border-slate-800 bg-background-light dark:bg-background-dark">
             <button
               onClick={() => setActiveMobileTab('chat')}
               className={`flex flex-1 items-center justify-center gap-2 py-3 text-xs font-bold uppercase tracking-wider transition-colors ${
                 activeMobileTab === 'chat'
                   ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50/50 dark:bg-indigo-500/5'
-                  : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+                  : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
               }`}
             >
               <BrainCircuit className="w-4 h-4" />
@@ -263,7 +263,7 @@ function AgentWorkspaceContent() {
               className={`flex flex-1 items-center justify-center gap-2 py-3 text-xs font-bold uppercase tracking-wider transition-colors ${
                 activeMobileTab === 'document'
                   ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50/50 dark:bg-indigo-500/5'
-                  : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+                  : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
               }`}
             >
               <Settings2 className="w-4 h-4" />
@@ -291,7 +291,7 @@ function AgentWorkspaceContent() {
                   onSelectSession={handleSelectSession}
                 />
               </ResizablePanel>
-              <ResizableHandle className="bg-zinc-200 dark:bg-zinc-800" />
+              <ResizableHandle className="bg-slate-200 dark:bg-slate-800" />
             </>
           )}
 
@@ -300,7 +300,7 @@ function AgentWorkspaceContent() {
             {chatPanel}
           </ResizablePanel>
 
-          <ResizableHandle className="bg-zinc-200 dark:bg-zinc-800" />
+          <ResizableHandle className="bg-slate-200 dark:bg-slate-800" />
 
           {/* Right: Document */}
           <ResizablePanel defaultSize={40} minSize={30}>
@@ -314,7 +314,7 @@ function AgentWorkspaceContent() {
 
 export default function AgentPage() {
   return (
-    <Suspense fallback={<div className="h-screen flex items-center justify-center bg-white dark:bg-zinc-950"><div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div></div>}>
+    <Suspense fallback={<div className="h-screen flex items-center justify-center bg-background-light dark:bg-background-dark"><div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div></div>}>
       <AgentWorkspaceContent />
     </Suspense>
   );

@@ -88,7 +88,7 @@ export default function BatchUpload() {
     const errorCount = files.filter((f) => f.status === 'error').length;
 
     return (
-        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col">
+        <div className="min-h-screen bg-background-light dark:bg-background-dark flex flex-col">
             <UpgradeModal 
                 isOpen={showUpgradeModal} 
                 onClose={() => setShowUpgradeModal(false)} 

@@ -19,7 +19,7 @@ const DashboardRow = memo(function DashboardRow({ item, style }) {
             style={style} 
             className="group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors border-b border-slate-100 dark:border-white/5"
         >
-            <td className="px-6 py-4 min-w-[300px]">
+            <td className="px-4 md:px-6 py-4 min-w-[200px] md:min-w-[300px]">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
                         <span className="material-symbols-outlined text-[20px]">article</span>

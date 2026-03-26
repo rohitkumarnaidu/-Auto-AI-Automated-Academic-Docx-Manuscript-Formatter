@@ -72,6 +72,10 @@ const buildHtmlDiffDocument = (htmlDiff, highlightsEnabled) => {
 
     const overrideStyles = `
 <style>
+body {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
 .diff_add, .diff_sub, .diff_chg {
     background: transparent !important;
 }
@@ -423,7 +427,7 @@ export default function Compare() {
                                                 ? 'bg-red-100 dark:bg-red-900/30 border-l-2 border-red-500 pl-2'
                                                 : line.type === 'empty' ? 'bg-slate-50/50 dark:bg-slate-800/30' : ''
                                                 }`}>
-                                                <p>{line.text}</p>
+                                                <p className="break-words">{line.text}</p>
                                             </div>
                                         ))}
                                     </div>
@@ -463,7 +467,7 @@ export default function Compare() {
                                                     ? 'bg-green-100 dark:bg-green-900/30 border-l-2 border-green-500 pl-2'
                                                     : line.type === 'empty' ? 'bg-slate-50/50 dark:bg-slate-800/30' : ''
                                                     }`}>
-                                                <p>{line.text}</p>
+                                                <p className="break-words">{line.text}</p>
                                                 {effectiveHighlights && line.text.trim() !== '' && line.type !== 'empty' && (
                                                     <span className="inline-block ml-1 text-primary/30 font-serif translate-y-[2px]" title="Formatting Symbol">|</span>
                                                 )}
@@ -480,7 +484,7 @@ export default function Compare() {
                             <h3 className="font-bold text-sm text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-4 border-b border-slate-200 dark:border-slate-800 pb-2">
                                 Structured Data View
                             </h3>
-                            <pre className="font-mono text-xs text-slate-600 dark:text-slate-400 overflow-auto whitespace-pre-wrap">
+                            <pre className="font-mono text-xs text-slate-600 dark:text-slate-400 overflow-auto whitespace-pre-wrap break-words">
                                 {JSON.stringify(structuredData, null, 2)}
                             </pre>
                         </div>
