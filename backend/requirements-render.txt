@@ -1,4 +1,4 @@
--c requirements.txt
+-r requirements.txt
 
 # ─── Core Web Server ───────────────────────────────────────────────────────────
 fastapi==0.128.0
