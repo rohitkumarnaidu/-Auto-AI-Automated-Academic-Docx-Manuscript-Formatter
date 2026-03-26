@@ -72,7 +72,7 @@ export function useSynthesisSessionStream(sessionId, callbacks = {}) {
                         return newStages;
                     });
                     if (callbacksRef.current.onStageStart) callbacksRef.current.onStageStart(data);
-                } catch(err) {}
+                } catch { /* ignore malformed JSON */ }
             });
 
             eventSource.addEventListener('stage_complete', (e) => {
@@ -86,7 +86,7 @@ export function useSynthesisSessionStream(sessionId, callbacks = {}) {
                         return newStages;
                     });
                     if (callbacksRef.current.onStageComplete) callbacksRef.current.onStageComplete(data);
-                } catch(err) {}
+                } catch { /* ignore malformed JSON */ }
             });
 
             eventSource.addEventListener('synthesis_complete', (e) => {
@@ -94,7 +94,7 @@ export function useSynthesisSessionStream(sessionId, callbacks = {}) {
                 try {
                     const doc = JSON.parse(e.data);
                     if (callbacksRef.current.onSynthesisComplete) callbacksRef.current.onSynthesisComplete(doc);
-                } catch(err) {}
+                } catch { /* ignore malformed JSON */ }
             });
 
             eventSource.addEventListener('error', (e) => {
@@ -107,7 +107,7 @@ export function useSynthesisSessionStream(sessionId, callbacks = {}) {
                 }
             });
 
-            eventSource.onerror = (err) => {
+            eventSource.onerror = () => {
                 if (!isMounted) return;
                 eventSource.close();
                 

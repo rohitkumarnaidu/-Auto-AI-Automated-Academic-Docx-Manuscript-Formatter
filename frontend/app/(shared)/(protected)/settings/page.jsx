@@ -5,7 +5,6 @@ import { useTheme } from '@/src/context/ThemeContext';
 import Footer from '@/src/components/Footer';
 import { useAuth } from '@/src/context/AuthContext';
 import { getUserTier, getRemainingQuota } from '@/src/lib/planTier';
-import { supabase } from '@/src/lib/supabaseClient';
 import { SettingsSchema } from '@/src/lib/schemas';
 import { z } from 'zod';
 import { useToast } from '@/src/context/ToastContext';

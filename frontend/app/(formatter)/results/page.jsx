@@ -83,6 +83,7 @@ function ValidationResults() {
             });
 
         return () => { isCancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [job?.id]);
 
     // Gate: loading job from URL

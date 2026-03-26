@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useRef, useCallback, memo } from 'react';
+import React, { useMemo, useRef, useCallback, memo, useEffect } from 'react';
 import { useAuth } from '@/src/context/AuthContext';
 import { useDocuments } from '@/src/services/api';
 import usePageTitle from '@/src/hooks/usePageTitle';

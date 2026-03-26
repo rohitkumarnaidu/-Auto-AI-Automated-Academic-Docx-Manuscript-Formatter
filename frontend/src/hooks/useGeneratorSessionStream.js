@@ -49,7 +49,7 @@ export function useGeneratorSessionStream(sessionId, callbacks = {}) {
             connectionStartTime = Date.now();
             eventSource = new EventSource(url.toString(), { withCredentials: true });
 
-            eventSource.addEventListener('connected', (e) => {
+            eventSource.addEventListener('connected', () => {
                 setStatus('streaming');
                 attempt = 0;
                 setReconnectCount(0);
@@ -72,7 +72,7 @@ export function useGeneratorSessionStream(sessionId, callbacks = {}) {
                     if (callbacksRef.current.onStageChange) {
                         callbacksRef.current.onStageChange(data);
                     }
-                } catch(err) {}
+                } catch { /* ignore malformed JSON */ }
             });
 
             eventSource.addEventListener('token', (e) => {
@@ -88,7 +88,7 @@ export function useGeneratorSessionStream(sessionId, callbacks = {}) {
                 try {
                     const outlineData = JSON.parse(e.data);
                     if (callbacksRef.current.onOutline) callbacksRef.current.onOutline(outlineData);
-                } catch(err) {}
+                } catch { /* ignore malformed JSON */ }
             });
 
             eventSource.addEventListener('complete', (e) => {
@@ -111,7 +111,7 @@ export function useGeneratorSessionStream(sessionId, callbacks = {}) {
                 }
             });
 
-            eventSource.onerror = (err) => {
+            eventSource.onerror = () => {
                 if (!isMounted) return;
                 eventSource.close();
                 

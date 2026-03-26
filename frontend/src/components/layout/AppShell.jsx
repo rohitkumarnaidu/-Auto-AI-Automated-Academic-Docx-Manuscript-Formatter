@@ -13,7 +13,6 @@ export default function AppShell({ children, section = 'shared' }) {
     const pathname = usePathname();
     const router = useRouter();
     const { isLoggedIn, loading } = useAuth();
-    const [forceGuestMode, setForceGuestMode] = useState(false);
 
     const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(false);
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -37,7 +36,7 @@ export default function AppShell({ children, section = 'shared' }) {
         if (typeof window === 'undefined') return;
         const params = new URLSearchParams(window.location.search || '');
         const isGuest = params.get('guest') === '1';
-        setForceGuestMode(isGuest);
+        // isGuest is only used for the redirect guard below
 
         if (loading) return;
         if (pathname === '/' && isLoggedIn && !isGuest) {
