@@ -60,6 +60,74 @@ def mock_redis():
                 }
 
 
+def _walk_middleware_chain(root):
+    """Yield middleware instances by walking Starlette's nested `.app` chain."""
+    current = root
+    seen = set()
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        yield current
+        current = getattr(current, "app", None)
+
+
+def _reset_slowapi_storage(app):
+    """Best-effort reset for SlowAPI in-memory counters between tests."""
+    limiter = getattr(getattr(app, "state", object()), "limiter", None)
+    if limiter is None:
+        return
+
+    storage = getattr(limiter, "_storage", None) or getattr(limiter, "storage", None)
+    if storage is None:
+        return
+
+    for method_name in ("reset", "clear"):
+        method = getattr(storage, method_name, None)
+        if callable(method):
+            try:
+                method()
+                return
+            except TypeError:
+                # Some backends require args; fallback to dict-clearing below.
+                pass
+
+    for attr_name in ("storage", "events", "expirations"):
+        candidate = getattr(storage, attr_name, None)
+        if hasattr(candidate, "clear"):
+            candidate.clear()
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limit_state():
+    """
+    Prevent cross-test contamination from app-level rate limiter middleware state.
+
+    Without this reset, tests later in the suite can inherit accumulated counts
+    and unexpectedly receive 429 responses.
+    """
+    from app.main import app
+
+    # Build middleware stack lazily if needed so we can access middleware instances.
+    if app.middleware_stack is None:
+        app.middleware_stack = app.build_middleware_stack()
+
+    for middleware in _walk_middleware_chain(app.middleware_stack):
+        request_counts = getattr(middleware, "request_counts", None)
+        if hasattr(request_counts, "clear"):
+            request_counts.clear()
+
+        upload_counts = getattr(middleware, "upload_request_counts", None)
+        if hasattr(upload_counts, "clear"):
+            upload_counts.clear()
+
+        tier_counts = getattr(middleware, "_memory_counts", None)
+        if hasattr(tier_counts, "clear"):
+            tier_counts.clear()
+
+    _reset_slowapi_storage(app)
+    yield
+    _reset_slowapi_storage(app)
+
+
 @pytest.fixture(autouse=True)
 def reset_health_check_caches():
     """Avoid cross-test contamination from cached /health and /ready payloads."""

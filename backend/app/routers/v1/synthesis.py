@@ -92,13 +92,7 @@ async def create_session(
             raise HTTPException(status_code=422, detail="Upload between 2 and 6 files.")
 
         config_payload = _parse_config(config)
-        user_id = user.id if hasattr(user, "id") else str(user)
-        session_id = await _session_service.create_session(user_id, session_type, config_payload)
-
-        upload_dir = Path("uploads") / "synthesis" / session_id
-        upload_dir.mkdir(parents=True, exist_ok=True)
-
-        file_entries: List[Dict[str, Any]] = []
+        validated_files: List[Dict[str, Any]] = []
         for idx, file in enumerate(files):
             filename = file.filename or f"upload_{idx}"
             ext = Path(filename).suffix.lower()
@@ -111,15 +105,30 @@ async def create_session(
                     detail=f"File exceeds {settings.MAX_FILE_SIZE // (1024 * 1024)}MB limit.",
                 )
             await _validate_magic_bytes(file, content=content, file_ext=ext)
+            validated_files.append(
+                {
+                    "filename": filename,
+                    "ext": ext,
+                    "content": content,
+                }
+            )
 
-            safe_name = f"{uuid.uuid4().hex}{ext}"
+        user_id = user.id if hasattr(user, "id") else str(user)
+        session_id = await _session_service.create_session(user_id, session_type, config_payload)
+
+        upload_dir = Path("uploads") / "synthesis" / session_id
+        upload_dir.mkdir(parents=True, exist_ok=True)
+
+        file_entries: List[Dict[str, Any]] = []
+        for item in validated_files:
+            safe_name = f"{uuid.uuid4().hex}{item['ext']}"
             file_path = upload_dir / safe_name
-            file_path.write_bytes(content)
+            file_path.write_bytes(item["content"])
             file_entries.append(
                 {
                     "path": str(file_path),
-                    "filename": filename,
-                    "size": len(content),
+                    "filename": item["filename"],
+                    "size": len(item["content"]),
                 }
             )
 
