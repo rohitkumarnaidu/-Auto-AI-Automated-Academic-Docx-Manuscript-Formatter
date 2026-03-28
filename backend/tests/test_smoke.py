@@ -39,8 +39,8 @@ def client():
     app.dependency_overrides[get_current_user] = lambda: mock_user
 
     with (
-        patch("app.routers.documents.DocumentService", mock_service),
-        patch("app.routers.documents._require_db", return_value=None),
+        patch("app.routers.v1.documents_impl.DocumentService", mock_service),
+        patch("app.routers.v1.documents_impl._require_db", return_value=None),
         patch("app.middleware.rate_limit.redis", mock_redis),
     ):
         with TestClient(app) as test_client:
@@ -97,15 +97,15 @@ class TestBackendSmokeContracts:
 
         with (
             patch(
-                "app.routers.documents.virus_scanner.scan",
+                "app.routers.v1.documents_impl.virus_scanner.scan",
                 new_callable=AsyncMock,
                 return_value={"clean": True, "engine": "clamav", "result": "clean"},
             ) as mock_scan,
             patch(
-                "app.routers.documents.enhancement_manager.dispatch_document_pipeline",
+                "app.routers.v1.documents_impl.enhancement_manager.dispatch_document_pipeline",
                 return_value={"mode": "standard"},
             ),
-            patch("app.routers.documents.audit_log_service.log", new_callable=AsyncMock),
+            patch("app.routers.v1.documents_impl.audit_log_service.log", new_callable=AsyncMock),
         ):
             response = client.post(
                 "/api/v1/documents/upload",
@@ -187,11 +187,17 @@ class TestBackendSmokeContracts:
                 },
             )
             assert create_response.status_code == 202
-            assert create_response.json() == {"session_id": session_id, "status": "started"}
+            create_payload = create_response.json()
+            assert create_payload["data"] == {"session_id": session_id, "status": "started"}
+            assert create_payload["error"] is None
+            assert create_payload["request_id"]
+            assert create_payload["timestamp"]
 
             get_response = client.get(f"/api/v1/generator/sessions/{session_id}")
             assert get_response.status_code == 200
-            assert get_response.json()["id"] == session_id
+            get_payload = get_response.json()
+            assert get_payload["data"]["id"] == session_id
+            assert get_payload["error"] is None
 
             update_response = client.post(
                 f"/api/v1/generator/sessions/{session_id}/messages",
@@ -199,8 +205,8 @@ class TestBackendSmokeContracts:
             )
             assert update_response.status_code == 200
             update_payload = update_response.json()
-            assert update_payload["role"] == "assistant"
-            assert update_payload["content"] == "Updated draft response"
+            assert update_payload["data"]["role"] == "assistant"
+            assert update_payload["data"]["content"] == "Updated draft response"
 
     def test_preview_live_http_smoke(self, client: TestClient):
         with patch(
@@ -219,18 +225,12 @@ class TestBackendSmokeContracts:
         assert payload["warnings"] == []
         mock_preview.assert_called_once()
 
-    def test_legacy_deprecation_headers_smoke(self, client: TestClient):
+    def test_legacy_routes_removed_smoke(self, client: TestClient):
         templates_response = client.get("/api/templates")
-        assert templates_response.status_code == 200
-        assert templates_response.headers.get("Deprecation") == "true"
-        assert templates_response.headers.get("Sunset")
-        assert "successor-version" in templates_response.headers.get("Link", "")
+        assert templates_response.status_code == 404
 
         documents_response = client.get("/api/documents")
-        assert documents_response.status_code == 200
-        assert documents_response.headers.get("Deprecation") == "true"
-        assert documents_response.headers.get("Sunset")
-        assert "successor-version" in documents_response.headers.get("Link", "")
+        assert documents_response.status_code == 404
 
     def test_signed_download_v1_smoke(self, client: TestClient, tmp_path):
         job_id = "job-smoke-download-1"
@@ -251,7 +251,7 @@ class TestBackendSmokeContracts:
         }
         client.mock_service.verify_signed_download.return_value = True
 
-        with patch("app.routers.documents.settings.SIGNED_URL_SECRET", "test-secret"):
+        with patch("app.routers.v1.documents_impl.settings.SIGNED_URL_SECRET", "test-secret"):
             response = client.get(f"/api/v1/documents/{job_id}/download?format=docx")
             assert response.status_code == 200
             payload = response.json()
@@ -267,3 +267,4 @@ class TestBackendSmokeContracts:
             "content-type", ""
         )
         assert signed_response.content.startswith(b"PK")
+

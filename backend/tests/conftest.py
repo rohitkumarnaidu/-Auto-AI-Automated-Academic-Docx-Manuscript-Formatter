@@ -48,7 +48,7 @@ def skip_integration_when_services_unavailable(request):
 @pytest.fixture(autouse=True)
 def mock_redis():
     """Mock Redis globally for all tests."""
-    with patch("app.routers.stream._pubsub.publish", new_callable=AsyncMock) as mock_stream_publish:
+    with patch("app.routers.v1.stream._pubsub.publish", new_callable=AsyncMock) as mock_stream_publish:
         with patch("app.middleware.rate_limit.redis") as mock_limit:
             with patch("app.cache.redis_cache.redis.Redis") as mock_cache:
                 mock_limit.return_value = MagicMock()

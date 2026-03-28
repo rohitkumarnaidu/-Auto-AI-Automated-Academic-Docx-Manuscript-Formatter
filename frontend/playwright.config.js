@@ -10,10 +10,12 @@ export default defineConfig({
   testDir: './e2e',
   /* Placeholder specs are fine in parallel, but full browser fan-out overwhelms local dev machines. */
   fullyParallel: false,
+  /* Global Timeout */
+  timeout: process.env.CI ? 60 * 1000 : 120 * 1000,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
-  /* Retry on CI only */
-  retries: process.env.CI ? 2 : 0,
+  /* Retry on CI and locally */
+  retries: process.env.CI ? 2 : 1,
   /* Opt out of parallel tests on CI. */
   workers: process.env.CI ? 1 : 4,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */

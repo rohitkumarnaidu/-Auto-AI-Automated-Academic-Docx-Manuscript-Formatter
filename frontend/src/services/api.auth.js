@@ -15,15 +15,15 @@ const sanitizeRedirectPath = (path) => {
     return path;
 };
 
-export const signup = async (data) => postJson('/api/auth/signup', data);
+export const signup = async (data) => postJson('/api/v1/auth/signup', data);
 
-export const login = async (data) => postJson('/api/auth/login', data);
+export const login = async (data) => postJson('/api/v1/auth/login', data);
 
-export const forgotPassword = async (data) => postJson('/api/auth/forgot-password', data);
+export const forgotPassword = async (data) => postJson('/api/v1/auth/forgot-password', data);
 
-export const verifyOtp = async (data) => postJson('/api/auth/verify-otp', data);
+export const verifyOtp = async (data) => postJson('/api/v1/auth/verify-otp', data);
 
-export const resetPassword = async (data) => postJson('/api/auth/reset-password', data);
+export const resetPassword = async (data) => postJson('/api/v1/auth/reset-password', data);
 
 export const googleAuth = async (redirectPath = '/dashboard') => {
     if (!supabase) throw new Error('Supabase client is not initialized');

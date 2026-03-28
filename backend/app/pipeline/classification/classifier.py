@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from app.models import PipelineDocument as Document, Block, BlockType
 from app.pipeline.base import PipelineStage
 from app.config.settings import settings  # Import settings for dynamic thresholds
+from app.services.scibert_gate import should_enable_scibert
 import logging
 
 logger = logging.getLogger(__name__)
@@ -135,7 +136,7 @@ class ContentClassifier(PipelineStage):
         return BlockType.BODY, "BODY"
 
     def _predict_scibert_batch(self, blocks: List[Block]) -> Optional[List[Dict[str, Any]]]:
-        if not settings.USE_SCIBERT_CLASSIFICATION:
+        if not should_enable_scibert():
             return None
         if not blocks:
             return []

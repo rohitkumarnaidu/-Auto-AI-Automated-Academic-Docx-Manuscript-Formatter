@@ -53,7 +53,7 @@ export default function Stepper({ activeStep = 0, stages }) {
           }));
 
     return (
-        <div className="p-4 sm:p-6 space-y-2">
+        <div className="p-4 sm:p-6 space-y-2" role="list" aria-label="Processing steps">
             <AnimatePresence>
                 {steps.map((step, index) => {
                     const isActive    = step.status === 'running';
@@ -67,6 +67,9 @@ export default function Stepper({ activeStep = 0, stages }) {
                     return (
                         <motion.div
                             key={step.id}
+                            role="listitem"
+                            aria-current={isActive ? 'step' : undefined}
+                            aria-label={`Step ${index + 1}: ${step.title} – ${isCompleted ? 'completed' : isActive ? 'in progress' : isFailed ? 'failed' : 'pending'}`}
                             initial={{ opacity: 0, y: 10, height: 0 }}
                             animate={{ opacity: isPending ? 0.5 : 1, y: 0, height: 'auto' }}
                             exit={{ opacity: 0, height: 0 }}

@@ -1,51 +1,68 @@
-# 🐳 ScholarForm AI - Docker Infrastructure
+# ScholarForm AI Docker Infrastructure
 
-This directory contains the Docker configuration for the ScholarForm AI platform.
+This directory contains the full local infrastructure stack for the backend.
 
-## 📂 Structure
-- `docker-compose.yml`: Defines the multi-container application (Backend, Frontend, Redis, Grobid, Celery).
-- `Dockerfile.backend`: Build instructions for the Python FastAPI application.
-- `Dockerfile.frontend`: Build instructions for the React application.
-- `prometheus/`: Configuration for Prometheus monitoring.
-- `grafana/`: Dashboards for Grafana.
+Two Docker entry points exist on purpose:
 
-## 🚀 Quick Start
+- `backend/docker-compose.yml`: lightweight backend-only stack for local API work.
+- `backend/docker/docker-compose.yml`: fuller local stack with Grobid, Redis, ClamAV, and Celery workers.
 
-1. **Navigate to this directory:**
-   ```bash
-   cd backend/docker
-   ```
+Docker build files and monitoring configs are also split by purpose:
 
-2. **Start the stack:**
-   ```bash
-   docker-compose up --build
-   ```
+- `backend/docker/Dockerfile`: canonical backend image build file. CI and compose files should point here.
+- `backend/docker/prometheus/prometheus.yml`: local development Prometheus config.
+- `backend/ops/prometheus/prometheus.yml`: deployment or container-topology Prometheus config.
 
-3. **Access Services:**
-   - **Frontend:** `http://localhost:5173`
-   - **Backend API:** `http://localhost:8000`
-   - **Grobid:** `http://localhost:8070`
-   - **Prometheus:** `http://localhost:9090`
-   - **Grafana:** `http://localhost:3000` (Default creds: admin/admin)
+## Structure
 
-## ⚙️ Configuration
+- `docker-compose.yml`: fuller local infrastructure stack.
+- `Dockerfile`: backend image build file used by the compose stacks and CI.
+- `prometheus/`: Prometheus config for the local Docker stack.
+- `grafana/`: Grafana dashboards for local monitoring.
 
-Environment variables are defined in the `docker-compose.yml` file or can be provided via a `.env` file in this directory.
+## Quick Start
 
-**Key Variables:**
-- `GROBID_SERVER_URL`: URL for the Grobid service (default: `http://grobid:8070`).
-- `REDIS_URL`: URL for Redis (default: `redis://redis:6379/0`).
-- `CELERY_BROKER_URL`: Broker for background tasks.
-- `CORS_ORIGINS`: Allowed frontend origins.
+1. Change into this directory:
 
-## 🧹 Maintenance
+```bash
+cd backend/docker
+```
 
-- **Clean up volumes (Reset DB/Cache):**
-  ```bash
-  docker-compose down -v
-  ```
+2. Start the full stack:
 
-- **View Logs:**
-  ```bash
-  docker-compose logs -f backend
-  ```
+```bash
+docker-compose up --build
+```
+
+3. Access services:
+
+- Backend API: `http://localhost:8000`
+- Grobid: `http://localhost:8070`
+- Prometheus: `http://localhost:9090`
+
+## Configuration
+
+Environment variables are read from `../.env`.
+
+Key variables:
+
+- `DATABASE_URL`
+- `REDIS_URL`
+- `CELERY_BROKER_URL`
+- `OPENAI_API_KEY`
+- `GROBID_URL`
+- `CLAMAV_HOST`
+
+## Maintenance
+
+Reset volumes:
+
+```bash
+docker-compose down -v
+```
+
+View logs:
+
+```bash
+docker-compose logs -f
+```

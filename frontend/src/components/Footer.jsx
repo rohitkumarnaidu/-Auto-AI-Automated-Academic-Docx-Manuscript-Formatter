@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useMetricsHealth } from '@/src/services/api.hooks';
+import { subscribeNewsletter } from '@/src/services/api.core';
 
 export default function Footer({ variant = 'app' }) {
     const { data: health } = useMetricsHealth({ staleTime: 60000, retry: false });
@@ -12,26 +13,18 @@ export default function Footer({ variant = 'app' }) {
     const handleSubscribe = async (e) => {
         e.preventDefault();
         if (!email || !email.includes('@')) return;
-        
+
         setStatus('loading');
         try {
-            const response = await fetch('/api/v1/marketing/newsletter', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email })
-            });
-            
-            if (response.ok) {
-                setStatus('success');
-                setEmail('');
-                setTimeout(() => setStatus('idle'), 3000);
-            } else {
-                setStatus('error');
-            }
-        } catch (error) {
+            await subscribeNewsletter(email);
+            setStatus('success');
+            setEmail('');
+            setTimeout(() => setStatus('idle'), 3000);
+        } catch {
             setStatus('error');
         }
     };
+
 
     const preventPlaceholderNav = (event) => {
         event.preventDefault();

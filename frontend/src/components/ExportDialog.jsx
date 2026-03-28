@@ -79,7 +79,7 @@ export default function ExportDialog({
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
             role="dialog"
             aria-modal="true"
-            aria-label="Export options"
+            aria-labelledby="export-dialog-title"
             data-testid="export-dialog"
         >
             <div
@@ -88,7 +88,7 @@ export default function ExportDialog({
                 tabIndex={-1}
             >
                 <div className="mb-4">
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Export Document</h3>
+                    <h3 id="export-dialog-title" className="text-lg font-bold text-slate-900 dark:text-slate-100">Export Document</h3>
                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                         Select a format and download your manuscript.
                     </p>

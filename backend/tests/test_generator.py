@@ -167,7 +167,7 @@ class TestDocumentGenerator:
 
 class TestGeneratorSchemas:
     def test_generate_request_valid(self):
-        from app.routers.generator import GenerateRequest, GenerationOptions
+        from app.schemas.document import GenerateRequest, GenerationOptions
         req = GenerateRequest(
             doc_type="academic_paper",
             template="ieee",
@@ -178,7 +178,7 @@ class TestGeneratorSchemas:
         assert req.options.word_count_target == 2000
 
     def test_generate_request_defaults(self):
-        from app.routers.generator import GenerateRequest
+        from app.schemas.document import GenerateRequest
         req = GenerateRequest(
             doc_type="resume",
             template="none",
@@ -188,7 +188,7 @@ class TestGeneratorSchemas:
         assert req.options.word_count_target == 3000
 
     def test_generate_response_shape(self):
-        from app.routers.generator import GenerateResponse
+        from app.schemas.document import GenerateResponse
         resp = GenerateResponse(job_id="abc-123", status="pending", message="Queued")
         assert resp.job_id == "abc-123"
         assert resp.status == "pending"

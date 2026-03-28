@@ -8,11 +8,19 @@ const RETRYABLE_STATUS_CODES = [408, 429, 500, 502, 503, 504];
 const DEFAULT_MAX_RETRIES = 2;
 const BASE_RETRY_DELAY_MS = 500;
 const SENSITIVE_INPUT_KEYS = /(password|otp|token|secret)/i;
+const APP_SESSION_STORAGE_KEYS = [
+    'scholarform_currentJob',
+    'scholarform_job',
+    'scholarform_active_job',
+    'scholarform_e2e_user',
+];
+const AUTH_ERROR_REDIRECT_LOCK_MS = 1500;
 
 export const CHUNK_SIZE_BYTES = 5 * 1024 * 1024;
 export const CHUNK_UPLOAD_THRESHOLD_BYTES = 10 * 1024 * 1024;
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+let unauthorizedRecoveryInProgress = false;
 
 /**
  * Generate a UUID v4 for Request IDs.
@@ -126,7 +134,7 @@ export const getFriendlyErrorMessage = ({
     endpoint = '',
 } = {}) => {
     if (status === 401) {
-        if (typeof endpoint === 'string' && endpoint.startsWith('/api/auth/login')) {
+        if (typeof endpoint === 'string' && endpoint.startsWith('/api/v1/auth/login')) {
             return 'Invalid email or password.';
         }
         return 'Your session has expired. Please log in again.';
@@ -164,6 +172,94 @@ export const getFriendlyErrorMessage = ({
     return 'Something went wrong. Please try again.';
 };
 export const friendlyErrorMessage = getFriendlyErrorMessage;
+
+const isLoginEndpoint = (endpoint = '') => (
+    String(endpoint || '').toLowerCase().startsWith('/api/v1/auth/login')
+    || String(endpoint || '').toLowerCase().startsWith('/auth/login')
+);
+
+const clearSupabaseAuthStorage = () => {
+    if (typeof window === 'undefined') return;
+
+    const clearStorageKeys = (storage) => {
+        if (!storage) return;
+        const toDelete = [];
+        for (let idx = 0; idx < storage.length; idx += 1) {
+            const key = storage.key(idx);
+            if (!key) continue;
+            if (key.startsWith('sb-') && key.includes('-auth-token')) {
+                toDelete.push(key);
+            }
+        }
+        toDelete.forEach((key) => storage.removeItem(key));
+    };
+
+    clearStorageKeys(window.localStorage);
+    clearStorageKeys(window.sessionStorage);
+};
+
+const clearAppSessionStorage = () => {
+    if (typeof window === 'undefined') return;
+    APP_SESSION_STORAGE_KEYS.forEach((key) => {
+        window.sessionStorage.removeItem(key);
+    });
+};
+
+const buildNextParam = () => {
+    if (typeof window === 'undefined') return '';
+    const path = window.location?.pathname || '';
+    const search = window.location?.search || '';
+    const hash = window.location?.hash || '';
+    const nextTarget = `${path}${search}${hash}`;
+    if (!nextTarget || nextTarget === '/' || nextTarget.startsWith('/login')) {
+        return '';
+    }
+    return `?next=${encodeURIComponent(nextTarget)}`;
+};
+
+const isJsdomEnvironment = () => (
+    typeof navigator !== 'undefined'
+    && /jsdom/i.test(String(navigator.userAgent || ''))
+);
+
+export const handleUnauthorizedSession = async ({ endpoint = '' } = {}) => {
+    if (typeof window === 'undefined' || isLoginEndpoint(endpoint)) {
+        return;
+    }
+    if (unauthorizedRecoveryInProgress) return;
+    unauthorizedRecoveryInProgress = true;
+
+    try {
+        if (supabase?.auth?.signOut) {
+            await supabase.auth.signOut({ scope: 'local' });
+        }
+    } catch (error) {
+        console.warn('Auth teardown failed after unauthorized response:', error);
+    } finally {
+        clearAppSessionStorage();
+        clearSupabaseAuthStorage();
+
+        try {
+            window.dispatchEvent(new CustomEvent('scholarform:session-expired'));
+        } catch {
+            // no-op in environments without CustomEvent support
+        }
+
+        const onLoginRoute = window.location?.pathname?.startsWith('/login');
+        if (!onLoginRoute && !isJsdomEnvironment() && typeof window.location?.replace === 'function') {
+            const nextParam = buildNextParam();
+            try {
+                window.location.replace(`/login${nextParam}`);
+            } catch {
+                // Some test runners/JSDOM environments do not implement navigation.
+            }
+        }
+
+        window.setTimeout(() => {
+            unauthorizedRecoveryInProgress = false;
+        }, AUTH_ERROR_REDIRECT_LOCK_MS);
+    }
+};
 
 const shouldRetryRequest = ({ method = 'GET', status, error, attempt, maxRetries }) => {
     if (attempt >= maxRetries) {
@@ -289,7 +385,7 @@ export const parseResponseData = async (response) => {
 export const sendFrontendErrorLog = async (errorInfo) => {
     try {
         const headers = await withAuthHeader({ 'Content-Type': 'application/json' });
-        await fetch(`${API_BASE_URL}/api/metrics/log-error`, {
+        await fetch(`${API_BASE_URL}/api/v1/metrics/log-error`, {
             method: 'POST',
             headers,
             body: JSON.stringify({
@@ -312,6 +408,14 @@ export const fetchWithAuth = async (endpoint, options = {}) => {
     } = options;
 
     try {
+        if (
+            typeof navigator !== 'undefined'
+            && navigator.onLine === false
+            && ['POST', 'PUT', 'DELETE', 'PATCH'].includes((requestOptions.method || 'GET').toUpperCase())
+        ) {
+            throw new Error('You are currently offline. This action will be queued and retried when you reconnect.');
+        }
+
         const headers = await withAuthHeader(requestOptions.headers);
         const { retryConfig, ...fetchOptions } = requestOptions;
         const finalOptions = {
@@ -328,6 +432,9 @@ export const fetchWithAuth = async (endpoint, options = {}) => {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
+            if (response.status === 401) {
+                await handleUnauthorizedSession({ endpoint });
+            }
             throw new Error(
                 getFriendlyErrorMessage({
                     status: response.status,
@@ -350,7 +457,7 @@ export const fetchWithAuth = async (endpoint, options = {}) => {
             console.error(`API Error [${endpoint}]:`, finalMessage, error);
         }
 
-        if (!suppressMonitoring && endpoint !== '/api/metrics/log-error') {
+        if (!suppressMonitoring && endpoint !== '/api/v1/metrics/log-error') {
             sendFrontendErrorLog({
                 message: `API Error [${endpoint}]: ${finalMessage}`,
                 stack: error?.stack,
@@ -364,4 +471,53 @@ export const fetchWithAuth = async (endpoint, options = {}) => {
 export const normalizeExportFormat = (format = 'docx') => {
     const normalized = String(format || 'docx').toLowerCase();
     return SUPPORTED_EXPORT_FORMATS.includes(normalized) ? normalized : 'docx';
+};
+
+// ── Newsletter subscription ──────────────────────────────────
+/**
+ * Subscribe an email to the marketing newsletter.
+ * Replaces the naked fetch in Footer.jsx — routes through fetchWithAuth
+ * for consistent auth headers and retry behaviour.
+ */
+export const subscribeNewsletter = async (email) => {
+    return fetchWithAuth('/api/v1/marketing/newsletter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: String(email || '').trim() }),
+        // Newsletter endpoint is public-friendly — suppress auth-noise in console
+        suppressConsoleError: true,
+        suppressMonitoring: true,
+    });
+};
+
+// ── Runtime Zod response validation ─────────────────────────
+/**
+ * Parse an API response payload against a Zod schema.
+ * On success returns the parsed (and possibly transformed) data.
+ * On failure throws a friendly Error so callers don't need to handle
+ * subtle undefined-field bugs from contract drift.
+ *
+ * @param {import('zod').ZodTypeAny} schema - Zod schema to validate against
+ * @param {unknown} data - Raw API response payload
+ * @param {{ fallback?: unknown }} [opts]
+ * @returns {unknown} Validated (and Zod-transformed) data
+ */
+export const parseApiResponse = (schema, data, opts = {}) => {
+    if (!schema || typeof schema.safeParse !== 'function') {
+        return data;
+    }
+
+    const result = schema.safeParse(data);
+    if (result.success) {
+        return result.data;
+    }
+
+    if ('fallback' in opts) {
+        return opts.fallback;
+    }
+
+    const firstIssue = result.error?.issues?.[0];
+    const fieldPath = firstIssue?.path?.join('.') || 'response';
+    const message = firstIssue?.message || 'Unexpected response format.';
+    throw new Error(`API contract error at "${fieldPath}": ${message}`);
 };

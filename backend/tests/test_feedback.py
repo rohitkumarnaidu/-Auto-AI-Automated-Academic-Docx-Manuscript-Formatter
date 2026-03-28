@@ -39,13 +39,15 @@ def test_feedback_submission(client, authenticated_user):
     sb.table.return_value = table
 
     memory = MagicMock()
-    with patch("app.routers.feedback.memory", memory), patch(
-        "app.routers.feedback.get_supabase_client", return_value=sb
+    with patch("app.routers.v1.feedback.memory", memory), patch(
+        "app.routers.v1.feedback.get_supabase_client", return_value=sb
     ):
-        response = client.post("/api/feedback/", json=payload)
+        response = client.post("/api/v1/feedback/", json=payload)
 
     assert response.status_code == 201
-    assert response.json()["status"] == "success"
+    body = response.json()
+    assert body["error"] is None
+    assert body["data"]["status"] == "success"
     memory.remember_correction.assert_called_once()
 
 
@@ -53,11 +55,13 @@ def test_feedback_summary(client, authenticated_user):
     memory = MagicMock()
     memory.get_memory_summary.return_value = {"corrections": {"title": 3}}
 
-    with patch("app.routers.feedback.memory", memory):
-        response = client.get("/api/feedback/summary")
+    with patch("app.routers.v1.feedback.memory", memory):
+        response = client.get("/api/v1/feedback/summary")
 
     assert response.status_code == 200
-    assert response.json() == {"title": 3}
+    body = response.json()
+    assert body["error"] is None
+    assert body["data"] == {"title": 3}
 
 
 def test_feedback_requires_auth(client):
@@ -67,5 +71,5 @@ def test_feedback_requires_auth(client):
         "original_value": "A",
         "corrected_value": "B",
     }
-    response = client.post("/api/feedback/", json=payload)
+    response = client.post("/api/v1/feedback/", json=payload)
     assert response.status_code in (401, 403)

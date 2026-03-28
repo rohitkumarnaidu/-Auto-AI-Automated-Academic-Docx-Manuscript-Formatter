@@ -54,7 +54,7 @@ describe('api.documents', () => {
         await uploadDocument(file, '<b>IEEE</b>', { add_page_numbers: false });
 
         expect(fetchWithAuthMock).toHaveBeenCalledWith(
-            '/api/documents/upload',
+            '/api/v1/documents/upload',
             expect.objectContaining({ method: 'POST' })
         );
 
@@ -103,7 +103,7 @@ describe('api.documents', () => {
             .mockResolvedValueOnce({
                 ok: true,
                 headers: { get: () => 'application/json' },
-                json: async () => ({ url: 'http://localhost:8000/api/documents/job-789/download?format=docx&token=abc&expires=123' }),
+                json: async () => ({ data: { url: 'http://localhost:8000/api/v1/documents/job-789/download?format=docx&token=abc&expires=123' } }),
             })
             .mockResolvedValueOnce({
                 ok: true,
@@ -114,7 +114,7 @@ describe('api.documents', () => {
         const download = await downloadFile('job-789', 'docx');
 
         expect(fetchWithRetryMock).toHaveBeenCalledTimes(2);
-        expect(fetchWithRetryMock.mock.calls[0][0]).toContain('/api/documents/job-789/download?format=docx');
+        expect(fetchWithRetryMock.mock.calls[0][0]).toContain('/api/v1/documents/job-789/download?format=docx');
         expect(fetchWithRetryMock.mock.calls[1][0]).toContain('token=abc');
         expect(download.url).toBe('blob:test-url');
     });

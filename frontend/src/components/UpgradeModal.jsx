@@ -35,6 +35,9 @@ export default function UpgradeModal({ isOpen, onClose, title = "Upgrade to Pro"
             onClick={onClose}
           />
           <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="upgrade-modal-title"
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -42,6 +45,7 @@ export default function UpgradeModal({ isOpen, onClose, title = "Upgrade to Pro"
           >
             <button
               onClick={onClose}
+              aria-label="Close upgrade modal"
               className="absolute right-4 top-4 rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300 transition-colors"
             >
               <X className="h-5 w-5" />

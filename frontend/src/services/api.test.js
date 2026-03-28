@@ -45,7 +45,7 @@ describe('API Service', () => {
         const result = await api.getDocuments({ limit: 10 });
 
         expect(fetch).toHaveBeenCalledWith(
-            expect.stringContaining('/api/documents?limit=10'),
+            expect.stringContaining('/api/v1/documents?limit=10'),
             expect.objectContaining({
                 headers: expect.objectContaining({
                     Authorization: 'Bearer mock-token',

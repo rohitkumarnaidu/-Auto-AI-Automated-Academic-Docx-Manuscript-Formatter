@@ -100,6 +100,7 @@ if _PS:
             ...,
             description="Enforce HTTPS redirect and HSTS header",
         )
+        GLOBAL_RATE_LIMIT_PER_MINUTE: int = 120
         DEBUG: bool
         ENABLE_STRUCTURED_LOGGING: bool
 
@@ -148,11 +149,18 @@ if _PS:
         GROQ_MODEL: str
         GROQ_API_BASE: str
         SENTRY_DSN: Optional[str] = None
+        LLM_PROVIDER_TIMEOUT_SECONDS: int = 15
+        EXTERNAL_CIRCUIT_BREAKER_ENABLED: bool = True
+        EXTERNAL_CIRCUIT_BREAKER_FAILURE_THRESHOLD: int = 3
+        EXTERNAL_CIRCUIT_BREAKER_RESET_SECONDS: int = 60
 
         NVIDIA_API_KEY: Optional[str] = None
         NVIDIA_MODEL: str
         OPENAI_API_KEY: Optional[str] = None
         ANTHROPIC_API_KEY: Optional[str] = None
+        OPENROUTER_API_KEY: Optional[str] = None
+        OPENROUTER_MODEL: str = "openai/gpt-4o-mini"
+        OPENROUTER_API_BASE: str = "https://openrouter.ai/api/v1"
 
         # Redis / celery / integrations
         REDIS_ENABLED: bool
@@ -184,11 +192,20 @@ if _PS:
         ENABLE_NOUGAT_PARSER: bool
         ENABLE_NVIDIA_REASONER: bool
         USE_SCIBERT_CLASSIFICATION: bool = False
+        SCIBERT_AUTO_ENABLE_FROM_BENCHMARK: bool = True
+        SCIBERT_MIN_BENCHMARK_F1: float = 0.85
+        SCIBERT_BENCHMARK_STATE_PATH: str = ".metrics/scibert_benchmark_state.json"
         LOW_MEMORY_MODE: bool = False
         PRELOAD_AI_MODELS: bool = True
         RAG_USE_TRANSFORMERS: bool = True
         DEFAULT_FAST_MODE: bool = False
         CROSSREF_MAX_WORKERS: int = 4
+        ENHANCEMENT_QUEUE_MIN_SECONDS: float = 5.0
+        VLLM_ADOPTION_ENABLED: bool = True
+        VLLM_TARGET_MODEL: str = "meta-llama/Meta-Llama-3.1-8B-Instruct"
+        VLLM_TARGET_GPU: str = "L4 24GB"
+        VLLM_REQUESTS_PER_HOUR_THRESHOLD: int = 2000
+        VLLM_DAILY_TOKENS_THRESHOLD: int = 5000000
 
         model_config = {
             "env_file": ENV_FILE,
@@ -215,10 +232,13 @@ if _PS:
             "ENABLE_NOUGAT_PARSER",
             "ENABLE_NVIDIA_REASONER",
             "USE_SCIBERT_CLASSIFICATION",
+            "SCIBERT_AUTO_ENABLE_FROM_BENCHMARK",
             "LOW_MEMORY_MODE",
             "PRELOAD_AI_MODELS",
             "RAG_USE_TRANSFORMERS",
             "DEFAULT_FAST_MODE",
+            "VLLM_ADOPTION_ENABLED",
+            "EXTERNAL_CIRCUIT_BREAKER_ENABLED",
             mode="before",
         )
         @classmethod
@@ -289,6 +309,7 @@ else:
 
         # Deployment
         FORCE_HTTPS: bool = bool(_parse_boolish(_require_env("FORCE_HTTPS"), "FORCE_HTTPS"))
+        GLOBAL_RATE_LIMIT_PER_MINUTE: int = int(os.getenv("GLOBAL_RATE_LIMIT_PER_MINUTE", "120"))
         DEBUG: bool = bool(_parse_boolish(_require_env("DEBUG"), "DEBUG"))
         ENABLE_STRUCTURED_LOGGING: bool = bool(
             _parse_boolish(_require_env("ENABLE_STRUCTURED_LOGGING"), "ENABLE_STRUCTURED_LOGGING")
@@ -345,10 +366,26 @@ else:
         GROQ_MODEL: str = _require_env("GROQ_MODEL")
         GROQ_API_BASE: str = _require_env("GROQ_API_BASE")
         SENTRY_DSN: Optional[str] = os.getenv("SENTRY_DSN")
+        LLM_PROVIDER_TIMEOUT_SECONDS: int = int(os.getenv("LLM_PROVIDER_TIMEOUT_SECONDS", "15"))
+        EXTERNAL_CIRCUIT_BREAKER_ENABLED: bool = bool(
+            _parse_boolish(
+                os.getenv("EXTERNAL_CIRCUIT_BREAKER_ENABLED", "true"),
+                "EXTERNAL_CIRCUIT_BREAKER_ENABLED",
+            )
+        )
+        EXTERNAL_CIRCUIT_BREAKER_FAILURE_THRESHOLD: int = int(
+            os.getenv("EXTERNAL_CIRCUIT_BREAKER_FAILURE_THRESHOLD", "3")
+        )
+        EXTERNAL_CIRCUIT_BREAKER_RESET_SECONDS: int = int(
+            os.getenv("EXTERNAL_CIRCUIT_BREAKER_RESET_SECONDS", "60")
+        )
         NVIDIA_API_KEY: Optional[str] = os.getenv("NVIDIA_API_KEY")
         NVIDIA_MODEL: str = _require_env("NVIDIA_MODEL")
         OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY")
         ANTHROPIC_API_KEY: Optional[str] = os.getenv("ANTHROPIC_API_KEY")
+        OPENROUTER_API_KEY: Optional[str] = os.getenv("OPENROUTER_API_KEY")
+        OPENROUTER_MODEL: str = os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini")
+        OPENROUTER_API_BASE: str = os.getenv("OPENROUTER_API_BASE", "https://openrouter.ai/api/v1")
 
         # Redis / celery / integrations
         REDIS_ENABLED: bool = bool(_parse_boolish(_require_env("REDIS_ENABLED"), "REDIS_ENABLED"))
@@ -400,6 +437,17 @@ else:
         USE_SCIBERT_CLASSIFICATION: bool = bool(
             _parse_boolish(os.getenv("USE_SCIBERT_CLASSIFICATION", "false"), "USE_SCIBERT_CLASSIFICATION")
         )
+        SCIBERT_AUTO_ENABLE_FROM_BENCHMARK: bool = bool(
+            _parse_boolish(
+                os.getenv("SCIBERT_AUTO_ENABLE_FROM_BENCHMARK", "true"),
+                "SCIBERT_AUTO_ENABLE_FROM_BENCHMARK",
+            )
+        )
+        SCIBERT_MIN_BENCHMARK_F1: float = float(os.getenv("SCIBERT_MIN_BENCHMARK_F1", "0.85"))
+        SCIBERT_BENCHMARK_STATE_PATH: str = os.getenv(
+            "SCIBERT_BENCHMARK_STATE_PATH",
+            ".metrics/scibert_benchmark_state.json",
+        )
         LOW_MEMORY_MODE: bool = bool(
             _parse_boolish(os.getenv("LOW_MEMORY_MODE", "false"), "LOW_MEMORY_MODE")
         )
@@ -413,6 +461,21 @@ else:
             _parse_boolish(os.getenv("DEFAULT_FAST_MODE", "false"), "DEFAULT_FAST_MODE")
         )
         CROSSREF_MAX_WORKERS: int = int(os.getenv("CROSSREF_MAX_WORKERS", "4"))
+        ENHANCEMENT_QUEUE_MIN_SECONDS: float = float(os.getenv("ENHANCEMENT_QUEUE_MIN_SECONDS", "5"))
+        VLLM_ADOPTION_ENABLED: bool = bool(
+            _parse_boolish(os.getenv("VLLM_ADOPTION_ENABLED", "true"), "VLLM_ADOPTION_ENABLED")
+        )
+        VLLM_TARGET_MODEL: str = os.getenv(
+            "VLLM_TARGET_MODEL",
+            "meta-llama/Meta-Llama-3.1-8B-Instruct",
+        )
+        VLLM_TARGET_GPU: str = os.getenv("VLLM_TARGET_GPU", "L4 24GB")
+        VLLM_REQUESTS_PER_HOUR_THRESHOLD: int = int(
+            os.getenv("VLLM_REQUESTS_PER_HOUR_THRESHOLD", "2000")
+        )
+        VLLM_DAILY_TOKENS_THRESHOLD: int = int(
+            os.getenv("VLLM_DAILY_TOKENS_THRESHOLD", "5000000")
+        )
 
         def validate(self) -> None:
             if self.RETENTION_DAYS <= 0:

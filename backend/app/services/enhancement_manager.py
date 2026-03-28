@@ -100,6 +100,22 @@ class EnhancementManager:
             and profile.queue_available
         )
 
+    @staticmethod
+    def _queue_threshold_seconds() -> float:
+        raw = getattr(settings, "ENHANCEMENT_QUEUE_MIN_SECONDS", 5.0)
+        try:
+            threshold = float(raw)
+        except (TypeError, ValueError):
+            threshold = 5.0
+        return max(0.0, threshold)
+
+    def should_queue_job(self, estimated_duration_seconds: float | None = None) -> bool:
+        if not self.is_celery_queue_active():
+            return False
+        if estimated_duration_seconds is None:
+            return True
+        return float(estimated_duration_seconds) >= self._queue_threshold_seconds()
+
     def get_ocr_backends(self) -> List[str]:
         return list(self.profile.ocr_backends)
 
@@ -116,6 +132,7 @@ class EnhancementManager:
         template_name: str,
         formatting_options: Dict[str, Any] | None = None,
         queue_name: str | None = None,
+        estimated_duration_seconds: float | None = None,
     ) -> Dict[str, Any]:
         """
         Dispatch upload pipeline job with graceful fallback.
@@ -125,7 +142,7 @@ class EnhancementManager:
         Fallback path:
         - FastAPI BackgroundTasks + run_pipeline_with_timeout
         """
-        if self.is_celery_queue_active():
+        if self.should_queue_job(estimated_duration_seconds):
             try:
                 from app.tasks.celery_tasks import process_document_task
 
@@ -157,11 +174,12 @@ class EnhancementManager:
         run_pipeline: Callable[[str], Any],
         job_id: str,
         queue_name: str | None = None,
+        estimated_duration_seconds: float | None = None,
     ) -> Dict[str, Any]:
         """
         Dispatch generation pipeline job with graceful fallback.
         """
-        if self.is_celery_queue_active():
+        if self.should_queue_job(estimated_duration_seconds):
             try:
                 from app.tasks.celery_tasks import process_generation_task
 
@@ -188,11 +206,12 @@ class EnhancementManager:
         edited_structured_data: Dict[str, Any],
         template_name: str,
         queue_name: str | None = None,
+        estimated_duration_seconds: float | None = None,
     ) -> Dict[str, Any]:
         """
         Dispatch edit/reformat flow with graceful fallback.
         """
-        if self.is_celery_queue_active():
+        if self.should_queue_job(estimated_duration_seconds):
             try:
                 from app.tasks.celery_tasks import process_edit_document_task
 
@@ -215,6 +234,48 @@ class EnhancementManager:
             job_id=job_id,
             edited_structured_data=edited_structured_data,
             template_name=template_name,
+        )
+        return {"mode": "background", "task_id": None}
+
+    def dispatch_synthesis_pipeline(
+        self,
+        *,
+        background_tasks: Any,
+        run_pipeline: Callable[[str, List[str], str], Any],
+        session_id: str,
+        file_paths: List[str],
+        template: str,
+        queue_name: str | None = None,
+        estimated_duration_seconds: float | None = None,
+    ) -> Dict[str, Any]:
+        if self.should_queue_job(estimated_duration_seconds):
+            try:
+                from app.tasks.celery_tasks import process_synthesis_task
+
+                queue = queue_name or "interactive"
+                async_result = process_synthesis_task.apply_async(
+                    args=[str(session_id), list(file_paths or []), str(template)],
+                    queue=queue,
+                )
+                logger.info(
+                    "Synthesis session %s queued via Celery task_id=%s",
+                    session_id,
+                    async_result.id,
+                )
+                return {"mode": "celery", "task_id": async_result.id}
+            except Exception as exc:
+                logger.warning(
+                    "Celery synthesis dispatch failed for session %s (%s). "
+                    "Falling back to BackgroundTasks.",
+                    session_id,
+                    exc,
+                )
+
+        background_tasks.add_task(
+            run_pipeline,
+            session_id,
+            list(file_paths or []),
+            template,
         )
         return {"mode": "background", "task_id": None}
 
@@ -264,10 +325,20 @@ class EnhancementManager:
             True,
         )
         keyword_preferred = _split_csv(
-            getattr(settings, "ENHANCEMENT_KEYWORD_BACKENDS", "keybert,yake,basic"),
-            ["keybert", "yake", "basic"],
+            getattr(settings, "ENHANCEMENT_KEYWORD_BACKENDS", "keyllm,keybert,yake,basic"),
+            ["keyllm", "keybert", "yake", "basic"],
+        )
+        keyllm_available = any(
+            bool(value)
+            for value in (
+                getattr(settings, "NVIDIA_API_KEY", None),
+                getattr(settings, "GROQ_API_KEY", None),
+                getattr(settings, "OPENROUTER_API_KEY", None),
+                getattr(settings, "OPENAI_API_KEY", None),
+            )
         )
         detected_keywords = {
+            "keyllm": keyllm_available,
             "keybert": _module_available("keybert"),
             "yake": _module_available("yake"),
             "basic": True,

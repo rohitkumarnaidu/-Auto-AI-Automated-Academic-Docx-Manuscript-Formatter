@@ -90,3 +90,32 @@ def get_optional_user(
     except Exception as e:
         logger.warning(f"Optional token validation failed: {str(e)}")
         return None
+
+
+def _has_admin_scope(user: User) -> bool:
+    role = str(getattr(user, "role", "") or "").strip().lower()
+    if role in {"admin", "service_role"}:
+        return True
+
+    app_metadata = getattr(user, "app_metadata", None)
+    if not isinstance(app_metadata, dict):
+        return False
+
+    metadata_role = app_metadata.get("role")
+    if isinstance(metadata_role, str) and metadata_role.strip().lower() == "admin":
+        return True
+
+    metadata_roles = app_metadata.get("roles")
+    if isinstance(metadata_roles, str):
+        return metadata_roles.strip().lower() == "admin"
+    if isinstance(metadata_roles, list):
+        normalized = {str(item).strip().lower() for item in metadata_roles}
+        return "admin" in normalized
+
+    return False
+
+
+def require_admin_user(user: User = Depends(get_current_user)) -> User:
+    if not _has_admin_scope(user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+    return user

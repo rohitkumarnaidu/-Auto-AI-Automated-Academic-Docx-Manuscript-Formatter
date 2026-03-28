@@ -50,7 +50,7 @@ Fix:
 
 1. Try with `None` template once.
 2. Re-run with target template.
-3. Check `backend/app/routers/documents.py` logs.
+3. Check `backend/app/routers/v1/documents.py and backend/app/routers/v1/documents_impl.py` logs.
 
 ## 3. Preview Problems
 
@@ -146,3 +146,4 @@ When raising a bug, include:
 - exact error message
 - job id
 - browser + OS
+

@@ -6,10 +6,16 @@ Scenarios:
 - Status poll: 100 concurrent GET /status -> P99 < 100ms
 - Live preview: 50 concurrent WebSocket connections -> P99 RTT < 200ms
 - Templates: 200 concurrent GET /templates -> P99 < 80ms
+
+Strict SLO gate (configured via environment variables):
+- LOCUST_TARGET_P95_MS (default: 500)
+- LOCUST_TARGET_RPS (default: 100)
+- LOCUST_MAX_FAIL_RATIO (default: 0.0)
 """
 from __future__ import annotations
 
 import json
+import os
 import time
 import uuid
 from pathlib import Path
@@ -25,6 +31,9 @@ except Exception:  # pragma: no cover
 
 SAMPLE_DOC_PATH = Path(__file__).resolve().parents[2] / "manual_tests" / "sample_inputs" / "sample.docx"
 SAMPLE_DOC_BYTES = SAMPLE_DOC_PATH.read_bytes() if SAMPLE_DOC_PATH.exists() else b""
+TARGET_P95_MS = float(os.getenv("LOCUST_TARGET_P95_MS", "500"))
+TARGET_RPS = float(os.getenv("LOCUST_TARGET_RPS", "100"))
+MAX_FAIL_RATIO = float(os.getenv("LOCUST_MAX_FAIL_RATIO", "0.0"))
 
 
 def _ws_base_url(http_base: str) -> str:
@@ -77,7 +86,12 @@ class StatusPollUser(HttpUser):
         resp = self.client.post("/api/v1/documents/upload", files=files)
         if resp.status_code == 200:
             try:
-                self.job_id = resp.json().get("job_id")
+                payload = resp.json()
+                data = payload.get("data") if isinstance(payload, dict) else None
+                if isinstance(data, dict):
+                    self.job_id = data.get("job_id")
+                elif isinstance(payload, dict):
+                    self.job_id = payload.get("job_id")
             except Exception:
                 self.job_id = None
 
@@ -136,3 +150,33 @@ class PreviewWebSocketUser(User):
                 response_length=0,
                 exception=exc,
             )
+
+
+@events.quitting.add_listener
+def enforce_slo_thresholds(environment, **kwargs):
+    total = environment.stats.total
+    if total.num_requests <= 0:
+        environment.process_exit_code = 1
+        return
+
+    p95_ms = float(total.get_response_time_percentile(0.95) or 0.0)
+    fail_ratio = float(total.fail_ratio or 0.0)
+    current_rps = float(total.total_rps or 0.0)
+
+    violations = []
+    if p95_ms > TARGET_P95_MS:
+        violations.append(f"p95 {p95_ms:.2f}ms > {TARGET_P95_MS:.2f}ms")
+    if fail_ratio > MAX_FAIL_RATIO:
+        violations.append(f"fail_ratio {fail_ratio:.4f} > {MAX_FAIL_RATIO:.4f}")
+    if current_rps < TARGET_RPS:
+        violations.append(f"rps {current_rps:.2f} < {TARGET_RPS:.2f}")
+
+    if violations:
+        print("Locust SLO check failed:", "; ".join(violations))
+    else:
+        print(
+            "Locust SLO check passed: "
+            f"p95={p95_ms:.2f}ms, fail_ratio={fail_ratio:.4f}, rps={current_rps:.2f}"
+        )
+
+    environment.process_exit_code = 1 if violations else 0

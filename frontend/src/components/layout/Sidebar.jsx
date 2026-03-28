@@ -49,9 +49,10 @@ const NavItem = memo(function NavItem({ href, label, icon, active, isCollapsed, 
     <button
       onClick={() => onNavigate(href)}
       title={isCollapsed ? label : undefined}
+      aria-label={label}
       className={`active-nav-link flex items-center gap-3 py-2.5 rounded-xl text-[15px] font-semibold active:scale-[0.98] transition-all ${isCollapsed ? 'px-0 justify-center w-11 h-11 mx-auto' : 'px-3 w-full'} ${active ? 'bg-primary/10 text-primary dark:bg-primary/25 dark:text-blue-400 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white'}`}
     >
-      <span className={`material-symbols-outlined shrink-0 text-[20px] ${active ? 'fill-current' : ''}`}>{icon}</span>
+      <span className={`material-symbols-outlined shrink-0 text-[20px] ${active ? 'fill-current' : ''}`} aria-hidden="true">{icon}</span>
       {!isCollapsed && <span className="truncate">{label}</span>}
     </button>
   );
@@ -134,9 +135,10 @@ const Sidebar = memo(function Sidebar({ section = 'shared', onClose, isCollapsed
               key={m}
               onClick={() => handleModeChange(m)}
               title={isCollapsed ? (m.charAt(0).toUpperCase() + m.slice(1)) : undefined}
+              aria-label={m.charAt(0).toUpperCase() + m.slice(1)}
               className={`active-mode-btn flex items-center gap-3 py-2 rounded-xl text-[15px] active:scale-[0.98] transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${isCollapsed ? 'px-0 justify-center w-10 h-10 mx-auto' : 'px-3 w-full'} ${activeMode === m ? 'bg-white dark:bg-white/10 shadow-sm text-slate-900 dark:text-white font-bold ring-1 ring-slate-900/5 dark:ring-white/10' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-medium hover:bg-slate-200/50 dark:hover:bg-white/5'}`}
             >
-              <span className="material-symbols-outlined shrink-0 text-[20px]">{m === 'formatter' ? 'format_align_left' : 'magic_button'}</span>
+              <span className="material-symbols-outlined shrink-0 text-[20px]" aria-hidden="true">{m === 'formatter' ? 'format_align_left' : 'magic_button'}</span>
               {!isCollapsed && <span className="truncate capitalize">{m}</span>}
             </button>
           ))}

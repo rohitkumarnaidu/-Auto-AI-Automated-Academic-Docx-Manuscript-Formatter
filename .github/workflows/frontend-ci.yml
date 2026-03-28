@@ -61,3 +61,28 @@ jobs:
         run: npx lhci autorun
         env:
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+
+  playwright-e2e:
+    needs: test-and-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'automated-manuscript-formatter/frontend/package-lock.json'
+          
+      - name: Install dependencies
+        working-directory: ./automated-manuscript-formatter/frontend
+        run: npm ci
+        
+      - name: Install Playwright Browsers
+        working-directory: ./automated-manuscript-formatter/frontend
+        run: npx playwright install --with-deps
+        
+      - name: Run Playwright tests
+        working-directory: ./automated-manuscript-formatter/frontend
+        run: npx playwright test

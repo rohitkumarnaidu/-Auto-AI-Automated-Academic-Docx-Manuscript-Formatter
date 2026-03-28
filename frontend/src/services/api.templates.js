@@ -1,21 +1,30 @@
 import { fetchWithAuth, sanitizePayload, sanitizeText } from './api.core';
 import { getV1, unwrapResponse } from './api.v1';
 
+const unwrapV1Payload = (payload) => {
+    if (payload && typeof payload === 'object' && 'data' in payload) {
+        return payload.data;
+    }
+    return payload;
+};
+
 export const getCustomTemplates = async () => {
-    return fetchWithAuth('/api/templates/custom', {
+    const response = await fetchWithAuth('/api/v1/templates/custom', {
         suppressConsoleError: true,
         suppressMonitoring: true,
         retryConfig: { maxRetries: 0 },
     });
+    return unwrapV1Payload(response);
 };
 
 export const saveCustomTemplate = async (template) => {
     const sanitizedTemplate = sanitizePayload(template);
-    return fetchWithAuth('/api/templates/custom', {
+    const response = await fetchWithAuth('/api/v1/templates/custom', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ template: sanitizedTemplate }),
     });
+    return unwrapV1Payload(response);
 };
 
 export const getBuiltinTemplates = async () => {
@@ -29,10 +38,12 @@ export const getBuiltinTemplates = async () => {
 
 export const searchCSLStyles = async (query) => {
     const sanitized = sanitizeText(query);
-    return fetchWithAuth(`/api/templates/csl/search?q=${encodeURIComponent(sanitized)}`);
+    const response = await fetchWithAuth(`/api/v1/templates/csl/search?q=${encodeURIComponent(sanitized)}`);
+    return unwrapV1Payload(response);
 };
 
 export const fetchCSLStyle = async (slug) => {
     const sanitized = sanitizeText(slug);
-    return fetchWithAuth(`/api/templates/csl/${encodeURIComponent(sanitized)}`);
+    const response = await fetchWithAuth(`/api/v1/templates/csl/${encodeURIComponent(sanitized)}`);
+    return unwrapV1Payload(response);
 };

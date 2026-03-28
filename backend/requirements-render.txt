@@ -6,6 +6,7 @@ uvicorn==0.40.0
 starlette==0.50.0
 python-multipart==0.0.22
 sse-starlette==3.2.0
+slowapi==0.1.9
 
 # ─── Settings / Config ─────────────────────────────────────────────────────────
 pydantic==2.12.5

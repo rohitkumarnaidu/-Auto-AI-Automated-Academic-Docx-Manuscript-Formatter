@@ -20,7 +20,7 @@ from app.pipeline.export.exporter import Exporter
 from app.pipeline.formatting.formatter import Formatter
 from app.pipeline.generation.content_parser import ContentParser
 from app.pipeline.generation.prompt_builder import PromptBuilder
-from app.routers.stream import emit_event
+from app.routers.v1.stream import emit_event
 from app.services.document_service import DocumentService
 from app.utils.singleton import get_or_create
 

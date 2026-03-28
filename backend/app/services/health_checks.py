@@ -6,6 +6,7 @@ from time import monotonic
 from typing import Any
 
 from app.config.settings import settings
+from app.services.scibert_gate import get_scibert_gate_state, should_enable_scibert
 
 
 _readiness_cache_lock: asyncio.Lock | None = None
@@ -171,7 +172,7 @@ async def _build_readiness_payload() -> tuple[dict, int]:
     except Exception:
         checks["llm_status"] = "unknown"
 
-    if settings.USE_SCIBERT_CLASSIFICATION:
+    if should_enable_scibert():
         try:
             if model_store.get_model("scibert_model") is not None:
                 checks["ai_models"] = "loaded"
@@ -183,6 +184,7 @@ async def _build_readiness_payload() -> tuple[dict, int]:
             is_ready = False
     else:
         checks["ai_models"] = "disabled"
+        checks["scibert_gate"] = get_scibert_gate_state()
 
     payload = {
         "ready": is_ready,

@@ -46,6 +46,7 @@ module.exports = {
                 'postcss.config.js',
                 'middleware.js',
                 'migrate_*.js',
+                'lighthouserc.js',
             ],
             env: {
                 node: true,

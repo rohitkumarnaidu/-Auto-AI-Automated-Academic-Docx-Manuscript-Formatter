@@ -126,7 +126,7 @@ export const logFrontendError = async (errorInfo) => {
 
 export const submitFeedback = async (data) => {
     const sanitizedData = sanitizePayload(data);
-    return fetchWithAuth('/api/feedback/', {
+    return fetchWithAuth('/api/v1/feedback/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(sanitizedData),
@@ -134,12 +134,12 @@ export const submitFeedback = async (data) => {
 };
 
 export const getFeedbackSummary = async (jobId) => {
-    return fetchWithAuth(`/api/feedback/summary?document_id=${encodeURIComponent(jobId)}`);
+    return fetchWithAuth(`/api/v1/feedback/summary?document_id=${encodeURIComponent(jobId)}`);
 };
 
 export const getMetricsDb = async () => {
     try {
-        return await fetchWithAuth('/api/metrics/db', {
+        return await fetchWithAuth('/api/v1/metrics/db', {
             suppressConsoleError: true,
             suppressMonitoring: true,
         });
@@ -159,7 +159,7 @@ export const getMetricsHealth = async () => {
 
 export const getMetricsDashboard = async () => {
     try {
-        const payload = await fetchWithAuth('/api/metrics/dashboard', {
+        const payload = await fetchWithAuth('/api/v1/metrics/dashboard', {
             suppressConsoleError: true,
             suppressMonitoring: true,
         });
@@ -170,5 +170,5 @@ export const getMetricsDashboard = async () => {
 };
 
 export const getMetricsEnhancements = async () => {
-    return fetchWithAuth('/api/metrics/enhancements');
+    return fetchWithAuth('/api/v1/metrics/enhancements');
 };

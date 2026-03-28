@@ -15,7 +15,7 @@ This document is for **stability validation**, **crash prevention**, and **lifec
 ### [TC-01] Document Upload & Initial Job Creation
 - **Description**: Verify the backend accepts a DOCX file and initiates an asynchronous job.
 - **Swagger Steps**:
-  1. Open `POST /api/documents/upload`.
+  1. Open `POST /api/v1/documents/upload`.
   2. Click "Try it out".
   3. Upload a `.docx` file in the `file` field.
   4. Set `template` to `IEEE` (or leave default).
@@ -27,7 +27,7 @@ This document is for **stability validation**, **crash prevention**, and **lifec
 - **Description**: Verify that the status endpoint returns granular phase updates.
 - **Swagger Steps**:
   1. Copy the `job_id` from TC-01.
-  2. Open `GET /api/documents/{job_id}/status`.
+  2. Open `GET /api/v1/documents/{jobId}/status`.
   3. Click "Try it out", paste the `job_id`.
   4. Execute multiple times during processing.
 - **Expected Outcome**: Response shows `status` (RUNNING -> COMPLETED) and `current_phase` updates.
@@ -46,7 +46,7 @@ This document is for **stability validation**, **crash prevention**, and **lifec
 ### [TC-04] Database Interrupt Resilience
 - **Description**: Verify the status endpoint handles database unavailability gracefully.
 - **Steps**:
-  1. Open `GET /api/documents/{job_id}/status`.
+  1. Open `GET /api/v1/documents/{jobId}/status`.
   2. Temporarily stop the local database or disconnect network.
   3. Execute in Swagger.
 - **Expected Outcome**: HTTP 200 with status `UNSTABLE` and message "Database connection interrupted. Retrying...".
@@ -55,7 +55,7 @@ This document is for **stability validation**, **crash prevention**, and **lifec
 ### [TC-05] Document Edit Re-processing
 - **Description**: Verify the non-destructive edit flow.
 - **Swagger Steps**:
-  1. Open `POST /api/documents/{job_id}/edit`.
+  1. Open `POST /api/v1/documents/{jobId}/edit`.
   2. Paste a valid `job_id`.
   3. Use the JSON payload below.
 - **Expected Outcome**: HTTP 200 with status `RUNNING`. Subsequent status poll shows `PERSISTENCE` -> `COMPLETED`.
@@ -79,3 +79,4 @@ This document is for **stability validation**, **crash prevention**, and **lifec
 
 | Date | Tester | Test IDs | Result | Notes |
 |------|--------|----------|--------|-------|
+

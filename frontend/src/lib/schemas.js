@@ -232,3 +232,35 @@ export const GeneratorStartSchema = z.object({
 
 export const getFirstZodError = (issues, fallbackMessage = 'Invalid input.') =>
     issues?.[0]?.message || fallbackMessage;
+
+// ── API Response Schemas ─────────────────────────────────────
+// These validate incoming server payloads at runtime to catch contract drift early.
+
+/**
+ * Schema for /api/v1/documents/{id}/status response.
+ */
+export const JobStatusResponseSchema = z.object({
+    status: z.string().min(1),
+    phase: z.string().optional(),
+    current_phase: z.string().optional(),
+    progress_percentage: z.number().min(0).max(100).optional().default(0),
+    message: z.string().optional(),
+    output_path: z.string().optional(),
+}).passthrough(); // allow additional server fields without failing
+
+/**
+ * Schema for /api/v1/documents list response.
+ */
+export const DocumentListResponseSchema = z.object({
+    documents: z.array(z.record(z.string(), z.unknown())).default([]),
+    total: z.number().optional(),
+    limit: z.number().optional(),
+    offset: z.number().optional(),
+}).passthrough();
+
+/**
+ * Schema for /api/v1/generator/sessions response.
+ */
+export const GeneratorSessionsResponseSchema = z.object({
+    sessions: z.array(z.record(z.string(), z.unknown())).default([]),
+}).passthrough();

@@ -27,8 +27,8 @@ def test_sse_stream_connection(client, authenticated_user):
     async def fake_event_generator(job_id, request):
         yield {"event": "connected", "data": '{"message":"ok"}'}
 
-    with patch("app.routers.stream.event_generator", fake_event_generator):
-        response = client.get("/api/stream/job-123")
+    with patch("app.routers.v1.stream.event_generator", fake_event_generator):
+        response = client.get("/api/v1/stream/job-123")
 
     assert response.status_code == 200
     assert "text/event-stream" in response.headers.get("content-type", "")
@@ -37,7 +37,7 @@ def test_sse_stream_connection(client, authenticated_user):
 
 @pytest.mark.asyncio
 async def test_emit_event_schedules_pubsub_publish():
-    from app.routers import stream as stream_router
+    from app.routers.v1 import stream as stream_router
 
     with patch.object(stream_router._pubsub, "publish", new_callable=AsyncMock) as mock_publish:
         stream_router.emit_event("job-1", "STATUS", {"ok": True})

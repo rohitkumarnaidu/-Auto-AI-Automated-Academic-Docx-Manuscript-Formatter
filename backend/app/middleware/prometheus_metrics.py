@@ -33,6 +33,20 @@ PIPELINE_STEPS_DURATION_SECONDS = Histogram(
     buckets=(0.1, 0.5, 1, 2, 5, 10, 30, 60)
 )
 
+PIPELINE_STAGE_DURATION_MS = Histogram(
+    "pipeline_stage_duration_ms",
+    "Time spent in document pipeline stages",
+    ["stage"],
+    buckets=(10, 25, 50, 100, 250, 500, 1_000, 2_500, 5_000, 10_000, 30_000, 60_000),
+)
+
+UPLOAD_ACK_DURATION_MS = Histogram(
+    "upload_ack_duration_ms",
+    "Time from upload request start to acknowledgement response",
+    ["route"],
+    buckets=(5, 10, 25, 50, 100, 250, 500, 1_000, 2_500, 5_000, 10_000),
+)
+
 # Agent Metrics
 AGENT_TOOLS_USAGE_TOTAL = Counter(
     "agent_tools_usage_total",
@@ -89,6 +103,19 @@ LLM_REQUEST_DURATION_SECONDS = Histogram(
     buckets=(0.1, 0.25, 0.5, 1, 2, 5, 10, 20, 30, 60),
 )
 
+LLM_REQUESTS_TOTAL = Counter(
+    "llm_requests_total",
+    "Total number of LLM requests executed",
+    ["provider", "model", "status"],
+)
+
+LLM_DURATION_MS = Histogram(
+    "llm_duration_ms",
+    "Duration of LLM requests in milliseconds",
+    ["provider", "model"],
+    buckets=(25, 50, 100, 250, 500, 1_000, 2_500, 5_000, 10_000, 30_000, 60_000),
+)
+
 CELERY_QUEUE_DEPTH = Gauge(
     "celery_queue_depth",
     "Depth of Celery queues",
@@ -126,6 +153,19 @@ ACTIVE_USERS = Gauge(
     "Active authenticated users in the last 5 minutes",
 )
 
+PERSONA_EVENTS_TOTAL = Counter(
+    "persona_events_total",
+    "Persona-level KPI events by operation outcome",
+    ["persona", "event", "outcome"],
+)
+
+PERSONA_OPERATION_DURATION_SECONDS = Histogram(
+    "persona_operation_duration_seconds",
+    "Latency of persona operations",
+    ["persona", "operation"],
+    buckets=(0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 20, 30, 60),
+)
+
 _ACTIVE_USERS_WINDOW_SECONDS = 300
 _active_user_last_seen: dict[str, float] = {}
 _active_user_lock = threading.Lock()
@@ -161,6 +201,14 @@ class MetricsManager:
         PIPELINE_STEPS_DURATION_SECONDS.labels(step=step_name).observe(duration)
 
     @staticmethod
+    def record_pipeline_stage_duration(stage_name: str, duration_seconds: float):
+        PIPELINE_STAGE_DURATION_MS.labels(stage=stage_name).observe(max(duration_seconds, 0.0) * 1000.0)
+
+    @staticmethod
+    def record_upload_ack_duration(duration_seconds: float, route: str = "documents"):
+        UPLOAD_ACK_DURATION_MS.labels(route=route).observe(max(duration_seconds, 0.0) * 1000.0)
+
+    @staticmethod
     def record_tool_usage(tool_name: str, success: bool):
         status = "success" if success else "error"
         AGENT_TOOLS_USAGE_TOTAL.labels(tool_name=tool_name, status=status).inc()
@@ -177,6 +225,12 @@ class MetricsManager:
     @staticmethod
     def record_llm_duration(provider: str, model: str, duration_seconds: float):
         LLM_REQUEST_DURATION_SECONDS.labels(provider=provider, model=model).observe(duration_seconds)
+        LLM_DURATION_MS.labels(provider=provider, model=model).observe(max(duration_seconds, 0.0) * 1000.0)
+
+    @staticmethod
+    def record_llm_request(provider: str, model: str, success: bool):
+        status = "success" if success else "error"
+        LLM_REQUESTS_TOTAL.labels(provider=provider, model=model, status=status).inc()
 
     @staticmethod
     def record_llm_ttft(provider: str, model: str, duration_seconds: float):
@@ -232,3 +286,14 @@ class MetricsManager:
     @staticmethod
     def record_retry():
         AGENT_RETRIES_TOTAL.inc()
+
+    @staticmethod
+    def record_persona_event(persona: str, event: str, outcome: str):
+        PERSONA_EVENTS_TOTAL.labels(persona=persona, event=event, outcome=outcome).inc()
+
+    @staticmethod
+    def record_persona_latency(persona: str, operation: str, duration_seconds: float):
+        PERSONA_OPERATION_DURATION_SECONDS.labels(
+            persona=persona,
+            operation=operation,
+        ).observe(max(duration_seconds, 0.0))

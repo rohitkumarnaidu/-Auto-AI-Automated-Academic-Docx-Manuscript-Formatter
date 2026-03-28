@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 import json
 import logging
 import re
 import time
-from typing import Dict, Iterable
+from typing import Iterable
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
@@ -25,7 +26,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Preview"], dependencies=[Depends(bind_request_context)])
 
 _SESSION_PATTERN = re.compile(r"^[A-Za-z0-9_-]{3,64}$")
-_connections: Dict[str, set[WebSocket]] = {}
 _preview_pubsub = RedisPubSub()
 
 
@@ -87,7 +87,6 @@ async def preview_ws(websocket: WebSocket, sessionId: str):
         MetricsManager = None
     if MetricsManager:
         MetricsManager.ws_connection_open()
-    _connections.setdefault(sessionId, set()).add(websocket)
     channel = f"preview:{sessionId}"
     forward_task = asyncio.create_task(_forward_updates(websocket, channel))
     heartbeat_task = asyncio.create_task(_heartbeat(websocket))
@@ -115,14 +114,14 @@ async def preview_ws(websocket: WebSocket, sessionId: str):
             await _preview_pubsub.publish(channel, event)
     except WebSocketDisconnect:
         logger.info("Preview websocket disconnected: %s", sessionId, extra=log_extra(session_id=sessionId))
+    except asyncio.CancelledError:
+        logger.info("Preview websocket cancelled: %s", sessionId, extra=log_extra(session_id=sessionId))
     finally:
-        forward_task.cancel()
-        heartbeat_task.cancel()
-        connections = _connections.get(sessionId)
-        if connections is not None:
-            connections.discard(websocket)
-            if not connections:
-                _connections.pop(sessionId, None)
+        for task in (forward_task, heartbeat_task):
+            if not task.done():
+                task.cancel()
+        with contextlib.suppress(Exception):
+            await asyncio.gather(forward_task, heartbeat_task, return_exceptions=True)
         if MetricsManager:
             MetricsManager.ws_connection_closed()
 

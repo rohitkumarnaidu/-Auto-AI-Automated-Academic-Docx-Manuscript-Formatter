@@ -30,7 +30,7 @@ def _validate_password_strength(password: str) -> str:
 # ── Request Schemas ───────────────────────────────────────────────────────────
 
 class SignupRequest(BaseModel):
-    """Request body for POST /api/auth/signup."""
+    """Request body for POST /api/v1/auth/signup."""
 
     full_name: str = Field(
         ...,
@@ -79,7 +79,7 @@ class SignupRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    """Request body for POST /api/auth/login."""
+    """Request body for POST /api/v1/auth/login."""
 
     email: EmailStr = Field(..., description="Registered email address.")
     password: str = Field(
@@ -91,7 +91,7 @@ class LoginRequest(BaseModel):
 
 
 class ForgotPasswordRequest(BaseModel):
-    """Request body for POST /api/auth/forgot-password."""
+    """Request body for POST /api/v1/auth/forgot-password."""
 
     email: EmailStr = Field(
         ...,
@@ -100,7 +100,7 @@ class ForgotPasswordRequest(BaseModel):
 
 
 class VerifyOTPRequest(BaseModel):
-    """Request body for POST /api/auth/verify-otp (Step 2 of reset flow)."""
+    """Request body for POST /api/v1/auth/verify-otp (Step 2 of reset flow)."""
 
     email: EmailStr = Field(..., description="Email address that received the OTP.")
     otp: str = Field(
@@ -113,7 +113,7 @@ class VerifyOTPRequest(BaseModel):
 
 
 class ResetPasswordRequest(BaseModel):
-    """Request body for POST /api/auth/reset-password (Step 3 of reset flow)."""
+    """Request body for POST /api/v1/auth/reset-password (Step 3 of reset flow)."""
 
     email: EmailStr = Field(..., description="Email address of the account.")
     otp: str = Field(

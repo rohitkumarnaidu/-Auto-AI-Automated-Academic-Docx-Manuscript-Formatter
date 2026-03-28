@@ -182,23 +182,35 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Tabs */}
-                <div className="flex border-b border-slate-200 dark:border-slate-800 mb-8">
+                <div 
+                    role="tablist"
+                    aria-label="Settings sections" 
+                    className="flex border-b border-slate-200 dark:border-slate-800 mb-8"
+                >
                     <button
+                        role="tab"
+                        aria-selected={activeTab === 'general'}
+                        aria-controls="general-panel"
+                        id="tab-general"
                         onClick={() => setActiveTab('general')}
-                        className={`pb-4 px-4 text-sm font-medium transition-colors border-b-2 ${activeTab === 'general' ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'}`}
+                        className={`pb-4 px-4 text-sm font-medium transition-colors border-b-2 focus:outline-none focus:text-primary ${activeTab === 'general' ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'}`}
                     >
                         General
                     </button>
                     <button
+                        role="tab"
+                        aria-selected={activeTab === 'billing'}
+                        aria-controls="billing-panel"
+                        id="tab-billing"
                         onClick={() => setActiveTab('billing')}
-                        className={`pb-4 px-4 text-sm font-medium transition-colors border-b-2 ${activeTab === 'billing' ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'}`}
+                        className={`pb-4 px-4 text-sm font-medium transition-colors border-b-2 focus:outline-none focus:text-primary ${activeTab === 'billing' ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'}`}
                     >
                         Billing & Plan
                     </button>
                 </div>
 
                 {activeTab === 'general' ? (
-                <>
+                <div id="general-panel" role="tabpanel" aria-labelledby="tab-general">
                 {/* Upload Preferences */}
                 <section className="bg-glass-surface backdrop-blur-xl border border-glass-border  shadow-xl shadow-primary/5 mb-6">
                     <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
@@ -298,9 +310,9 @@ export default function SettingsPage() {
                         Save Settings
                     </button>
                 </div>
-                </>
+                </div>
                 ) : (
-                <div className="space-y-6 animate-in fade-in duration-300">
+                <div id="billing-panel" role="tabpanel" aria-labelledby="tab-billing" className="space-y-6 animate-in fade-in duration-300">
                     <section className="bg-glass-surface backdrop-blur-xl border border-glass-border shadow-xl shadow-primary/5 p-6 rounded-xl">
                         <div className="flex items-center justify-between mb-6">
                             <div>

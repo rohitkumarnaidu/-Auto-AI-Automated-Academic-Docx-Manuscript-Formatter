@@ -129,7 +129,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         is_upload = (
-            request.url.path == "/api/documents/upload"
+            request.url.path == "/api/v1/documents/upload"
             and request.method == "POST"
         )
 

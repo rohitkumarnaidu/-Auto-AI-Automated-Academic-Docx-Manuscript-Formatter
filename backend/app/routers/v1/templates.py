@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, Optional
+from uuid import uuid4
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
-from app.routers import templates as legacy_templates
+from app.db.supabase_client import get_supabase_client
+from app.pipeline.services.csl_fetcher import fetch_style, search_styles
 from app.schemas.user import User
+from app.services.audit_log_service import audit_log_service
 from app.utils.dependencies import get_optional_user
 from app.utils.logging_context import bind_request_context
 
@@ -17,10 +22,266 @@ logger = logging.getLogger(__name__)
 router = APIRouter(dependencies=[Depends(bind_request_context)])
 
 
+def _require_db():
+    sb = get_supabase_client()
+    if sb is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Database not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.",
+        )
+    return sb
+
+
+def _require_user(current_user: Optional[User]) -> User:
+    if current_user is None:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    return current_user
+
+
+def _extract_template_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=422, detail="Invalid template payload")
+
+    candidate = payload.get("template")
+    if isinstance(candidate, dict):
+        template_data = candidate
+    else:
+        template_data = payload
+
+    if not isinstance(template_data, dict):
+        raise HTTPException(status_code=422, detail="Invalid template payload")
+
+    name = str(template_data.get("name") or "").strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="Template name is required")
+
+    config = template_data.get("config")
+    if config is None:
+        config = template_data.get("settings")
+    if config is None:
+        config = payload.get("config")
+    if config is None:
+        config = {}
+    if not isinstance(config, dict):
+        raise HTTPException(status_code=422, detail="Template config must be an object")
+
+    description = template_data.get("description", payload.get("description", ""))
+    if description is None:
+        description = ""
+    description = str(description)
+
+    template_id = str(template_data.get("id") or payload.get("id") or uuid4())
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    created_at = (
+        template_data.get("created_at")
+        or template_data.get("createdAt")
+        or payload.get("created_at")
+        or payload.get("createdAt")
+        or now_iso
+    )
+    updated_at = now_iso
+
+    return {
+        "id": template_id,
+        "name": name,
+        "description": description,
+        "config": config,
+        "created_at": str(created_at),
+        "updated_at": updated_at,
+    }
+
+
+def _canonical_template_id(raw_name: str) -> str:
+    return "_".join(str(raw_name or "").strip().lower().split())
+
+
+def _template_display_name(template_id: str) -> str:
+    if template_id == "none":
+        return "None"
+    if template_id in {"ieee", "apa", "acm", "mla"}:
+        return template_id.upper()
+    return template_id.replace("_", " ").title()
+
+
+async def _list_builtin_templates() -> Dict[str, Any]:
+    templates_dir = Path(__file__).resolve().parents[2] / "templates"
+    descriptions = {
+        "ieee": "IEEE manuscript style",
+        "springer": "Springer journal style",
+        "apa": "APA style",
+        "nature": "Nature style",
+        "vancouver": "Vancouver citation style",
+        "resume": "Professional resume template",
+        "portfolio": "Portfolio showcase template",
+    }
+
+    items = []
+    if templates_dir.exists():
+        for entry in sorted(templates_dir.iterdir()):
+            if entry.is_dir() and not entry.name.startswith("__"):
+                template_id = _canonical_template_id(entry.name)
+                items.append(
+                    {
+                        "id": template_id,
+                        "name": _template_display_name(template_id),
+                        "description": descriptions.get(
+                            template_id,
+                            f"{_template_display_name(template_id)} template",
+                        ),
+                        "source": "built_in",
+                    }
+                )
+
+    return {"templates": items}
+
+
+async def _csl_search(
+    *,
+    q: Optional[str] = None,
+    query: Optional[str] = None,
+) -> Dict[str, Any]:
+    search_query = (q or query or "").strip()
+    if not search_query:
+        raise HTTPException(status_code=422, detail="q query parameter is required")
+
+    results = await search_styles(search_query)
+    return {"query": search_query, "results": results}
+
+
+async def _fetch_csl_style(slug: str):
+    try:
+        style = await fetch_style(slug.strip())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.error("Failed to fetch CSL style '%s': %s", slug, exc)
+        raise HTTPException(status_code=502, detail=f"Failed to fetch CSL style '{slug}'") from exc
+    return style
+
+
+async def _list_custom_templates(current_user: Optional[User] = None) -> Dict[str, Any]:
+    user = _require_user(current_user)
+    sb = _require_db()
+    try:
+        result = (
+            sb.table("custom_templates")
+            .select("*")
+            .eq("user_id", str(user.id))
+            .order("updated_at", desc=True)
+            .execute()
+        )
+        return {"templates": result.data or []}
+    except Exception as exc:
+        logger.error("Failed to list custom templates: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to list custom templates") from exc
+
+
+async def _create_custom_template(
+    *,
+    request: Request,
+    payload: Dict[str, Any],
+    current_user: Optional[User] = None,
+) -> Dict[str, Any]:
+    user = _require_user(current_user)
+    sb = _require_db()
+    record = _extract_template_payload(payload)
+    record["user_id"] = str(user.id)
+
+    try:
+        result = sb.table("custom_templates").insert(record).execute()
+        created = result.data[0] if result.data else record
+        await audit_log_service.log(
+            user_id=str(user.id),
+            action="template_create",
+            resource_type="template",
+            resource_id=str(created.get("id") or record.get("id")),
+            ip_address=request.client.host if request.client else None,
+            details={"name": created.get("name")},
+        )
+        return {"template": created}
+    except Exception as exc:
+        logger.error("Failed to create custom template: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to create custom template") from exc
+
+
+async def _update_custom_template(
+    *,
+    request: Request,
+    template_id: str,
+    payload: Dict[str, Any],
+    current_user: Optional[User] = None,
+) -> Dict[str, Any]:
+    user = _require_user(current_user)
+    sb = _require_db()
+    parsed = _extract_template_payload(payload)
+
+    updates = {
+        "name": parsed["name"],
+        "description": parsed["description"],
+        "config": parsed["config"],
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    try:
+        result = (
+            sb.table("custom_templates")
+            .update(updates)
+            .eq("id", template_id)
+            .eq("user_id", str(user.id))
+            .execute()
+        )
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Template not found")
+        await audit_log_service.log(
+            user_id=str(user.id),
+            action="template_update",
+            resource_type="template",
+            resource_id=str(template_id),
+            ip_address=request.client.host if request.client else None,
+            details={"name": updates.get("name")},
+        )
+        return {"template": result.data[0]}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Failed to update custom template %s: %s", template_id, exc)
+        raise HTTPException(status_code=500, detail="Failed to update custom template") from exc
+
+
+async def _delete_custom_template(
+    *,
+    template_id: str,
+    current_user: Optional[User] = None,
+) -> Dict[str, Any]:
+    user = _require_user(current_user)
+    sb = _require_db()
+
+    try:
+        existing = (
+            sb.table("custom_templates")
+            .select("id")
+            .eq("id", template_id)
+            .eq("user_id", str(user.id))
+            .maybe_single()
+            .execute()
+        )
+        if not existing.data:
+            raise HTTPException(status_code=404, detail="Template not found")
+
+        sb.table("custom_templates").delete().eq("id", template_id).eq("user_id", str(user.id)).execute()
+        return {"status": "deleted", "id": template_id}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Failed to delete custom template %s: %s", template_id, exc)
+        raise HTTPException(status_code=500, detail="Failed to delete custom template") from exc
+
+
 @router.get("")
 async def list_builtin_templates(request: Request):
     async def operation():
-        return await legacy_templates.list_builtin_templates()
+        return await _list_builtin_templates()
 
     return await run_enveloped(
         request,
@@ -37,7 +298,7 @@ async def csl_search(
     query: Optional[str] = Query(default=None, min_length=1),
 ):
     async def operation():
-        return await legacy_templates.csl_search(q=q, query=query)
+        return await _csl_search(q=q, query=query)
 
     return await run_enveloped(
         request,
@@ -54,7 +315,7 @@ async def csl_fetch(
     slug: str = Query(..., min_length=1),
 ):
     async def operation():
-        return await legacy_templates.csl_fetch(slug=slug)
+        return await _fetch_csl_style(slug)
 
     return await run_enveloped(
         request,
@@ -74,7 +335,7 @@ async def csl_fetch_by_style_id(
     styleId: str,
 ):
     async def operation():
-        return await legacy_templates.csl_fetch_by_style_id(style_id=styleId)
+        return await _fetch_csl_style(styleId)
 
     return await run_enveloped(
         request,
@@ -94,7 +355,7 @@ async def list_custom_templates(
     current_user: Optional[User] = Depends(get_optional_user),
 ):
     async def operation():
-        return await legacy_templates.list_custom_templates(current_user=current_user)
+        return await _list_custom_templates(current_user=current_user)
 
     return await run_enveloped(
         request,
@@ -115,7 +376,7 @@ async def create_custom_template(
     current_user: Optional[User] = Depends(get_optional_user),
 ):
     async def operation():
-        return await legacy_templates.create_custom_template(
+        return await _create_custom_template(
             request=request,
             payload=payload,
             current_user=current_user,
@@ -142,7 +403,7 @@ async def update_custom_template(
     current_user: Optional[User] = Depends(get_optional_user),
 ):
     async def operation():
-        return await legacy_templates.update_custom_template(
+        return await _update_custom_template(
             request=request,
             template_id=templateId,
             payload=payload,
@@ -170,7 +431,7 @@ async def delete_custom_template(
     current_user: Optional[User] = Depends(get_optional_user),
 ):
     async def operation():
-        return await legacy_templates.delete_custom_template(
+        return await _delete_custom_template(
             template_id=templateId,
             current_user=current_user,
         )

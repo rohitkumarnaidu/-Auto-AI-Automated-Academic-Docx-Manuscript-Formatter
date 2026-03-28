@@ -17,8 +17,9 @@ from app.pipeline.synthesis.synthesizer import MultiDocSynthesizer
 from app.realtime.events import make_event
 from app.realtime.pubsub import RedisPubSub
 from app.middleware.request_id import get_request_id
-from app.routers.documents import ACCEPTED_EXTENSIONS, _validate_magic_bytes
+from app.routers.v1.documents_impl import ACCEPTED_EXTENSIONS, _validate_magic_bytes
 from app.schemas.generator_session import MessageRequest
+from app.services.enhancement_manager import enhancement_manager
 from app.utils.logging_context import bind_request_context
 from app.services.generator_session_service import GeneratorSessionService
 from app.services.llm_service import generate_with_fallback, sanitize_for_llm
@@ -65,6 +66,13 @@ def _parse_config(raw_config: str) -> Dict[str, Any]:
         return json.loads(raw_config)
     except json.JSONDecodeError as exc:
         raise HTTPException(status_code=422, detail=f"Invalid config JSON: {exc}")
+
+
+def _assert_session_owner(session: Dict[str, Any], user: Any) -> None:
+    session_user = session.get("user_id")
+    current_user_id = getattr(user, "id", user)
+    if session_user and str(session_user) != str(current_user_id):
+        raise HTTPException(status_code=403, detail="Access denied.")
 
 
 @router.post("/sessions", status_code=202)
@@ -118,11 +126,18 @@ async def create_session(
         config_payload.update({"template": template, "uploaded_files": file_entries})
         await _session_service.update_session(session_id, config_json=config_payload)
 
-        background_tasks.add_task(
-            _get_synthesizer().run,
+        dispatch_info = enhancement_manager.dispatch_synthesis_pipeline(
+            background_tasks=background_tasks,
+            run_pipeline=_get_synthesizer().run,
+            session_id=session_id,
+            file_paths=[f["path"] for f in file_entries],
+            template=template,
+            estimated_duration_seconds=max(8.0, float(len(file_entries) * 4)),
+        )
+        logger.info(
+            "Synthesis dispatch mode for session %s: %s",
             session_id,
-            [f["path"] for f in file_entries],
-            template,
+            dispatch_info.get("mode"),
         )
         return {"session_id": session_id, "status": "started"}
 
@@ -150,6 +165,7 @@ async def get_session(
         session = await _session_service.get_session(sessionId)
         if not session:
             raise HTTPException(status_code=404, detail="Session not found.")
+        _assert_session_owner(session, user)
         latest_doc = await _session_service.get_latest_document(sessionId)
         return {
             "id": session.get("id"),
@@ -165,7 +181,10 @@ async def get_session(
     return await run_enveloped(
         request,
         operation,
-        code_map={404: "SESSION_NOT_FOUND"},
+        code_map={
+            403: "SESSION_ACCESS_DENIED",
+            404: "SESSION_NOT_FOUND",
+        },
         logger=logger,
         operation_name="synthesis session fetch",
     )
@@ -177,6 +196,13 @@ async def session_events(
     request: Request,
     user=Depends(get_current_user),
 ):
+    async def operation():
+        session = await _session_service.get_session(sessionId)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found.")
+        _assert_session_owner(session, user)
+        return EventSourceResponse(event_generator())
+
     async def event_generator():
         channel = f"session:{sessionId}"
         request_id = get_request_id(request)
@@ -203,7 +229,16 @@ async def session_events(
             if MetricsManager:
                 MetricsManager.sse_connection_closed()
 
-    return EventSourceResponse(event_generator())
+    return await run_enveloped(
+        request,
+        operation,
+        code_map={
+            403: "SESSION_ACCESS_DENIED",
+            404: "SESSION_NOT_FOUND",
+        },
+        logger=logger,
+        operation_name="synthesis session events",
+    )
 
 
 @router.post("/sessions/{sessionId}/messages")
@@ -217,6 +252,7 @@ async def session_messages(
         session = await _session_service.get_session(sessionId)
         if not session:
             raise HTTPException(status_code=404, detail="Session not found.")
+        _assert_session_owner(session, user)
 
         question = (payload.content or "").strip()
         if not question:
@@ -253,7 +289,12 @@ async def session_messages(
     return await run_enveloped(
         request,
         operation,
-        code_map={404: "SESSION_NOT_FOUND", 422: "INVALID_MESSAGE"},
+        code_map={
+            403: "SESSION_ACCESS_DENIED",
+            404: "SESSION_NOT_FOUND",
+            422: "INVALID_MESSAGE",
+        },
         logger=logger,
         operation_name="synthesis session message",
     )
+

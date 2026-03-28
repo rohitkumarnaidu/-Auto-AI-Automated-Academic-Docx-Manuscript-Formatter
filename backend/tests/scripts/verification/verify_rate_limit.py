@@ -1,4 +1,5 @@
 import sys
+import uuid
 from unittest.mock import MagicMock
 
 # MOCK Dependencies to avoid heavy installs (Docling, etc.)
@@ -23,7 +24,7 @@ def verify_rate_limit():
     # Send 10 requests
     for i in range(10):
         try:
-            resp = client.post("/api/documents/upload", files=files, headers=headers)
+            resp = client.post("/api/v1/documents/upload", files=files, headers=headers)
             print(f"Request {i+1}: Status {resp.status_code}")
             if resp.status_code == 429:
                 print("❌ FAILED: Got 429 too early.")
@@ -33,7 +34,7 @@ def verify_rate_limit():
             return False
 
     # Send 11th request
-    resp = client.post("/api/documents/upload", files=files, headers=headers)
+    resp = client.post("/api/v1/documents/upload", files=files, headers=headers)
     print(f"Request 11: Status {resp.status_code}")
     
     if resp.status_code == 429:

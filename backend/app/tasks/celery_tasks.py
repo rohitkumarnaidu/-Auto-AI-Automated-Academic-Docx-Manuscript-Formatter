@@ -4,9 +4,12 @@ import logging
 import time
 import asyncio
 from celery import Celery
+from celery.schedules import crontab
 from kombu import Queue
 from app.pipeline.orchestrator import PipelineOrchestrator
 from app.config.settings import settings
+from app.services.scibert_gate import persist_scibert_benchmark_result
+from app.tasks.cleanup import cleanup_stranded_uploads
 
 # ── Old ORM imports (kept for reference, replaced by DocumentService) ──────────
 # from app.db.session import SessionLocal
@@ -29,6 +32,13 @@ celery_app.conf.task_queues = (
 celery_app.conf.task_routes = {
     "interactive.*": {"queue": "interactive"},
     "batch.*": {"queue": "batch"},
+}
+celery_app.conf.beat_schedule = {
+    "cleanup-stranded-uploads-daily": {
+        "task": "batch.cleanup_uploads",
+        "schedule": crontab(hour=3, minute=0),
+        "kwargs": {"upload_dir": "uploads"},
+    }
 }
 
 
@@ -97,6 +107,33 @@ def process_generation_task(job_id: str):
     except Exception as exc:
         logger.error("Generation task failed for %s: %s", job_id, exc, exc_info=True)
         DocumentService.mark_document_failed(str(job_id), str(exc))
+        return False
+
+
+@celery_app.task(name="interactive.process_synthesis_async")
+def process_synthesis_task(session_id: str, file_paths: list[str], template: str):
+    """
+    Run multi-document synthesis through Celery when queue mode is active.
+    """
+    logger.info("Starting synthesis pipeline for session: %s", session_id)
+    try:
+        from app.pipeline.synthesis.synthesizer import MultiDocSynthesizer
+        from app.realtime.pubsub import RedisPubSub
+        from app.services.generator_session_service import GeneratorSessionService
+        from app.services.session_vector_store import SessionVectorStore
+
+        synthesizer = MultiDocSynthesizer(
+            session_service=GeneratorSessionService(),
+            vector_store=SessionVectorStore(),
+            llm_service=None,
+            pipeline_orchestrator=PipelineOrchestrator(),
+            pubsub=RedisPubSub(),
+        )
+        asyncio.run(synthesizer.run(str(session_id), list(file_paths or []), template or settings.DEFAULT_TEMPLATE))
+        logger.info("Synthesis session %s completed via Celery", session_id)
+        return True
+    except Exception as exc:
+        logger.error("Synthesis task failed for %s: %s", session_id, exc, exc_info=True)
         return False
 
 
@@ -205,27 +242,12 @@ def cleanup_uploads_task(upload_dir: str = "uploads", retention_days: int | None
     """
     Batch queue task: delete uploads older than retention window.
     """
-    from datetime import datetime, timezone
-    import os
-
-    days = int(retention_days or settings.RETENTION_DAYS)
-    if not os.path.isdir(upload_dir):
-        logger.info("Cleanup skipped; upload directory missing: %s", upload_dir)
-        return {"deleted": 0, "retention_days": days}
-
-    cutoff_epoch = datetime.now(timezone.utc).timestamp() - (days * 86400)
-    deleted = 0
-    for entry in os.scandir(upload_dir):
-        if not entry.is_file():
-            continue
-        try:
-            if entry.stat().st_mtime < cutoff_epoch:
-                os.remove(entry.path)
-                deleted += 1
-        except OSError as exc:
-            logger.warning("Cleanup failed for %s: %s", entry.path, exc)
-    logger.info("Cleanup complete. Removed %d files older than %d days.", deleted, days)
-    return {"deleted": deleted, "retention_days": days}
+    result = cleanup_stranded_uploads(upload_dir=upload_dir, retention_days=retention_days)
+    return {
+        "deleted": int(result.get("deleted_files", 0)),
+        "removed_dirs": int(result.get("removed_dirs", 0)),
+        "retention_days": int(result.get("retention_days", retention_days or settings.RETENTION_DAYS)),
+    }
 
 
 @celery_app.task(name="batch.scibert_benchmark")
@@ -285,5 +307,6 @@ def scibert_benchmark_task(fixtures_dir: str | None = None):
         overall_pred.extend(predicted_labels)
 
     overall_f1 = _macro_f1(overall_true, overall_pred)
+    persist_scibert_benchmark_result(overall_f1, source="celery_batch.scibert_benchmark")
     logger.info("SciBERT benchmark complete. Overall F1=%.4f", overall_f1)
     return {"status": "ok", "overall_f1": overall_f1, "per_paper": per_paper}

@@ -43,8 +43,8 @@ def client():
     app.dependency_overrides[get_current_user] = lambda: mock_user
     
     # Use patch(..., mock_service) so DocumentService IS the mock object
-    with patch("app.routers.documents.DocumentService", mock_service), \
-         patch("app.routers.documents._require_db", return_value=None), \
+    with patch("app.routers.v1.documents_impl.DocumentService", mock_service), \
+         patch("app.routers.v1.documents_impl._require_db", return_value=None), \
          patch("app.middleware.rate_limit.redis", mock_redis):
         with TestClient(app) as c:
             c.mock_service = mock_service
@@ -62,13 +62,11 @@ def test_root_contract(client):
 @pytest.mark.contract
 class TestEndpointContracts:
     """
-    Contract tests to ensure API responses match expected Pydantic schemas.
+    Contract tests for /api/v1 response envelopes.
     """
 
     def test_list_documents_contract(self, client):
-        """Verify GET /api/documents matches DocumentListResponse schema."""
-        from app.schemas.document import DocumentListResponse
-        
+        """Verify GET /api/v1/documents returns envelope + expected list payload."""
         # Router calls DocumentService.list_documents(...) [static method]
         client.mock_service.list_documents.return_value = [
             {
@@ -84,19 +82,19 @@ class TestEndpointContracts:
             }
         ]
         client.mock_service.count_documents.return_value = 1
-        
-        response = client.get("/api/documents")
+
+        response = client.get("/api/v1/documents")
         assert response.status_code == 200
-        
-        data = response.json()
-        validated = DocumentListResponse(**data)
-        assert validated.total == 1
-        assert validated.documents[0].filename == "test_document.docx"
+
+        payload = response.json()
+        assert payload["error"] is None
+        assert payload["request_id"]
+        assert payload["timestamp"]
+        assert payload["data"]["total"] == 1
+        assert payload["data"]["documents"][0]["filename"] == "test_document.docx"
 
     def test_get_status_contract(self, client):
-        """Verify GET /api/documents/{job_id}/status matches DocumentStatusResponse schema."""
-        from app.schemas.document import DocumentStatusResponse
-        
+        """Verify GET /api/v1/documents/{jobId}/status returns envelope + status payload."""
         job_id = "job-abc-123"
         client.mock_service.get_document.return_value = {
             "id": job_id,
@@ -117,19 +115,17 @@ class TestEndpointContracts:
                 "updated_at": "2024-02-23T09:55:00+00:00"
             }
         ]
-        
-        response = client.get(f"/api/documents/{job_id}/status")
+
+        response = client.get(f"/api/v1/documents/{job_id}/status")
         assert response.status_code == 200
-        
-        data = response.json()
-        validated = DocumentStatusResponse(**data)
-        assert validated.job_id == job_id
-        assert validated.status == "PROCESSING"
+
+        payload = response.json()
+        assert payload["error"] is None
+        assert payload["data"]["job_id"] == job_id
+        assert payload["data"]["status"] == "PROCESSING"
 
     def test_get_preview_contract(self, client):
-        """Verify GET /api/documents/{job_id}/preview matches DocumentPreviewResponse."""
-        from app.schemas.document import DocumentPreviewResponse
-        
+        """Verify GET /api/v1/documents/{jobId}/preview returns envelope + preview payload."""
         job_id = "job-preview"
         client.mock_service.get_document.return_value = {
             "id": job_id,
@@ -143,27 +139,34 @@ class TestEndpointContracts:
             "structured_data": {"blocks": [{"text": "Hello"}]},
             "validation_results": {"errors": [], "warnings": ["Missing DOI"]}
         }
-        
-        response = client.get(f"/api/documents/{job_id}/preview")
+
+        response = client.get(f"/api/v1/documents/{job_id}/preview")
         assert response.status_code == 200
-        
-        data = response.json()
-        validated = DocumentPreviewResponse(**data)
-        assert validated.metadata.filename == "test.pdf"
+
+        payload = response.json()
+        assert payload["error"] is None
+        assert payload["data"]["metadata"]["filename"] == "test.pdf"
 
     def test_upload_invalid_extension_contract(self, client):
-        """Verify 400 response for unsupported file extensions."""
+        """Verify 400 error envelope for unsupported file extensions."""
         response = client.post(
-            "/api/documents/upload",
+            "/api/v1/documents/upload",
             files={"file": ("malicious.js", b"console.log('hi')", "text/javascript")},
             data={"template": "IEEE"}
         )
         assert response.status_code == 400
-        assert "Invalid file type" in response.json()["detail"]
+        payload = response.json()
+        assert payload["data"] is None
+        assert payload["error"]["code"] == "INVALID_UPLOAD_REQUEST"
+        assert "Invalid file type" in payload["error"]["message"]
 
     def test_get_preview_not_found_contract(self, client):
-        """Verify 404 response structure for missing documents."""
+        """Verify 404 error envelope for missing documents."""
         client.mock_service.get_document.return_value = None
-        response = client.get("/api/documents/non-existent-id/preview")
+        response = client.get("/api/v1/documents/non-existent-id/preview")
         assert response.status_code == 404
-        assert response.json()["detail"] == "Document job not found"
+        payload = response.json()
+        assert payload["data"] is None
+        assert payload["error"]["code"] == "DOCUMENT_NOT_FOUND"
+        assert payload["error"]["message"] == "Document job not found"
+

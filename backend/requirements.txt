@@ -69,6 +69,7 @@ email-validator==2.3.0
 et_xmlfile==2.0.0
 Faker==37.12.0
 fastapi==0.128.0
+slowapi==0.1.9
 fastuuid==0.14.0
 filelock==3.24.3
 filetype==1.2.0

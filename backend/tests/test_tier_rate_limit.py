@@ -14,7 +14,7 @@ async def test_guest_daily_limit_blocks():
     request = MagicMock()
     request.method = "POST"
     request.url = MagicMock()
-    request.url.path = "/api/documents/upload"
+    request.url.path = "/api/v1/documents/upload"
     request.headers = {}
     request.client.host = "1.2.3.4"
 

@@ -9,11 +9,9 @@ from typing import Optional, Dict, Any, List
 from datetime import datetime
 from time import monotonic
 
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, BackgroundTasks, Query, Form, Request
-from app.routers.deprecation import DeprecatedRoute
+from fastapi import Depends, UploadFile, File, HTTPException, BackgroundTasks, Query, Form, Request
 from app.utils.dependencies import get_current_user, get_optional_user
 from app.utils.logging_context import log_extra
-from app.utils.logging_context import bind_request_context
 from app.schemas.user import User
 from app.services.document_service import DocumentService
 from app.services.audit_log_service import audit_log_service
@@ -22,7 +20,6 @@ from app.pipeline.orchestrator import PipelineOrchestrator
 from app.pipeline.export.latex_exporter import LaTeXExporter
 from app.pipeline.export.pdf_exporter import PDFExporter
 from app.config.settings import settings
-from app.pipeline.safety.safe_execution import safe_async_function
 from app.utils.virus_scanner import virus_scanner
 
 # ── Old SQLAlchemy imports (kept for reference, replaced by DocumentService) ───
@@ -35,32 +32,6 @@ _STATUS_CACHE_MISS = object()
 _status_cache_lock: asyncio.Lock | None = None
 _status_response_cache: dict[str, tuple[float, Dict[str, Any]]] = {}
 _MAX_STALE_STATUS_SECONDS = 90.0
-
-_LEGACY_SUCCESSORS = {
-    "/api/documents": "/api/v1/documents",
-    "/api/documents/upload/chunked": "/api/v1/documents/upload/chunked",
-    "/api/documents/upload": "/api/v1/documents/upload",
-    "/api/documents/{job_id}/status": "/api/v1/documents/{jobId}/status",
-    "/api/documents/{job_id}/summary": "/api/v1/documents/{jobId}/summary",
-    "/api/documents/{job_id}/edit": "/api/v1/documents/{jobId}/edit",
-    "/api/documents/{job_id}/preview": "/api/v1/documents/{jobId}/preview",
-    "/api/documents/{job_id}/compare": "/api/v1/documents/{jobId}/compare",
-    "/api/documents/{job_id}/download": "/api/v1/documents/{jobId}/download",
-    "/api/documents/{job_id}": "/api/v1/documents/{jobId}",
-    "/api/documents/batch-upload": "/api/v1/documents/batch-upload",
-}
-
-
-class LegacyDocumentsRoute(DeprecatedRoute):
-    successor_map = _LEGACY_SUCCESSORS
-
-
-router = APIRouter(
-    prefix="/api/documents",
-    tags=["Documents"],
-    route_class=LegacyDocumentsRoute,
-    dependencies=[Depends(bind_request_context)],
-)
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -223,12 +194,73 @@ def _enforce_daily_upload_quota(current_user: Optional[User]) -> None:
     return
 
 
+def _record_upload_ack_duration(started_at: float) -> None:
+    try:
+        from app.middleware.prometheus_metrics import MetricsManager
+
+        MetricsManager.record_upload_ack_duration(max(0.0, monotonic() - started_at))
+    except Exception:
+        pass
+
+
+def _normalize_provider_name(value: Any) -> Optional[str]:
+    token = str(value or "").strip().lower()
+    if not token:
+        return None
+    if token.startswith("nvidia"):
+        return "nvidia"
+    if token.startswith("groq"):
+        return "groq"
+    if token.startswith("ollama") or token.startswith("deepseek"):
+        return "ollama"
+    if token.startswith("gpt") or token.startswith("openai"):
+        return "openai"
+    if token.startswith("anthropic") or token.startswith("claude"):
+        return "anthropic"
+    if "rule" in token:
+        return "rule_based"
+    return token
+
+
 def _extract_quality_payload(result: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     validation_results = (result or {}).get("validation_results") or {}
     quality_summary = validation_results.get("quality_summary") or {}
+    quality = None
+    overall_score = validation_results.get("quality_score") or quality_summary.get("overall_score") or quality_summary.get("quality_score")
+    template_compliance = quality_summary.get("template_compliance")
+    if template_compliance is None:
+        template_compliance = quality_summary.get("template_compliance_pct")
+    content_quality = quality_summary.get("content_quality")
+    if content_quality is None:
+        content_quality = quality_summary.get("content_completeness_pct")
+    citation_count = quality_summary.get("citation_count")
+    missing_sections = quality_summary.get("missing_sections") or []
+    llm_provider_used = (
+        _normalize_provider_name(quality_summary.get("llm_provider_used"))
+        or _normalize_provider_name(validation_results.get("llm_provider_used"))
+    )
+    if llm_provider_used is None:
+        ai_semantic_audit = validation_results.get("ai_semantic_audit") or {}
+        llm_provider_used = _normalize_provider_name(
+            ai_semantic_audit.get("llm_provider") or ai_semantic_audit.get("model")
+        )
+
+    if any(
+        value is not None
+        for value in (overall_score, template_compliance, content_quality, citation_count, llm_provider_used)
+    ) or missing_sections:
+        quality = {
+            "overall_score": overall_score,
+            "template_compliance": template_compliance,
+            "content_quality": content_quality,
+            "citation_count": citation_count,
+            "missing_sections": missing_sections,
+            "llm_provider_used": llm_provider_used,
+        }
     return {
-        "quality_score": validation_results.get("quality_score") or quality_summary.get("quality_score"),
+        "quality_score": overall_score,
         "quality_summary": quality_summary or None,
+        "quality": quality,
     }
 
 
@@ -244,6 +276,7 @@ def _build_initial_status_payload(job_id: str) -> Dict[str, Any]:
         "phases": [],
         "quality_score": None,
         "quality_summary": None,
+        "quality": None,
     }
 
 
@@ -291,7 +324,6 @@ async def _validate_magic_bytes(
 
 # ── Endpoint to get processing status (SSE) ────────────────────────────
 
-@router.post("/upload/chunked")
 async def upload_document_chunked(
     request: Request,
     background_tasks: BackgroundTasks,
@@ -316,6 +348,7 @@ async def upload_document_chunked(
     _require_db()
     if chunk_index == 0:
         _enforce_daily_upload_quota(current_user)
+    request_started_at = monotonic()
     
     import re
     if not re.match(r"^[a-zA-Z0-9-]+$", file_id):
@@ -418,6 +451,7 @@ async def upload_document_chunked(
                 job_id=str(job_id),
                 template_name=template,
                 formatting_options=formatting_options,
+                estimated_duration_seconds=10.0,
             )
             logger.info(
                 "Chunk upload dispatch mode for job %s: %s",
@@ -443,26 +477,28 @@ async def upload_document_chunked(
                 _status_cache_key(str(job_id), current_user),
                 _build_initial_status_payload(str(job_id)),
             )
-
-            return {
+            payload = {
                 "status": "complete",
                 "job_id": str(job_id),
                 "file_id": file_id,
                 "file_hash": hasher.hexdigest(),
             }
+            _record_upload_ack_duration(request_started_at)
+            return payload
             
-        return {
+        payload = {
             "status": "chunk_received",
             "chunk_index": chunk_index,
             "total_chunks": total_chunks
         }
+        _record_upload_ack_duration(request_started_at)
+        return payload
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error handling chunked upload: {e}")
         raise HTTPException(status_code=500, detail="Failed to upload chunk.")
 
-@router.get("")
 async def list_documents(
     status: Optional[str] = Query(None, description="Filter by status (PROCESSING, COMPLETED, FAILED)"),
     template: Optional[str] = Query(None, description="Filter by template (IEEE, Springer, APA)"),
@@ -519,7 +555,6 @@ async def list_documents(
         return {"documents": [], "total": 0, "limit": limit, "offset": offset}
 
 
-@router.post("/upload")
 async def upload_document(
     request: Request,
     background_tasks: BackgroundTasks,
@@ -540,6 +575,7 @@ async def upload_document(
     """
     _require_db()
     _enforce_daily_upload_quota(current_user)
+    request_started_at = monotonic()
 
     logger.debug("upload_document received template='%s' from request.", template)
 
@@ -625,6 +661,7 @@ async def upload_document(
             job_id=str(job_id),
             template_name=template,
             formatting_options=formatting_options,
+            estimated_duration_seconds=10.0,
         )
         logger.info(
             "Upload dispatch mode for job %s: %s",
@@ -651,7 +688,9 @@ async def upload_document(
             _build_initial_status_payload(str(job_id)),
         )
 
-        return {"message": "Processing started", "job_id": str(job_id), "status": "PROCESSING"}
+        payload = {"message": "Processing started", "job_id": str(job_id), "status": "PROCESSING"}
+        _record_upload_ack_duration(request_started_at)
+        return payload
 
     except HTTPException:
         raise
@@ -666,7 +705,6 @@ async def upload_document(
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 
-@router.get("/{job_id}/status")
 async def get_status(
     job_id: str,
     current_user: Optional[User] = Depends(get_optional_user)
@@ -713,6 +751,7 @@ async def get_status(
                     ],
                     "quality_score": None,
                     "quality_summary": None,
+                    "quality": None,
                 }
                 await _set_cached_status_response(cache_key, payload)
                 return payload
@@ -758,6 +797,7 @@ async def get_status(
             ],
             "quality_score": quality_payload["quality_score"],
             "quality_summary": quality_payload["quality_summary"],
+            "quality": quality_payload["quality"],
         }
         await _set_cached_status_response(cache_key, payload)
         return payload
@@ -773,7 +813,6 @@ async def get_status(
         }
 
 
-@router.get("/{job_id}/summary")
 async def get_document_summary(
     job_id: str,
     current_user: Optional[User] = Depends(get_optional_user),
@@ -788,6 +827,8 @@ async def get_document_summary(
             raise HTTPException(status_code=403, detail="Not authorized to access this document")
 
     status = doc.get("status")
+    result = DocumentService.get_document_result(job_id) if status in _READY_FOR_EXPORT_STATUSES else None
+    quality_payload = _extract_quality_payload(result)
     return {
         "id": job_id,
         "status": status,
@@ -795,11 +836,12 @@ async def get_document_summary(
         "template": doc.get("template"),
         "created_at": doc.get("created_at"),
         "output_path": doc.get("output_path") if status in _READY_FOR_EXPORT_STATUSES else None,
+        "quality": quality_payload["quality"],
     }
 
 
-@router.post("/{job_id}/edit")
 async def edit_document(
+    request: Request,
     job_id: str,
     data: Dict[str, Any],
     background_tasks: BackgroundTasks,
@@ -828,8 +870,22 @@ async def edit_document(
             job_id=job_id,
             edited_structured_data=edited_data,
             template_name=doc.get("template"),
+            estimated_duration_seconds=8.0,
         )
         logger.info("Edit dispatch mode for job %s: %s", job_id, dispatch_info.get("mode"))
+
+        await audit_log_service.log(
+            user_id=str(current_user.id) if current_user else None,
+            action="edit",
+            resource_type="document",
+            resource_id=str(job_id),
+            ip_address=request.client.host if request.client else None,
+            details={
+                "filename": doc.get("filename"),
+                "template": doc.get("template"),
+                "edited_structured_data_keys": sorted((edited_data or {}).keys()) if isinstance(edited_data, dict) else [],
+            },
+        )
 
         return {"message": "Edit received, re-formatting started", "job_id": job_id, "status": "PROCESSING"}
 
@@ -840,7 +896,6 @@ async def edit_document(
         raise HTTPException(status_code=500, detail=f"Edit failed: {str(e)}")
 
 
-@router.get("/{job_id}/preview")
 async def get_preview(
     job_id: str,
     current_user: Optional[User] = Depends(get_optional_user)
@@ -868,6 +923,7 @@ async def get_preview(
             "validation_results": result.get("validation_results"),
             "quality_score": quality_payload["quality_score"],
             "quality_summary": quality_payload["quality_summary"],
+            "quality": quality_payload["quality"],
             "metadata": {
                 "filename": doc.get("filename"),
                 "template": doc.get("template"),
@@ -882,7 +938,6 @@ async def get_preview(
         raise HTTPException(status_code=500, detail=f"Preview failed: {str(e)}")
 
 
-@router.get("/{job_id}/compare")
 async def get_comparison_data(
     job_id: str,
     current_user: Optional[User] = Depends(get_optional_user)
@@ -947,7 +1002,6 @@ async def get_comparison_data(
         raise HTTPException(status_code=500, detail=f"Comparison failed: {str(e)}")
 
 
-@router.get("/{job_id}/download")
 async def download_document(
     request: Request,
     job_id: str,
@@ -971,7 +1025,11 @@ async def download_document(
         if requested_format not in _SUPPORTED_EXPORT_FORMATS:
             raise HTTPException(status_code=400, detail="Unsupported format. Supported: docx, pdf, tex")
 
-        if doc.get("user_id") is not None:
+        has_signed_token = token is not None or expires is not None
+        if has_signed_token and (not token or expires is None):
+            raise HTTPException(status_code=400, detail="Both token and expires are required for signed downloads.")
+
+        if not has_signed_token and doc.get("user_id") is not None:
             if not current_user or str(doc["user_id"]) != str(current_user.id):
                 raise HTTPException(status_code=403, detail="Not authorized to download this document")
 
@@ -997,7 +1055,7 @@ async def download_document(
             logger.error("Output file missing on disk for job %s: %s", job_id, output_path)
             raise HTTPException(status_code=404, detail="Output file not found on server. File may have been deleted.")
 
-        if not token or not expires:
+        if not has_signed_token:
             if not settings.SIGNED_URL_SECRET:
                 raise HTTPException(status_code=500, detail="Signed download secret not configured.")
             parsed_request_url = urlsplit(str(request.url))
@@ -1012,14 +1070,19 @@ async def download_document(
                 file_path=output_path,
                 secret=settings.SIGNED_URL_SECRET,
                 expires_in_seconds=3600,
+                download_format=requested_format,
             )
             return {"url": signed["url"], "expires": signed["expires"]}
+
+        if not settings.SIGNED_URL_SECRET:
+            raise HTTPException(status_code=500, detail="Signed download secret not configured.")
 
         if not DocumentService.verify_signed_download(
             file_path=output_path,
             token=token,
             expires=expires,
-            secret=settings.SIGNED_URL_SECRET or "",
+            secret=settings.SIGNED_URL_SECRET,
+            download_format=requested_format,
         ):
             raise HTTPException(status_code=403, detail="Invalid or expired download token.")
 
@@ -1101,7 +1164,6 @@ async def download_document(
         raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")
 
 
-@router.delete("/{job_id}")
 async def delete_document(
     request: Request,
     job_id: str,
@@ -1160,9 +1222,8 @@ async def delete_document(
 
 # ── FEAT 39: Batch Upload ──────────────────────────────────────────────────────
 
-@router.post("/batch-upload")
-@safe_async_function(fallback_value={"error": "Batch upload failed"}, error_message="Batch upload")
 async def batch_upload(
+    request: Request,
     background_tasks: BackgroundTasks,
     files: List[UploadFile] = File(...),
     template: str = Form("none"),
@@ -1233,6 +1294,7 @@ async def batch_upload(
                 template_name=template,
                 formatting_options={},
                 queue_name="batch",
+                estimated_duration_seconds=12.0,
             )
             logger.info(
                 "Batch upload dispatch mode for job %s: %s",
@@ -1260,4 +1322,24 @@ async def batch_upload(
                 "reason": "An internal error occurred during batch processing.",
             })
 
+    await audit_log_service.log(
+        user_id=str(current_user.id) if current_user else None,
+        action="batch_upload",
+        resource_type="document_batch",
+        resource_id=None,
+        ip_address=request.client.host if request.client else None,
+        details={
+            "template": template,
+            "file_count": len(files),
+            "accepted_jobs": [item["job_id"] for item in results if item.get("job_id")],
+            "rejected_files": [
+                {"filename": item.get("filename"), "status": item.get("status")}
+                for item in results
+                if item.get("status") != "processing"
+            ],
+        },
+    )
+
     return {"jobs": results, "total": len(results)}
+
+

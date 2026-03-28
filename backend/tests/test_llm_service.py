@@ -59,3 +59,58 @@ def test_generate_caches_groq_responses(monkeypatch):
     assert first == "cached-groq-answer"
     assert second == "cached-groq-answer"
     assert call_count == 1
+
+
+def test_generate_with_fallback_uses_openrouter_when_groq_rate_limited(monkeypatch):
+    monkeypatch.setattr(llm_service.settings, "NVIDIA_API_KEY", None, raising=False)
+    monkeypatch.setattr(llm_service.settings, "GROQ_API_KEY", "groq-test-key", raising=False)
+    monkeypatch.setattr(llm_service.settings, "OPENROUTER_API_KEY", "openrouter-test-key", raising=False)
+    monkeypatch.setattr(llm_service.settings, "OPENROUTER_API_BASE", "https://openrouter.ai/api/v1", raising=False)
+    monkeypatch.setattr(llm_service, "LLM_GROQ", "groq/llama3-8b-8192")
+    monkeypatch.setattr(llm_service, "LLM_OPENROUTER", "openrouter/meta-llama/llama-3.1-8b-instruct")
+
+    calls: list[str] = []
+
+    def fake_generate(*args, **kwargs):
+        model = kwargs.get("model")
+        calls.append(str(model))
+        if model == "groq/llama3-8b-8192":
+            raise RuntimeError("429 rate limit exceeded")
+        return "openrouter-answer"
+
+    monkeypatch.setattr(llm_service, "generate", fake_generate)
+
+    result = llm_service.generate_with_fallback(
+        [{"role": "user", "content": "Summarize this document"}]
+    )
+
+    assert result == {
+        "text": "openrouter-answer",
+        "model": "openrouter/meta-llama/llama-3.1-8b-instruct",
+        "tier": 3,
+    }
+    assert calls == [
+        "groq/llama3-8b-8192",
+        "openrouter/meta-llama/llama-3.1-8b-instruct",
+    ]
+
+
+def test_generate_with_fallback_uses_configured_provider_timeout(monkeypatch):
+    monkeypatch.setattr(llm_service.settings, "NVIDIA_API_KEY", "nvidia-test-key", raising=False)
+    monkeypatch.setattr(llm_service.settings, "LLM_PROVIDER_TIMEOUT_SECONDS", 7, raising=False)
+    monkeypatch.setattr(llm_service, "LLM_NVIDIA", "nvidia_nim/meta/llama-3.3-70b-instruct")
+
+    captured = {}
+
+    def fake_generate(*args, **kwargs):
+        captured["timeout"] = kwargs.get("timeout")
+        return "nvidia-answer"
+
+    monkeypatch.setattr(llm_service, "generate", fake_generate)
+
+    result = llm_service.generate_with_fallback(
+        [{"role": "user", "content": "Summarize this document"}]
+    )
+
+    assert result["tier"] == 1
+    assert captured["timeout"] == 7

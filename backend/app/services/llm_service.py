@@ -12,6 +12,67 @@ from app.utils.logging_context import log_extra
 
 logger = logging.getLogger(__name__)
 
+try:
+    import pybreaker
+except Exception:
+    pybreaker = None
+
+
+def _provider_timeout_seconds(default: int = 15) -> int:
+    raw = getattr(settings, "LLM_PROVIDER_TIMEOUT_SECONDS", default)
+    try:
+        timeout = int(raw)
+    except (TypeError, ValueError):
+        timeout = default
+    return max(3, min(timeout, 60))
+
+
+def _breaker_enabled() -> bool:
+    return bool(getattr(settings, "EXTERNAL_CIRCUIT_BREAKER_ENABLED", True))
+
+
+def _breaker_fail_max() -> int:
+    raw = getattr(settings, "EXTERNAL_CIRCUIT_BREAKER_FAILURE_THRESHOLD", 3)
+    try:
+        return max(1, int(raw))
+    except (TypeError, ValueError):
+        return 3
+
+
+def _breaker_reset_seconds() -> int:
+    raw = getattr(settings, "EXTERNAL_CIRCUIT_BREAKER_RESET_SECONDS", 60)
+    try:
+        return max(5, int(raw))
+    except (TypeError, ValueError):
+        return 60
+
+
+_PROVIDER_BREAKERS: Dict[str, Any] = {}
+
+
+def _provider_breaker(provider: str):
+    if not _breaker_enabled() or pybreaker is None:
+        return None
+    if provider not in _PROVIDER_BREAKERS:
+        _PROVIDER_BREAKERS[provider] = pybreaker.CircuitBreaker(
+            fail_max=_breaker_fail_max(),
+            reset_timeout=_breaker_reset_seconds(),
+            name=f"llm_{provider}",
+        )
+    return _PROVIDER_BREAKERS[provider]
+
+
+def _call_with_provider_circuit(provider: str, fn):
+    breaker = _provider_breaker(provider)
+    if breaker is None:
+        return fn()
+    try:
+        return breaker.call(fn)
+    except Exception as exc:
+        if pybreaker is not None and isinstance(exc, pybreaker.CircuitBreakerError):
+            raise RuntimeError(f"{provider} circuit breaker open") from exc
+        raise
+
 
 def _normalize_model_name(model: str, provider: str) -> str:
     raw_model = (model or "").strip()
@@ -41,6 +102,7 @@ except ImportError:
     )
 LLM_NVIDIA   = _normalize_model_name(settings.NVIDIA_MODEL, "nvidia_nim")
 LLM_GROQ     = _normalize_model_name(settings.GROQ_MODEL, "groq")
+LLM_OPENROUTER = _normalize_model_name(settings.OPENROUTER_MODEL, "openrouter")
 LLM_DEEPSEEK = "ollama/deepseek-r1"
 LLM_GPT4     = "gpt-4"
 
@@ -52,6 +114,8 @@ def _infer_provider(model: str) -> str:
         return "nvidia"
     if model.startswith("groq/"):
         return "groq"
+    if model.startswith("openrouter/"):
+        return "openrouter"
     if model.startswith("ollama/"):
         return "ollama"
     if model.startswith("openai/") or model.startswith("gpt-"):
@@ -102,7 +166,7 @@ def generate(
     model: str = LLM_NVIDIA,
     temperature: float = 0.3,
     max_tokens: int = 2048,
-    timeout: int = 30,
+    timeout: Optional[int] = None,
     api_key: Optional[str] = None,
     api_base: Optional[str] = None,
     stream: bool = False,
@@ -148,12 +212,23 @@ def generate(
         except Exception:
             pass
     start_time = time.perf_counter()
+    request_success = False
+    effective_timeout = int(timeout) if timeout is not None else _provider_timeout_seconds()
 
     try:
         if not LITELLM_AVAILABLE:
-            result = _generate_fallback(messages, model, temperature, max_tokens, timeout, api_key, api_base)
+            result = _generate_fallback(
+                messages,
+                model,
+                temperature,
+                max_tokens,
+                effective_timeout,
+                api_key,
+                api_base,
+            )
             if result and cache_enabled:
                 redis_cache.set_llm_result(key, result, ttl=settings.LLM_CACHE_TTL_SECONDS)
+            request_success = bool(result)
             return result
 
         kwargs: Dict[str, Any] = {
@@ -161,7 +236,7 @@ def generate(
             "messages": messages,
             "temperature": max(0.0, min(1.0, temperature)),
             "max_tokens": max_tokens,
-            "timeout": timeout,
+            "timeout": effective_timeout,
         }
 
         # Per-provider API key resolution
@@ -183,6 +258,10 @@ def generate(
             groq_key = settings.GROQ_API_KEY
             if groq_key:
                 kwargs["api_key"] = groq_key
+        elif model.startswith("openrouter/"):
+            openrouter_key = settings.OPENROUTER_API_KEY
+            if openrouter_key:
+                kwargs["api_key"] = openrouter_key
 
         # Per-provider base URL
         if api_base:
@@ -191,6 +270,8 @@ def generate(
             kwargs["api_base"] = settings.OLLAMA_BASE_URL
         elif model.startswith("groq/"):
             kwargs["api_base"] = settings.GROQ_API_BASE
+        elif model.startswith("openrouter/"):
+            kwargs["api_base"] = settings.OPENROUTER_API_BASE
 
         response = completion(**kwargs)
         choices = response.choices
@@ -200,11 +281,13 @@ def generate(
         text = choices[0].message.content or ""
         if text and cache_enabled:
             redis_cache.set_llm_result(key, text, ttl=settings.LLM_CACHE_TTL_SECONDS)
+        request_success = bool(text)
         return text
     finally:
         duration = time.perf_counter() - start_time
         try:
             from app.middleware.prometheus_metrics import MetricsManager
+            MetricsManager.record_llm_request(provider, model, request_success)
             MetricsManager.record_llm_duration(provider, model, duration)
             MetricsManager.record_llm_ttft(provider, model, duration)
         except Exception:
@@ -223,11 +306,26 @@ def generate_with_fallback(
     Returns:
         {"text": str, "model": str, "tier": int}
     """
+    def _is_rate_limit_error(exc: Exception) -> bool:
+        raw = str(exc).lower()
+        return ("429" in raw) or ("rate limit" in raw) or ("too many requests" in raw)
+
+    provider_timeout = _provider_timeout_seconds()
+
     # Tier 1: NVIDIA NIM
     nvidia_key = settings.NVIDIA_API_KEY
     if nvidia_key:
         try:
-            text = generate(messages, model=LLM_NVIDIA, temperature=temperature, max_tokens=max_tokens)
+            text = _call_with_provider_circuit(
+                "nvidia",
+                lambda: generate(
+                    messages,
+                    model=LLM_NVIDIA,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    timeout=provider_timeout,
+                ),
+            )
             if text:
                 logger.info("llm_service: Tier 1 (NVIDIA) succeeded.", extra=log_extra())
                 return {"text": text, "model": LLM_NVIDIA, "tier": 1}
@@ -243,12 +341,16 @@ def generate_with_fallback(
     groq_key = settings.GROQ_API_KEY
     if groq_key:
         try:
-            text = generate(
-                messages,
-                model=groq_model,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                api_key=groq_key,
+            text = _call_with_provider_circuit(
+                "groq",
+                lambda: generate(
+                    messages,
+                    model=groq_model,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    api_key=groq_key,
+                    timeout=provider_timeout,
+                ),
             )
             if text:
                 logger.info("llm_service: Tier 2 (Groq) succeeded.", extra=log_extra())
@@ -261,19 +363,87 @@ def generate_with_fallback(
                 pass
             logger.warning("llm_service: Tier 2 (Groq) failed: %s - trying Ollama.", exc, extra=log_extra())
 
-    # Tier 3: DeepSeek via Ollama
+            # Tier 3: OpenRouter (prefer when Groq is rate-limited)
+            openrouter_key = settings.OPENROUTER_API_KEY
+            if openrouter_key and (_is_rate_limit_error(exc) or not settings.GROQ_API_KEY):
+                try:
+                    text = _call_with_provider_circuit(
+                        "openrouter",
+                        lambda: generate(
+                            messages,
+                            model=LLM_OPENROUTER,
+                            temperature=temperature,
+                            max_tokens=max_tokens,
+                            api_key=openrouter_key,
+                            api_base=settings.OPENROUTER_API_BASE,
+                            timeout=provider_timeout,
+                        ),
+                    )
+                    if text:
+                        logger.info("llm_service: Tier 3 (OpenRouter) succeeded.", extra=log_extra())
+                        return {"text": text, "model": LLM_OPENROUTER, "tier": 3}
+                except Exception as openrouter_exc:
+                    try:
+                        from app.middleware.prometheus_metrics import MetricsManager
+                        MetricsManager.record_llm_failure("openrouter")
+                    except Exception:
+                        pass
+                    logger.warning(
+                        "llm_service: Tier 3 (OpenRouter) failed: %s - trying Ollama.",
+                        openrouter_exc,
+                        extra=log_extra(),
+                    )
+    elif settings.OPENROUTER_API_KEY:
+        try:
+            text = _call_with_provider_circuit(
+                "openrouter",
+                lambda: generate(
+                    messages,
+                    model=LLM_OPENROUTER,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    api_key=settings.OPENROUTER_API_KEY,
+                    api_base=settings.OPENROUTER_API_BASE,
+                    timeout=provider_timeout,
+                ),
+            )
+            if text:
+                logger.info("llm_service: Tier 3 (OpenRouter) succeeded.", extra=log_extra())
+                return {"text": text, "model": LLM_OPENROUTER, "tier": 3}
+        except Exception as openrouter_exc:
+            try:
+                from app.middleware.prometheus_metrics import MetricsManager
+                MetricsManager.record_llm_failure("openrouter")
+            except Exception:
+                pass
+            logger.warning(
+                "llm_service: Tier 3 (OpenRouter) failed: %s - trying Ollama.",
+                openrouter_exc,
+                extra=log_extra(),
+            )
+
+    # Tier 4: DeepSeek via Ollama
     try:
-        text = generate(messages, model=LLM_DEEPSEEK, temperature=temperature, max_tokens=max_tokens)
+        text = _call_with_provider_circuit(
+            "ollama",
+            lambda: generate(
+                messages,
+                model=LLM_DEEPSEEK,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                timeout=provider_timeout,
+            ),
+        )
         if text:
-            logger.info("llm_service: Tier 3 (Ollama) succeeded.", extra=log_extra())
-            return {"text": text, "model": LLM_DEEPSEEK, "tier": 3}
+            logger.info("llm_service: Tier 4 (Ollama) succeeded.", extra=log_extra())
+            return {"text": text, "model": LLM_DEEPSEEK, "tier": 4}
     except Exception as exc:
         try:
             from app.middleware.prometheus_metrics import MetricsManager
             MetricsManager.record_llm_failure("ollama")
         except Exception:
             pass
-        logger.warning("llm_service: Tier 3 (Ollama) failed: %s - no LLM available.", exc, extra=log_extra())
+        logger.warning("llm_service: Tier 4 (Ollama) failed: %s - no LLM available.", exc, extra=log_extra())
 
     raise LLMUnavailableError("All LLM tiers failed. Use rule-based fallback.")
 
@@ -333,6 +503,15 @@ def _generate_fallback(
             api_key or settings.GROQ_API_KEY,
             api_base or settings.GROQ_API_BASE,
         )
+    elif model.startswith("openrouter/"):
+        return _openai_compat(
+            messages,
+            model,
+            temperature,
+            max_tokens,
+            api_key or settings.OPENROUTER_API_KEY,
+            api_base or settings.OPENROUTER_API_BASE,
+        )
     elif model.startswith("ollama/"):
         return _ollama_http(
             messages, model.replace("ollama/", ""), temperature, max_tokens,
@@ -344,7 +523,12 @@ def _generate_fallback(
 def _openai_compat(messages, model, temperature, max_tokens, api_key, base_url) -> str:
     from openai import OpenAI
     # Strip provider prefix for raw OpenAI/NVIDIA
-    raw_model = model.replace("nvidia_nim/", "").replace("openai/", "").replace("groq/", "")
+    raw_model = (
+        model.replace("nvidia_nim/", "")
+        .replace("openai/", "")
+        .replace("groq/", "")
+        .replace("openrouter/", "")
+    )
     client = OpenAI(api_key=api_key or "none", base_url=base_url)
     resp = client.chat.completions.create(
         model=raw_model, messages=messages,
@@ -379,6 +563,14 @@ async def check_health() -> Dict[str, str]:
             results["nvidia"] = "unconfigured"
     except Exception:
         results["nvidia"] = "unavailable"
+
+    try:
+        if settings.OPENROUTER_API_KEY:
+            results["openrouter"] = "healthy"
+        else:
+            results["openrouter"] = "unconfigured"
+    except Exception:
+        results["openrouter"] = "unavailable"
         
     # Check Ollama/DeepSeek
     try:

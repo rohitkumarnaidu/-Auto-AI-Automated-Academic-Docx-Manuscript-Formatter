@@ -3,11 +3,13 @@ NLP Content Analyzer - Enriches document with AI/NLP hints (Read-Only).
 """
 
 import re
+import json
 import logging
 import importlib.util
 from typing import List, Dict, Any
 from app.models import PipelineDocument as Document, Block, BlockType
 from app.utils.singleton import get_or_create_safe
+from app.services.llm_service import generate_with_fallback
 
 logger = logging.getLogger(__name__)
 
@@ -191,6 +193,14 @@ def extract_keywords(text: str, top_k: int = 8) -> List[str]:
 
     yake_candidates: List[str] = []
     for backend in backend_order:
+        if backend == "keyllm":
+            try:
+                llm_keywords = _extract_keywords_with_keyllm(text, top_k=top_k)
+                if llm_keywords:
+                    return llm_keywords
+            except Exception as exc:
+                logger.warning("KeyLLM extraction failed: %s", exc)
+
         if backend == "yake":
             if not (YAKE_AVAILABLE and yake is not None):
                 continue
@@ -235,3 +245,60 @@ def extract_keywords(text: str, top_k: int = 8) -> List[str]:
     for token in tokens:
         freq[token] = freq.get(token, 0) + 1
     return [tok for tok, _count in sorted(freq.items(), key=lambda item: item[1], reverse=True)[:top_k]]
+
+
+def _parse_keyword_payload(raw: str, top_k: int) -> List[str]:
+    if not raw:
+        return []
+    cleaned = raw.strip()
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```(?:json)?", "", cleaned, flags=re.IGNORECASE).strip()
+        cleaned = cleaned.rstrip("`").strip()
+    try:
+        payload = json.loads(cleaned)
+    except json.JSONDecodeError:
+        start = cleaned.find("[")
+        end = cleaned.rfind("]")
+        if start == -1 or end <= start:
+            return []
+        try:
+            payload = json.loads(cleaned[start : end + 1])
+        except json.JSONDecodeError:
+            return []
+
+    if isinstance(payload, dict):
+        payload = payload.get("keywords") or payload.get("items") or []
+    if not isinstance(payload, list):
+        return []
+
+    normalized: List[str] = []
+    seen: set[str] = set()
+    for item in payload:
+        token = str(item or "").strip()
+        if not token:
+            continue
+        key = token.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        normalized.append(token)
+        if len(normalized) >= top_k:
+            break
+    return normalized
+
+
+def _extract_keywords_with_keyllm(text: str, top_k: int) -> List[str]:
+    prompt = (
+        f"Extract the top {max(1, top_k)} semantic keywords from this academic text. "
+        "Return strict JSON as an array of keyword strings only."
+    )
+    result = generate_with_fallback(
+        [
+            {"role": "system", "content": "You extract semantic keywords for research indexing."},
+            {"role": "user", "content": f"{prompt}\n\n{text[:3500]}"},
+        ],
+        temperature=0.0,
+        max_tokens=200,
+    )
+    response_text = str((result or {}).get("text") or "").strip()
+    return _parse_keyword_payload(response_text, top_k=top_k)

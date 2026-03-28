@@ -36,7 +36,10 @@ const DashboardRow = memo(function DashboardRow({ item, style }) {
             </td>
             <td className="px-6 py-4">
                 <div className="flex items-center">
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider ${
+                    <span 
+                        role="status"
+                        aria-label={`Status: ${item.status || 'Pending'}`}
+                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider ${
                         completed 
                         ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' 
                         : processing 
@@ -58,7 +61,8 @@ const DashboardRow = memo(function DashboardRow({ item, style }) {
                     {completed ? (
                         <button 
                             onClick={() => window.open(`/api/v1/formatter/documents/${item.id}/download`)}
-                            className="h-9 px-4 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-white font-bold text-xs transition-all flex items-center gap-2"
+                            aria-label={`Download manuscript: ${item.originalFileName || item.filename}`}
+                            className="h-9 px-4 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-white focus:ring-2 focus:ring-primary focus:outline-none font-bold text-xs transition-all flex items-center gap-2"
                         >
                             <span className="material-symbols-outlined text-[18px]">download</span>
                             Download
@@ -66,7 +70,8 @@ const DashboardRow = memo(function DashboardRow({ item, style }) {
                     ) : (
                         <Link 
                             href="/upload"
-                            className="h-9 px-4 rounded-lg border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 font-bold text-xs transition-all flex items-center justify-center"
+                            aria-label={`Resume upload for manuscript: ${item.originalFileName || item.filename}`}
+                            className="h-9 px-4 rounded-lg border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 focus:ring-2 focus:ring-primary focus:outline-none font-bold text-xs transition-all flex items-center justify-center"
                         >
                             Resume
                         </Link>

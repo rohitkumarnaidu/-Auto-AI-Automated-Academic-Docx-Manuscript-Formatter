@@ -210,8 +210,9 @@ function AgentWorkspaceContent() {
           {!isMobile && (
             <button
               onClick={toggleSidebar}
-              className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-md transition-colors text-slate-500"
+              className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-md transition-colors text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
               title={isSidebarOpen ? 'Hide History' : 'Show History'}
+              aria-label={isSidebarOpen ? 'Hide history sidebar' : 'Show history sidebar'}
             >
               {isSidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeftOpen className="w-4 h-4" />}
             </button>
@@ -230,13 +231,13 @@ function AgentWorkspaceContent() {
         <div className="flex items-center gap-2">
           <button
             onClick={handleNewSession}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors shadow-sm"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-colors shadow-sm"
           >
             <Plus className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">New Project</span>
             <span className="sm:hidden">New</span>
           </button>
-          <button className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-md transition-colors text-slate-500">
+          <button className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-md transition-colors text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40">
             <Settings2 className="w-4 h-4" />
           </button>
         </div>

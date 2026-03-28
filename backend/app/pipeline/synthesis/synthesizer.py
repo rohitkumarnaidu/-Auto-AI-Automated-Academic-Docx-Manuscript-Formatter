@@ -16,7 +16,7 @@ from app.pipeline.parsing.parser_factory import ParserFactory
 from app.pipeline.services.csl_engine import CSLEngine
 from app.realtime.events import make_event
 from app.realtime.pubsub import RedisPubSub
-from app.routers.documents import ACCEPTED_EXTENSIONS, _validate_magic_bytes
+from app.routers.v1.documents_impl import ACCEPTED_EXTENSIONS, _validate_magic_bytes
 from app.services.crossref_client import get_crossref_client
 from app.services.generator_session_service import GeneratorSessionService
 from app.services.llm_service import generate_with_fallback, sanitize_for_llm
@@ -656,3 +656,4 @@ class MultiDocSynthesizer:
                 message=None,
                 payload=payload,
             )
+

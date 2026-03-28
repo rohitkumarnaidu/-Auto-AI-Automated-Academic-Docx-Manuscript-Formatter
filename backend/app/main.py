@@ -1,10 +1,14 @@
 
 from datetime import datetime, timezone
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.exception_handlers import (
+    http_exception_handler as fastapi_http_exception_handler,
+    request_validation_exception_handler as fastapi_validation_exception_handler,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from app.routers import auth, documents
 from app.config.settings import settings
 from app.middleware.request_id import RequestIdMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
@@ -36,6 +40,21 @@ os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
 # Basic logger for this module (terminal output preserved)
 logger = logging.getLogger(__name__)
+
+try:
+    from slowapi import Limiter, _rate_limit_exceeded_handler
+    from slowapi.errors import RateLimitExceeded
+    from slowapi.middleware import SlowAPIMiddleware
+    from slowapi.util import get_remote_address
+
+    SLOWAPI_AVAILABLE = True
+except Exception:
+    Limiter = None  # type: ignore[assignment]
+    _rate_limit_exceeded_handler = None  # type: ignore[assignment]
+    RateLimitExceeded = None  # type: ignore[assignment]
+    SlowAPIMiddleware = None  # type: ignore[assignment]
+    get_remote_address = None  # type: ignore[assignment]
+    SLOWAPI_AVAILABLE = False
 
 # --- Sentry Error Tracking ---
 try:
@@ -104,6 +123,8 @@ def _init_sentry() -> None:
 from app.pipeline.safety import safe_execution
 from app.services.enhancement_manager import enhancement_manager
 from app.services.audit_log_service import audit_log_service
+from app.services.scibert_gate import should_enable_scibert
+from app.routers.v1._helpers import DEFAULT_ERROR_CODES, build_error_response
 
 _queue_depth_redis_client = None
 
@@ -188,6 +209,43 @@ async def _periodic_queue_depth_update(interval_seconds: int = 30) -> None:
         await asyncio.sleep(interval_seconds)
 
 
+def _is_v1_request(request: Request) -> bool:
+    return request.url.path.startswith("/api/v1/")
+
+
+async def _probe_grobid_startup(*, attempts: int = 3, timeout_seconds: float = 2.0) -> bool:
+    if not settings.GROBID_ENABLED:
+        logger.info("Startup: GROBID probe skipped (GROBID_ENABLED=false).")
+        return False
+
+    import httpx
+
+    endpoint = f"{settings.GROBID_URL.rstrip('/')}/api/isalive"
+    last_error = "unknown"
+
+    for attempt in range(1, max(1, attempts) + 1):
+        try:
+            async with httpx.AsyncClient(timeout=timeout_seconds, follow_redirects=True) as client:
+                response = await client.get(endpoint)
+            if response.status_code == 200:
+                logger.info("Startup: GROBID probe succeeded on attempt %d.", attempt)
+                return True
+            last_error = f"HTTP {response.status_code}"
+        except Exception as exc:
+            last_error = str(exc)
+
+        if attempt < attempts:
+            await asyncio.sleep(min(float(attempt), 3.0))
+
+    logger.warning(
+        "Startup: GROBID probe failed after %d attempts (%s). "
+        "The app will continue in degraded mode and rely on downstream fallbacks.",
+        attempts,
+        last_error,
+    )
+    return False
+
+
 # ── Lifespan (replaces deprecated @app.on_event) ─────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -236,6 +294,8 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.warning("Startup DB Link Status: UNREACHABLE. Error: %s", e)
             logger.info("Note: App is starting in degraded mode. DB-dependent endpoints will fail at request-time.")
+
+        app.state.grobid_startup_probe_ok = await _probe_grobid_startup()
                 
         if settings.PRELOAD_AI_MODELS and not settings.LOW_MEMORY_MODE:
             # Phase 2: AI Model Pre-loading (optional, can be disabled for low-memory deploys)
@@ -243,7 +303,7 @@ async def lifespan(app: FastAPI):
 
             logger.info("Startup: Pre-loading AI models into memory...")
             try:
-                if settings.USE_SCIBERT_CLASSIFICATION:
+                if should_enable_scibert():
                     from app.pipeline.intelligence.semantic_parser import get_semantic_parser
 
                     parser = get_semantic_parser()
@@ -312,6 +372,58 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+if SLOWAPI_AVAILABLE and Limiter is not None and get_remote_address is not None:
+    limiter = Limiter(
+        key_func=get_remote_address,
+        default_limits=[f"{int(getattr(settings, 'GLOBAL_RATE_LIMIT_PER_MINUTE', 120))}/minute"],
+    )
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    app.add_middleware(SlowAPIMiddleware)
+    logger.info("SlowAPI global rate limiting enabled.")
+else:
+    logger.warning("SlowAPI not available; falling back to custom middleware-only rate limiting.")
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    if not _is_v1_request(request):
+        return await fastapi_http_exception_handler(request, exc)
+
+    detail = exc.detail
+    if isinstance(detail, str):
+        message = detail
+        details = None
+    else:
+        message = "Request failed"
+        details = {"detail": detail}
+
+    code = DEFAULT_ERROR_CODES.get(exc.status_code, "API_ERROR")
+    response = build_error_response(
+        request,
+        status_code=exc.status_code,
+        code=code,
+        message=message,
+        details=details,
+    )
+    for header, value in (exc.headers or {}).items():
+        response.headers[header] = value
+    return response
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_handler(request: Request, exc: RequestValidationError):
+    if not _is_v1_request(request):
+        return await fastapi_validation_exception_handler(request, exc)
+
+    return build_error_response(
+        request,
+        status_code=422,
+        code="VALIDATION_ERROR",
+        message="Request validation failed",
+        details={"detail": exc.errors()},
+    )
+
 # Prometheus instrumentation
 Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 
@@ -334,7 +446,10 @@ app.add_middleware(
 )
 
 # Rate Limiting Middleware (DoS Protection)
-app.add_middleware(RateLimitMiddleware, requests_per_minute=60)
+app.add_middleware(
+    RateLimitMiddleware,
+    requests_per_minute=int(getattr(settings, "GLOBAL_RATE_LIMIT_PER_MINUTE", 120)),
+)
 app.add_middleware(TierRateLimitMiddleware, guest_daily_limit=5)
 
 # Security Headers Middleware (CSP, X-Frame-Options, etc.)
@@ -372,31 +487,13 @@ async def audit_write_operations(request: Request, call_next):
 # Include Routers
 # v1_router now includes synthesis endpoints under /api/v1/synthesis
 app.include_router(v1_router)
-app.include_router(auth.router)
-app.include_router(documents.router)
-
-from app.routers import templates
-app.include_router(templates.templates_router, prefix="/api/templates", tags=["Templates"])
-
-# Metrics and Monitoring
-from app.routers import metrics
-app.include_router(metrics.router)
-
-# Feedback Loop (Industry Standard)
-from app.routers import feedback
-app.include_router(feedback.router, prefix="/api")
-
-# Streaming Responses (Next-Gen)
-from app.routers import stream
-app.include_router(stream.router)
 
 # Live Preview (Formatter Mode B)
 from app.routers import preview
 app.include_router(preview.router)
 
 # Document Generator (generate from scratch — no upload needed)
-from app.routers import generator
-app.include_router(generator.router, prefix="/api")
+# Hard-cut migration: only /api/v1 routers are mounted from app.main.
 
 
 @app.get("/ready")

@@ -17,7 +17,7 @@ from fastapi import (
 )
 
 from app.config.settings import settings
-from app.routers import documents as legacy_documents
+from app.routers.v1 import documents_impl
 from app.utils.logging_context import bind_request_context
 from app.schemas.user import User
 from app.utils.dependencies import get_current_user, get_optional_user
@@ -49,7 +49,7 @@ async def upload_document_chunked(
     current_user: User = Depends(get_current_user),
 ):
     async def operation():
-        return await legacy_documents.upload_document_chunked(
+        return await documents_impl.upload_document_chunked(
             request=request,
             background_tasks=background_tasks,
             file_id=file_id,
@@ -95,7 +95,7 @@ async def list_documents(
     current_user: Optional[User] = Depends(get_optional_user),
 ):
     async def operation():
-        return await legacy_documents.list_documents(
+        return await documents_impl.list_documents(
             status=status,
             template=template,
             start_date=start_date,
@@ -131,7 +131,7 @@ async def upload_document(
     current_user: Optional[User] = Depends(get_optional_user),
 ):
     async def operation():
-        return await legacy_documents.upload_document(
+        return await documents_impl.upload_document(
             request=request,
             background_tasks=background_tasks,
             file=file,
@@ -169,7 +169,7 @@ async def get_status(
     current_user: Optional[User] = Depends(get_optional_user),
 ):
     async def operation():
-        return await legacy_documents.get_status(job_id=jobId, current_user=current_user)
+        return await documents_impl.get_status(job_id=jobId, current_user=current_user)
 
     return await run_enveloped(
         request,
@@ -190,7 +190,7 @@ async def get_document_summary(
     current_user: Optional[User] = Depends(get_optional_user),
 ):
     async def operation():
-        return await legacy_documents.get_document_summary(job_id=jobId, current_user=current_user)
+        return await documents_impl.get_document_summary(job_id=jobId, current_user=current_user)
 
     return await run_enveloped(
         request,
@@ -213,7 +213,8 @@ async def edit_document(
     current_user: Optional[User] = Depends(get_optional_user),
 ):
     async def operation():
-        return await legacy_documents.edit_document(
+        return await documents_impl.edit_document(
+            request=request,
             job_id=jobId,
             data=data,
             background_tasks=background_tasks,
@@ -240,7 +241,7 @@ async def get_preview(
     current_user: Optional[User] = Depends(get_optional_user),
 ):
     async def operation():
-        return await legacy_documents.get_preview(job_id=jobId, current_user=current_user)
+        return await documents_impl.get_preview(job_id=jobId, current_user=current_user)
 
     return await run_enveloped(
         request,
@@ -261,7 +262,7 @@ async def get_comparison_data(
     current_user: Optional[User] = Depends(get_optional_user),
 ):
     async def operation():
-        return await legacy_documents.get_comparison_data(job_id=jobId, current_user=current_user)
+        return await documents_impl.get_comparison_data(job_id=jobId, current_user=current_user)
 
     return await run_enveloped(
         request,
@@ -286,7 +287,7 @@ async def download_document(
     current_user: Optional[User] = Depends(get_optional_user),
 ):
     async def operation():
-        return await legacy_documents.download_document(
+        return await documents_impl.download_document(
             request=request,
             job_id=jobId,
             format=(format or "").strip().lower(),
@@ -315,7 +316,7 @@ async def delete_document(
     current_user: User = Depends(get_current_user),
 ):
     async def operation():
-        return await legacy_documents.delete_document(request=request, job_id=jobId, current_user=current_user)
+        return await documents_impl.delete_document(request=request, job_id=jobId, current_user=current_user)
 
     return await run_enveloped(
         request,
@@ -338,7 +339,8 @@ async def batch_upload(
     current_user: User = Depends(get_current_user),
 ):
     async def operation():
-        return await legacy_documents.batch_upload(
+        return await documents_impl.batch_upload(
+            request=request,
             background_tasks=background_tasks,
             files=files,
             template=template,
@@ -356,3 +358,4 @@ async def batch_upload(
         logger=logger,
         operation_name="batch upload",
     )
+

@@ -5,9 +5,20 @@
 - [main.py](file://backend/app/main.py)
 - [__init__.py](file://backend/app/routers/v1/__init__.py)
 - [documents.py](file://backend/app/routers/documents.py)
+- [v1/documents.py](file://backend/app/routers/v1/documents.py)
 - [document_service.py](file://backend/app/services/document_service.py)
 - [orchestrator.py](file://backend/app/pipeline/orchestrator.py)
+- [settings.py](file://backend/app/config/settings.py)
+- [test_document_status_cache.py](file://backend/tests/test_document_status_cache.py)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Enhanced GET /api/v1/documents/{job_id}/status endpoint documentation with intelligent caching system
+- Added stale-while-revalidate semantics explanation
+- Updated performance considerations section with caching details
+- Added configuration reference for DOCUMENT_STATUS_CACHE_TTL_SECONDS
+- Updated troubleshooting guide with cache-related error scenarios
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -15,10 +26,11 @@
 3. [Core Components](#core-components)
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Dependency Analysis](#dependency-analysis)
-7. [Performance Considerations](#performance-considerations)
-8. [Troubleshooting Guide](#troubleshooting-guide)
-9. [Conclusion](#conclusion)
+6. [Intelligent Caching System](#intelligent-caching-system)
+7. [Dependency Analysis](#dependency-analysis)
+8. [Performance Considerations](#performance-considerations)
+9. [Troubleshooting Guide](#troubleshooting-guide)
+10. [Conclusion](#conclusion)
 
 ## Introduction
 This document provides comprehensive API documentation for the document processing endpoints. It covers all HTTP methods for document upload, retrieval, update (via edits), and deletion, including:
@@ -105,6 +117,7 @@ D->>P : dispatch_document_pipeline(...)
 P->>DB : Upsert processing_status + update documents
 D-->>C : {message, job_id, status}
 C->>D : GET /api/v1/documents/{job_id}/status
+D->>D : Check cache with stale-while-revalidate
 D->>DS : get_document(job_id)
 D->>DS : get_processing_statuses(job_id)
 D-->>C : {status, phases, progress, quality}
@@ -173,7 +186,7 @@ Request
   - file_id (required): Identifier for grouping chunks
   - chunk_index (required): Zero-based index of the current chunk
   - total_chunks (required): Total number of chunks expected
-  - file (required): One chunk’s bytes
+  - file (required): One chunk's bytes
   - All formatting options supported by the single-upload endpoint are also supported here
 
 Validation and limits:
@@ -198,10 +211,23 @@ Example curl
 Purpose:
 - Retrieve detailed processing status, including per-phase progress and quality metrics.
 
+**Enhanced** Intelligent caching system with stale-while-revalidate semantics is now implemented for improved performance and reliability.
+
 Response fields:
 - job_id, status, current_phase, progress_percentage, message, updated_at
 - phases: array of phase objects with phase, status, message, progress, updated_at
 - quality_score, quality_summary (when available)
+
+**Intelligent Caching Behavior:**
+- **Primary Cache Hit**: Returns cached response within TTL window
+- **Stale Response**: Returns cached response up to 90 seconds stale if database is unavailable
+- **Fallback**: Graceful degradation with "Reconnecting to status backend" message
+- **User-scoped**: Cache keys include user ID for privacy and security
+
+**Cache Configuration:**
+- TTL controlled by `DOCUMENT_STATUS_CACHE_TTL_SECONDS` setting (default: 1.0 seconds)
+- Stale window: 90 seconds maximum staleness
+- Automatic cleanup of expired cache entries
 
 Access control:
 - Requires ownership for private documents; anonymous access for public contexts.
@@ -226,6 +252,7 @@ Example response
 **Section sources**
 - [documents.py:619-681](file://backend/app/routers/documents.py#L619-L681)
 - [document_service.py:92-113](file://backend/app/services/document_service.py#L92-L113)
+- [settings.py:183](file://backend/app/config/settings.py#L183)
 
 ### GET /api/v1/documents/{job_id}/summary
 Purpose:
@@ -235,7 +262,7 @@ Response fields:
 - id, status, filename, template, created_at, output_path (only when ready for export)
 
 Access control:
-- Ownership required for private documents.
+- Ownership required.
 
 **Section sources**
 - [documents.py:683-705](file://backend/app/routers/documents.py#L683-L705)
@@ -339,11 +366,58 @@ Response
 **Section sources**
 - [documents.py:1070-1171](file://backend/app/routers/documents.py#L1070-L1171)
 
+## Intelligent Caching System
+
+The document status endpoint now implements an intelligent caching system with stale-while-revalidate semantics to improve performance and reliability.
+
+### Cache Architecture
+```mermaid
+graph TD
+A["GET /{job_id}/status"] --> B{"Cache Hit?"}
+B --> |Yes & Within TTL| C["Return Cached Response"]
+B --> |Yes & Stale (<90s)| D["Return Stale Response<br/>with 'stale': true"]
+B --> |No| E["Query Database"]
+E --> F{"Document Found?"}
+F --> |Yes| G["Build Payload"]
+F --> |No| H{"Has Processing Statuses?"}
+H --> |Yes| I["Build From Statuses"]
+H --> |No| J{"Stale Cache Exists?"}
+J --> |Yes| K["Return Stale Response"]
+J --> |No| L["404 Not Found"]
+G --> M["Cache Response"]
+I --> M
+K --> N["Add 'stale': true Message"]
+M --> O["Return Response"]
+N --> O
+```
+
+**Diagram sources**
+- [documents.py:739-846](file://backend/app/routers/documents.py#L739-L846)
+
+### Cache Implementation Details
+- **Cache Key**: `{owner_segment}|{job_id}` where owner_segment includes user ID or "__anon__"
+- **TTL Control**: Configurable via `DOCUMENT_STATUS_CACHE_TTL_SECONDS` (default: 1.0 seconds)
+- **Stale Window**: Maximum 90 seconds stale responses
+- **Locking**: Thread-safe cache operations with asyncio.Lock
+- **Automatic Cleanup**: Expired entries removed during set operations
+
+### Stale-While-Revalidate Semantics
+- **Immediate Return**: Returns fresh cached data when available
+- **Graceful Degradation**: Returns stale data up to 90 seconds old if database unavailable
+- **User Privacy**: Cache keys scoped to user context for security
+- **Automatic Refresh**: Database queries refresh cache on successful retrieval
+
+**Section sources**
+- [documents.py:117-198](file://backend/app/routers/documents.py#L117-L198)
+- [settings.py:183](file://backend/app/config/settings.py#L183)
+- [test_document_status_cache.py:1-145](file://backend/tests/test_document_status_cache.py#L1-145)
+
 ## Dependency Analysis
 Key dependencies and interactions:
 - Router layer depends on DocumentService for persistence and on PipelineOrchestrator for background processing.
 - PipelineOrchestrator updates processing_status and documents records and emits SSE events.
 - Download endpoint relies on signed URL helpers and optional integrity checks.
+- Status endpoint utilizes intelligent caching system with configurable TTL and stale-while-revalidate semantics.
 
 ```mermaid
 graph LR
@@ -353,6 +427,8 @@ S --> DB["Supabase"]
 O --> DB
 R --> DL["Download Handler"]
 DL --> S
+R --> C["Intelligent Cache System"]
+C --> R
 ```
 
 **Diagram sources**
@@ -368,13 +444,17 @@ DL --> S
 ## Performance Considerations
 - Concurrency control: The orchestrator limits concurrent jobs to prevent resource exhaustion.
 - Chunked uploads: Prefer chunked uploads for large files to reduce memory pressure and improve resilience.
-- Caching: Status responses are cached with TTL to reduce repeated database queries.
+- Intelligent caching: Status responses are cached with TTL and stale-while-revalidate semantics to reduce database queries and improve response times.
+- Cache configuration: Adjust `DOCUMENT_STATUS_CACHE_TTL_SECONDS` to balance freshness vs performance.
 - Rate limiting: Global and tiered rate limits protect the system from abuse.
+
+**Updated** Intelligent caching significantly reduces database load during frequent status polling, with configurable TTL and graceful degradation when database connectivity is lost.
 
 **Section sources**
 - [orchestrator.py:69-71](file://backend/app/pipeline/orchestrator.py#L69-L71)
 - [documents.py:122-150](file://backend/app/routers/documents.py#L122-L150)
 - [main.py:295-296](file://backend/app/main.py#L295-L296)
+- [settings.py:183](file://backend/app/config/settings.py#L183)
 
 ## Troubleshooting Guide
 Common errors and resolutions:
@@ -396,6 +476,12 @@ Common errors and resolutions:
   - Re-upload a clean file; virus scan failed.
 - 500 Internal error:
   - Check logs; for downloads, verify signed URL secret and output path existence.
+- **Cache-related issues**:
+  - **Stale responses**: Look for `"stale": true` in status response indicating cached data beyond TTL
+  - **Cache configuration**: Adjust `DOCUMENT_STATUS_CACHE_TTL_SECONDS` in environment settings
+  - **Cache clearing**: Use `_reset_document_status_cache_for_tests()` for testing scenarios
+
+**Updated** Added cache-related troubleshooting scenarios including stale responses and cache configuration issues.
 
 **Section sources**
 - [documents.py:205-229](file://backend/app/routers/documents.py#L205-L229)
@@ -407,4 +493,4 @@ Common errors and resolutions:
 - [documents.py:936-953](file://backend/app/routers/documents.py#L936-L953)
 
 ## Conclusion
-The document processing API provides a robust, secure, and scalable pipeline for uploading, processing, and exporting academic manuscripts. It enforces strict validation, supports large files via chunked uploads, offers real-time status updates, and ensures integrity and security for downloads. Follow the request schemas and examples to integrate reliably, and consult the troubleshooting guide for common issues.
+The document processing API provides a robust, secure, and scalable pipeline for uploading, processing, and exporting academic manuscripts. It enforces strict validation, supports large files via chunked uploads, offers real-time status updates, and ensures integrity and security for downloads. The enhanced intelligent caching system with stale-while-revalidate semantics significantly improves performance and reliability during status polling, while configurable TTL settings allow fine-tuning of freshness vs performance trade-offs. Follow the request schemas and examples to integrate reliably, and consult the troubleshooting guide for common issues including cache-related scenarios.

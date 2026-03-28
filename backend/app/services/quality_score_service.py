@@ -52,6 +52,67 @@ def _flatten_aliases(alias_groups: Iterable[Set[str]]) -> List[str]:
     return flattened
 
 
+def _display_section_name(alias_group: Set[str]) -> str:
+    alias = sorted(alias_group)[0] if alias_group else "Section"
+    return " ".join(part.capitalize() for part in _normalize(alias).split())
+
+
+def _dedupe_preserve_order(values: Iterable[str]) -> List[str]:
+    seen: Set[str] = set()
+    ordered: List[str] = []
+    for value in values:
+        normalized = _normalize(value)
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        ordered.append(value)
+    return ordered
+
+
+def _infer_provider_from_model(model_name: Any) -> str | None:
+    normalized = _normalize(model_name)
+    if not normalized:
+        return None
+    if "groq" in normalized:
+        return "groq"
+    if "nvidia" in normalized or "llama 3.3 70b" in normalized:
+        return "nvidia"
+    if "ollama" in normalized or "deepseek" in normalized:
+        return "ollama"
+    if "openai" in normalized or normalized.startswith("gpt"):
+        return "openai"
+    if "anthropic" in normalized or "claude" in normalized:
+        return "anthropic"
+    if "rule_based" in normalized or "rule based" in normalized:
+        return "rule_based"
+    return None
+
+
+def _extract_missing_sections(validation_results: Dict[str, Any]) -> List[str]:
+    missing: List[str] = []
+    for item in (validation_results.get("errors") or []) + (validation_results.get("warnings") or []):
+        if not isinstance(item, str):
+            continue
+        prefix = "missing required section:"
+        lowered = item.strip().lower()
+        if lowered.startswith(prefix):
+            missing.append(item.split(":", 1)[1].strip())
+    return _dedupe_preserve_order(missing)
+
+
+def _extract_llm_provider(validation_results: Dict[str, Any]) -> str | None:
+    direct_provider = _normalize(validation_results.get("llm_provider_used"))
+    if direct_provider:
+        return direct_provider
+
+    semantic_audit = validation_results.get("ai_semantic_audit") or {}
+    semantic_provider = _normalize(semantic_audit.get("llm_provider"))
+    if semantic_provider:
+        return semantic_provider
+
+    return _infer_provider_from_model(semantic_audit.get("model"))
+
+
 def _collect_present_sections(structured_data: Dict[str, Any]) -> Set[str]:
     present: Set[str] = set()
     metadata = structured_data.get("metadata") or {}
@@ -110,11 +171,14 @@ def compute_quality_score(
     present_sections = _collect_present_sections(structured_data)
     compliant_sections = 0
     content_complete_sections = 0
+    missing_sections = _extract_missing_sections(validation_results)
 
     for alias_group in requirements:
         normalized_aliases = {_normalize(alias) for alias in alias_group}
         if present_sections.intersection(normalized_aliases):
             compliant_sections += 1
+        else:
+            missing_sections.append(_display_section_name(alias_group))
         if _section_has_content(alias_group, structured_data):
             content_complete_sections += 1
 
@@ -133,11 +197,16 @@ def compute_quality_score(
         + (citation_score_pct * 0.2),
         2,
     )
+    llm_provider_used = _extract_llm_provider(validation_results)
 
     return {
         "template_compliance_pct": template_compliance_pct,
         "content_completeness_pct": content_completeness_pct,
+        "template_compliance": template_compliance_pct,
+        "content_quality": content_completeness_pct,
         "citation_count": citation_count,
         "overall_score": overall_score,
+        "missing_sections": _dedupe_preserve_order(missing_sections),
+        "llm_provider_used": llm_provider_used,
         "required_sections": _flatten_aliases(requirements),
     }

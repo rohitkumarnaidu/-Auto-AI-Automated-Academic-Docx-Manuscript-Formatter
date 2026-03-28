@@ -65,10 +65,10 @@ describe('api.core', () => {
 
     it('returns friendly error messages for auth and network failures', () => {
         expect(
-            getFriendlyErrorMessage({ status: 401, endpoint: '/api/auth/login' })
+            getFriendlyErrorMessage({ status: 401, endpoint: '/api/v1/auth/login' })
         ).toBe('Invalid email or password.');
         expect(
-            getFriendlyErrorMessage({ status: 401, endpoint: '/api/documents' })
+            getFriendlyErrorMessage({ status: 401, endpoint: '/api/v1/documents' })
         ).toBe('Your session has expired. Please log in again.');
         expect(
             getFriendlyErrorMessage({ error: new TypeError('Failed to fetch') })

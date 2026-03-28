@@ -268,7 +268,7 @@ class TemplateRenderer:
         ref_blocks = [
             block.text.strip()
             for block in sorted(document.blocks, key=lambda b: b.index)
-            if str(block.block_type).lower() == "reference_entry" and block.text.strip()
+            if self._block_type_token(block) == "reference_entry" and block.text.strip()
         ]
         return ref_blocks
 
@@ -290,12 +290,19 @@ class TemplateRenderer:
             "reference_entry",
             "figure_caption",
             "table_caption",
+            "footnote",
+            "endnote",
         }
 
         for block in sorted(blocks, key=lambda b: b.index):
-            block_type = str(block.block_type).lower()
+            block_type = self._block_type_token(block)
             text = (block.text or "").strip()
-            if not text or block_type in skip_types:
+            if (
+                not text
+                or block_type in skip_types
+                or bool((block.metadata or {}).get("is_footnote"))
+                or bool((block.metadata or {}).get("is_endnote"))
+            ):
                 continue
 
             if block_type.startswith("heading_"):
@@ -314,7 +321,7 @@ class TemplateRenderer:
 
     def _first_block_text(self, blocks: List[Block], block_type: str) -> str:
         for block in sorted(blocks, key=lambda b: b.index):
-            if str(block.block_type).lower() == block_type:
+            if self._block_type_token(block) == block_type:
                 value = (block.text or "").strip()
                 if value:
                     return value
@@ -323,8 +330,15 @@ class TemplateRenderer:
     def _all_block_text(self, blocks: List[Block], block_type: str) -> List[str]:
         values: List[str] = []
         for block in sorted(blocks, key=lambda b: b.index):
-            if str(block.block_type).lower() == block_type:
+            if self._block_type_token(block) == block_type:
                 value = (block.text or "").strip()
                 if value:
                     values.append(value)
         return values
+
+    @staticmethod
+    def _block_type_token(block: Block) -> str:
+        block_type = getattr(block, "block_type", "")
+        if hasattr(block_type, "value"):
+            block_type = getattr(block_type, "value")
+        return str(block_type).strip().lower()

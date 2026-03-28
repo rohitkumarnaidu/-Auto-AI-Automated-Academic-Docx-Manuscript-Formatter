@@ -12,6 +12,7 @@ const manrope = Manrope({
 export const metadata = {
     title: 'ScholarForm AI',
     description: 'AI-powered academic manuscript formatting for IEEE, APA, Springer, Nature, and 1000+ journals. Upload your paper, get publication-ready output in seconds.',
+    manifest: '/manifest.json',
     openGraph: {
         title: 'ScholarForm AI - Automated Academic Manuscript Formatter',
         description: 'Format your research paper for any journal in seconds. Supports IEEE, APA, Springer, Nature, Elsevier, and 1000+ templates.',

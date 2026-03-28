@@ -77,7 +77,7 @@ class PhaseStatus(BaseModel):
 
 
 class DocumentStatusResponse(BaseModel):
-    """Returned by GET /api/documents/{job_id}/status."""
+    """Returned by GET /api/v1/documents/{job_id}/status."""
 
     job_id: str
     status: str = Field(..., description="Overall job status.")
@@ -146,7 +146,7 @@ class DocumentListItem(BaseModel):
 
 
 class DocumentListResponse(BaseModel):
-    """Returned by GET /api/documents."""
+    """Returned by GET /api/v1/documents."""
 
     documents: List[DocumentListItem] = Field(default_factory=list)
     total: int = Field(0, description="Total matching documents (before pagination).")
@@ -166,7 +166,7 @@ class DocumentMetaSummary(BaseModel):
 
 
 class DocumentPreviewResponse(BaseModel):
-    """Returned by GET /api/documents/{job_id}/preview."""
+    """Returned by GET /api/v1/documents/{job_id}/preview."""
 
     structured_data: Optional[Dict[str, Any]] = Field(
         None, description="Parsed and structured document content."
@@ -187,7 +187,7 @@ class CompareFormatted(BaseModel):
 
 
 class DocumentCompareResponse(BaseModel):
-    """Returned by GET /api/documents/{job_id}/compare."""
+    """Returned by GET /api/v1/documents/{job_id}/compare."""
 
     html_diff: str = Field(..., description="HTML diff of original vs formatted text.")
     original: CompareOriginal

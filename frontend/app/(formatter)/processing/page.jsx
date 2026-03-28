@@ -8,7 +8,7 @@ import Footer from '@/src/components/Footer';
 import Stepper from '@/src/components/Stepper';
 import StatusBadge from '@/src/components/StatusBadge';
 import { useDocument } from '@/src/context/DocumentContext';
-import { useDocumentStatus } from '@/src/services/api';
+import { useJobStatusSSE } from '@/src/services/api.hooks';
 import { isCompleted, isFailed } from '@/src/constants/status';
 import { trackPageView } from '@/src/lib/rum';
 
@@ -74,10 +74,9 @@ export default function Processing() {
         }
     }, []);
 
-    const { data: statusData, error: statusError } = useDocumentStatus(job?.id, {
+    const { data: statusData, error: statusError } = useJobStatusSSE(job?.id, {
         enabled: Boolean(job?.id) && !isCancelling,
-        refetchInterval: 1500,
-        staleTime: 0,
+        pollFallbackMs: 2000,
     });
 
     useEffect(() => {

@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Clock, Trash2, ChevronRight, File, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+import { getGeneratorSessions, deleteGeneratorSession } from '../../services/api.v1';
 
 const SessionHistory = React.memo(({ activeSessionId, onSelectSession }) => {
   const [sessions, setSessions] = useState([]);
@@ -12,23 +11,8 @@ const SessionHistory = React.memo(({ activeSessionId, onSelectSession }) => {
   const fetchSessions = useCallback(async () => {
     try {
       setLoading(true);
-      if (!supabase) return;
-      
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const response = await fetch(`${API_BASE_URL}/api/v1/generator/sessions`, {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch sessions');
-      }
-      
-      const data = await response.json();
-      setSessions(data.sessions || []);
+      const data = await getGeneratorSessions();
+      setSessions(data?.sessions || []);
     } catch (err) {
       console.warn("Falling back to mock sessions:", err);
       // Mock data for development/Alpha if API missing
@@ -64,21 +48,10 @@ const SessionHistory = React.memo(({ activeSessionId, onSelectSession }) => {
   const handleDelete = async (e, id) => {
     e.stopPropagation();
     if (!confirm('Are you sure you want to delete this session?')) return;
-    
+
     try {
       setSessions(prev => prev.filter(s => s.id !== id));
-      if (!supabase) return;
-      
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      // Call DELETE API
-      await fetch(`${API_BASE_URL}/api/v1/generator/sessions/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`
-        }
-      });
+      await deleteGeneratorSession(id);
     } catch (err) {
       console.error('Failed to delete session:', err);
     }

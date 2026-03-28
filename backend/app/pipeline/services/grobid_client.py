@@ -13,13 +13,20 @@ that can extract 68+ metadata labels including:
 """
 
 import logging
+import time
 import requests
 from typing import Dict, Any, List, Optional
 from pathlib import Path
 import xml.etree.ElementTree as ET
+from app.config.settings import settings
 from app.pipeline.safety.safe_execution import safe_function
 
 logger = logging.getLogger(__name__)
+
+try:
+    import pybreaker
+except Exception:
+    pybreaker = None
 
 
 class GROBIDClient:
@@ -36,17 +43,32 @@ class GROBIDClient:
             base_url: GROBID service URL (default: http://localhost:8070)
         """
         self.base_url = base_url.rstrip("/")
-        self.timeout = 60  # seconds
+        configured_timeout = int(getattr(settings, "GROBID_TIMEOUT", 15))
+        self.timeout = max(3, min(configured_timeout, 30))
+        self.max_retries = max(1, int(getattr(settings, "GROBID_MAX_RETRIES", 3)))
+        self.breaker = None
+        if bool(getattr(settings, "EXTERNAL_CIRCUIT_BREAKER_ENABLED", True)) and pybreaker is not None:
+            self.breaker = pybreaker.CircuitBreaker(
+                fail_max=max(1, int(getattr(settings, "EXTERNAL_CIRCUIT_BREAKER_FAILURE_THRESHOLD", 3))),
+                reset_timeout=max(5, int(getattr(settings, "EXTERNAL_CIRCUIT_BREAKER_RESET_SECONDS", 60))),
+                name="grobid",
+            )
+
+    def _request(self, method: str, url: str, **kwargs):
+        if "timeout" not in kwargs:
+            # Split connect/read to fail fast on bad network while allowing short response processing.
+            kwargs["timeout"] = (3.0, float(self.timeout))
+
+        if self.breaker is None:
+            return requests.request(method, url, **kwargs)
+        return self.breaker.call(lambda: requests.request(method, url, **kwargs))
         
     def is_available(self) -> bool:
         """Check if GROBID service is running."""
         try:
-            response = requests.get(
-                f"{self.base_url}/api/isalive",
-                timeout=5
-            )
+            response = self._request("GET", f"{self.base_url}/api/isalive", timeout=(2.0, 3.0))
             return response.status_code == 200
-        except requests.exceptions.RequestException:
+        except Exception:
             return False
     
     @safe_function(fallback_value={}, error_message="GROBIDClient.process_header_document")
@@ -64,31 +86,37 @@ class GROBIDClient:
             logger.warning("GROBID service not available")
             return {}
             
-        try:
-            with open(file_path, "rb") as fh:
-                files = {"input": fh}
-                response = requests.post(
-                    f"{self.base_url}/api/processHeaderDocument",
-                    files=files,
-                    timeout=self.timeout
-                )
-            
-            if response.status_code != 200:
-                logger.error(f"GROBID failed with status {response.status_code}")
+        for attempt in range(1, self.max_retries + 1):
+            try:
+                with open(file_path, "rb") as fh:
+                    files = {"input": fh}
+                    response = self._request(
+                        "POST",
+                        f"{self.base_url}/api/processHeaderDocument",
+                        files=files,
+                    )
+
+                if response.status_code != 200:
+                    logger.error("GROBID failed with status %s", response.status_code)
+                    if attempt < self.max_retries:
+                        time.sleep(min(float(attempt), 2.0))
+                        continue
+                    return {}
+
+                response_text = (response.text or "").lstrip()
+                if not response_text.startswith("<"):
+                    logger.warning(
+                        "GROBID returned non-XML payload. Falling back to empty metadata."
+                    )
+                    return self._empty_metadata()
+
+                return self._parse_tei_xml(response_text)
+            except Exception as e:
+                logger.error("GROBID processing failed (attempt %s/%s): %s", attempt, self.max_retries, e)
+                if attempt < self.max_retries:
+                    time.sleep(min(float(attempt), 2.0))
+                    continue
                 return {}
-
-            response_text = (response.text or "").lstrip()
-            if not response_text.startswith("<"):
-                logger.warning(
-                    "GROBID returned non-XML payload. Falling back to empty metadata."
-                )
-                return self._empty_metadata()
-
-            return self._parse_tei_xml(response_text)
-            
-        except Exception as e:
-            logger.error(f"GROBID processing failed: {e}")
-            return {}
 
     @safe_function(fallback_value=[], error_message="GROBIDClient.process_references")
     def process_references(self, file_path: str) -> List[Dict[str, Any]]:
@@ -98,24 +126,35 @@ class GROBIDClient:
         if not self.is_available():
             return []
             
-        try:
-            with open(file_path, "rb") as fh:
-                files = {"input": fh}
-                response = requests.post(
-                    f"{self.base_url}/api/processReferences",
-                    files=files,
-                    timeout=self.timeout
-                )
-            
-            if response.status_code != 200:
+        for attempt in range(1, self.max_retries + 1):
+            try:
+                with open(file_path, "rb") as fh:
+                    files = {"input": fh}
+                    response = self._request(
+                        "POST",
+                        f"{self.base_url}/api/processReferences",
+                        files=files,
+                    )
+
+                if response.status_code != 200:
+                    if attempt < self.max_retries:
+                        time.sleep(min(float(attempt), 2.0))
+                        continue
+                    return []
+
+                # Parsing logic would go here
                 return []
-                
-            # Parsing logic would go here
-            return [] 
-            
-        except Exception as e:
-            logger.error(f"GROBID reference extraction failed: {e}")
-            return []
+            except Exception as e:
+                logger.error(
+                    "GROBID reference extraction failed (attempt %s/%s): %s",
+                    attempt,
+                    self.max_retries,
+                    e,
+                )
+                if attempt < self.max_retries:
+                    time.sleep(min(float(attempt), 2.0))
+                    continue
+                return []
 
     def extract_metadata(self, file_path: str) -> Dict[str, Any]:
         """

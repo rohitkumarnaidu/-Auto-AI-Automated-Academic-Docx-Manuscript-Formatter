@@ -19,9 +19,10 @@ except ImportError:
             return
 
     transformers_logging = _TransformersLoggingNoop()
-from app.config.settings import settings
+from app.config.settings import settings  # Backward-compatible import path for tests.
 from app.models import PipelineDocument as Document, Block, BlockType
 from app.pipeline.safety import safe_function
+from app.services.scibert_gate import should_enable_scibert
 from app.utils.singleton import get_or_create
 
 # Backward-compat alias for tests and older code paths that patch AutoModel.
@@ -135,7 +136,8 @@ class SemanticParser:
         Produce a list of SemanticBlock structures.
         Identifies boundaries and repairs fragmented headers semantically.
         """
-        if settings.USE_SCIBERT_CLASSIFICATION:
+        scibert_enabled = should_enable_scibert()
+        if scibert_enabled:
             self._load_model()
         semantic_blocks = []
         
@@ -149,7 +151,7 @@ class SemanticParser:
                 detected_lang = "en"  # Default to English on detection failure
         
         use_transformer = (
-            settings.USE_SCIBERT_CLASSIFICATION
+            scibert_enabled
             and detected_lang == "en"
             and self.model is not None
         )
@@ -258,7 +260,7 @@ class SemanticParser:
         heuristic classification. Callers should still guard for missing
         model availability if they require SciBERT specifically.
         """
-        if settings.USE_SCIBERT_CLASSIFICATION:
+        if should_enable_scibert():
             self._load_model()
         return self._predict_block_types_batch(texts)
 
@@ -295,7 +297,7 @@ class SemanticParser:
 
     def classify_block(self, text: str, use_transformer: bool = True) -> Dict[str, Any]:
         """Classify a single block using SciBERT or deterministic heuristics."""
-        if settings.USE_SCIBERT_CLASSIFICATION and use_transformer:
+        if should_enable_scibert() and use_transformer:
             return self._predict_block_type(text)
         return self._heuristic_classify(text)
 

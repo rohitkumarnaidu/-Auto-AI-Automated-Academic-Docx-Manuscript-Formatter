@@ -3,7 +3,7 @@ User Schemas — Pydantic models for the authenticated user object.
 
 Used by:
 - `get_current_user` dependency (JWT → User)
-- `/api/auth/me` response
+- `/api/v1/auth/me` response
 - All document endpoints that scope by user_id
 """
 
@@ -27,7 +27,7 @@ class UserBase(BaseModel):
 
 
 class User(UserBase):
-    """Full user record — returned from JWT decode and /api/auth/me."""
+    """Full user record — returned from JWT decode and /api/v1/auth/me."""
 
     id: str = Field(..., description="Supabase user UUID.")
     app_metadata: Optional[Dict[str, Any]] = Field(

@@ -37,9 +37,9 @@ class TierRateLimitMiddleware(BaseHTTPMiddleware):
             return True
         if "/status" in path:
             return True
-        if path.startswith("/api/templates") or path.startswith("/api/v1/templates"):
+        if path.startswith("/api/v1/templates"):
             return True
-        if path.startswith("/api/metrics/health") or path.startswith("/api/v1/health"):
+        if path.startswith("/api/v1/health"):
             return True
         return False
 
@@ -48,9 +48,7 @@ class TierRateLimitMiddleware(BaseHTTPMiddleware):
             return False
         path = request.url.path or ""
         return path in {
-            "/api/documents/upload",
             "/api/v1/documents/upload",
-            "/api/generate",
             "/api/v1/generator/sessions",
         }
 

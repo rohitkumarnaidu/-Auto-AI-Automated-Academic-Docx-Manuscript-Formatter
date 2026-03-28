@@ -1,4 +1,4 @@
-import { getAuthorizedHeaders, fetchWithRetry, parseResponseData } from './api.core';
+import { getAuthorizedHeaders, fetchWithRetry, parseResponseData, handleUnauthorizedSession } from './api.core';
 import { BASE_V1_URL, getV1, postV1, unwrapResponse } from './api.v1';
 
 export async function createSession(files, sessionType, template, config) {
@@ -23,6 +23,9 @@ export async function createSession(files, sessionType, template, config) {
     });
     
     if (!response.ok) {
+        if (response.status === 401) {
+            await handleUnauthorizedSession({ endpoint: '/generator/sessions' });
+        }
         let errorData;
         try {
             errorData = await response.json();

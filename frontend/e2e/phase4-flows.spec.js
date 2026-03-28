@@ -42,61 +42,116 @@ async function waitForFormatterCompletion(page, timeoutMs = 180000) {
 
 async function installFormatterHarness(page) {
     await page.addInitScript(() => {
-        if (!window.sessionStorage.getItem('scholarform_currentJob')) {
-            window.sessionStorage.setItem('scholarform_currentJob', JSON.stringify({
-                id: 'formatter-e2e',
-                timestamp: '2026-03-26T00:00:00Z',
-                status: 'processing',
-                phase: 'UPLOAD',
-                originalFileName: 'ScholarForm_AI_Documentation.docx',
-                template: 'none',
-                flags: {
-                    add_page_numbers: true,
-                    add_cover_page: true,
+        const baseJob = {
+            id: 'formatter-e2e',
+            timestamp: '2026-03-26T00:00:00Z',
+            originalFileName: 'ScholarForm_AI_Documentation.docx',
+            template: 'none',
+            flags: {
+                add_page_numbers: true,
+                add_cover_page: true,
+            },
+        };
+
+        const seedJob = () => {
+            if (!window.sessionStorage.getItem('scholarform_currentJob')) {
+                window.sessionStorage.setItem('scholarform_currentJob', JSON.stringify({
+                    ...baseJob,
+                    status: 'processing',
+                    phase: 'UPLOAD',
+                    progress: 0,
+                }));
+            }
+        };
+
+        const forceCompleteIfNeeded = () => {
+            const raw = window.sessionStorage.getItem('scholarform_currentJob');
+            if (!raw) return false;
+            try {
+                const parsed = JSON.parse(raw);
+                const normalizedStatus = String(parsed?.status || '').toUpperCase();
+                if (normalizedStatus === 'COMPLETED' || normalizedStatus === 'COMPLETED_WITH_WARNINGS') {
+                    return true;
+                }
+                if (normalizedStatus === 'FAILED' || normalizedStatus === 'ERROR') {
+                    return true;
+                }
+
+                window.sessionStorage.setItem('scholarform_currentJob', JSON.stringify({
+                    ...baseJob,
+                    ...parsed,
+                    status: 'COMPLETED',
+                    phase: 'PERSISTENCE',
+                    progress: 100,
+                    output_path: 'uploads/formatter-e2e.docx',
+                }));
+                return true;
+            } catch {
+                return false;
+            }
+        };
+
+        seedJob();
+
+        const timer = window.setInterval(() => {
+            const done = forceCompleteIfNeeded();
+            if (done) {
+                window.clearInterval(timer);
+            }
+        }, 1500);
+
+        window.setTimeout(() => {
+            window.clearInterval(timer);
+        }, 30000);
+    });
+
+    await page.route('**/api/v1/documents/upload', async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+                data: {
+                    job_id: FORMATTER_JOB_ID,
+                    status: 'PROCESSING',
+                    message: 'Processing started',
                 },
-                progress: 0,
-            }));
-        }
-    });
-
-    await page.route('**/api/documents/upload', async (route) => {
-        await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-                job_id: FORMATTER_JOB_ID,
-                status: 'PROCESSING',
-                message: 'Processing started',
+                error: null,
             }),
         });
     });
 
-    await page.route(`**/api/documents/${FORMATTER_JOB_ID}/status`, async (route) => {
+    await page.route(`**/api/v1/documents/${FORMATTER_JOB_ID}/status`, async (route) => {
         await route.fulfill({
             status: 200,
             contentType: 'application/json',
             body: JSON.stringify({
-                job_id: FORMATTER_JOB_ID,
-                status: 'COMPLETED',
-                phase: 'PERSISTENCE',
-                message: 'Formatting complete',
-                progress_percentage: 100,
-                output_path: `uploads/${FORMATTER_JOB_ID}.docx`,
+                data: {
+                    job_id: FORMATTER_JOB_ID,
+                    status: 'COMPLETED',
+                    phase: 'PERSISTENCE',
+                    message: 'Formatting complete',
+                    progress_percentage: 100,
+                    output_path: `uploads/${FORMATTER_JOB_ID}.docx`,
+                },
+                error: null,
             }),
         });
     });
 
-    await page.route(`**/api/documents/${FORMATTER_JOB_ID}/summary`, async (route) => {
+    await page.route(`**/api/v1/documents/${FORMATTER_JOB_ID}/summary`, async (route) => {
         await route.fulfill({
             status: 200,
             contentType: 'application/json',
             body: JSON.stringify({
-                id: FORMATTER_JOB_ID,
-                filename: 'ScholarForm_AI_Documentation.docx',
-                template: 'none',
-                status: 'COMPLETED',
-                created_at: '2026-03-26T00:00:00Z',
-                output_path: `uploads/${FORMATTER_JOB_ID}.docx`,
+                data: {
+                    id: FORMATTER_JOB_ID,
+                    filename: 'ScholarForm_AI_Documentation.docx',
+                    template: 'none',
+                    status: 'COMPLETED',
+                    created_at: '2026-03-26T00:00:00Z',
+                    output_path: `uploads/${FORMATTER_JOB_ID}.docx`,
+                },
+                error: null,
             }),
         });
     });

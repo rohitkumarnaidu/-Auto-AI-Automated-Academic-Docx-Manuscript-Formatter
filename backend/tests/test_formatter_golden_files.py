@@ -4,6 +4,8 @@ import json
 import re
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
+from xml.etree import ElementTree as ET
+from zipfile import ZipFile
 
 import yaml
 from docx import Document as WordDocument
@@ -12,9 +14,12 @@ from app.models import (
     Block,
     BlockType,
     DocumentMetadata,
+    Equation,
     PipelineDocument,
     Reference,
     ReferenceType,
+    Table,
+    TableCell,
     TemplateInfo,
 )
 from app.pipeline.formatting.formatter import Formatter
@@ -250,3 +255,105 @@ def test_formatter_golden_files(tmp_path: Path):
             "reference_count": golden["reference_count"],
         }
         assert actual == expected, sample_name
+
+
+def _build_rich_content_document() -> PipelineDocument:
+    document = PipelineDocument(
+        document_id="golden-rich-content",
+        original_filename="rich-content.md",
+        source_path="rich-content.md",
+        metadata=DocumentMetadata(
+            title="Rich Content Regression",
+            authors=["Ada Lovelace"],
+            affiliations=["Analytical Engine Institute"],
+        ),
+        template=TemplateInfo(template_name="ieee"),
+        formatting_options={"cover_page": False, "toc": False, "page_numbers": False},
+    )
+    document.blocks = [
+        Block(block_id="title-1", index=0, block_type=BlockType.TITLE, text="Rich Content Regression"),
+        Block(block_id="h1", index=100, block_type=BlockType.HEADING_1, text="Results", level=1),
+        Block(
+            block_id="body-1",
+            index=200,
+            block_type=BlockType.BODY,
+            text="Visit OpenAI for richer context",
+            metadata={
+                "hyperlinks": [{"text": "OpenAI", "url": "https://openai.com"}],
+                "footnote_refs": ["fn-1"],
+            },
+        ),
+        Block(
+            block_id="fn-1-block",
+            index=900,
+            block_type=BlockType.FOOTNOTE,
+            text="Footnote text survives the DOCX patching step.",
+            metadata={"footnote_id": "fn-1"},
+        ),
+    ]
+    document.equations = [
+        Equation(
+            equation_id="eq-1",
+            index=300,
+            block_id="body-1",
+            text="E = mc^2",
+            metadata={"block_index": 300},
+        )
+    ]
+    document.tables = [
+        Table(
+            table_id="tbl-1",
+            index=0,
+            block_index=400,
+            num_rows=2,
+            num_cols=2,
+            rows=[["Metric", "Value"], ["Accuracy", "0.98"]],
+            data=[["Metric", "Value"], ["Accuracy", "0.98"]],
+            cells=[
+                TableCell(row=0, col=0, text="Metric", is_header=True, bold=True),
+                TableCell(row=0, col=1, text="Value", is_header=True, bold=True),
+                TableCell(row=1, col=0, text="Accuracy"),
+                TableCell(row=1, col=1, text="0.98"),
+            ],
+            has_header=True,
+            has_header_row=True,
+            header_rows=1,
+            caption_text="Benchmark Summary",
+        )
+    ]
+    return document
+
+
+def _read_docx_part(output_path: Path, part_name: str) -> bytes:
+    with ZipFile(output_path) as archive:
+        return archive.read(part_name)
+
+
+def test_formatter_golden_rich_content_regression(tmp_path: Path):
+    document = _build_rich_content_document()
+    rendered = FORMATTER.format(document, template_name="ieee")
+    output_path = tmp_path / "rich-content.docx"
+    rendered.save(str(output_path))
+
+    rendered_doc = WordDocument(str(output_path))
+    full_text = "\n".join(paragraph.text for paragraph in rendered_doc.paragraphs if paragraph.text)
+
+    assert any("Benchmark Summary" in paragraph.text for paragraph in rendered_doc.paragraphs)
+    assert len(rendered_doc.tables) == 1
+    assert rendered_doc.tables[0].cell(0, 0).text == "Metric"
+    assert rendered_doc.tables[0].cell(1, 1).text == "0.98"
+    assert "Footnote text survives the DOCX patching step." not in full_text
+
+    document_xml = _read_docx_part(output_path, "word/document.xml").decode("utf-8")
+    relationships_xml = _read_docx_part(output_path, "word/_rels/document.xml.rels").decode("utf-8")
+    footnotes_xml = _read_docx_part(output_path, "word/footnotes.xml")
+
+    assert "w:hyperlink" in document_xml
+    assert "https://openai.com" in relationships_xml
+    assert "m:oMathPara" in document_xml
+    assert "E = mc^2" in document_xml
+
+    footnotes_root = ET.fromstring(footnotes_xml)
+    footnote_text = "".join(node.text or "" for node in footnotes_root.iter() if node.text)
+    assert "Footnote text survives the DOCX patching step." in footnote_text
+    assert "footnoteReference" in document_xml

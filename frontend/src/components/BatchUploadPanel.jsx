@@ -45,31 +45,44 @@ export default function BatchUploadPanel({ files, onFilesSelected, onRemove, onR
     };
 
     const StatusBadge = ({ status }) => {
-        switch (status) {
-            case 'done':
-                return <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-[10px] font-bold uppercase tracking-wider shrink-0">Done</span>;
-            case 'error':
-                return <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 text-[10px] font-bold uppercase tracking-wider shrink-0">Failed</span>;
-            case 'uploading':
-                return <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 text-[10px] font-bold uppercase tracking-wider shrink-0">Processing</span>;
-            default:
-                return <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wider shrink-0">Pending</span>;
-        }
+        const labels = { done: 'Completed', error: 'Failed', uploading: 'Processing', pending: 'Pending' };
+        return (
+            <span 
+                role="status" 
+                aria-label={`Status: ${labels[status] || 'Pending'}`}
+                className={`px-2 py-0.5 rounded-full ${
+                status === 'done' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                status === 'error' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                status === 'uploading' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+            } text-[10px] font-bold uppercase tracking-wider shrink-0`}>
+                {labels[status] || 'Pending'}
+            </span>
+        );
     };
 
     return (
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
             {/* Drop Zone */}
             <div
+                role="button"
+                tabIndex={disabled ? -1 : 0}
+                aria-label="Upload multiple files"
                 onDrop={handleDrop}
                 onDragOver={handleDragOver}
                 onClick={() => !disabled && inputRef.current?.click()}
-                className={`border-2 border-dashed rounded-xl m-4 p-8 text-center cursor-pointer transition-colors ${disabled
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        if (!disabled) inputRef.current?.click();
+                    }
+                }}
+                className={`border-2 border-dashed rounded-xl m-4 p-8 text-center cursor-pointer transition-colors focus:ring-2 focus:ring-primary focus:outline-none ${disabled
                     ? 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 opacity-50 cursor-not-allowed'
                     : 'border-slate-300 dark:border-slate-600 hover:border-primary dark:hover:border-primary bg-slate-50 dark:bg-slate-800/30'
                     }`}
             >
-                <span className="material-symbols-outlined text-4xl text-slate-400 dark:text-slate-500 mb-2">cloud_upload</span>
+                <span className="material-symbols-outlined text-4xl text-slate-400 dark:text-slate-500 mb-2" aria-hidden="true">cloud_upload</span>
                 <p className="text-slate-600 dark:text-slate-400 font-medium">
                     Drag & drop files here, or <span className="text-primary font-semibold">browse</span>
                 </p>

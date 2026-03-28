@@ -15,6 +15,7 @@ import os
 import time
 import hmac
 import hashlib
+import uuid
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse, parse_qsl, urlencode, urlunparse
@@ -98,19 +99,44 @@ class DocumentService:
                 time.sleep(delay_seconds)
 
     @staticmethod
+    def _is_valid_uuid(value: str) -> bool:
+        try:
+            uuid.UUID(str(value))
+            return True
+        except (TypeError, ValueError):
+            return False
+
+    @staticmethod
+    def _should_query_document_tables(doc_id: str, operation_name: str) -> bool:
+        if DocumentService._is_valid_uuid(doc_id):
+            return True
+        logger.info(
+            "%s skipped for non-UUID document id: %s",
+            operation_name,
+            doc_id,
+            extra=log_extra(job_id=doc_id),
+        )
+        return False
+
+    @staticmethod
     def generate_signed_download_url(
         *,
         file_url: str,
         file_path: str,
         secret: str,
         expires_in_seconds: int = 3600,
+        download_format: str = "docx",
     ) -> Dict[str, Any]:
         if not secret:
             raise ValueError("SIGNED_URL_SECRET is required")
         expires = int(time.time()) + int(expires_in_seconds)
         signature = hmac.new(
             secret.encode("utf-8"),
-            f"{file_path}{expires}".encode("utf-8"),
+            DocumentService._build_signed_download_scope(
+                file_path=file_path,
+                download_format=download_format,
+                expires=expires,
+            ).encode("utf-8"),
             hashlib.sha256,
         ).hexdigest()
 
@@ -127,6 +153,7 @@ class DocumentService:
         token: str,
         expires: int,
         secret: str,
+        download_format: str = "docx",
     ) -> bool:
         if not secret or not token or not expires:
             return False
@@ -138,10 +165,24 @@ class DocumentService:
             return False
         expected = hmac.new(
             secret.encode("utf-8"),
-            f"{file_path}{expires_int}".encode("utf-8"),
+            DocumentService._build_signed_download_scope(
+                file_path=file_path,
+                download_format=download_format,
+                expires=expires_int,
+            ).encode("utf-8"),
             hashlib.sha256,
         ).hexdigest()
         return hmac.compare_digest(expected, token)
+
+    @staticmethod
+    def _build_signed_download_scope(
+        *,
+        file_path: str,
+        download_format: str,
+        expires: int,
+    ) -> str:
+        normalized_format = str(download_format or "docx").strip().lower()
+        return f"{file_path}|{normalized_format}|{int(expires)}"
 
     # ── Documents ──────────────────────────────────────────────────────────────
 
@@ -152,9 +193,11 @@ class DocumentService:
         Optionally scope to a specific user_id for ownership checks.
         Returns None if not found or on error.
         """
-        sb = get_supabase_client()
         doc_id = str(doc_id)
         if user_id: user_id = str(user_id)
+        if not DocumentService._should_query_document_tables(doc_id, "get_document"):
+            return None
+        sb = get_supabase_client()
         if sb is None:
             logger.error("get_document: Supabase client not available.", extra=log_extra(job_id=doc_id))
             return None
@@ -513,8 +556,10 @@ class DocumentService:
         Fetch the processing result for a document.
         Returns None if not found or on error.
         """
-        sb = get_supabase_client()
         doc_id = str(doc_id)
+        if not DocumentService._should_query_document_tables(doc_id, "get_document_result"):
+            return None
+        sb = get_supabase_client()
         if sb is None:
             return None
         try:
@@ -579,8 +624,10 @@ class DocumentService:
         Fetch all processing phase statuses for a document.
         Returns empty list on error.
         """
-        sb = get_supabase_client()
         doc_id = str(doc_id)
+        if not DocumentService._should_query_document_tables(doc_id, "get_processing_statuses"):
+            return []
+        sb = get_supabase_client()
         if sb is None:
             return []
         try:

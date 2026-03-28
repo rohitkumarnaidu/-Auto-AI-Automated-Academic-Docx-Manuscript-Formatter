@@ -94,23 +94,33 @@ export default function NotificationBell() {
 
     return (
         <div className="relative" ref={dropdownRef}>
+            {/* B-RR-05: improved aria-label includes unread count, added focus ring */}
             <button
                 onClick={() => setIsOpen((open) => !open)}
-                className="relative h-10 w-10 inline-flex items-center justify-center rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/10 surface-ladder-hover-10 transition-colors"
-                aria-label="Notifications"
+                className="relative h-10 w-10 inline-flex items-center justify-center rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/10 surface-ladder-hover-10 transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                aria-label={unreadCount > 0 ? `Notifications – ${unreadCount} unread` : 'Notifications'}
                 aria-expanded={isOpen}
                 aria-haspopup="menu"
             >
                 <span className="material-symbols-outlined">notifications</span>
                 {unreadCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
+                    /* B-RR-05: role="status" announces the count to screen readers */
+                    <span
+                        role="status"
+                        aria-label={`${unreadCount} unread notification${unreadCount > 1 ? 's' : ''}`}
+                        className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse"
+                    >
                         {unreadCount > 9 ? '9+' : unreadCount}
                     </span>
                 )}
             </button>
 
             {isOpen && (
-                <div className="absolute right-0 top-full mt-2 w-80 bg-white surface-ladder-06 rounded-xl border border-slate-200 dark:border-white/10 surface-ladder-border-10 shadow-2xl z-50 overflow-hidden" role="menu" aria-label="Notifications menu">
+                <div
+                    className="absolute right-0 top-full mt-2 w-80 bg-white surface-ladder-06 rounded-xl border border-slate-200 dark:border-white/10 surface-ladder-border-10 shadow-2xl z-50 overflow-hidden"
+                    role="menu"
+                    aria-label="Notifications menu"
+                >
                     <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/10 surface-ladder-border-10">
                         <p className="text-sm font-semibold text-slate-900 dark:text-white">Notifications</p>
                         {unreadCount > 0 && (
@@ -126,10 +136,18 @@ export default function NotificationBell() {
                             <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">No notifications</p>
                         </div>
                     ) : (
-                        <ul className="max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-white/10">
+                        /* B-RR-05: aria-live="polite" announces newly added items to screen readers */
+                        <ul
+                            className="max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-white/10"
+                            role="list"
+                            aria-label="Recent notifications"
+                            aria-live="polite"
+                            aria-atomic="false"
+                        >
                             {recentItems.map((n) => (
                                 <li
                                     key={n.id}
+                                    role="menuitem"
                                     className={`px-4 py-3 hover:bg-slate-50 dark:hover:bg-white/10 surface-ladder-hover-10 transition-colors ${!n.read ? 'bg-blue-50/50 dark:bg-white/5 surface-ladder-06' : ''}`}
                                 >
                                     <p className={`text-sm ${n.read ? 'text-slate-500' : 'text-slate-900 dark:text-blue-300 font-medium'} line-clamp-2`}>
@@ -144,7 +162,8 @@ export default function NotificationBell() {
                     <div className="border-t border-slate-200 dark:border-white/10 surface-ladder-border-10 px-4 py-2">
                         <button
                             onClick={() => { setIsOpen(false); router.push('/notifications'); }}
-                            className="w-full text-center text-sm text-primary font-medium py-1 hover:underline"
+                            className="w-full text-center text-sm text-primary font-medium py-1 hover:underline focus:outline-none focus:ring-2 focus:ring-primary rounded"
+                            aria-label="View all notifications"
                         >
                             View all notifications
                         </button>

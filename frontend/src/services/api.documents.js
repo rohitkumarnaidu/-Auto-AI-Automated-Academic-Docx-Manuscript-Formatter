@@ -8,7 +8,12 @@ import {
     getFriendlyErrorMessage,
     normalizeExportFormat,
     sanitizeText,
+    parseApiResponse,
 } from './api.core';
+import {
+    JobStatusResponseSchema,
+    DocumentListResponseSchema,
+} from '../lib/schemas';
 
 const SUPPORTED_EXPORT_FORMATS = ['docx', 'pdf', 'tex'];
 const DEFAULT_DEBOUNCE_MS = 250;
@@ -109,6 +114,13 @@ const parseResponseJson = (responseText) => {
     }
 };
 
+const unwrapV1Payload = (payload) => {
+    if (payload && typeof payload === 'object' && 'data' in payload) {
+        return payload.data;
+    }
+    return payload;
+};
+
 const createAbortError = (message) => {
     if (typeof DOMException === 'function') {
         return new DOMException(message, 'AbortError');
@@ -121,8 +133,9 @@ const createAbortError = (message) => {
 export const getDocuments = async (params = {}) => {
     const normalizedParams = normalizeDocumentsParams(params);
     const query = new URLSearchParams(normalizedParams).toString();
-    const endpoint = query ? `/api/documents?${query}` : '/api/documents';
-    return fetchWithAuth(endpoint);
+    const endpoint = query ? `/api/v1/documents?${query}` : '/api/v1/documents';
+    const data = unwrapV1Payload(await fetchWithAuth(endpoint));
+    return parseApiResponse(DocumentListResponseSchema, data, { fallback: { documents: [], total: 0 } });
 };
 
 export const uploadDocument = async (file, template, options = {}, signal = null) => {
@@ -142,7 +155,7 @@ export const uploadDocument = async (file, template, options = {}, signal = null
     };
     if (signal) fetchOptions.signal = signal;
 
-    return fetchWithAuth('/api/documents/upload', fetchOptions);
+    return unwrapV1Payload(await fetchWithAuth('/api/v1/documents/upload', fetchOptions));
 };
 
 export const uploadDocumentWithProgress = async (
@@ -166,7 +179,7 @@ export const uploadDocumentWithProgress = async (
 
     return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.open('POST', `${API_BASE_URL}/api/documents/upload`);
+        xhr.open('POST', `${API_BASE_URL}/api/v1/documents/upload`);
         xhr.withCredentials = true;
 
         Object.entries(headers).forEach(([header, value]) => {
@@ -194,7 +207,7 @@ export const uploadDocumentWithProgress = async (
         xhr.onload = () => {
             const responsePayload = parseResponseJson(xhr.responseText);
             if (xhr.status >= 200 && xhr.status < 300) {
-                resolve(responsePayload);
+                resolve(unwrapV1Payload(responsePayload));
                 return;
             }
 
@@ -253,7 +266,7 @@ export const uploadChunked = async (file, options = {}) => {
         formData.append('file', chunkBlob, `${file.name}.part${chunkIndex}`);
 
         const headers = await getAuthorizedHeaders();
-        const response = await fetchWithRetry(`${API_BASE_URL}/api/documents/upload/chunked`, {
+        const response = await fetchWithRetry(`${API_BASE_URL}/api/v1/documents/upload/chunked`, {
             method: 'POST',
             headers,
             body: formData,
@@ -262,13 +275,14 @@ export const uploadChunked = async (file, options = {}) => {
         });
 
         const responsePayload = await response.json().catch(() => ({}));
-        finalChunkResponse = responsePayload;
+        const normalizedResponsePayload = unwrapV1Payload(responsePayload);
+        finalChunkResponse = normalizedResponsePayload;
 
         if (!response.ok) {
             throw new Error(
                 getFriendlyErrorMessage({
                     status: response.status,
-                    errorData: responsePayload,
+                    errorData: normalizedResponsePayload,
                     fallbackMessage: `Chunk upload failed (${response.status})`,
                 })
             );
@@ -283,7 +297,7 @@ export const uploadChunked = async (file, options = {}) => {
                 loaded,
                 total: file.size,
                 percent,
-                response: responsePayload,
+                response: normalizedResponsePayload,
             });
         }
     }
@@ -306,37 +320,42 @@ export const getJobStatus = async (jobId, options = {}) => {
         ...requestOptions
     } = options;
 
-    return fetchWithAuth(`/api/documents/${encodeURIComponent(jobId)}/status`, {
+    const data = unwrapV1Payload(await fetchWithAuth(`/api/v1/documents/${encodeURIComponent(jobId)}/status`, {
         ...requestOptions,
         suppressConsoleError,
         suppressMonitoring,
-    });
+    }));
+    // Validate and normalise the status payload; use the raw shape as fallback to avoid
+    // breaking the processing page if the server sends unexpected fields.
+    return parseApiResponse(JobStatusResponseSchema, data, { fallback: data });
 };
 
-export const getPreview = async (jobId, options = {}) => (
-    fetchWithAuthDebounced(
-        `/api/documents/${encodeURIComponent(jobId)}/preview`,
+export const getPreview = async (jobId, options = {}) => {
+    const data = await fetchWithAuthDebounced(
+        `/api/v1/documents/${encodeURIComponent(jobId)}/preview`,
         {},
         options.debounceMs ?? DEFAULT_DEBOUNCE_MS
-    )
-);
+    );
+    return unwrapV1Payload(data);
+};
 
-export const getComparison = async (jobId, options = {}) => (
-    fetchWithAuthDebounced(
-        `/api/documents/${encodeURIComponent(jobId)}/compare`,
+export const getComparison = async (jobId, options = {}) => {
+    const data = await fetchWithAuthDebounced(
+        `/api/v1/documents/${encodeURIComponent(jobId)}/compare`,
         {},
         options.debounceMs ?? DEFAULT_DEBOUNCE_MS
-    )
-);
+    );
+    return unwrapV1Payload(data);
+};
 
 export const submitEdit = async (jobId, editedData) => (
-    fetchWithAuth(`/api/documents/${encodeURIComponent(jobId)}/edit`, {
+    fetchWithAuth(`/api/v1/documents/${encodeURIComponent(jobId)}/edit`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({ edited_structured_data: editedData }),
-    })
+    }).then(unwrapV1Payload)
 );
 
 export const getExportFormats = () => [...SUPPORTED_EXPORT_FORMATS];
@@ -347,7 +366,7 @@ export const downloadFile = async (jobId, format = 'docx') => {
     try {
         const headers = await getAuthorizedHeaders();
         let response = await fetchWithRetry(
-            `${API_BASE_URL}/api/documents/${encodeURIComponent(jobId)}/download?format=${normalizedFormat}`,
+            `${API_BASE_URL}/api/v1/documents/${encodeURIComponent(jobId)}/download?format=${normalizedFormat}`,
             { headers, method: 'GET', credentials: 'include' }
         );
 
@@ -365,7 +384,7 @@ export const downloadFile = async (jobId, format = 'docx') => {
         const responseContentType = String(response.headers?.get?.('content-type') || '').toLowerCase();
         if (responseContentType.includes('application/json')) {
             const signedPayload = await response.json().catch(() => null);
-            const signedUrl = signedPayload?.url;
+            const signedUrl = unwrapV1Payload(signedPayload)?.url;
             if (!signedUrl) {
                 throw new Error('Download link was not returned by the server.');
             }
@@ -409,13 +428,13 @@ export const downloadExport = async (jobId, format = 'docx') => (
 );
 
 export const deleteDocument = async (jobId) => (
-    fetchWithAuth(`/api/documents/${encodeURIComponent(jobId)}`, {
+    fetchWithAuth(`/api/v1/documents/${encodeURIComponent(jobId)}`, {
         method: 'DELETE',
-    })
+    }).then(unwrapV1Payload)
 );
 
 export const getJobSummary = async (jobId) => (
-    fetchWithAuth(`/api/documents/${encodeURIComponent(jobId)}/summary`)
+    fetchWithAuth(`/api/v1/documents/${encodeURIComponent(jobId)}/summary`).then(unwrapV1Payload)
 );
 
 export { CHUNK_UPLOAD_THRESHOLD_BYTES };

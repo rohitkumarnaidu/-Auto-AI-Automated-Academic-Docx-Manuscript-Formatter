@@ -1,4 +1,12 @@
-import { fetchWithRetry, getAuthorizedHeaders, getFriendlyErrorMessage, parseResponseData } from './api.core';
+import {
+    fetchWithRetry,
+    getAuthorizedHeaders,
+    getFriendlyErrorMessage,
+    parseResponseData,
+    parseApiResponse,
+    handleUnauthorizedSession,
+} from './api.core';
+import { GeneratorSessionsResponseSchema } from '../lib/schemas';
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 export const BASE_V1_URL = `${API_BASE_URL}/api/v1`;
@@ -113,6 +121,9 @@ const fetchV1 = async (endpoint, options = {}) => {
         }
 
         if (!response.ok) {
+            if (response.status === 401) {
+                await handleUnauthorizedSession({ endpoint });
+            }
             throw new Error(
                 getFriendlyErrorMessage({
                     status: response.status,
@@ -161,3 +172,26 @@ export const getV1 = (path, options = {}) => fetchV1(path, { ...options, method:
 export const postV1 = (path, body, options = {}) => fetchV1(path, { ...options, method: 'POST', body: typeof body === 'string' ? body : JSON.stringify(body), headers: { ...options.headers, 'Content-Type': 'application/json' }});
 export const putV1 = (path, body, options = {}) => fetchV1(path, { ...options, method: 'PUT', body: typeof body === 'string' ? body : JSON.stringify(body), headers: { ...options.headers, 'Content-Type': 'application/json' }});
 export const deleteV1 = (path, options = {}) => fetchV1(path, { ...options, method: 'DELETE' });
+
+// ── Generator session helpers ────────────────────────────────
+/**
+ * Fetch the current user's generator session list.
+ * Replaces previous naked fetch in SessionHistory.jsx.
+ */
+export const getGeneratorSessions = async (options = {}) => {
+    const envelope = await getV1('/generator/sessions', {
+        suppressConsoleError: true,
+        ...options,
+    });
+    const raw = unwrapResponse(envelope);
+    return parseApiResponse(GeneratorSessionsResponseSchema, raw, { fallback: { sessions: [] } });
+};
+
+/**
+ * Delete a generator session by ID.
+ * Replaces previous naked fetch in SessionHistory.jsx.
+ */
+export const deleteGeneratorSession = async (sessionId) => {
+    const envelope = await deleteV1(`/generator/sessions/${encodeURIComponent(sessionId)}`);
+    return unwrapResponse(envelope);
+};

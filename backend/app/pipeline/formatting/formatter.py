@@ -14,6 +14,7 @@ from xml.etree import ElementTree as ET
 from zipfile import ZIP_DEFLATED, ZipFile
 from typing import Optional, Any
 from docx import Document as WordDocument
+from jinja2.exceptions import TemplateError
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.shared import Inches, Pt
 from io import BytesIO
@@ -101,7 +102,6 @@ class Formatter:
         use_template_renderer = (
             renderer_mode != "legacy"
             and template_key != "none"
-            and self.template_renderer.has_renderable_template(template_name)
         )
             
         # 1. Apply rules to model before rendering
@@ -123,7 +123,7 @@ class Formatter:
                 )
                 self._install_post_save_hook(rendered, footnote_lookup)
                 return rendered
-            except Exception as exc:
+            except TemplateError as exc:
                 logger.warning(
                     "Falling back to python-docx renderer for template '%s'. Error: %s",
                     template_name, exc

@@ -69,11 +69,21 @@ export default function FileUpload({ onFileSelect }) {
 
     return (
         <div
-            className={`flex flex-col items-center gap-6 rounded-xl border-2 border-dashed px-6 py-12 transition-colors bg-slate-50/50 dark:bg-slate-800/50 ${dragActive ? 'border-primary bg-blue-50 dark:bg-blue-900/10' : 'border-slate-300 dark:border-slate-700 hover:border-primary'}`}
+            role="button"
+            tabIndex="0"
+            aria-label="Upload manuscript"
+            className={`flex flex-col items-center gap-6 rounded-xl border-2 border-dashed px-6 py-12 transition-colors bg-slate-50/50 dark:bg-slate-800/50 focus:ring-2 focus:ring-primary focus:outline-none ${dragActive ? 'border-primary bg-blue-50 dark:bg-blue-900/10' : 'border-slate-300 dark:border-slate-700 hover:border-primary'}`}
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}
             onDragOver={handleDrag}
             onDrop={handleDrop}
+            onClick={onButtonClick}
+            onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onButtonClick();
+                }
+            }}
         >
             <input
                 ref={fileInputRef}
@@ -84,7 +94,7 @@ export default function FileUpload({ onFileSelect }) {
             />
             <div className="flex flex-col items-center gap-4">
                 <div className={`w-16 h-16 rounded-full flex items-center justify-center text-primary ${fileName ? 'bg-green-100 text-green-600' : 'bg-primary/10'}`}>
-                    <span className="material-symbols-outlined text-4xl">
+                    <span className="material-symbols-outlined text-4xl" aria-hidden="true">
                         {fileName ? 'check_circle' : 'cloud_upload'}
                     </span>
                 </div>

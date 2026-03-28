@@ -15,7 +15,11 @@ const HEADER_STYLE = {
 };
 
 const Logo = memo(({ href }) => (
-    <Link href={href} className="flex items-center gap-2 group active:scale-95 transition-all text-decoration-none">
+    <Link 
+        href={href} 
+        aria-label="ScholarForm AI Home"
+        className="flex items-center gap-2 group active:scale-95 focus:ring-2 focus:ring-primary focus:outline-none rounded-lg transition-all text-decoration-none"
+    >
         <div className="flex items-center justify-center pointer-events-none">
             <span className="material-symbols-outlined text-[30px] sm:text-[34px] text-blue-700 dark:text-blue-400">auto_stories</span>
         </div>

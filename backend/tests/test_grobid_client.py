@@ -78,30 +78,31 @@ class TestGROBIDClient:
     def test_initialization(self, client):
         """Test client initialization."""
         assert client.base_url == "http://localhost:8070"
-        assert client.timeout == 60
+        assert client.timeout == 30
     
     def test_base_url_trailing_slash(self):
         """Test base URL normalization."""
         client = GROBIDClient(base_url="http://localhost:8070/")
         assert client.base_url == "http://localhost:8070"
     
-    @patch('requests.get')
-    def test_is_available_success(self, mock_get, client):
+    @patch('requests.request')
+    def test_is_available_success(self, mock_request, client):
         """Test service availability check - success."""
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_get.return_value = mock_response
+        mock_request.return_value = mock_response
         
         assert client.is_available() is True
-        mock_get.assert_called_once_with(
+        mock_request.assert_called_once_with(
+            "GET",
             "http://localhost:8070/api/isalive",
-            timeout=5
+            timeout=(2.0, 3.0),
         )
     
-    @patch('requests.get')
-    def test_is_available_failure(self, mock_get, client):
+    @patch('requests.request')
+    def test_is_available_failure(self, mock_request, client):
         """Test service availability check - failure."""
-        mock_get.side_effect = requests.exceptions.ConnectionError("Connection refused")
+        mock_request.side_effect = requests.exceptions.ConnectionError("Connection refused")
         
         assert client.is_available() is False
     

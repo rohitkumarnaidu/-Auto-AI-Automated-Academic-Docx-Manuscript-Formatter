@@ -51,7 +51,7 @@ function ConnectionDot({ isConnected, isReconnecting = false, reconnectAttempt =
 }
 
 // ── AI Sidebar ─────────────────────────────────────────────────────────────
-function AiSidebar({ isOpen, onToggle, sessionId, templateId, editorContentRef }) {
+function AiSidebar({ isOpen, onToggle, sessionId, templateId, editorContentRef, isMobile }) {
     const [suggestions, setSuggestions] = useState('');
     const [isStreaming, setIsStreaming] = useState(false);
     const [streamError, setStreamError] = useState(null);
@@ -118,12 +118,12 @@ function AiSidebar({ isOpen, onToggle, sessionId, templateId, editorContentRef }
                 <motion.aside
                     key="ai-sidebar"
                     initial={{ width: 0, opacity: 0 }}
-                    animate={{ width: 320, opacity: 1 }}
+                    animate={{ width: isMobile ? '100%' : 320, opacity: 1 }}
                     exit={{ width: 0, opacity: 0 }}
                     transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                    className="flex flex-col shrink-0 overflow-hidden border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 h-full"
+                    className="flex flex-col shrink-0 overflow-hidden border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 h-full w-full sm:w-80"
                 >
-                    <div className="w-80 flex flex-col h-full">
+                    <div className={`${isMobile ? 'w-full' : 'w-80'} flex flex-col h-full`}>
                         {/* Header */}
                         <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-200 dark:border-slate-800">
                             <div className="flex items-center gap-2">
@@ -233,7 +233,19 @@ export default function LiveFormatterPage() {
     }, []);
 
     // AI sidebar
+    const [isMobile, setIsMobile] = useState(false);
     const [aiOpen, setAiOpen] = useState(true);
+
+    useEffect(() => {
+        const checkMobile = () => {
+            const mobile = window.innerWidth < 640;
+            setIsMobile(mobile);
+            if (mobile) setAiOpen(false);
+        };
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
 
     // Export state
     const [isExporting, setIsExporting] = useState(false);
@@ -370,6 +382,7 @@ export default function LiveFormatterPage() {
                         flex items-center gap-1.5 px-3 py-1.5 rounded-lg
                         bg-primary text-white text-xs font-bold
                         hover:bg-primary-hover hover:-translate-y-0.5
+                        focus:outline-none focus:ring-2 focus:ring-primary/40
                         active:translate-y-0
                         shadow-md shadow-primary/20
                         disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none
@@ -397,6 +410,7 @@ export default function LiveFormatterPage() {
                         text-xs font-bold
                         hover:bg-slate-50 dark:hover:bg-slate-700
                         hover:-translate-y-0.5 active:translate-y-0
+                        focus:outline-none focus:ring-2 focus:ring-primary/40
                         disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none
                         transition-all duration-150
                     "
@@ -418,6 +432,7 @@ export default function LiveFormatterPage() {
                         text-xs font-bold
                         hover:bg-slate-50 dark:hover:bg-slate-700
                         hover:-translate-y-0.5 active:translate-y-0
+                        focus:outline-none focus:ring-2 focus:ring-primary/40
                         disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none
                         transition-all duration-150
                     "
@@ -431,8 +446,11 @@ export default function LiveFormatterPage() {
                     id="ai-sidebar-toggle"
                     onClick={() => setAiOpen((o) => !o)}
                     title={aiOpen ? 'Collapse AI sidebar' : 'Open AI sidebar'}
+                    aria-expanded={aiOpen}
+                    aria-controls="ai-sidebar"
                     className={`
                         flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all duration-150
+                        focus:outline-none focus:ring-2 focus:ring-violet-400/40
                         ${aiOpen
                             ? 'bg-violet-100 dark:bg-violet-900/20 text-violet-700 dark:text-violet-400 border border-violet-200 dark:border-violet-900/40'
                             : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:border-violet-300 dark:hover:border-violet-700'
@@ -445,7 +463,7 @@ export default function LiveFormatterPage() {
             </div>
 
             {/* ── Main body: SplitEditor + AI sidebar ─────────────────── */}
-            <div className="flex flex-1 min-h-0 overflow-hidden">
+            <div className="flex flex-col sm:flex-row flex-1 min-h-0 overflow-hidden">
                 {/* Split editor takes remaining width */}
                 <div className="flex-1 min-w-0 min-h-0 overflow-hidden">
                     <SplitEditor
@@ -464,6 +482,7 @@ export default function LiveFormatterPage() {
                     sessionId={sessionId}
                     templateId={templateId}
                     editorContentRef={editorContentRef}
+                    isMobile={isMobile}
                 />
             </div>
 

@@ -35,7 +35,7 @@ from app.pipeline.contracts.loader import ContractLoader
 from app.services.quality_score_service import compute_quality_score
 from app.utils.serialization import build_structured_data, safe_model_dump
 from app.utils.singleton import resolve_optional_callable
-# from app.routers.stream import emit_event  # Moved to local scope inside _update_status
+# from app.routers.v1.stream import emit_event  # Moved to local scope inside _update_status
 from app.pipeline.equations.standardizer import get_equation_standardizer
 
 # Phase 2: AI Intelligence Stack
@@ -89,6 +89,7 @@ class PipelineOrchestrator:
         self.contracts_dir = os.path.join(contracts_base, "pipeline", "contracts")
         self.contract_loader = ContractLoader(contracts_dir=self.contracts_dir)
         self.ref_normalizer = ReferenceFormatterEngine(self.contract_loader)
+        self._stage_start_times: Dict[tuple[str, str], float] = {}
         
         # Week 2: Initialize GROBID and Docling clients
         self.grobid_client = GROBIDClient()
@@ -104,10 +105,32 @@ class PipelineOrchestrator:
                 f"Pipeline Stage Error: '{stage_name}' ({type(stage_instance).__name__}) "
                 f"does not implement required method '{method_name}'."
             )
+
+    def _record_stage_transition(self, document_id: str, phase: str, status: str) -> None:
+        stage_key = (document_id, str(phase or "").upper())
+        normalized_status = str(status or "").upper()
+        if normalized_status == "PROCESSING":
+            self._stage_start_times.setdefault(stage_key, time.perf_counter())
+            return
+
+        if normalized_status not in {"COMPLETED", "FAILED"}:
+            return
+
+        started_at = self._stage_start_times.pop(stage_key, None)
+        if started_at is None:
+            return
+
+        try:
+            from app.middleware.prometheus_metrics import MetricsManager
+
+            MetricsManager.record_pipeline_stage_duration(stage_key[1].lower(), time.perf_counter() - started_at)
+        except Exception:
+            pass
         
     def _update_status(self, document_id, phase, status, message=None, progress: Optional[int] = None):
         """Update processing status in Supabase DB."""
         document_id = str(document_id)
+        self._record_stage_transition(document_id, phase, status)
         sb = get_supabase_client()
         if not sb:
             logger.warning("Supabase client unavailable for status update: %s -> %s", phase, status)
@@ -150,7 +173,7 @@ class PipelineOrchestrator:
                         time.sleep(sleep_for)
 
             # Phase 5: Redis Pub/Sub for SSE
-            from app.routers.stream import emit_event
+            from app.routers.v1.stream import emit_event
             # 1. Update/Upsert ProcessingStatus
             # Match is safest for upsert logic
             data = {
