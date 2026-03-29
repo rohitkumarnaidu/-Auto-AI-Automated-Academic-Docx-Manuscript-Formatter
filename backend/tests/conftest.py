@@ -7,7 +7,9 @@ import os
 import socket
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 import pytest
+import requests
 from unittest.mock import AsyncMock, MagicMock, patch
 
 
@@ -28,12 +30,39 @@ def _service_reachable(host: str, port: int, timeout: float = 0.5) -> bool:
         return False
 
 
+def _http_service_reachable(url: str, timeout: float = 2.5) -> bool:
+    try:
+        response = requests.get(url, timeout=timeout)
+        return response.status_code == 200
+    except requests.RequestException:
+        return False
+
+
 def _integration_service_status() -> list[str]:
-    service_matrix = [
-        ("Redis", os.getenv("REDIS_HOST", "127.0.0.1"), int(os.getenv("REDIS_PORT", "6379"))),
-        ("GROBID", os.getenv("GROBID_HOST", "127.0.0.1"), int(os.getenv("GROBID_PORT", "8070"))),
-    ]
-    return [name for name, host, port in service_matrix if not _service_reachable(host, port)]
+    missing: list[str] = []
+    grobid_host = os.getenv("GROBID_HOST")
+    grobid_port = os.getenv("GROBID_PORT")
+    grobid_url = os.getenv("GROBID_URL") or os.getenv("GROBID_BASE_URL")
+    if not grobid_host:
+        if grobid_url:
+            parsed = urlparse(grobid_url if "://" in grobid_url else f"http://{grobid_url}")
+            if parsed.hostname:
+                grobid_host = parsed.hostname
+                grobid_port = str(parsed.port or (443 if parsed.scheme == "https" else 80))
+
+    redis_host = os.getenv("REDIS_HOST", "127.0.0.1")
+    redis_port = int(os.getenv("REDIS_PORT", "6379"))
+    if not _service_reachable(redis_host, redis_port):
+        missing.append("Redis")
+
+    if grobid_url:
+        health_url = f"{grobid_url.rstrip('/')}/api/isalive"
+        if not _http_service_reachable(health_url):
+            missing.append("GROBID")
+    elif not _service_reachable(grobid_host or "127.0.0.1", int(grobid_port or "8070")):
+        missing.append("GROBID")
+
+    return missing
 
 
 @pytest.fixture(autouse=True)

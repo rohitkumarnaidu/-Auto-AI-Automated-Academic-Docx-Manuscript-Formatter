@@ -15,6 +15,8 @@ that can extract 68+ metadata labels including:
 import logging
 import time
 import requests
+from requests import RequestException
+from urllib.parse import urlparse
 from typing import Dict, Any, List, Optional
 from pathlib import Path
 import xml.etree.ElementTree as ET
@@ -34,6 +36,7 @@ class GROBIDClient:
     
     # TEI namespace for XML parsing
     TEI_NS = {"tei": "http://www.tei-c.org/ns/1.0"}
+    TRANSIENT_HTTP_STATUSES = {408, 425, 429, 500, 502, 503, 504, 520, 522, 524}
     
     def __init__(self, base_url: str = "http://localhost:8070"):
         """
@@ -43,21 +46,33 @@ class GROBIDClient:
             base_url: GROBID service URL (default: http://localhost:8070)
         """
         self.base_url = base_url.rstrip("/")
+        parsed_base = urlparse(self.base_url if "://" in self.base_url else f"http://{self.base_url}")
+        hostname = (parsed_base.hostname or "").lower()
+        self._remote_hosted = hostname not in {"localhost", "127.0.0.1", "0.0.0.0"}
         configured_timeout = int(getattr(settings, "GROBID_TIMEOUT", 15))
-        self.timeout = max(3, min(configured_timeout, 30))
+        # Hosted endpoints (for example HF Spaces) can have cold starts and slower responses.
+        timeout_ceiling = 90 if self._remote_hosted else 30
+        self.timeout = max(3, min(configured_timeout, timeout_ceiling))
         self.max_retries = max(1, int(getattr(settings, "GROBID_MAX_RETRIES", 3)))
         self.breaker = None
         if bool(getattr(settings, "EXTERNAL_CIRCUIT_BREAKER_ENABLED", True)) and pybreaker is not None:
+            fail_max = max(1, int(getattr(settings, "EXTERNAL_CIRCUIT_BREAKER_FAILURE_THRESHOLD", 3)))
+            reset_timeout = max(5, int(getattr(settings, "EXTERNAL_CIRCUIT_BREAKER_RESET_SECONDS", 60)))
+            if self._remote_hosted:
+                # Remote managed services are bursty; avoid tripping too aggressively.
+                fail_max = max(fail_max, 6)
+                reset_timeout = min(reset_timeout, 30)
             self.breaker = pybreaker.CircuitBreaker(
-                fail_max=max(1, int(getattr(settings, "EXTERNAL_CIRCUIT_BREAKER_FAILURE_THRESHOLD", 3))),
-                reset_timeout=max(5, int(getattr(settings, "EXTERNAL_CIRCUIT_BREAKER_RESET_SECONDS", 60))),
+                fail_max=fail_max,
+                reset_timeout=reset_timeout,
                 name="grobid",
             )
 
     def _request(self, method: str, url: str, **kwargs):
         if "timeout" not in kwargs:
             # Split connect/read to fail fast on bad network while allowing short response processing.
-            kwargs["timeout"] = (3.0, float(self.timeout))
+            connect_timeout = 5.0 if self._remote_hosted else 3.0
+            kwargs["timeout"] = (connect_timeout, float(self.timeout))
 
         if self.breaker is None:
             return requests.request(method, url, **kwargs)
@@ -66,7 +81,8 @@ class GROBIDClient:
     def is_available(self) -> bool:
         """Check if GROBID service is running."""
         try:
-            response = self._request("GET", f"{self.base_url}/api/isalive", timeout=(2.0, 3.0))
+            # Avoid counting health probes toward circuit-breaker failures.
+            response = requests.request("GET", f"{self.base_url}/api/isalive", timeout=(2.0, 3.0))
             return response.status_code == 200
         except Exception:
             return False
@@ -82,10 +98,10 @@ class GROBIDClient:
         Returns:
             Dictionary of extracted metadata
         """
-        if not self.is_available():
-            logger.warning("GROBID service not available")
-            return {}
-            
+        if not Path(file_path).exists():
+            logger.warning("GROBID input file does not exist: %s", file_path)
+            return self._empty_metadata()
+
         for attempt in range(1, self.max_retries + 1):
             try:
                 with open(file_path, "rb") as fh:
@@ -94,35 +110,47 @@ class GROBIDClient:
                         "POST",
                         f"{self.base_url}/api/processHeaderDocument",
                         files=files,
+                        headers={"Accept": "application/xml", "Connection": "close"},
                     )
 
                 if response.status_code != 200:
                     logger.error("GROBID failed with status %s", response.status_code)
-                    if attempt < self.max_retries:
-                        time.sleep(min(float(attempt), 2.0))
+                    if response.status_code in self.TRANSIENT_HTTP_STATUSES and attempt < self.max_retries:
+                        # Backoff for hosted service warm-ups / transient gateway failures.
+                        time.sleep(min(float(2 ** attempt), 8.0))
                         continue
-                    return {}
+                    return self._empty_metadata()
 
                 response_text = (response.text or "").lstrip()
                 if not response_text.startswith("<"):
-                    logger.warning(
-                        "GROBID returned non-XML payload. Falling back to empty metadata."
-                    )
+                    logger.warning("GROBID returned non-XML payload on attempt %s/%s.", attempt, self.max_retries)
+                    if attempt < self.max_retries:
+                        time.sleep(min(float(2 ** attempt), 8.0))
+                        continue
                     return self._empty_metadata()
 
                 return self._parse_tei_xml(response_text)
+            except RequestException as e:
+                logger.error("GROBID request failed (attempt %s/%s): %s", attempt, self.max_retries, e)
+                if attempt < self.max_retries:
+                    time.sleep(min(float(2 ** attempt), 8.0))
+                    continue
+                return self._empty_metadata()
             except Exception as e:
                 logger.error("GROBID processing failed (attempt %s/%s): %s", attempt, self.max_retries, e)
                 if attempt < self.max_retries:
                     time.sleep(min(float(attempt), 2.0))
                     continue
-                return {}
+                return self._empty_metadata()
 
     @safe_function(fallback_value=[], error_message="GROBIDClient.process_references")
     def process_references(self, file_path: str) -> List[Dict[str, Any]]:
         """
         Extract references using GROBID.
         """
+        if not Path(file_path).exists():
+            return []
+
         if not self.is_available():
             return []
             
@@ -134,11 +162,12 @@ class GROBIDClient:
                         "POST",
                         f"{self.base_url}/api/processReferences",
                         files=files,
+                        headers={"Accept": "application/xml", "Connection": "close"},
                     )
 
                 if response.status_code != 200:
-                    if attempt < self.max_retries:
-                        time.sleep(min(float(attempt), 2.0))
+                    if response.status_code in self.TRANSIENT_HTTP_STATUSES and attempt < self.max_retries:
+                        time.sleep(min(float(2 ** attempt), 8.0))
                         continue
                     return []
 

@@ -9,10 +9,14 @@ def test_grobid_client_uses_hard_timeout_from_settings(monkeypatch):
     monkeypatch.setattr("app.pipeline.services.grobid_client.settings.GROBID_TIMEOUT", 120, raising=False)
     monkeypatch.setattr("app.pipeline.services.grobid_client.settings.GROBID_MAX_RETRIES", 2, raising=False)
 
-    client = GROBIDClient(base_url="http://grobid.local:8070")
-    # Timeout is capped to avoid cascading stalls.
-    assert client.timeout == 30
-    assert client.max_retries == 2
+    local_client = GROBIDClient(base_url="http://localhost:8070")
+    remote_client = GROBIDClient(base_url="https://example-grobid.hf.space")
+
+    # Local timeout remains strict; remote hosted endpoint gets a higher cap for cold starts.
+    assert local_client.timeout == 30
+    assert remote_client.timeout == 90
+    assert local_client.max_retries == 2
+    assert remote_client.max_retries == 2
 
 
 def test_grobid_client_is_available_handles_request_errors(monkeypatch):
@@ -21,7 +25,7 @@ def test_grobid_client_is_available_handles_request_errors(monkeypatch):
     def failing_request(*args, **kwargs):
         raise RuntimeError("network down")
 
-    monkeypatch.setattr(client, "_request", failing_request)
+    monkeypatch.setattr("app.pipeline.services.grobid_client.requests.request", failing_request)
     assert client.is_available() is False
 
 

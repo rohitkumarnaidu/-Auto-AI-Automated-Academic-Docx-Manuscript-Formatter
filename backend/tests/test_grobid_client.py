@@ -9,10 +9,12 @@ Integration tests require GROBID service running:
 """
 
 import pytest
+import os
 from unittest.mock import Mock, patch, mock_open
 from pathlib import Path
 import xml.etree.ElementTree as ET
 import requests
+from urllib.parse import urlparse
 
 from app.pipeline.services.grobid_client import GROBIDClient, GROBIDException
 
@@ -65,6 +67,57 @@ SAMPLE_TEI_XML = """<?xml version="1.0" encoding="UTF-8"?>
     </teiHeader>
 </TEI>
 """
+
+
+def _grobid_base_url_from_env() -> str:
+    env_url = os.getenv("GROBID_URL") or os.getenv("GROBID_BASE_URL")
+    if env_url:
+        return env_url.rstrip("/")
+    host = os.getenv("GROBID_HOST", "localhost")
+    port = os.getenv("GROBID_PORT", "8070")
+    return f"http://{host}:{port}"
+
+
+def _grobid_host_port_from_env() -> tuple[str, int]:
+    host = os.getenv("GROBID_HOST")
+    port = os.getenv("GROBID_PORT")
+    if host:
+        return host, int(port or "8070")
+
+    env_url = os.getenv("GROBID_URL") or os.getenv("GROBID_BASE_URL")
+    if env_url:
+        parsed = urlparse(env_url if "://" in env_url else f"http://{env_url}")
+        if parsed.hostname:
+            return parsed.hostname, int(parsed.port or (443 if parsed.scheme == "https" else 80))
+
+    return "127.0.0.1", 8070
+
+
+class TestGROBIDTestConfig:
+    """Test GROBID test endpoint resolution from env vars."""
+
+    def test_grobid_host_port_uses_url_when_host_not_set(self, monkeypatch):
+        monkeypatch.delenv("GROBID_HOST", raising=False)
+        monkeypatch.delenv("GROBID_PORT", raising=False)
+        monkeypatch.setenv("GROBID_URL", "https://rohith083-scholarform-grobid.hf.space")
+        host, port = _grobid_host_port_from_env()
+        assert host == "rohith083-scholarform-grobid.hf.space"
+        assert port == 443
+
+    def test_grobid_host_port_prefers_host_port_override(self, monkeypatch):
+        monkeypatch.setenv("GROBID_HOST", "127.0.0.1")
+        monkeypatch.setenv("GROBID_PORT", "8070")
+        monkeypatch.setenv("GROBID_URL", "https://rohith083-scholarform-grobid.hf.space")
+        host, port = _grobid_host_port_from_env()
+        assert host == "127.0.0.1"
+        assert port == 8070
+
+    def test_grobid_base_url_falls_back_to_localhost(self, monkeypatch):
+        monkeypatch.delenv("GROBID_URL", raising=False)
+        monkeypatch.delenv("GROBID_BASE_URL", raising=False)
+        monkeypatch.delenv("GROBID_HOST", raising=False)
+        monkeypatch.delenv("GROBID_PORT", raising=False)
+        assert _grobid_base_url_from_env() == "http://localhost:8070"
 
 
 class TestGROBIDClient:
@@ -213,7 +266,7 @@ class TestGROBIDIntegration:
     @pytest.fixture
     def client(self):
         """Create GROBID client for integration tests."""
-        return GROBIDClient(base_url="http://localhost:8070")
+        return GROBIDClient(base_url=_grobid_base_url_from_env())
     
     @pytest.mark.integration
     def test_service_availability(self, client):

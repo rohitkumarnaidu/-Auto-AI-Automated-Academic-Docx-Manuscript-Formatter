@@ -106,7 +106,11 @@ class RedisPubSub:
                 try:
                     await pubsub.unsubscribe(channel)
                 finally:
-                    await pubsub.close()
+                    close_coro = getattr(pubsub, "aclose", None)
+                    if callable(close_coro):
+                        await close_coro()
+                    else:
+                        await pubsub.close()
             return
 
         queue: asyncio.Queue = asyncio.Queue()
