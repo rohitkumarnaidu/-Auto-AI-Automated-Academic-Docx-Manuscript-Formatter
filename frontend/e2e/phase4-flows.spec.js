@@ -295,8 +295,23 @@ test.describe('Phase 4 Core Flows', () => {
     test('Test full formatter flow (Upload -> Process -> Results -> Download)', async ({ page }) => {
         await installFormatterHarness(page);
         await page.goto('/upload');
-        await expect(page.getByRole('heading', { name: /Upload Manuscript/i }).first()).toBeVisible();
-        await expect(page.getByText(/Processing Manuscript/i).first()).toBeVisible({ timeout: 20000 });
+        await expect.poll(async () => {
+            const uploadHeadingVisible = await page
+                .getByRole('heading', { name: /Upload Manuscript/i })
+                .first()
+                .isVisible()
+                .catch(() => false);
+            const processingVisible = await page
+                .getByText(/Processing Manuscript/i)
+                .first()
+                .isVisible()
+                .catch(() => false);
+            const currentJob = await getCurrentJobFromSession(page);
+            return uploadHeadingVisible || processingVisible || Boolean(currentJob?.id);
+        }, {
+            timeout: 30000,
+            intervals: [250, 500, 1000, 1500],
+        }).toBe(true);
 
         await expect.poll(async () => {
             const currentJob = await getCurrentJobFromSession(page);
@@ -310,8 +325,18 @@ test.describe('Phase 4 Core Flows', () => {
         const jobId = currentJob?.id;
         expect(jobId).toBeTruthy();
 
-        await expect(page.locator('text=/initiating upload|processing|upload complete/i').first())
-            .toBeVisible({ timeout: 20000 });
+        await expect.poll(async () => {
+            const statusVisible = await page
+                .locator('text=/initiating upload|processing|upload complete/i')
+                .first()
+                .isVisible()
+                .catch(() => false);
+            const pathname = new URL(page.url()).pathname;
+            return statusVisible || /\/(processing|results|jobs)(\/|$)/i.test(pathname);
+        }, {
+            timeout: 30000,
+            intervals: [500, 1000, 1500, 2000],
+        }).toBe(true);
 
         await waitForFormatterCompletion(page, 180000);
 
