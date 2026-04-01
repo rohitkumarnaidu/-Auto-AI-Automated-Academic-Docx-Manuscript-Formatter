@@ -1,175 +1,112 @@
-# ScholarForm AI — Deployment Guide
+# ScholarForm Deployment Guide
 
-> **Last Updated:** March 2026 (Codex 5.4 Audit)  
-> **Critical Note:** The original plan assumed GROBID Docker was always available. Render free tier has a **512MB RAM** constraint; GROBID Docker requires **1.5GB RAM**. The production PDF parsing strategy uses the 3-tier fallback below.
+Last updated: March 30, 2026
 
----
+## Architecture (Strict $0)
 
-## Recommended Free-Tier Stack
+- Frontend: Vercel
+- Backend API: Render Web Service (512MB free tier)
+- Database/Auth/Storage: Supabase
+- Cache/Broker: Upstash Redis
+- Heavy document services: Hugging Face Spaces (primary + shadow per service)
 
-| Component | Host | Why |
-|-----------|------|-----|
-| Frontend | **Vercel** | Native Next.js 14 support, SSR, edge functions, free tier |
-| Backend | **Render** | Docker support, free tier with 750 hrs/mo |
-| PostgreSQL | **Supabase** | Free tier, built-in auth, 500MB |
-| Redis | **Upstash** | Free tier, serverless, 10K commands/day |
-| ChromaDB | **Render** (private service) | Co-located with backend |
-| ClamAV | **Render Docker** ⚠️ | 512MB constraint — may fail; add graceful skip |
-| GROBID | **Render Docker** ❌ | Needs 1.5GB RAM — use Docling fallback instead |
+The production path is remote-first. Heavy processing should not depend on developer-local services.
 
----
+## Production Runtime Profile (Render 512MB)
 
-## PDF Parsing Fallback Strategy ($0 Solution)
-
-**Do NOT rely on GROBID on Render free tier.** Use the 3-tier fallback:
-
-| Tier | Tool | Activation | Cost |
-|------|------|------------|------|
-| 1 | GROBID | `GROBID_ENABLED=true` (local dev only) | $0 (local Docker) |
-| 2 | **Docling** | Default when GROBID disabled | $0 (Python package) |
-| 3 | PyMuPDF / PyPDF2 | Last-resort fallback | $0 (Python package) |
-
-Set `GROBID_ENABLED=false` on all cloud deployments unless you have a paid Render instance with ≥2GB RAM.
-
----
-
-## Alternative Hosts
-
-| Alternative | For |
-|-------------|-----|
-| Railway | Backend + Redis (easy Docker deploys, $5/mo) |
-| Fly.io | Backend (edge regions, $0-7/mo) |
-| GitHub Pages | Static marketing page only |
-| Hugging Face Spaces | SciBERT model endpoints / ML demos |
-| Netlify | Frontend (if not using SSR heavily) |
-
----
-
-## Docker Compose (Local Development)
-
-```yaml
-version: '3.9'
-services:
-  frontend:
-    build: ./frontend
-    ports: ['3000:3000']    # NOT 5173 — this is Next.js, not Vite
-    environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
-      - NEXT_PUBLIC_SUPABASE_URL=${SUPABASE_URL}
-      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
-
-  fastapi:
-    build: ./backend
-    ports: ['8000:8000']
-    env_file: ./backend/.env
-
-  redis:
-    image: redis:7-alpine
-    ports: ['6379:6379']
-
-  grobid:
-    image: lfoppiano/grobid:0.8.0
-    ports: ['8070:8070']
-    # ⚠️ Only include locally — requires 1.5GB RAM
-
-  clamav:
-    image: clamav/clamav
-    ports: ['3310:3310']
-
-  prometheus:
-    image: prom/prometheus
-    ports: ['9090:9090']
-```
-
----
-
-## Environment Variables
-
-### Backend (`backend/.env`)
+Use this low-memory profile:
 
 ```env
-# Supabase
-SUPABASE_URL=https://xxx.supabase.co
-SUPABASE_KEY=eyJhbG...
-SUPABASE_ANON_KEY=eyJhbG...
-SUPABASE_JWT_SECRET=...
-SUPABASE_SERVICE_ROLE_KEY=...
-
-# LLM Providers
-NVIDIA_API_KEY=nvapi-...
-GROQ_API_KEY=gsk_...            # Required for Tier 2 fallback
-
-# Infrastructure
-REDIS_URL=redis://localhost:6379
-FORCE_HTTPS=true
+LOW_MEMORY_MODE=true
+PRELOAD_AI_MODELS=false
+RAG_USE_TRANSFORMERS=false
+ENHANCEMENT_QUEUE_ENABLED=false
+ENABLE_STRUCTURED_LOGGING=true
 ENABLE_FILE_CLEANUP=true
-LLM_CACHE_TTL_SECONDS=3600
-
-# PDF Parsing
-GROBID_ENABLED=false            # ← Set false on Render free tier
-GROBID_URL=http://localhost:8070
-
-# AI/ML
-USE_SCIBERT_CLASSIFICATION=false   # ← Keep false — SciBERT is too large for free tier
-
-# Security
-CLAMAV_HOST=localhost:3310
-STRIPE_WEBHOOK_SECRET=whsec_...
-
-# Render-specific
-PORT=8000
+ENABLE_NOUGAT_PARSER=false
+USE_SCIBERT_CLASSIFICATION=false
 ```
 
-### Frontend (`frontend/.env.local`)
+## Remote Service Routing
+
+URL list variables take precedence over single URL variables.
 
 ```env
-# All frontend vars MUST start with NEXT_PUBLIC_ (not VITE_)
-NEXT_PUBLIC_API_URL=http://localhost:8000
-NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbG...
+GROBID_URLS=https://<grobid-primary>.hf.space,https://<grobid-shadow>.hf.space
+DOCLING_URLS=https://<docling-primary>.hf.space,https://<docling-shadow>.hf.space
+OCR_URLS=https://<ocr-primary>.hf.space,https://<ocr-shadow>.hf.space
+DOCX_CONVERTER_URLS=https://<docx-primary>.hf.space,https://<docx-shadow>.hf.space
+
+GROBID_HEALTH_PATH=/api/isalive
+DOCLING_HEALTH_PATH=/
+OCR_HEALTH_PATH=/
+DOCX_CONVERTER_HEALTH_PATH=/
 ```
 
----
+Compatibility fallback remains supported:
 
-## Deployment Checklist
+- If `*_URLS` is set, it is used.
+- Else the single `*_URL` variable is used.
 
-### Pre-Deploy
-- [ ] Set `FORCE_HTTPS=true` in backend env
-- [ ] Set `GROBID_ENABLED=false` on Render free tier
-- [ ] Verify all `NEXT_PUBLIC_*` env vars are set on Vercel
-- [ ] Run `alembic upgrade head` on production database
-- [ ] Add `GROQ_API_KEY` for LLM Tier 2 fallback
+## CI/CD Control
 
-### Deploy
-- [ ] Deploy backend to Render (Docker)
-- [ ] Deploy frontend to Vercel
-- [ ] Verify health check: `GET /api/v1/health`
-- [ ] Test: `{"status": "ok", "services": {"redis": "ok", "db": "ok"}}`
+### Production deployment workflow
 
-### Post-Deploy
-- [ ] Test guest upload flow end-to-end
-- [ ] Verify Stripe webhook URL is configured (use Stripe CLI)
-- [ ] Test `/api/v1/templates` returns all 17 templates
-- [ ] Test SSE streaming on `/api/v1/generator/sessions/{id}/events`
-- [ ] Set up DNS for custom domain
-- [ ] Enable branch protection on GitHub
+- Workflow: `.github/workflows/deploy-production.yml`
+- Trigger: `workflow_dispatch` only (manual)
+- Backend gate: `GET /api/v1/health/live`
+- Curl guardrails are enabled (`--connect-timeout`, `--max-time`)
+- Frontend deploy does not run if backend health gate fails
 
----
+### Keepalive workflow
 
-## Render-Specific Constraints
+- Workflow: `.github/workflows/keepalive-free-tier.yml`
+- Schedule: every 14 minutes (`*/14 * * * *`)
+- Probes:
+  - Render backend live endpoint
+  - HF primary/shadow endpoints for GROBID, Docling, OCR, DOCX converter
+- Behavior:
+  - Compact health logs
+  - Fails the job if both primary and shadow fail for any service pair
 
-| Constraint | Impact | Mitigation |
-|-----------|--------|-----------|
-| 512MB RAM free tier | GROBID fails | Use Docling fallback (`GROBID_ENABLED=false`) |
-| Cold starts (30+ seconds) | First request after idle | Add keep-alive ping or upgrade to paid tier |
-| Free tier sleeps after 15min | Delays for users | Use Render paid ($7/mo) or keep-alive cron |
+## Required GitHub Secrets
 
----
+- `PROD_BACKEND_URL`
+- `RENDER_DEPLOY_HOOK`
+- `VERCEL_TOKEN`
+- `VERCEL_ORG_ID`
+- `VERCEL_PROJECT_ID`
+- `HF_GROBID_PRIMARY_URL`
+- `HF_GROBID_SHADOW_URL`
+- `HF_DOCLING_PRIMARY_URL`
+- `HF_DOCLING_SHADOW_URL`
+- `HF_OCR_PRIMARY_URL`
+- `HF_OCR_SHADOW_URL`
+- `HF_DOCX_PRIMARY_URL`
+- `HF_DOCX_SHADOW_URL`
 
-## Missing Deployment Artifacts
+## Render Environment Checklist
 
-| Artifact | Status | Priority |
-|----------|--------|---------|
-| `deploy-staging.yml` | ❌ **Missing** | 🔴 HIGH — create before first deploy |
-| Grafana dashboards | ❌ **Missing** | 🔴 HIGH — no monitoring otherwise |
-| `ops/` configuration directory | ❌ **Missing** | 🟡 MEDIUM |
+- `LOW_MEMORY_MODE=true`
+- `PRELOAD_AI_MODELS=false`
+- `RAG_USE_TRANSFORMERS=false`
+- `ENHANCEMENT_QUEUE_ENABLED=false`
+- `ENABLE_STRUCTURED_LOGGING=true`
+- `ENABLE_FILE_CLEANUP=true`
+- `GROBID_URLS` configured with primary + shadow
+- `DOCLING_URLS` configured with primary + shadow
+- `OCR_URLS` configured with primary + shadow
+- `DOCX_CONVERTER_URLS` configured with primary + shadow
+
+## Deployment Acceptance Criteria
+
+- Render starts without port-scan timeout
+- `GET /api/v1/health/live` returns HTTP 200 consistently after deploy
+- Deploy workflow completes without backend-health hang
+- GROBID requests fail over from primary to shadow on upstream failure
+- Keepalive reports backend healthy and at least one endpoint healthy per service pair
+
+## Deferred Scope (Not Enabled in This Phase)
+
+- Queue mode (`ENHANCEMENT_QUEUE_ENABLED=true`) remains off until a 7-day stability window is achieved.
+- Nougat/SciBERT remote offload is design-ready but not enabled by default.

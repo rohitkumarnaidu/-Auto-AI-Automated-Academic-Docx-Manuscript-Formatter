@@ -1,9 +1,7 @@
 name: deploy-production
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 jobs:
   deploy-production:
@@ -93,7 +91,7 @@ jobs:
         run: |
           echo "Waiting for backend at ${PROD_BACKEND_URL}..."
           for i in {1..20}; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${PROD_BACKEND_URL}/api/v1/health/")
+            STATUS=$(curl -L -sS --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "${PROD_BACKEND_URL}/api/v1/health/live")
             echo "Attempt $i: HTTP $STATUS"
             if [ "$STATUS" = "200" ]; then
               echo "Backend is healthy."
@@ -101,8 +99,8 @@ jobs:
             fi
             sleep 15
           done
-          echo "Health check timed out; deploy may still be proceeding."
-          exit 0
+          echo "Backend health check timed out."
+          exit 1
 
       - name: Deploy frontend to Vercel
         if: steps.preflight.outputs.ready == 'true'

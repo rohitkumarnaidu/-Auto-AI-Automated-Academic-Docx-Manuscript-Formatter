@@ -1,121 +1,73 @@
-# ScholarForm AI — Technology Stack
+# ScholarForm Technology Stack
 
-> **Last Updated:** March 2026 | Reflects Codex 5.4 Audit findings
-
----
+Last updated: March 30, 2026
 
 ## Frontend
 
-| Tech | Version | Purpose |
-|------|---------|---------|
-| **Next.js** | 14 (App Router) | SSR, routing, API routes — **NOT Vite** |
-| React | 18+ | UI components |
-| Tailwind CSS | 3.4.19 | Utility-first styling |
-| TipTap | @tiptap/react | Rich text editor (confirmed on `/edit` and `/formatter/live`) |
-| Framer Motion | Latest | Animations (token streaming, slide-ins) |
-| react-resizable-panels | Latest | Split editor panels |
-| react-dropzone | Latest | File upload drag-and-drop |
-| Supabase JS | Latest | Auth, DB client |
-| **@testing-library/dom** | Latest | **Required** for vitest unit tests (common missing-dep failure) |
-| Vitest | Latest | Unit testing for React hooks and pages |
-| Playwright | Latest | E2E testing (93 test files, many are stubs) |
-| ESLint | Latest | Linting |
-
-> **Env vars:** All frontend environment variables use the `NEXT_PUBLIC_*` prefix. No `VITE_*` variables exist.  
-> **Dev server port:** `3000` (not `5173` — that was a Vite default and is now stale).
-
----
+| Component | Stack |
+|---|---|
+| Framework | Next.js (App Router) |
+| UI | React + Tailwind CSS |
+| State/API usage | Fetch + React hooks |
+| Testing | Vitest + Playwright |
+| Hosting | Vercel |
 
 ## Backend
 
-| Tech | Version | Purpose |
-|------|---------|---------|
-| **Python** | **3.12.x (pinned)** | Runtime — 3.11.9 causes pytest import collisions |
-| FastAPI | Latest | API framework (**sole gateway** — no Spring Boot) |
-| Uvicorn | Latest | ASGI server |
-| Celery | Latest | Background task queue |
-| Redis (aioredis) | 7 | Cache, pub/sub, queue broker |
-| python-docx | Latest | DOCX generation |
-| docxtpl | Latest | Jinja2 DOCX templates |
-| Pandoc | Latest | LaTeX conversion (stub — needs full impl) |
-| python-clamd | Latest | Virus scanning (ClamAV) |
-| LiteLLM | Latest | Multi-LLM provider abstraction (NVIDIA → Groq → Ollama) |
-| Prometheus client | Latest | Metrics instrumentation |
-| Alembic | Latest | Database migrations |
-| ChromaDB | Latest | Vector embeddings for RAG |
-| sentence-transformers | Latest | Embedding model (multi-qa-MiniLM-L6-v2) |
-| Docling | Latest | High-quality PDF/OCR fallback structure extraction |
-| pytest | Latest | Backend testing |
+| Component | Stack |
+|---|---|
+| Runtime | Python 3.12 |
+| API framework | FastAPI + Uvicorn |
+| Background tasks | Celery (present, queue mode currently off) |
+| Document generation | python-docx, docxtpl |
+| Parsing/fallback | GROBID client + Docling + PyMuPDF/PyPDF2 |
+| Caching and broker | Redis (Upstash in production) |
+| Data/auth/storage | Supabase |
 
-> **Python version enforcement:** Backend `Dockerfile` and `.python-version` pin to `3.12`. Verify with `python --version` before running tests.
+## Remote Heavy Services (Hugging Face Spaces)
 
----
+| Service | Routing model | Health path |
+|---|---|---|
+| GROBID | Primary + Shadow via `GROBID_URLS` | `/api/isalive` |
+| Docling | Primary + Shadow via `DOCLING_URLS` | `/` |
+| OCR | Primary + Shadow via `OCR_URLS` | `/` |
+| DOCX converter | Primary + Shadow via `DOCX_CONVERTER_URLS` | `/` |
 
-## LLM Providers (Tiered Fallback)
+All heavy processing is intended to be remote in production. URL-list variables take precedence over single-URL variables.
 
-| Tier | Provider | Model | Notes |
-|------|----------|-------|----|
-| 1 | NVIDIA NIM | meta/llama-3.3-70b-instruct | Primary cloud inference |
-| 2 | **Groq** | llama-3.3-70b-versatile | Fast free-tier secondary (Codex-confirmed implemented) |
-| 3 | Ollama | deepseek-r1 | Local/offline fallback |
-| 4 (Future) | vLLM | Llama-3.1-8B | Self-hosted GPU inference |
+## Deployment Topology (Strict $0)
 
----
+| Layer | Provider |
+|---|---|
+| Frontend | Vercel |
+| Backend | Render free web service (512MB) |
+| DB/Auth/Storage | Supabase free tier |
+| Cache/Broker | Upstash Redis free tier |
+| Heavy compute services | Hugging Face Spaces |
 
-## PDF Parsing (3-Tier Fallback)
+## Runtime Profile (Render 512MB)
 
-The original plan assumed GROBID Docker would always be available. Render free tier has a 512MB RAM constraint; GROBID requires 1.5GB.
+| Variable | Value |
+|---|---|
+| `LOW_MEMORY_MODE` | `true` |
+| `PRELOAD_AI_MODELS` | `false` |
+| `RAG_USE_TRANSFORMERS` | `false` |
+| `ENHANCEMENT_QUEUE_ENABLED` | `false` |
+| `ENABLE_STRUCTURED_LOGGING` | `true` |
+| `ENABLE_FILE_CLEANUP` | `true` |
+| `ENABLE_NOUGAT_PARSER` | `false` |
+| `USE_SCIBERT_CLASSIFICATION` | `false` |
 
-| Tier | Tool | Condition |
-|------|------|-----------|
-| 1 | GROBID | Only if `GROBID_ENABLED=true` and local Docker running |
-| 2 | Docling | Default production path on Render free tier |
-| 3 | PyMuPDF / PyPDF2 | Last-resort fallback for simple text extraction |
+## CI/CD and Operations
 
----
+| Area | Current behavior |
+|---|---|
+| Production deploy | Manual (`workflow_dispatch`) |
+| Backend health gate | `/api/v1/health/live` |
+| Keepalive | Every 14 minutes for backend + HF primary/shadow pairs |
+| Monitoring | Structured logs enabled; Prometheus/Grafana assets available in repo |
 
-## Infrastructure
+## Planned Next Phase (Not enabled yet)
 
-| Service | Provider | Purpose |
-|---------|----------|---------|
-| Frontend Hosting | Vercel | Next.js hosting (SSR, edge functions) |
-| Backend Hosting | Render | FastAPI + workers (512MB RAM free tier) |
-| Database | Supabase (PostgreSQL) | Users, jobs, sessions |
-| File Storage | Supabase Storage | Uploaded/generated files |
-| Cache/Queue | Upstash Redis | LLM cache, Celery broker, pub/sub |
-| Vector DB | ChromaDB (Render) | RAG embeddings |
-| Virus Scanner | ClamAV (Docker) | Upload scanning |
-| PDF Parser | Docling (primary) / GROBID (optional) | Scientific PDF extraction |
-
----
-
-## Monitoring
-
-| Tool | Status | Purpose |
-|------|--------|---------|
-| Prometheus | ✅ Implemented | Metrics via `prometheus_metrics.py` (7KB) |
-| Grafana | ❌ Not yet set up | Dashboard visualization |
-| Structured logging | ✅ Partial | `logging_context.py` (3.4KB) |
-| Sentry.io | 📋 Planned | Error tracking before prod |
-
----
-
-## CI/CD
-
-| Workflow | Purpose |
-|----------|---------|
-| `backend-ci.yml` | Ruff + mypy + pytest |
-| `frontend-ci.yml` | ESLint + build |
-| `security.yml` | Trivy + Bandit + OWASP |
-| `deploy-production.yml` | Production deployment |
-| `e2e-production.yml` | E2E tests |
-| `deploy-staging.yml` | ❌ **Missing** — must be created |
-
----
-
-## Route Count
-
-| Source | Frontend Routes |
-|--------|----------------|
-| Original master plan | 25 routes |
-| **Codex-verified reality** | **34 routes** in `frontend/src/app/` |
+- Queue mode activation after stability window.
+- Nougat and SciBERT remote URL adapters with primary/shadow support.
