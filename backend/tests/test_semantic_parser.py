@@ -32,6 +32,10 @@ class TestSemanticParser:
         with patch("app.pipeline.intelligence.semantic_parser.AutoTokenizer") as mock_tokenizer:
             with patch("app.pipeline.intelligence.semantic_parser.AutoModel") as mock_model:
                 parser = SemanticParser()
+                # CI can configure remote SciBERT URLs; force this test to
+                # exercise the local-model load branch deterministically.
+                parser.remote_base_urls = []
+                parser._last_good_remote_url = None
                 parser._load_model()
                 assert parser.tokenizer is not None
                 assert parser.model is not None
