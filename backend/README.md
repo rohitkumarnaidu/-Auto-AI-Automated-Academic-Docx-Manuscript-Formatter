@@ -60,14 +60,11 @@ AI Enrichment → Classification → Figures → References → Validation → F
 uvicorn app.main:app --reload --port 8000
 ```
 
-## Manual Testing
-All stages tested via scripts in `app/manual_tests/`:
-- `run_conversion.py`
-- `run_orchestrator.py`
-- `run_validation.py`
-- `run_export.py`
+## Testing
+Manual script fixtures were removed during repository cleanup. Use the automated test
+suite as the source of truth.
 
-Alternatively, you can run the `trusted-core` test profile ensuring unit safety:
+Run the `trusted-core` test profile for quick safety checks:
 ```bash
 pytest tests -m "not integration and not llm" -x -q
 ```
