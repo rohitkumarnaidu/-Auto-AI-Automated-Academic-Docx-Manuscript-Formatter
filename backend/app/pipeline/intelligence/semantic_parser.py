@@ -1,15 +1,19 @@
 import logging
 import re
-from typing import Any, Dict, List
+import time
+from typing import Any, Dict, List, Optional
+
+import requests
+from requests import RequestException
 
 try:
     import torch
-except ImportError:
+except ImportError:  # pragma: no cover - dependency specific
     torch = None
 
 try:
     from transformers import AutoTokenizer, AutoModelForSequenceClassification, logging as transformers_logging
-except ImportError:
+except ImportError:  # pragma: no cover - dependency specific
     AutoTokenizer = None
     AutoModelForSequenceClassification = None
 
@@ -19,20 +23,21 @@ except ImportError:
             return
 
     transformers_logging = _TransformersLoggingNoop()
-from app.config.settings import settings  # Backward-compatible import path for tests.
-from app.models import PipelineDocument as Document, Block, BlockType
+
+from app.config.settings import settings
+from app.models import Block, BlockType, PipelineDocument as Document
 from app.pipeline.safety import safe_function
 from app.services.scibert_gate import should_enable_scibert
 from app.utils.singleton import get_or_create
 
-# Backward-compat alias for tests and older code paths that patch AutoModel.
+# Backward-compat alias for tests and legacy patches.
 AutoModel = AutoModelForSequenceClassification
 
-# FEAT 44: Language detection (optional dependency)
 try:
     from langdetect import detect as detect_language
+
     HAS_LANGDETECT = True
-except ImportError:
+except ImportError:  # pragma: no cover - dependency specific
     HAS_LANGDETECT = False
     detect_language = None
 
@@ -43,29 +48,50 @@ HEURISTIC_ONLY_MODEL_NAMES = {
     "__local_benchmark_fallback__",
 }
 
-# Silence non-critical transformer loading warnings
 transformers_logging.set_verbosity_error()
+
 
 class SemanticParser:
     """
-    NLP Foundation layer for structural analysis.
-    Uses local SciBERT weights for semantic classification of manuscript blocks.
+    NLP semantic layer for manuscript block classification.
+
+    Execution order:
+    1) Remote SciBERT endpoint(s) when SCIBERT_URL/SCIBERT_URLS are configured
+    2) Local SciBERT model (optional fallback)
+    3) Deterministic heuristics
     """
-    
+
+    TRANSIENT_HTTP_STATUSES = {408, 425, 429, 500, 502, 503, 504, 520, 522, 524}
+    LAST_GOOD_ENDPOINT_TTL_SECONDS = 300.0
+
     def __init__(self, model_name: str = "allenai/scibert_scivocab_uncased"):
         self.model_name = model_name
         self.tokenizer = None
         self.model = None
         self._is_loaded = False
 
-    def _load_model(self):
-        """Lazily load SciBERT weights only when needed, or fetch from ModelStore."""
+        configured_urls = list(getattr(settings, "get_scibert_urls", lambda: [])())
+        if not configured_urls:
+            fallback_url = getattr(settings, "SCIBERT_URL", None)
+            if fallback_url:
+                configured_urls = [str(fallback_url).rstrip("/")]
+
+        self.remote_base_urls = [url.rstrip("/") for url in configured_urls if str(url).strip()]
+        self.remote_predict_path = "/predict"
+        self.remote_timeout = max(5, int(getattr(settings, "PIPELINE_SEMANTIC_TIMEOUT_SECONDS", 25)))
+        self.remote_max_retries = max(1, int(getattr(settings, "GROBID_MAX_RETRIES", 3)))
+        self.remote_only = bool(getattr(settings, "SCIBERT_REMOTE_ONLY", False))
+        self._last_good_remote_url = self.remote_base_urls[0] if self.remote_base_urls else None
+        self._last_good_remote_at = time.monotonic()
+
+    def _load_model(self) -> None:
+        """Lazily initialize semantic inference strategy."""
         if self._is_loaded:
             return
 
         if self.model_name in HEURISTIC_ONLY_MODEL_NAMES:
             logger.info(
-                "SemanticParser: using heuristic-only classification profile for %s.",
+                "SemanticParser: using heuristic-only profile for %s.",
                 self.model_name,
             )
             self.tokenizer = None
@@ -73,108 +99,255 @@ class SemanticParser:
             self._is_loaded = True
             return
 
+        if self.remote_base_urls:
+            logger.info(
+                "SemanticParser: remote SciBERT endpoints configured; using remote-first inference."
+            )
+            self._is_loaded = True
+            return
+
+        self._load_local_model()
+        self._is_loaded = True
+
+    def _load_local_model(self) -> None:
+        """Load local SciBERT model when remote inference is unavailable or disabled."""
         if AutoTokenizer is None or AutoModel is None:
             logger.warning(
                 "SemanticParser: transformers not available; using heuristic-only mode."
             )
             self.tokenizer = None
             self.model = None
-            self._is_loaded = True
             return
-            
+
         from app.services.model_store import model_store
-        
-        # Priority: Global ModelStore (Pre-loaded at startup)
+
         if model_store.is_loaded("scibert_tokenizer") and model_store.is_loaded("scibert_model"):
             self.tokenizer = model_store.get_model("scibert_tokenizer")
             self.model = model_store.get_model("scibert_model")
-            self._is_loaded = True
-            logger.info("SemanticParser: Reusing global SciBERT from ModelStore.")
+            logger.info("SemanticParser: reusing global SciBERT from ModelStore.")
             return
 
-        logger.info("SemanticParser: Loading SciBERT model (%s)...", self.model_name)
+        logger.info("SemanticParser: loading local SciBERT model (%s)...", self.model_name)
         try:
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-            logger.warning("Initializing SciBERT for classification. Warning: If using base weights ('allenai/scibert_scivocab_uncased'), the classification head is randomly initialized. Predictions will be unreliable unless a fine-tuned model path is provided.")
+            logger.warning(
+                "Initializing SciBERT classification head from base weights. "
+                "Predictions improve with fine-tuned checkpoints."
+            )
             self.model = AutoModel.from_pretrained(
                 self.model_name,
-                ignore_mismatched_sizes=True
+                ignore_mismatched_sizes=True,
             )
-            logger.info("SemanticParser: Model loaded successfully.")
-        except Exception as e:
-            logger.warning("Failed to load transformer %s: %s", self.model_name, e)
+            logger.info("SemanticParser: local SciBERT loaded.")
+        except Exception as exc:
+            logger.warning("SemanticParser: local model load failed (%s).", exc)
             self.tokenizer = None
             self.model = None
-            self._is_loaded = True
+
+    def _ordered_remote_urls(self) -> List[str]:
+        ordered = list(self.remote_base_urls)
+        if (
+            self._last_good_remote_url
+            and self._last_good_remote_url in ordered
+            and (time.monotonic() - self._last_good_remote_at) <= self.LAST_GOOD_ENDPOINT_TTL_SECONDS
+        ):
+            ordered.remove(self._last_good_remote_url)
+            ordered.insert(0, self._last_good_remote_url)
+        return ordered
+
+    def _mark_last_good_remote_url(self, base_url: str, *, reason: str) -> None:
+        previous = self._last_good_remote_url
+        self._last_good_remote_url = base_url
+        self._last_good_remote_at = time.monotonic()
+        if previous and previous != base_url:
+            logger.warning(
+                "SciBERT failover switch: %s -> %s (reason=%s)",
+                previous,
+                base_url,
+                reason,
+            )
+
+    def _retry_backoff_seconds(self, attempt: int) -> float:
+        return min(float(2 ** max(0, attempt - 1)), 8.0)
+
+    def _normalize_remote_prediction(self, item: Any) -> Optional[Dict[str, Any]]:
+        if not isinstance(item, dict):
+            return None
+
+        label = (
+            item.get("type")
+            or item.get("label")
+            or item.get("predicted_section_type")
+            or item.get("section")
+        )
+        if not label:
+            return None
+
+        try:
+            confidence = float(
+                item.get("confidence")
+                or item.get("score")
+                or item.get("confidence_score")
+                or 0.0
+            )
+        except (TypeError, ValueError):
+            confidence = 0.0
+
+        return {"type": str(label).strip().upper(), "confidence": confidence}
+
+    def _predict_block_types_remote(self, texts: List[str]) -> Optional[List[Dict[str, Any]]]:
+        if not self.remote_base_urls or not texts:
+            return None
+
+        endpoint_suffix = self.remote_predict_path if self.remote_predict_path.startswith("/") else f"/{self.remote_predict_path}"
+        for endpoint_index, base_url in enumerate(self._ordered_remote_urls(), start=1):
+            endpoint = f"{base_url.rstrip('/')}{endpoint_suffix}"
+            for attempt in range(1, self.remote_max_retries + 1):
+                try:
+                    response = requests.post(
+                        endpoint,
+                        json={"texts": texts},
+                        timeout=(3.0, float(self.remote_timeout)),
+                    )
+
+                    if response.status_code != 200:
+                        logger.warning(
+                            "SciBERT remote call failed: endpoint=%s status=%s attempt=%s/%s",
+                            endpoint,
+                            response.status_code,
+                            attempt,
+                            self.remote_max_retries,
+                        )
+                        if (
+                            response.status_code in self.TRANSIENT_HTTP_STATUSES
+                            and attempt < self.remote_max_retries
+                        ):
+                            time.sleep(self._retry_backoff_seconds(attempt))
+                            continue
+                        break
+
+                    payload: Any
+                    try:
+                        payload = response.json()
+                    except ValueError:
+                        logger.warning("SciBERT remote returned non-JSON payload from %s.", endpoint)
+                        break
+
+                    raw_predictions: Any = None
+                    if isinstance(payload, dict):
+                        raw_predictions = payload.get("predictions") or payload.get("results")
+                    elif isinstance(payload, list):
+                        raw_predictions = payload
+
+                    if not isinstance(raw_predictions, list):
+                        logger.warning("SciBERT remote payload missing prediction list: endpoint=%s", endpoint)
+                        break
+
+                    normalized: List[Dict[str, Any]] = []
+                    for item in raw_predictions:
+                        norm = self._normalize_remote_prediction(item)
+                        if norm is None:
+                            normalized = []
+                            break
+                        normalized.append(norm)
+
+                    if len(normalized) != len(texts):
+                        logger.warning(
+                            "SciBERT remote prediction length mismatch: expected=%s got=%s endpoint=%s",
+                            len(texts),
+                            len(normalized),
+                            endpoint,
+                        )
+                        break
+
+                    self._mark_last_good_remote_url(base_url, reason="predict_batch")
+                    return normalized
+                except RequestException as exc:
+                    logger.warning(
+                        "SciBERT remote request error: endpoint=%s attempt=%s/%s error=%s",
+                        endpoint,
+                        attempt,
+                        self.remote_max_retries,
+                        exc,
+                    )
+                    if attempt < self.remote_max_retries:
+                        time.sleep(self._retry_backoff_seconds(attempt))
+                        continue
+                    break
+                except Exception as exc:
+                    logger.warning(
+                        "SciBERT remote inference exception: endpoint=%s attempt=%s/%s error=%s",
+                        endpoint,
+                        attempt,
+                        self.remote_max_retries,
+                        exc,
+                    )
+                    if attempt < self.remote_max_retries:
+                        time.sleep(min(float(attempt), 2.0))
+                        continue
+                    break
+
+            if endpoint_index < len(self.remote_base_urls):
+                next_endpoint = self._ordered_remote_urls()[endpoint_index]
+                logger.warning(
+                    "SciBERT failover: moving to next endpoint (from=%s to=%s)",
+                    base_url,
+                    next_endpoint,
+                )
+
+        return None
 
     def detect_boundaries(self, blocks: List[Block]) -> List[Block]:
-        """
-        [PHASE-1 INTERFACE ADAPTER]
-        Delegates to _repair_fragmented_headings with a safety guard.
-        Ensures the pipeline never crashes if semantic processing fails.
-        """
         try:
             return self._repair_fragmented_headings(blocks)
-        except Exception as e:
-            logger.warning("SemanticParser Guard: detect_boundaries failed: %s. Returning original blocks.", e)
+        except Exception as exc:
+            logger.warning(
+                "SemanticParser Guard: detect_boundaries failed: %s. Returning original blocks.",
+                exc,
+            )
             return blocks
 
     def reconcile_fragmented_headings(self, blocks: List[Block]) -> List[Block]:
-        """
-        [PHASE-1 INTERFACE ADAPTER]
-        Delegates to _repair_fragmented_headings with a safety guard.
-        """
         try:
             return self._repair_fragmented_headings(blocks)
-        except Exception as e:
-            logger.warning("SemanticParser Guard: reconcile_fragmented_headings failed: %s. Returning original blocks.", e)
+        except Exception as exc:
+            logger.warning(
+                "SemanticParser Guard: reconcile_fragmented_headings failed: %s. Returning original blocks.",
+                exc,
+            )
             return blocks
 
     @safe_function(fallback_value=[], error_message="SemanticParser.analyze_blocks failed")
     def analyze_blocks(self, blocks: List[Block]) -> List[Dict[str, Any]]:
-        """
-        Produce a list of SemanticBlock structures.
-        Identifies boundaries and repairs fragmented headers semantically.
-        """
         scibert_enabled = should_enable_scibert()
         if scibert_enabled:
             self._load_model()
-        semantic_blocks = []
-        
-        # FEAT 44: Language detection — skip SciBERT for non-English documents
+
+        semantic_blocks: List[Dict[str, Any]] = []
         combined_text = " ".join(b.text for b in blocks[:10] if b.text)[:500]
         detected_lang = "en"
         if HAS_LANGDETECT and combined_text.strip():
             try:
                 detected_lang = detect_language(combined_text)
             except Exception:
-                detected_lang = "en"  # Default to English on detection failure
-        
-        use_transformer = (
-            scibert_enabled
-            and detected_lang == "en"
-            and self.model is not None
-        )
-        if not use_transformer and detected_lang != "en":
-            logger.warning("Non-English document detected (%s). Using heuristic-only mode.", detected_lang)
-        
-        # 1. Heading Repair Logic (e.g., '2' + 'ethodology')
+                detected_lang = "en"
+
+        use_semantic_model = scibert_enabled and detected_lang == "en"
+        if not use_semantic_model and detected_lang != "en":
+            logger.warning(
+                "Non-English document detected (%s). Using heuristic-only mode.",
+                detected_lang,
+            )
+
         repaired_blocks = self._repair_fragmented_headings(blocks)
-        
         texts = [block.text or "" for block in repaired_blocks]
-        if use_transformer:
+        if use_semantic_model:
             predictions = self._predict_block_types_batch(texts)
         else:
             predictions = [self._heuristic_classify(text) for text in texts]
 
         for i, block in enumerate(repaired_blocks):
-            prediction = (
-                predictions[i]
-                if i < len(predictions)
-                else self._heuristic_classify(block.text)
-            )
-
-            # Create SemanticBlock Structure (as requested)
+            prediction = predictions[i] if i < len(predictions) else self._heuristic_classify(block.text)
             semantic_block = {
                 "block_id": i,
                 "raw_text": block.text,
@@ -183,42 +356,56 @@ class SemanticParser:
                 "detected_language": detected_lang,
             }
             semantic_blocks.append(semantic_block)
-            
+
         return semantic_blocks
 
     def _predict_block_type(self, text: str) -> Dict[str, Any]:
-        """Perform semantic classification on block text."""
-        # Ensure model is checked correctly
+        remote_predictions = self._predict_block_types_remote([text])
+        if remote_predictions:
+            return remote_predictions[0]
+
+        if (self.model is None or self.tokenizer is None) and not self.remote_only:
+            self._load_local_model()
+
         if not self.model or not self.tokenizer or torch is None:
-            return {"type": "UNKNOWN", "confidence": 0.0}
-            
-        # Actual Transformer Inference
+            return self._heuristic_classify(text)
+
         inputs = self.tokenizer(text, return_tensors="pt", truncation=True, max_length=512)
         with torch.no_grad():
             outputs = self.model(**inputs)
             probs = torch.softmax(outputs.logits, dim=1)
             confidence, label_idx = torch.max(probs, dim=1)
-            
-        # Map label index to internal types (Expanded from 5 to 12)
+
         labels = [
-            "HEADING", "ABSTRACT", "BODY", "REFERENCES", "FIGURE_CAPTION",
-            "TABLE_CAPTION", "ACKNOWLEDGEMENTS", "EQUATION", "METHODOLOGY", 
-            "CONCLUSION", "AUTHOR_INFO", "TITLE"
+            "HEADING",
+            "ABSTRACT",
+            "BODY",
+            "REFERENCES",
+            "FIGURE_CAPTION",
+            "TABLE_CAPTION",
+            "ACKNOWLEDGEMENTS",
+            "EQUATION",
+            "METHODOLOGY",
+            "CONCLUSION",
+            "AUTHOR_INFO",
+            "TITLE",
         ]
         predicted_label = labels[label_idx.item()] if label_idx.item() < len(labels) else "BODY"
-        
-        return {
-            "type": predicted_label,
-            "confidence": float(confidence.item())
-        }
+        return {"type": predicted_label, "confidence": float(confidence.item())}
 
     def _predict_block_types_batch(self, texts: List[str]) -> List[Dict[str, Any]]:
-        """Batch semantic classification for a list of block texts."""
-        if not self.model or not self.tokenizer or torch is None:
-            return [self._heuristic_classify(text) for text in texts]
-
         if not texts:
             return []
+
+        remote_predictions = self._predict_block_types_remote(texts)
+        if remote_predictions is not None:
+            return remote_predictions
+
+        if (self.model is None or self.tokenizer is None) and not self.remote_only:
+            self._load_local_model()
+
+        if not self.model or not self.tokenizer or torch is None:
+            return [self._heuristic_classify(text) for text in texts]
 
         try:
             inputs = self.tokenizer(
@@ -234,38 +421,39 @@ class SemanticParser:
                 confidences, label_idxs = torch.max(probs, dim=1)
 
             labels = [
-                "HEADING", "ABSTRACT", "BODY", "REFERENCES", "FIGURE_CAPTION",
-                "TABLE_CAPTION", "ACKNOWLEDGEMENTS", "EQUATION", "METHODOLOGY",
-                "CONCLUSION", "AUTHOR_INFO", "TITLE"
+                "HEADING",
+                "ABSTRACT",
+                "BODY",
+                "REFERENCES",
+                "FIGURE_CAPTION",
+                "TABLE_CAPTION",
+                "ACKNOWLEDGEMENTS",
+                "EQUATION",
+                "METHODOLOGY",
+                "CONCLUSION",
+                "AUTHOR_INFO",
+                "TITLE",
             ]
 
             results: List[Dict[str, Any]] = []
             for conf, idx in zip(confidences, label_idxs):
                 label_index = idx.item()
                 predicted_label = labels[label_index] if label_index < len(labels) else "BODY"
-                results.append({
-                    "type": predicted_label,
-                    "confidence": float(conf.item()),
-                })
+                results.append({"type": predicted_label, "confidence": float(conf.item())})
             return results
         except Exception as exc:
-            logger.warning("SemanticParser: batch inference failed (%s). Falling back to heuristics.", exc)
+            logger.warning(
+                "SemanticParser: local batch inference failed (%s). Falling back to heuristics.",
+                exc,
+            )
             return [self._heuristic_classify(text) for text in texts]
 
     def predict_blocks_batch(self, texts: List[str]) -> List[Dict[str, Any]]:
-        """
-        Public batch prediction helper.
-
-        Attempts SciBERT inference when enabled, otherwise falls back to
-        heuristic classification. Callers should still guard for missing
-        model availability if they require SciBERT specifically.
-        """
         if should_enable_scibert():
             self._load_model()
         return self._predict_block_types_batch(texts)
 
     def _heuristic_classify(self, text: str) -> Dict[str, Any]:
-        """Rule-based block classification when transformer inference is disabled."""
         prediction = {"type": "BODY", "confidence": 0.5}
         text = (text or "").strip()
         upper_text = text.upper()
@@ -296,23 +484,19 @@ class SemanticParser:
         return prediction
 
     def classify_block(self, text: str, use_transformer: bool = True) -> Dict[str, Any]:
-        """Classify a single block using SciBERT or deterministic heuristics."""
         if should_enable_scibert() and use_transformer:
             return self._predict_block_type(text)
         return self._heuristic_classify(text)
 
     def _repair_fragmented_headings(self, blocks: List[Block]) -> List[Block]:
-        """Semantically re-stitch split headers using proximity and content analysis."""
         repaired = []
         i = 0
         while i < len(blocks):
             current = blocks[i]
             if i + 1 < len(blocks):
-                next_block = blocks[i+1]
-                # Check for heuristic fragmentation (e.g., digit followed by partial word)
+                next_block = blocks[i + 1]
                 if current.text.isdigit() and next_block.text and next_block.text[0].islower():
-                    combined_text = f"{current.text}. {next_block.text}"
-                    current.text = combined_text
+                    current.text = f"{current.text}. {next_block.text}"
                     repaired.append(current)
                     i += 2
                     continue
@@ -320,10 +504,12 @@ class SemanticParser:
             i += 1
         return repaired
 
-# Singleton Access
+
 _semantic_parser = None
+
 
 def get_semantic_parser() -> SemanticParser:
     global _semantic_parser
     _semantic_parser = get_or_create(_semantic_parser, SemanticParser)
     return _semantic_parser
+

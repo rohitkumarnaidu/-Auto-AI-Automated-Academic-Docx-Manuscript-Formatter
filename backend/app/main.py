@@ -220,27 +220,36 @@ async def _probe_grobid_startup(*, attempts: int = 3, timeout_seconds: float = 2
 
     import httpx
 
-    endpoint = f"{settings.GROBID_URL.rstrip('/')}/api/isalive"
+    candidate_urls = list(getattr(settings, "get_grobid_urls", lambda: [settings.GROBID_URL])())
+    if not candidate_urls:
+        candidate_urls = [settings.GROBID_URL]
+    health_path = str(getattr(settings, "get_service_health_path", lambda _name: "/api/isalive")("grobid"))
+    if not health_path.startswith("/"):
+        health_path = f"/{health_path}"
+    if len(health_path) > 1:
+        health_path = health_path.rstrip("/")
+
     last_error = "unknown"
+    for endpoint in candidate_urls:
+        probe_url = f"{endpoint.rstrip('/')}{health_path}"
+        for attempt in range(1, max(1, attempts) + 1):
+            try:
+                async with httpx.AsyncClient(timeout=timeout_seconds, follow_redirects=True) as client:
+                    response = await client.get(probe_url)
+                if response.status_code == 200:
+                    logger.info("Startup: GROBID probe succeeded on attempt %d via %s.", attempt, endpoint)
+                    return True
+                last_error = f"HTTP {response.status_code} from {endpoint}"
+            except Exception as exc:
+                last_error = f"{endpoint}: {exc}"
 
-    for attempt in range(1, max(1, attempts) + 1):
-        try:
-            async with httpx.AsyncClient(timeout=timeout_seconds, follow_redirects=True) as client:
-                response = await client.get(endpoint)
-            if response.status_code == 200:
-                logger.info("Startup: GROBID probe succeeded on attempt %d.", attempt)
-                return True
-            last_error = f"HTTP {response.status_code}"
-        except Exception as exc:
-            last_error = str(exc)
-
-        if attempt < attempts:
-            await asyncio.sleep(min(float(attempt), 3.0))
+            if attempt < attempts:
+                await asyncio.sleep(min(float(attempt), 3.0))
 
     logger.warning(
         "Startup: GROBID probe failed after %d attempts (%s). "
         "The app will continue in degraded mode and rely on downstream fallbacks.",
-        attempts,
+        attempts * max(1, len(candidate_urls)),
         last_error,
     )
     return False

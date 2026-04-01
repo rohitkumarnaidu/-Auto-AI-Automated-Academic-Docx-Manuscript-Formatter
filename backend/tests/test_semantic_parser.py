@@ -4,6 +4,7 @@ SciBERT Semantic Parser Tests
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -108,3 +109,29 @@ class TestSemanticParser:
 
         batch_mock.assert_called_once_with(["Sample block text"])
         assert output[0]["type"] == "BODY"
+
+    @pytest.mark.unit
+    def test_predict_blocks_batch_prefers_remote_scibert_when_configured(self):
+        parser = SemanticParser()
+        parser.remote_base_urls = ["https://scibert-primary.example", "https://scibert-shadow.example"]
+        parser.remote_max_retries = 1
+
+        def _mock_post(*args, **kwargs):
+            return SimpleNamespace(
+                status_code=200,
+                json=lambda: {
+                    "predictions": [
+                        {"type": "ABSTRACT", "confidence": 0.91},
+                        {"type": "METHODOLOGY", "confidence": 0.88},
+                    ]
+                },
+            )
+
+        with (
+            patch("app.pipeline.intelligence.semantic_parser.should_enable_scibert", return_value=True),
+            patch("app.pipeline.intelligence.semantic_parser.requests.post", side_effect=_mock_post),
+        ):
+            output = parser.predict_blocks_batch(["Abstract text", "Methods text"])
+
+        assert output[0]["type"] == "ABSTRACT"
+        assert output[1]["type"] == "METHODOLOGY"

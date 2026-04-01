@@ -42,3 +42,84 @@ def test_grobid_client_request_sets_timeout_tuple(monkeypatch):
 
     assert response.status_code == 200
     assert isinstance(captured["timeout"], tuple)
+
+
+def test_grobid_client_prefers_url_list_over_single(monkeypatch):
+    monkeypatch.setattr(
+        "app.pipeline.services.grobid_client.settings.GROBID_URLS",
+        "https://primary-grobid.example, https://shadow-grobid.example",
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "app.pipeline.services.grobid_client.settings.GROBID_URL",
+        "https://legacy-single.example",
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "app.pipeline.services.grobid_client.settings.GROBID_BASE_URL",
+        "https://legacy-base.example",
+        raising=False,
+    )
+
+    client = GROBIDClient()
+    assert client.base_urls[0] == "https://primary-grobid.example"
+    assert client.base_urls[1] == "https://shadow-grobid.example"
+
+
+def test_grobid_client_failover_to_shadow_on_transient_error(monkeypatch, tmp_path):
+    monkeypatch.setattr("app.pipeline.services.grobid_client.settings.GROBID_MAX_RETRIES", 1, raising=False)
+    monkeypatch.setattr("app.pipeline.services.grobid_client.settings.GROBID_TIMEOUT", 15, raising=False)
+    monkeypatch.setattr(
+        "app.pipeline.services.grobid_client.settings.GROBID_URLS",
+        "https://primary-grobid.example,https://shadow-grobid.example",
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "app.pipeline.services.grobid_client.settings.GROBID_HEALTH_PATH",
+        "/api/isalive",
+        raising=False,
+    )
+    monkeypatch.setattr("app.pipeline.services.grobid_client.time.sleep", lambda _seconds: None)
+
+    primary_xml_failure = SimpleNamespace(status_code=502, text="")
+    shadow_xml_success = SimpleNamespace(
+        status_code=200,
+        text="<TEI xmlns='http://www.tei-c.org/ns/1.0'><teiHeader/></TEI>",
+    )
+
+    def fake_request(method, url, **kwargs):
+        if url.startswith("https://primary-grobid.example"):
+            return primary_xml_failure
+        if url.startswith("https://shadow-grobid.example"):
+            return shadow_xml_success
+        return SimpleNamespace(status_code=500, text="")
+
+    monkeypatch.setattr("app.pipeline.services.grobid_client.requests.request", fake_request)
+
+    sample_pdf = tmp_path / "sample.pdf"
+    sample_pdf.write_bytes(b"%PDF-1.4\n%test")
+
+    client = GROBIDClient()
+    metadata = client.process_header_document(str(sample_pdf))
+
+    assert metadata["source"] == "grobid"
+    assert client.base_url == "https://shadow-grobid.example"
+
+
+def test_grobid_client_backoff_is_bounded():
+    client = GROBIDClient(base_url="http://localhost:8070")
+    assert client._retry_backoff_seconds(1) == 1.0
+    assert client._retry_backoff_seconds(2) == 2.0
+    assert client._retry_backoff_seconds(6) == 8.0
+
+
+def test_grobid_client_prioritizes_recent_last_good_endpoint(monkeypatch):
+    monkeypatch.setattr(
+        "app.pipeline.services.grobid_client.settings.GROBID_URLS",
+        "https://primary-grobid.example,https://shadow-grobid.example",
+        raising=False,
+    )
+    client = GROBIDClient()
+    client._mark_last_good_base_url("https://shadow-grobid.example", reason="test")
+    ordered = client._ordered_base_urls()
+    assert ordered[0] == "https://shadow-grobid.example"

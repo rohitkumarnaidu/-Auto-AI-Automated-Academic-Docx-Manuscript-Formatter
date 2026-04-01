@@ -17,7 +17,7 @@ import time
 import requests
 from requests import RequestException
 from urllib.parse import urlparse
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List, Optional
 from pathlib import Path
 import xml.etree.ElementTree as ET
 from app.config.settings import settings
@@ -37,15 +37,36 @@ class GROBIDClient:
     # TEI namespace for XML parsing
     TEI_NS = {"tei": "http://www.tei-c.org/ns/1.0"}
     TRANSIENT_HTTP_STATUSES = {408, 425, 429, 500, 502, 503, 504, 520, 522, 524}
+    LAST_GOOD_ENDPOINT_TTL_SECONDS = 300.0
     
-    def __init__(self, base_url: str = "http://localhost:8070"):
+    def __init__(self, base_url: Optional[str] = None):
         """
         Initialize GROBID client.
         
         Args:
-            base_url: GROBID service URL (default: http://localhost:8070)
+            base_url: Optional primary GROBID URL override.
         """
-        self.base_url = base_url.rstrip("/")
+        configured_urls = list(getattr(settings, "get_grobid_urls", lambda: [])())
+        if not configured_urls:
+            fallback_url = getattr(settings, "GROBID_URL", "http://localhost:8070")
+            configured_urls = [str(fallback_url).rstrip("/")]
+
+        if base_url:
+            normalized_base_url = str(base_url).strip().rstrip("/")
+            configured_urls = [normalized_base_url] + [url for url in configured_urls if url != normalized_base_url]
+
+        self.base_urls = [url for url in configured_urls if url]
+        if not self.base_urls:
+            self.base_urls = ["http://localhost:8070"]
+
+        self.base_url = self.base_urls[0]
+        health_path = getattr(settings, "get_service_health_path", lambda _name: "/api/isalive")("grobid")
+        health_path = str(health_path or "/api/isalive").strip()
+        if not health_path.startswith("/"):
+            health_path = f"/{health_path}"
+        if len(health_path) > 1:
+            health_path = health_path.rstrip("/")
+        self.health_path = health_path
         parsed_base = urlparse(self.base_url if "://" in self.base_url else f"http://{self.base_url}")
         hostname = (parsed_base.hostname or "").lower()
         self._remote_hosted = hostname not in {"localhost", "127.0.0.1", "0.0.0.0"}
@@ -67,6 +88,39 @@ class GROBIDClient:
                 reset_timeout=reset_timeout,
                 name="grobid",
             )
+        self._last_good_base_url = self.base_url
+        self._last_good_at = time.monotonic()
+
+    def _endpoint_url(self, base_url: str, path: str) -> str:
+        normalized_path = path if path.startswith("/") else f"/{path}"
+        return f"{base_url.rstrip('/')}{normalized_path}"
+
+    def _mark_last_good_base_url(self, base_url: str, *, reason: str) -> None:
+        previous = self._last_good_base_url
+        self._last_good_base_url = base_url
+        self._last_good_at = time.monotonic()
+        self.base_url = base_url
+        if previous and previous != base_url:
+            logger.warning(
+                "GROBID failover switch: %s -> %s (reason=%s)",
+                previous,
+                base_url,
+                reason,
+            )
+
+    def _ordered_base_urls(self) -> List[str]:
+        ordered = list(self.base_urls)
+        if (
+            self._last_good_base_url
+            and self._last_good_base_url in ordered
+            and (time.monotonic() - self._last_good_at) <= self.LAST_GOOD_ENDPOINT_TTL_SECONDS
+        ):
+            ordered.remove(self._last_good_base_url)
+            ordered.insert(0, self._last_good_base_url)
+        return ordered
+
+    def _retry_backoff_seconds(self, attempt: int) -> float:
+        return min(float(2 ** max(0, attempt - 1)), 8.0)
 
     def _request(self, method: str, url: str, **kwargs):
         if "timeout" not in kwargs:
@@ -80,12 +134,22 @@ class GROBIDClient:
         
     def is_available(self) -> bool:
         """Check if GROBID service is running."""
-        try:
-            # Avoid counting health probes toward circuit-breaker failures.
-            response = requests.request("GET", f"{self.base_url}/api/isalive", timeout=(2.0, 3.0))
-            return response.status_code == 200
-        except Exception:
-            return False
+        for base_url in self._ordered_base_urls():
+            endpoint = self._endpoint_url(base_url, self.health_path)
+            try:
+                # Avoid counting health probes toward circuit-breaker failures.
+                response = requests.request("GET", endpoint, timeout=(2.0, 3.0))
+                if response.status_code == 200:
+                    self._mark_last_good_base_url(base_url, reason="health_probe")
+                    return True
+                logger.warning(
+                    "GROBID health probe unhealthy: url=%s status=%s",
+                    endpoint,
+                    response.status_code,
+                )
+            except Exception as exc:
+                logger.warning("GROBID health probe failed: url=%s error=%s", endpoint, exc)
+        return False
     
     @safe_function(fallback_value={}, error_message="GROBIDClient.process_header_document")
     def process_header_document(self, file_path: str) -> Dict[str, Any]:
@@ -102,46 +166,82 @@ class GROBIDClient:
             logger.warning("GROBID input file does not exist: %s", file_path)
             return self._empty_metadata()
 
-        for attempt in range(1, self.max_retries + 1):
-            try:
-                with open(file_path, "rb") as fh:
-                    files = {"input": fh}
-                    response = self._request(
-                        "POST",
-                        f"{self.base_url}/api/processHeaderDocument",
-                        files=files,
-                        headers={"Accept": "application/xml", "Connection": "close"},
+        candidate_urls = self._ordered_base_urls()
+        for endpoint_index, base_url in enumerate(candidate_urls, start=1):
+            for attempt in range(1, self.max_retries + 1):
+                try:
+                    with open(file_path, "rb") as fh:
+                        files = {"input": fh}
+                        response = self._request(
+                            "POST",
+                            self._endpoint_url(base_url, "/api/processHeaderDocument"),
+                            files=files,
+                            headers={"Accept": "application/xml", "Connection": "close"},
+                        )
+
+                    if response.status_code != 200:
+                        logger.error(
+                            "GROBID failed with status %s (endpoint=%s attempt=%s/%s endpoint_index=%s/%s)",
+                            response.status_code,
+                            base_url,
+                            attempt,
+                            self.max_retries,
+                            endpoint_index,
+                            len(candidate_urls),
+                        )
+                        if response.status_code in self.TRANSIENT_HTTP_STATUSES and attempt < self.max_retries:
+                            time.sleep(self._retry_backoff_seconds(attempt))
+                            continue
+                        break
+
+                    response_text = (response.text or "").lstrip()
+                    if not response_text.startswith("<"):
+                        logger.warning(
+                            "GROBID returned non-XML payload (endpoint=%s attempt=%s/%s).",
+                            base_url,
+                            attempt,
+                            self.max_retries,
+                        )
+                        if attempt < self.max_retries:
+                            time.sleep(self._retry_backoff_seconds(attempt))
+                            continue
+                        break
+
+                    self._mark_last_good_base_url(base_url, reason="process_header")
+                    return self._parse_tei_xml(response_text)
+                except RequestException as e:
+                    logger.error(
+                        "GROBID request failed (endpoint=%s attempt=%s/%s): %s",
+                        base_url,
+                        attempt,
+                        self.max_retries,
+                        e,
                     )
-
-                if response.status_code != 200:
-                    logger.error("GROBID failed with status %s", response.status_code)
-                    if response.status_code in self.TRANSIENT_HTTP_STATUSES and attempt < self.max_retries:
-                        # Backoff for hosted service warm-ups / transient gateway failures.
-                        time.sleep(min(float(2 ** attempt), 8.0))
-                        continue
-                    return self._empty_metadata()
-
-                response_text = (response.text or "").lstrip()
-                if not response_text.startswith("<"):
-                    logger.warning("GROBID returned non-XML payload on attempt %s/%s.", attempt, self.max_retries)
                     if attempt < self.max_retries:
-                        time.sleep(min(float(2 ** attempt), 8.0))
+                        time.sleep(self._retry_backoff_seconds(attempt))
                         continue
-                    return self._empty_metadata()
+                    break
+                except Exception as e:
+                    logger.error(
+                        "GROBID processing failed (endpoint=%s attempt=%s/%s): %s",
+                        base_url,
+                        attempt,
+                        self.max_retries,
+                        e,
+                    )
+                    if attempt < self.max_retries:
+                        time.sleep(min(float(attempt), 2.0))
+                        continue
+                    break
 
-                return self._parse_tei_xml(response_text)
-            except RequestException as e:
-                logger.error("GROBID request failed (attempt %s/%s): %s", attempt, self.max_retries, e)
-                if attempt < self.max_retries:
-                    time.sleep(min(float(2 ** attempt), 8.0))
-                    continue
-                return self._empty_metadata()
-            except Exception as e:
-                logger.error("GROBID processing failed (attempt %s/%s): %s", attempt, self.max_retries, e)
-                if attempt < self.max_retries:
-                    time.sleep(min(float(attempt), 2.0))
-                    continue
-                return self._empty_metadata()
+            if endpoint_index < len(candidate_urls):
+                logger.warning(
+                    "GROBID failover: moving to next endpoint after failures (from=%s to=%s)",
+                    base_url,
+                    candidate_urls[endpoint_index],
+                )
+
+        return self._empty_metadata()
 
     @safe_function(fallback_value=[], error_message="GROBIDClient.process_references")
     def process_references(self, file_path: str) -> List[Dict[str, Any]]:
@@ -153,37 +253,49 @@ class GROBIDClient:
 
         if not self.is_available():
             return []
-            
-        for attempt in range(1, self.max_retries + 1):
-            try:
-                with open(file_path, "rb") as fh:
-                    files = {"input": fh}
-                    response = self._request(
-                        "POST",
-                        f"{self.base_url}/api/processReferences",
-                        files=files,
-                        headers={"Accept": "application/xml", "Connection": "close"},
-                    )
 
-                if response.status_code != 200:
-                    if response.status_code in self.TRANSIENT_HTTP_STATUSES and attempt < self.max_retries:
-                        time.sleep(min(float(2 ** attempt), 8.0))
-                        continue
+        candidate_urls = self._ordered_base_urls()
+        for endpoint_index, base_url in enumerate(candidate_urls, start=1):
+            for attempt in range(1, self.max_retries + 1):
+                try:
+                    with open(file_path, "rb") as fh:
+                        files = {"input": fh}
+                        response = self._request(
+                            "POST",
+                            self._endpoint_url(base_url, "/api/processReferences"),
+                            files=files,
+                            headers={"Accept": "application/xml", "Connection": "close"},
+                        )
+
+                    if response.status_code != 200:
+                        if response.status_code in self.TRANSIENT_HTTP_STATUSES and attempt < self.max_retries:
+                            time.sleep(self._retry_backoff_seconds(attempt))
+                            continue
+                        break
+
+                    self._mark_last_good_base_url(base_url, reason="process_references")
+                    # Parsing logic would go here
                     return []
+                except Exception as e:
+                    logger.error(
+                        "GROBID reference extraction failed (endpoint=%s attempt=%s/%s): %s",
+                        base_url,
+                        attempt,
+                        self.max_retries,
+                        e,
+                    )
+                    if attempt < self.max_retries:
+                        time.sleep(min(float(attempt), 2.0))
+                        continue
+                    break
 
-                # Parsing logic would go here
-                return []
-            except Exception as e:
-                logger.error(
-                    "GROBID reference extraction failed (attempt %s/%s): %s",
-                    attempt,
-                    self.max_retries,
-                    e,
+            if endpoint_index < len(candidate_urls):
+                logger.warning(
+                    "GROBID reference failover: moving to next endpoint (from=%s to=%s)",
+                    base_url,
+                    candidate_urls[endpoint_index],
                 )
-                if attempt < self.max_retries:
-                    time.sleep(min(float(attempt), 2.0))
-                    continue
-                return []
+        return []
 
     def extract_metadata(self, file_path: str) -> Dict[str, Any]:
         """

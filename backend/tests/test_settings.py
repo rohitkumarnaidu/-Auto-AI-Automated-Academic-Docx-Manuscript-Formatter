@@ -59,6 +59,32 @@ class TestSettingsDefaults:
         assert s.GROBID_TIMEOUT > 0
         assert s.GROBID_MAX_RETRIES == 3
 
+    def test_grobid_urls_prefer_urls_list(self, monkeypatch):
+        """When GROBID_URLS is set, it takes precedence over legacy single URL vars."""
+        monkeypatch.setenv("GROBID_URLS", "https://primary.example,https://shadow.example")
+        monkeypatch.setenv("GROBID_URL", "https://legacy.example")
+        monkeypatch.setenv("GROBID_BASE_URL", "https://legacy-base.example")
+
+        from app.config.settings import Settings
+
+        s = Settings()
+        s.validate()
+        assert s.get_grobid_urls() == ["https://primary.example", "https://shadow.example"]
+        assert s.GROBID_URL == "https://primary.example"
+
+    def test_nougat_and_scibert_urls_resolve_in_order(self, monkeypatch):
+        monkeypatch.setenv("NOUGAT_URLS", "https://nougat-a.example,https://nougat-b.example")
+        monkeypatch.setenv("NOUGAT_URL", "https://nougat-legacy.example")
+        monkeypatch.setenv("SCIBERT_URLS", "https://scibert-a.example,https://scibert-b.example")
+        monkeypatch.setenv("SCIBERT_URL", "https://scibert-legacy.example")
+
+        from app.config.settings import Settings
+
+        s = Settings()
+        s.validate()
+        assert s.get_nougat_urls() == ["https://nougat-a.example", "https://nougat-b.example"]
+        assert s.get_scibert_urls() == ["https://scibert-a.example", "https://scibert-b.example"]
+
     def test_validate_does_not_raise(self):
         """Settings.validate() must never raise even if all secrets are unset."""
         from app.config.settings import settings

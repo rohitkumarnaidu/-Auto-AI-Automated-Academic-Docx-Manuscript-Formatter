@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -71,3 +72,83 @@ async def test_readiness_force_refresh_bypasses_cache(monkeypatch):
 
     assert mock_sb.call_count == 2
     assert mock_llm.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_readiness_includes_dependency_probe_results(monkeypatch):
+    _configure_fast_readiness(monkeypatch, ttl_seconds=0.0)
+    monkeypatch.setattr(health_checks.settings, "GROBID_ENABLED", True, raising=False)
+    monkeypatch.setattr(
+        health_checks.settings,
+        "GROBID_URLS",
+        "https://grobid-primary.example,https://grobid-shadow.example",
+        raising=False,
+    )
+    monkeypatch.setattr(health_checks.settings, "DOCLING_URLS", "https://docling.example", raising=False)
+    monkeypatch.setattr(health_checks.settings, "OCR_URLS", "https://ocr.example", raising=False)
+    monkeypatch.setattr(health_checks.settings, "DOCX_CONVERTER_URLS", "https://docx.example", raising=False)
+    monkeypatch.setattr(health_checks.settings, "GROBID_HEALTH_PATH", "/api/isalive", raising=False)
+    monkeypatch.setattr(health_checks.settings, "DOCLING_HEALTH_PATH", "/", raising=False)
+    monkeypatch.setattr(health_checks.settings, "OCR_HEALTH_PATH", "/", raising=False)
+    monkeypatch.setattr(health_checks.settings, "DOCX_CONVERTER_HEALTH_PATH", "/", raising=False)
+
+    class _ProbeClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def get(self, url):
+            if "grobid-primary.example" in url:
+                return SimpleNamespace(status_code=502)
+            return SimpleNamespace(status_code=200)
+
+    with patch("app.db.supabase_client.check_supabase_health", return_value={"status": "healthy"}):
+        with patch("httpx.AsyncClient", return_value=_ProbeClient()):
+            with patch(
+                "app.services.llm_service.check_health",
+                new=AsyncMock(return_value={"nvidia": "healthy"}),
+            ):
+                payload, status_code = await health_checks.get_readiness_payload(force_refresh=True)
+
+    assert status_code == 200
+    assert payload["dependencies"]["grobid"]["status"] == "ready"
+    assert payload["dependencies"]["grobid"]["endpoint"] == "https://grobid-shadow.example/api/isalive"
+    assert payload["dependencies"]["docling"]["status"] == "ready"
+    assert payload["dependencies"]["ocr"]["status"] == "ready"
+    assert payload["dependencies"]["docx_converter"]["status"] == "ready"
+
+
+@pytest.mark.asyncio
+async def test_readiness_includes_nougat_and_scibert_remote_dependencies(monkeypatch):
+    _configure_fast_readiness(monkeypatch, ttl_seconds=0.0)
+    monkeypatch.setattr(health_checks.settings, "ENABLE_NOUGAT_PARSER", True, raising=False)
+    monkeypatch.setattr(health_checks.settings, "NOUGAT_URLS", "https://nougat.example", raising=False)
+    monkeypatch.setattr(health_checks.settings, "NOUGAT_HEALTH_PATH", "/", raising=False)
+    monkeypatch.setattr(health_checks.settings, "USE_SCIBERT_CLASSIFICATION", True, raising=False)
+    monkeypatch.setattr(health_checks.settings, "SCIBERT_URLS", "https://scibert.example", raising=False)
+    monkeypatch.setattr(health_checks.settings, "SCIBERT_HEALTH_PATH", "/", raising=False)
+
+    class _ProbeClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def get(self, url):
+            return SimpleNamespace(status_code=200)
+
+    with patch("app.db.supabase_client.check_supabase_health", return_value={"status": "healthy"}):
+        with patch("app.services.health_checks.should_enable_scibert", return_value=True):
+            with patch("httpx.AsyncClient", return_value=_ProbeClient()):
+                with patch(
+                    "app.services.llm_service.check_health",
+                    new=AsyncMock(return_value={"nvidia": "healthy"}),
+                ):
+                    payload, status_code = await health_checks.get_readiness_payload(force_refresh=True)
+
+    assert status_code == 200
+    assert payload["dependencies"]["nougat"]["status"] == "ready"
+    assert payload["dependencies"]["scibert"]["status"] == "ready"

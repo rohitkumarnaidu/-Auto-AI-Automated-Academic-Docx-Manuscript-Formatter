@@ -1,69 +1,67 @@
 """
-Nougat Parser — Meta AI's neural PDF parser for academic documents.
+Nougat parser with remote-first execution.
 
-Uses facebook/nougat-base to convert scientific PDFs directly to structured
-markup, with far superior extraction of equations, tables, and references
-compared to traditional text-extraction tools.
-
-Falls back gracefully if Nougat or its dependencies are unavailable.
+Behavior:
+1) If NOUGAT_URL/NOUGAT_URLS are configured, try remote Nougat endpoints first.
+2) If remote fails and local dependencies are available, fall back to local Nougat.
+3) If neither path is available, return an empty document with an error stage.
 """
 
+from __future__ import annotations
+
+import logging
 import os
 import re
-import logging
-from typing import List, Tuple, Optional
+import time
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import requests
+from requests import RequestException
+
+from app.config.settings import settings
+from app.models import (
+    Block,
+    BlockType,
+    DocumentMetadata,
+    PipelineDocument as Document,
+    TextStyle,
+)
+from app.pipeline.parsing.base_parser import BaseParser
+from app.utils.id_generator import generate_block_id
 
 logger = logging.getLogger(__name__)
 
-# --------------------------------------------------------------------------- #
-#  Optional imports — Nougat needs torch, transformers, PIL, pypdf
-# --------------------------------------------------------------------------- #
+# Optional local dependencies for Nougat model execution.
 NOUGAT_AVAILABLE = False
 _load_error: Optional[str] = None
-
 try:
+    import pypdf  # noqa: F401
     import torch
-    from transformers import NougatProcessor, VisionEncoderDecoderModel
     from PIL import Image
-    import pypdf
+    from transformers import NougatProcessor, VisionEncoderDecoderModel
 
     NOUGAT_AVAILABLE = True
-except ImportError as exc:
+except ImportError as exc:  # pragma: no cover - environment dependent
     _load_error = str(exc)
     logger.info(
-        "Nougat dependencies not fully installed (%s). "
-        "NougatParser will be unavailable. Install with: "
-        "pip install nougat-ocr torch transformers Pillow pypdf",
+        "Nougat local dependencies unavailable (%s). "
+        "Remote Nougat can still be used when configured.",
         exc,
     )
 
-from app.pipeline.parsing.base_parser import BaseParser
-from app.models import (
-    PipelineDocument as Document,
-    DocumentMetadata,
-    Block,
-    BlockType,
-    TextStyle,
-)
-from app.utils.id_generator import generate_block_id
 
-# --------------------------------------------------------------------------- #
-#  Constants
-# --------------------------------------------------------------------------- #
 PRIMARY_MODEL = "facebook/nougat-base"
-FALLBACK_MODEL = "facebook/nougat-small"  # ~350MB, for low-RAM systems
-MIN_RAM_GB = 4  # Minimum free RAM to attempt loading nougat-base
+FALLBACK_MODEL = "facebook/nougat-small"
+MIN_RAM_GB = 4
 
 
-# --------------------------------------------------------------------------- #
-#  Helpers
-# --------------------------------------------------------------------------- #
 def _check_available_ram_gb() -> float:
-    """Return available system RAM in GB. Returns 0 on failure."""
+    """Return available system RAM in GB, or 0.0 on failure."""
     try:
         import psutil
+
         return psutil.virtual_memory().available / (1024 ** 3)
     except Exception:
         return 0.0
@@ -71,49 +69,40 @@ def _check_available_ram_gb() -> float:
 
 def _pdf_to_images(file_path: str) -> List["Image.Image"]:
     """
-    Convert each page of a PDF to a PIL Image using PyMuPDF (fitz).
-    Falls back to pdf2image / pypdf if fitz is unavailable.
+    Convert PDF pages to PIL images.
+    Tries PyMuPDF first, then pdf2image.
     """
-    images = []
+    images: List["Image.Image"] = []
 
-    # Try PyMuPDF first (fastest, already a dependency)
     try:
         import fitz
+
         pdf_doc = fitz.open(file_path)
         for page in pdf_doc:
-            # Render at 200 DPI for good OCR quality
             pix = page.get_pixmap(dpi=200)
-            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-            images.append(img)
+            images.append(Image.frombytes("RGB", [pix.width, pix.height], pix.samples))
         pdf_doc.close()
         return images
     except ImportError:
         pass
 
-    # Fallback: use pypdf + reportlab (basic, lower quality)
     try:
         from pdf2image import convert_from_path
-        images = convert_from_path(file_path, dpi=200)
-        return images
+
+        return convert_from_path(file_path, dpi=200)
     except ImportError:
         pass
 
     raise RuntimeError(
-        "Cannot convert PDF to images. Install PyMuPDF (pip install PyMuPDF) "
-        "or pdf2image (pip install pdf2image)."
+        "Cannot convert PDF to images. Install PyMuPDF or pdf2image for local Nougat."
     )
 
 
 def _classify_nougat_line(line: str) -> BlockType:
-    """
-    Heuristic classification of a Nougat output line into a BlockType.
-    Nougat outputs LaTeX-like / Markdown-like markup.
-    """
     stripped = line.strip()
     if not stripped:
         return BlockType.UNKNOWN
 
-    # Section headings: map markdown depth to HEADING_1..HEADING_3
     if stripped.startswith("### "):
         return BlockType.HEADING_3
     if stripped.startswith("## "):
@@ -121,196 +110,259 @@ def _classify_nougat_line(line: str) -> BlockType:
     if stripped.startswith("# "):
         return BlockType.HEADING_1
 
-    # Abstract
     if stripped.lower().startswith("abstract"):
         return BlockType.ABSTRACT
 
-    # References section
     if stripped.lower() in ("references", "bibliography"):
         return BlockType.HEADING_1
 
-    # Equations (LaTeX delimiters)
-    if stripped.startswith("\\[") or stripped.startswith("$$"):
-        return BlockType.UNKNOWN  # equation — no dedicated BlockType
-
-    # List items
     if stripped.startswith("- ") or stripped.startswith("* ") or re.match(r"^\d+\.\s", stripped):
         return BlockType.LIST_ITEM
 
-    # Table markers
     if "|" in stripped and stripped.count("|") >= 2:
-        return BlockType.UNKNOWN  # table row
+        return BlockType.UNKNOWN
 
     return BlockType.BODY
 
 
-# --------------------------------------------------------------------------- #
-#  Main class
-# --------------------------------------------------------------------------- #
 class NougatParser(BaseParser):
-    """
-    Parses academic PDF files using Meta's Nougat model.
+    """Academic PDF parser backed by Nougat (remote-first, local-fallback)."""
 
-    Nougat converts each PDF page image into structured Markdown/LaTeX text,
-    providing superior extraction of equations, tables, and references.
-
-    Model loading:
-      1. Try facebook/nougat-base  (~1GB, best quality)
-      2. Fall back to facebook/nougat-small  (~350MB, less RAM)
-      3. If both fail, __init__ raises ImportError (factory skips us)
-    """
+    TRANSIENT_HTTP_STATUSES = {408, 425, 429, 500, 502, 503, 504, 520, 522, 524}
+    LAST_GOOD_ENDPOINT_TTL_SECONDS = 300.0
 
     def __init__(self):
-        if not NOUGAT_AVAILABLE:
-            raise ImportError(
-                f"Nougat dependencies unavailable: {_load_error}. "
-                "Install with: pip install nougat-ocr torch transformers Pillow pypdf"
-            )
+        configured_urls = list(getattr(settings, "get_nougat_urls", lambda: [])())
+        if not configured_urls:
+            fallback_url = getattr(settings, "NOUGAT_URL", None)
+            if fallback_url:
+                configured_urls = [str(fallback_url).rstrip("/")]
+
+        self.remote_base_urls = [url.rstrip("/") for url in configured_urls if str(url).strip()]
+        self.remote_parse_paths = ["/parse", "/api/parse"]
+        self.remote_timeout = max(
+            10,
+            int(getattr(settings, "PIPELINE_DOCLING_TIMEOUT_SECONDS", 25)),
+        )
+        self.remote_max_retries = max(1, int(getattr(settings, "GROBID_MAX_RETRIES", 3)))
+        self._last_good_remote_url = self.remote_base_urls[0] if self.remote_base_urls else None
+        self._last_good_remote_at = time.monotonic()
 
         self.model = None
         self.processor = None
         self.device = None
-        self.active_model_name: str = ""
+        self.active_model_name = ""
         self.block_counter = 0
-
-        # Lazy-load: model is loaded on first parse() call, not at import time
         self._model_loaded = False
 
-    def _ensure_model_loaded(self):
-        """Lazy-load the Nougat model on first use."""
+        # Local Nougat is optional if remote is configured.
+        if not NOUGAT_AVAILABLE and not self.remote_base_urls:
+            raise ImportError(
+                f"Nougat dependencies unavailable: {_load_error}. "
+                "Either install local Nougat deps or configure NOUGAT_URLS."
+            )
+
+    def supports_format(self, file_extension: str) -> bool:
+        return file_extension.lower() == ".pdf"
+
+    def _ordered_remote_urls(self) -> List[str]:
+        ordered = list(self.remote_base_urls)
+        if (
+            self._last_good_remote_url
+            and self._last_good_remote_url in ordered
+            and (time.monotonic() - self._last_good_remote_at) <= self.LAST_GOOD_ENDPOINT_TTL_SECONDS
+        ):
+            ordered.remove(self._last_good_remote_url)
+            ordered.insert(0, self._last_good_remote_url)
+        return ordered
+
+    def _mark_last_good_remote_url(self, base_url: str, *, reason: str) -> None:
+        previous = self._last_good_remote_url
+        self._last_good_remote_url = base_url
+        self._last_good_remote_at = time.monotonic()
+        if previous and previous != base_url:
+            logger.warning(
+                "Nougat failover switch: %s -> %s (reason=%s)",
+                previous,
+                base_url,
+                reason,
+            )
+
+    def _retry_backoff_seconds(self, attempt: int) -> float:
+        return min(float(2 ** max(0, attempt - 1)), 8.0)
+
+    def _new_document(self, file_path: str, document_id: str) -> Document:
+        now = datetime.now(timezone.utc)
+        document = Document(
+            document_id=str(document_id),
+            original_filename=Path(file_path).name,
+            source_path=file_path,
+            created_at=now,
+            updated_at=now,
+        )
+        document.metadata = DocumentMetadata()
+        return document
+
+    def _extract_remote_text(self, payload: Any) -> str:
+        if isinstance(payload, dict):
+            for key in ("markdown", "text", "content", "result"):
+                value = payload.get(key)
+                if isinstance(value, str) and value.strip():
+                    return value
+        if isinstance(payload, str):
+            return payload
+        return ""
+
+    def _parse_via_remote(self, file_path: str, document_id: str) -> Optional[Document]:
+        if not self.remote_base_urls:
+            return None
+
+        ordered_urls = self._ordered_remote_urls()
+        for endpoint_index, base_url in enumerate(ordered_urls, start=1):
+            for path in self.remote_parse_paths:
+                endpoint = f"{base_url.rstrip('/')}{path}"
+                for attempt in range(1, self.remote_max_retries + 1):
+                    try:
+                        with open(file_path, "rb") as fh:
+                            files = {"file": (Path(file_path).name, fh, "application/pdf")}
+                            response = requests.post(
+                                endpoint,
+                                files=files,
+                                timeout=(5.0, float(self.remote_timeout)),
+                            )
+
+                        if response.status_code != 200:
+                            logger.warning(
+                                "Nougat remote call failed: endpoint=%s status=%s attempt=%s/%s",
+                                endpoint,
+                                response.status_code,
+                                attempt,
+                                self.remote_max_retries,
+                            )
+                            if (
+                                response.status_code in self.TRANSIENT_HTTP_STATUSES
+                                and attempt < self.remote_max_retries
+                            ):
+                                time.sleep(self._retry_backoff_seconds(attempt))
+                                continue
+                            break
+
+                        remote_payload: Any
+                        try:
+                            remote_payload = response.json()
+                        except ValueError:
+                            remote_payload = response.text
+
+                        extracted_text = self._extract_remote_text(remote_payload).strip()
+                        if not extracted_text:
+                            logger.warning(
+                                "Nougat remote returned empty payload: endpoint=%s attempt=%s/%s",
+                                endpoint,
+                                attempt,
+                                self.remote_max_retries,
+                            )
+                            if attempt < self.remote_max_retries:
+                                time.sleep(self._retry_backoff_seconds(attempt))
+                                continue
+                            break
+
+                        blocks = self._parse_nougat_output(extracted_text)
+                        document = self._new_document(file_path, document_id)
+                        document.blocks = blocks
+                        document.figures = []
+                        document.add_processing_stage(
+                            stage_name="parsing",
+                            status="success",
+                            message=(
+                                f"Parsed PDF with remote Nougat endpoint {endpoint}: "
+                                f"{len(blocks)} blocks"
+                            ),
+                        )
+                        document.metadata.ai_hints = document.metadata.ai_hints or {}
+                        document.metadata.ai_hints["parser"] = "nougat_remote"
+                        document.metadata.ai_hints["nougat_endpoint"] = endpoint
+                        self._mark_last_good_remote_url(base_url, reason="parse")
+                        return document
+                    except RequestException as exc:
+                        logger.warning(
+                            "Nougat remote request error: endpoint=%s attempt=%s/%s error=%s",
+                            endpoint,
+                            attempt,
+                            self.remote_max_retries,
+                            exc,
+                        )
+                        if attempt < self.remote_max_retries:
+                            time.sleep(self._retry_backoff_seconds(attempt))
+                            continue
+                        break
+                    except Exception as exc:
+                        logger.warning(
+                            "Nougat remote parsing exception: endpoint=%s attempt=%s/%s error=%s",
+                            endpoint,
+                            attempt,
+                            self.remote_max_retries,
+                            exc,
+                        )
+                        if attempt < self.remote_max_retries:
+                            time.sleep(min(float(attempt), 2.0))
+                            continue
+                        break
+
+            if endpoint_index < len(ordered_urls):
+                logger.warning(
+                    "Nougat failover: moving to next endpoint (from=%s to=%s)",
+                    base_url,
+                    ordered_urls[endpoint_index],
+                )
+        return None
+
+    def _ensure_model_loaded(self) -> None:
         if self._model_loaded:
             return
 
+        if not NOUGAT_AVAILABLE:
+            raise RuntimeError(
+                "Local Nougat dependencies unavailable and remote parsing failed."
+            )
+
         from app.services.model_store import model_store
 
-        # Check ModelStore cache first
         if model_store.is_loaded("nougat_model") and model_store.is_loaded("nougat_processor"):
             self.model = model_store.get_model("nougat_model")
             self.processor = model_store.get_model("nougat_processor")
             self.device = next(self.model.parameters()).device
             self.active_model_name = "cached"
             self._model_loaded = True
-            logger.info("NougatParser: Reusing cached model from ModelStore.")
+            logger.info("NougatParser: reusing cached local model from ModelStore.")
             return
 
-        # Detect device
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        logger.info("NougatParser: Using device: %s", self.device)
-
-        # Choose model based on available RAM
         available_ram = _check_available_ram_gb()
-        model_name = PRIMARY_MODEL if available_ram >= MIN_RAM_GB else FALLBACK_MODEL
+        preferred = PRIMARY_MODEL if available_ram >= MIN_RAM_GB else FALLBACK_MODEL
 
-        # Try primary, then fallback
-        for name in [model_name, FALLBACK_MODEL]:
+        for model_name in [preferred, FALLBACK_MODEL]:
             try:
-                logger.info("NougatParser: Loading model '%s'... (this may download ~1GB on first use)", name)
-                self.processor = NougatProcessor.from_pretrained(name)
-                self.model = VisionEncoderDecoderModel.from_pretrained(name)
+                logger.info("NougatParser: loading local model '%s'...", model_name)
+                self.processor = NougatProcessor.from_pretrained(model_name)
+                self.model = VisionEncoderDecoderModel.from_pretrained(model_name)
                 self.model.to(self.device)
                 self.model.eval()
-                self.active_model_name = name
+                self.active_model_name = model_name
 
-                # Cache in ModelStore
                 model_store.set_model("nougat_model", self.model)
                 model_store.set_model("nougat_processor", self.processor)
-                logger.info("NougatParser: Model '%s' loaded on %s.", name, self.device)
                 self._model_loaded = True
+                logger.info("NougatParser: local model '%s' loaded on %s.", model_name, self.device)
                 return
-            except Exception as exc:
-                logger.warning("NougatParser: Failed to load '%s': %s", name, exc)
-                if name == FALLBACK_MODEL:
-                    raise RuntimeError(
-                        f"NougatParser: Could not load any Nougat model. Last error: {exc}"
-                    )
+            except Exception as exc:  # pragma: no cover - runtime dependent
+                logger.warning("NougatParser: failed to load local model '%s': %s", model_name, exc)
+                if model_name == FALLBACK_MODEL:
+                    raise RuntimeError(f"NougatParser: unable to load local Nougat model: {exc}") from exc
 
-    def supports_format(self, file_extension: str) -> bool:
-        """Nougat supports PDF files only."""
-        return file_extension.lower() == ".pdf"
-
-    def parse(self, file_path: str, document_id: str) -> Document:
-        """
-        Parse a PDF file using Nougat into a Document model.
-
-        Args:
-            file_path: Path to the .pdf file
-            document_id: Unique identifier for this document
-
-        Returns:
-            Document instance with all extracted content
-        """
-        if not os.path.exists(file_path):
-            raise FileNotFoundError(f"PDF file not found: {file_path}")
-
-        # Load model on first call
-        self._ensure_model_loaded()
-
-        # Reset counter
-        self.block_counter = 0
-
-        if not isinstance(document_id, str):
-            document_id = str(document_id)
-
-        # Initialize document
-        document = Document(
-            document_id=document_id,
-            original_filename=Path(file_path).name,
-            source_path=file_path,
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
-        )
-
-        document.metadata = DocumentMetadata()
-
-        # Convert PDF pages to images
-        logger.info("NougatParser: Converting PDF to images...")
-        page_images = _pdf_to_images(file_path)
-        logger.info("NougatParser: Processing %d pages with Nougat...", len(page_images))
-
-        # Run inference on each page
-        all_text_parts: List[str] = []
-        for page_num, img in enumerate(page_images):
-            try:
-                page_text = self._process_page(img)
-                if page_text:
-                    all_text_parts.append(page_text)
-            except Exception as exc:
-                logger.warning(
-                    "NougatParser: Failed to process page %d: %s", page_num + 1, exc
-                )
-
-        # Parse the combined Nougat output into blocks
-        full_text = "\n\n".join(all_text_parts)
-        blocks = self._parse_nougat_output(full_text)
-
-        document.blocks = blocks
-        document.figures = []  # Nougat doesn't extract images separately
-
-        document.add_processing_stage(
-            stage_name="parsing",
-            status="success",
-            message=(
-                f"Parsed PDF with Nougat ({self.active_model_name}): "
-                f"{len(blocks)} blocks from {len(page_images)} pages"
-            ),
-        )
-
-        document.metadata.ai_hints = document.metadata.ai_hints or {}
-        document.metadata.ai_hints["parser"] = "nougat"
-        document.metadata.ai_hints["nougat_model"] = self.active_model_name
-        logger.info("NougatParser: Extracted %d blocks from %d pages.", len(blocks), len(page_images))
-        return document
-
-    # ------------------------------------------------------------------ #
-    #  Internal
-    # ------------------------------------------------------------------ #
     def _process_page(self, image: "Image.Image") -> str:
-        """Run Nougat inference on a single page image."""
-        # Prepare input
         pixel_values = self.processor(image, return_tensors="pt").pixel_values
         pixel_values = pixel_values.to(self.device)
 
-        # Generate output tokens
         with torch.no_grad():
             outputs = self.model.generate(
                 pixel_values,
@@ -319,33 +371,83 @@ class NougatParser(BaseParser):
                 bad_words_ids=[[self.processor.tokenizer.unk_token_id]],
             )
 
-        # Decode
         page_text = self.processor.batch_decode(outputs, skip_special_tokens=True)[0]
-
-        # Post-process: remove repetition artifacts (common in Nougat output)
-        page_text = self.processor.post_process_generation(
-            page_text, fix_markdown=True
-        )
-
+        page_text = self.processor.post_process_generation(page_text, fix_markdown=True)
         return page_text
 
+    def _parse_local(self, file_path: str, document_id: str) -> Document:
+        self._ensure_model_loaded()
+        self.block_counter = 0
+
+        document = self._new_document(file_path, document_id)
+
+        logger.info("NougatParser: converting PDF to images for local inference...")
+        page_images = _pdf_to_images(file_path)
+        logger.info("NougatParser: processing %d pages via local Nougat...", len(page_images))
+
+        all_text_parts: List[str] = []
+        for page_num, image in enumerate(page_images):
+            try:
+                page_text = self._process_page(image)
+                if page_text:
+                    all_text_parts.append(page_text)
+            except Exception as exc:
+                logger.warning("NougatParser: local page %d failed: %s", page_num + 1, exc)
+
+        full_text = "\n\n".join(all_text_parts)
+        blocks = self._parse_nougat_output(full_text)
+        document.blocks = blocks
+        document.figures = []
+        document.add_processing_stage(
+            stage_name="parsing",
+            status="success",
+            message=(
+                f"Parsed PDF with local Nougat ({self.active_model_name}): "
+                f"{len(blocks)} blocks from {len(page_images)} pages"
+            ),
+        )
+        document.metadata.ai_hints = document.metadata.ai_hints or {}
+        document.metadata.ai_hints["parser"] = "nougat_local"
+        document.metadata.ai_hints["nougat_model"] = self.active_model_name
+        return document
+
+    def parse(self, file_path: str, document_id: str) -> Document:
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"PDF file not found: {file_path}")
+
+        remote_document = self._parse_via_remote(file_path, document_id)
+        if remote_document is not None:
+            return remote_document
+
+        if NOUGAT_AVAILABLE:
+            return self._parse_local(file_path, document_id)
+
+        document = self._new_document(file_path, document_id)
+        document.blocks = []
+        document.figures = []
+        document.add_processing_stage(
+            stage_name="parsing",
+            status="error",
+            message=(
+                "Nougat parsing unavailable: remote endpoints failed and local dependencies are missing."
+            ),
+        )
+        document.metadata.ai_hints = document.metadata.ai_hints or {}
+        document.metadata.ai_hints["parser"] = "nougat_unavailable"
+        return document
+
     def _parse_nougat_output(self, text: str) -> List[Block]:
-        """Convert raw Nougat Markdown/LaTeX output into Block objects."""
         blocks: List[Block] = []
         if not text:
             return blocks
 
-        # Split into logical blocks by double newlines
         raw_blocks = re.split(r"\n{2,}", text)
-
         for raw in raw_blocks:
             raw = raw.strip()
             if not raw:
                 continue
 
             block_type = _classify_nougat_line(raw)
-
-            # Clean up heading markers for the block text
             clean_text = raw
             heading_level = 0
             if raw.startswith("### "):
@@ -360,9 +462,7 @@ class NougatParser(BaseParser):
 
             block_id = generate_block_id(self.block_counter)
             self.block_counter += 1
-
             style = TextStyle(bold=(heading_level > 0))
-
             block = Block(
                 block_id=block_id,
                 text=clean_text,
@@ -374,12 +474,8 @@ class NougatParser(BaseParser):
             if heading_level > 0:
                 block.metadata["heading_level"] = heading_level
                 block.metadata["potential_heading"] = True
-
-            # Flag equations
             if "\\[" in raw or "$$" in raw or "\\begin{" in raw:
                 block.metadata["has_equation"] = True
-
-            # Flag tables
             if "|" in raw and raw.count("|") >= 2:
                 block.metadata["is_table"] = True
 
@@ -387,3 +483,4 @@ class NougatParser(BaseParser):
             blocks.append(block)
 
         return blocks
+

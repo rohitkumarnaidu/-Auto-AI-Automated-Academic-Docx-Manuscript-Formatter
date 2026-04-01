@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Iterable, Optional
 
 logger = logging.getLogger(__name__)
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
@@ -69,8 +69,149 @@ def _normalize_cors_origins(value) -> str:
     return DEFAULT_LOCAL_CORS_ORIGINS
 
 
+DEFAULT_GROBID_URL = "http://localhost:8070"
+DEFAULT_GROBID_HEALTH_PATH = "/api/isalive"
+DEFAULT_GENERIC_HEALTH_PATH = "/"
+
+
+def _normalize_base_url(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = str(value).strip()
+    if not normalized:
+        return None
+    return normalized.rstrip("/")
+
+
+def _split_urls(raw_value: str | None) -> list[str]:
+    if raw_value is None:
+        return []
+    values = []
+    for part in str(raw_value).split(","):
+        normalized = _normalize_base_url(part)
+        if normalized:
+            values.append(normalized)
+    return values
+
+
+def _dedupe(values: Iterable[str]) -> list[str]:
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        if value in seen:
+            continue
+        deduped.append(value)
+        seen.add(value)
+    return deduped
+
+
+def _resolve_service_urls(
+    raw_urls_value: str | None,
+    single_url_values: Iterable[str | None],
+    *,
+    default_urls: Iterable[str] = (),
+) -> list[str]:
+    urls = _split_urls(raw_urls_value)
+    if urls:
+        return _dedupe(urls)
+
+    fallback_urls = [_normalize_base_url(value) for value in single_url_values]
+    filtered_fallback_urls = [value for value in fallback_urls if value]
+    if filtered_fallback_urls:
+        return _dedupe(filtered_fallback_urls)
+
+    return _dedupe([value for value in default_urls if value])
+
+
+def _normalize_health_path(value: str | None, *, default_path: str) -> str:
+    normalized = str(value or default_path).strip()
+    if not normalized:
+        normalized = default_path
+    if not normalized.startswith("/"):
+        normalized = f"/{normalized}"
+    if len(normalized) > 1:
+        normalized = normalized.rstrip("/")
+    return normalized or default_path
+
+
+class _ServiceUrlMixin:
+    def get_grobid_urls(self) -> list[str]:
+        return _resolve_service_urls(
+            getattr(self, "GROBID_URLS", None),
+            (
+                getattr(self, "GROBID_URL", None),
+                getattr(self, "GROBID_BASE_URL", None),
+            ),
+            default_urls=(DEFAULT_GROBID_URL,),
+        )
+
+    def get_docling_urls(self) -> list[str]:
+        return _resolve_service_urls(
+            getattr(self, "DOCLING_URLS", None),
+            (getattr(self, "DOCLING_URL", None),),
+        )
+
+    def get_ocr_urls(self) -> list[str]:
+        return _resolve_service_urls(
+            getattr(self, "OCR_URLS", None),
+            (getattr(self, "OCR_URL", None),),
+        )
+
+    def get_docx_converter_urls(self) -> list[str]:
+        return _resolve_service_urls(
+            getattr(self, "DOCX_CONVERTER_URLS", None),
+            (getattr(self, "DOCX_CONVERTER_URL", None),),
+        )
+
+    def get_nougat_urls(self) -> list[str]:
+        return _resolve_service_urls(
+            getattr(self, "NOUGAT_URLS", None),
+            (getattr(self, "NOUGAT_URL", None),),
+        )
+
+    def get_scibert_urls(self) -> list[str]:
+        return _resolve_service_urls(
+            getattr(self, "SCIBERT_URLS", None),
+            (getattr(self, "SCIBERT_URL", None),),
+        )
+
+    def get_service_health_path(self, service_name: str) -> str:
+        normalized_name = service_name.strip().lower()
+        if normalized_name == "grobid":
+            return _normalize_health_path(
+                getattr(self, "GROBID_HEALTH_PATH", DEFAULT_GROBID_HEALTH_PATH),
+                default_path=DEFAULT_GROBID_HEALTH_PATH,
+            )
+        if normalized_name == "docling":
+            return _normalize_health_path(
+                getattr(self, "DOCLING_HEALTH_PATH", DEFAULT_GENERIC_HEALTH_PATH),
+                default_path=DEFAULT_GENERIC_HEALTH_PATH,
+            )
+        if normalized_name == "ocr":
+            return _normalize_health_path(
+                getattr(self, "OCR_HEALTH_PATH", DEFAULT_GENERIC_HEALTH_PATH),
+                default_path=DEFAULT_GENERIC_HEALTH_PATH,
+            )
+        if normalized_name == "docx_converter":
+            return _normalize_health_path(
+                getattr(self, "DOCX_CONVERTER_HEALTH_PATH", DEFAULT_GENERIC_HEALTH_PATH),
+                default_path=DEFAULT_GENERIC_HEALTH_PATH,
+            )
+        if normalized_name == "nougat":
+            return _normalize_health_path(
+                getattr(self, "NOUGAT_HEALTH_PATH", DEFAULT_GENERIC_HEALTH_PATH),
+                default_path=DEFAULT_GENERIC_HEALTH_PATH,
+            )
+        if normalized_name == "scibert":
+            return _normalize_health_path(
+                getattr(self, "SCIBERT_HEALTH_PATH", DEFAULT_GENERIC_HEALTH_PATH),
+                default_path=DEFAULT_GENERIC_HEALTH_PATH,
+            )
+        raise ValueError(f"Unknown service_name: {service_name!r}")
+
+
 if _PS:
-    class Settings(BaseSettings):
+    class Settings(_ServiceUrlMixin, BaseSettings):
         """Application settings loaded from environment variables / .env file."""
 
         # Supabase Auth
@@ -132,13 +273,31 @@ if _PS:
         GENERATED_OUTPUT_DIR: str
 
         # GROBID / LLM / AV
-        GROBID_URL: str
-        GROBID_BASE_URL: str
+        GROBID_URL: str = DEFAULT_GROBID_URL
+        GROBID_BASE_URL: str = DEFAULT_GROBID_URL
+        GROBID_URLS: str = ""
+        GROBID_HEALTH_PATH: str = DEFAULT_GROBID_HEALTH_PATH
         GROBID_TIMEOUT: int
         GROBID_MAX_RETRIES: int
         GROBID_ENABLED: bool
         USE_DOCLING_FALLBACK: bool = True
         PYMUPDF_FALLBACK: bool = True
+
+        DOCLING_URL: Optional[str] = None
+        DOCLING_URLS: str = ""
+        DOCLING_HEALTH_PATH: str = DEFAULT_GENERIC_HEALTH_PATH
+        OCR_URL: Optional[str] = None
+        OCR_URLS: str = ""
+        OCR_HEALTH_PATH: str = DEFAULT_GENERIC_HEALTH_PATH
+        DOCX_CONVERTER_URL: Optional[str] = None
+        DOCX_CONVERTER_URLS: str = ""
+        DOCX_CONVERTER_HEALTH_PATH: str = DEFAULT_GENERIC_HEALTH_PATH
+        NOUGAT_URL: Optional[str] = None
+        NOUGAT_URLS: str = ""
+        NOUGAT_HEALTH_PATH: str = DEFAULT_GENERIC_HEALTH_PATH
+        SCIBERT_URL: Optional[str] = None
+        SCIBERT_URLS: str = ""
+        SCIBERT_HEALTH_PATH: str = DEFAULT_GENERIC_HEALTH_PATH
 
         OLLAMA_URL: str
         OLLAMA_BASE_URL: str
@@ -272,6 +431,20 @@ if _PS:
                 if not getattr(self, name):
                     logger.warning("%s is not set. DB/auth endpoints will fail at request time.", name)
 
+            # URL list precedence: *_URLS > single *_URL.
+            grobid_urls = self.get_grobid_urls()
+            if grobid_urls:
+                self.GROBID_URL = grobid_urls[0]
+                self.GROBID_BASE_URL = grobid_urls[0]
+            else:
+                self.GROBID_URL = DEFAULT_GROBID_URL
+                self.GROBID_BASE_URL = DEFAULT_GROBID_URL
+
+            self.GROBID_HEALTH_PATH = self.get_service_health_path("grobid")
+            self.DOCLING_HEALTH_PATH = self.get_service_health_path("docling")
+            self.OCR_HEALTH_PATH = self.get_service_health_path("ocr")
+            self.DOCX_CONVERTER_HEALTH_PATH = self.get_service_health_path("docx_converter")
+
             if self.RETENTION_DAYS <= 0:
                 raise ValueError("RETENTION_DAYS must be > 0")
 
@@ -284,7 +457,7 @@ else:
     except Exception:
         pass
 
-    class Settings:  # type: ignore[no-redef]
+    class Settings(_ServiceUrlMixin):  # type: ignore[no-redef]
         # Supabase Auth
         SUPABASE_URL: Optional[str] = os.getenv("SUPABASE_URL")
         SUPABASE_ANON_KEY: Optional[str] = os.getenv("SUPABASE_ANON_KEY")
@@ -347,8 +520,10 @@ else:
         GENERATED_OUTPUT_DIR: str = _require_env("GENERATED_OUTPUT_DIR")
 
         # GROBID / LLM / AV
-        GROBID_URL: str = _require_env("GROBID_URL")
-        GROBID_BASE_URL: str = _require_env("GROBID_BASE_URL")
+        GROBID_URL: str = os.getenv("GROBID_URL", DEFAULT_GROBID_URL)
+        GROBID_BASE_URL: str = os.getenv("GROBID_BASE_URL", GROBID_URL)
+        GROBID_URLS: str = os.getenv("GROBID_URLS", "")
+        GROBID_HEALTH_PATH: str = os.getenv("GROBID_HEALTH_PATH", DEFAULT_GROBID_HEALTH_PATH)
         GROBID_TIMEOUT: int = int(_require_env("GROBID_TIMEOUT"))
         GROBID_MAX_RETRIES: int = int(_require_env("GROBID_MAX_RETRIES"))
         GROBID_ENABLED: bool = bool(_parse_boolish(_require_env("GROBID_ENABLED"), "GROBID_ENABLED"))
@@ -358,6 +533,24 @@ else:
         PYMUPDF_FALLBACK: bool = bool(
             _parse_boolish(os.getenv("PYMUPDF_FALLBACK", "true"), "PYMUPDF_FALLBACK")
         )
+        DOCLING_URL: Optional[str] = os.getenv("DOCLING_URL")
+        DOCLING_URLS: str = os.getenv("DOCLING_URLS", "")
+        DOCLING_HEALTH_PATH: str = os.getenv("DOCLING_HEALTH_PATH", DEFAULT_GENERIC_HEALTH_PATH)
+        OCR_URL: Optional[str] = os.getenv("OCR_URL")
+        OCR_URLS: str = os.getenv("OCR_URLS", "")
+        OCR_HEALTH_PATH: str = os.getenv("OCR_HEALTH_PATH", DEFAULT_GENERIC_HEALTH_PATH)
+        DOCX_CONVERTER_URL: Optional[str] = os.getenv("DOCX_CONVERTER_URL")
+        DOCX_CONVERTER_URLS: str = os.getenv("DOCX_CONVERTER_URLS", "")
+        DOCX_CONVERTER_HEALTH_PATH: str = os.getenv(
+            "DOCX_CONVERTER_HEALTH_PATH",
+            DEFAULT_GENERIC_HEALTH_PATH,
+        )
+        NOUGAT_URL: Optional[str] = os.getenv("NOUGAT_URL")
+        NOUGAT_URLS: str = os.getenv("NOUGAT_URLS", "")
+        NOUGAT_HEALTH_PATH: str = os.getenv("NOUGAT_HEALTH_PATH", DEFAULT_GENERIC_HEALTH_PATH)
+        SCIBERT_URL: Optional[str] = os.getenv("SCIBERT_URL")
+        SCIBERT_URLS: str = os.getenv("SCIBERT_URLS", "")
+        SCIBERT_HEALTH_PATH: str = os.getenv("SCIBERT_HEALTH_PATH", DEFAULT_GENERIC_HEALTH_PATH)
         OLLAMA_URL: str = _require_env("OLLAMA_URL")
         OLLAMA_BASE_URL: str = _require_env("OLLAMA_BASE_URL")
         CLAMAV_HOST: str = _require_env("CLAMAV_HOST")
@@ -478,6 +671,21 @@ else:
         )
 
         def validate(self) -> None:
+            grobid_urls = self.get_grobid_urls()
+            if grobid_urls:
+                self.GROBID_URL = grobid_urls[0]
+                self.GROBID_BASE_URL = grobid_urls[0]
+            else:
+                self.GROBID_URL = DEFAULT_GROBID_URL
+                self.GROBID_BASE_URL = DEFAULT_GROBID_URL
+
+            self.GROBID_HEALTH_PATH = self.get_service_health_path("grobid")
+            self.DOCLING_HEALTH_PATH = self.get_service_health_path("docling")
+            self.OCR_HEALTH_PATH = self.get_service_health_path("ocr")
+            self.DOCX_CONVERTER_HEALTH_PATH = self.get_service_health_path("docx_converter")
+            self.NOUGAT_HEALTH_PATH = self.get_service_health_path("nougat")
+            self.SCIBERT_HEALTH_PATH = self.get_service_health_path("scibert")
+
             if self.RETENTION_DAYS <= 0:
                 raise ValueError("RETENTION_DAYS must be > 0")
 

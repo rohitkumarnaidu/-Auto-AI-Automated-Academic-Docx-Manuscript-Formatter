@@ -70,6 +70,11 @@ SAMPLE_TEI_XML = """<?xml version="1.0" encoding="UTF-8"?>
 
 
 def _grobid_base_url_from_env() -> str:
+    env_urls = os.getenv("GROBID_URLS", "")
+    if env_urls.strip():
+        first = env_urls.split(",")[0].strip()
+        if first:
+            return first.rstrip("/")
     env_url = os.getenv("GROBID_URL") or os.getenv("GROBID_BASE_URL")
     if env_url:
         return env_url.rstrip("/")
@@ -84,7 +89,11 @@ def _grobid_host_port_from_env() -> tuple[str, int]:
     if host:
         return host, int(port or "8070")
 
-    env_url = os.getenv("GROBID_URL") or os.getenv("GROBID_BASE_URL")
+    env_urls = os.getenv("GROBID_URLS", "")
+    if env_urls.strip():
+        env_url = env_urls.split(",")[0].strip()
+    else:
+        env_url = os.getenv("GROBID_URL") or os.getenv("GROBID_BASE_URL")
     if env_url:
         parsed = urlparse(env_url if "://" in env_url else f"http://{env_url}")
         if parsed.hostname:
@@ -95,6 +104,14 @@ def _grobid_host_port_from_env() -> tuple[str, int]:
 
 class TestGROBIDTestConfig:
     """Test GROBID test endpoint resolution from env vars."""
+
+    def test_grobid_base_url_prefers_urls_list(self, monkeypatch):
+        monkeypatch.setenv(
+            "GROBID_URLS",
+            "https://primary-grobid.example,https://shadow-grobid.example",
+        )
+        monkeypatch.setenv("GROBID_URL", "https://legacy-single.example")
+        assert _grobid_base_url_from_env() == "https://primary-grobid.example"
 
     def test_grobid_host_port_uses_url_when_host_not_set(self, monkeypatch):
         monkeypatch.delenv("GROBID_HOST", raising=False)

@@ -57,6 +57,9 @@ def _clone_payload(payload: dict[str, Any]) -> dict[str, Any]:
     checks = cloned.get("checks")
     if isinstance(checks, dict):
         cloned["checks"] = dict(checks)
+    dependencies = cloned.get("dependencies")
+    if isinstance(dependencies, dict):
+        cloned["dependencies"] = dict(dependencies)
     return cloned
 
 
@@ -81,6 +84,108 @@ def _reset_readiness_cache_for_tests() -> None:
     invalidate_health_cache()
     _readiness_cache_lock = None
     _health_cache_lock = None
+
+
+def _service_urls(setting_method_name: str, fallback_attr: str | None = None) -> list[str]:
+    resolver = getattr(settings, setting_method_name, None)
+    if callable(resolver):
+        try:
+            resolved = resolver()
+        except Exception:
+            resolved = []
+        if isinstance(resolved, list):
+            return [str(url).rstrip("/") for url in resolved if str(url).strip()]
+
+    if fallback_attr:
+        fallback_value = getattr(settings, fallback_attr, None)
+        if fallback_value:
+            return [str(fallback_value).rstrip("/")]
+    return []
+
+
+def _service_health_path(service_name: str, default_path: str = "/") -> str:
+    resolver = getattr(settings, "get_service_health_path", None)
+    if callable(resolver):
+        try:
+            path = str(resolver(service_name)).strip()
+        except Exception:
+            path = default_path
+    else:
+        path = default_path
+
+    if not path:
+        path = default_path
+    if not path.startswith("/"):
+        path = f"/{path}"
+    if len(path) > 1:
+        path = path.rstrip("/")
+    return path
+
+
+def _join_endpoint(base_url: str, health_path: str) -> str:
+    return f"{base_url.rstrip('/')}{health_path}"
+
+
+async def _probe_service_targets(
+    *,
+    service_name: str,
+    urls: list[str],
+    health_path: str,
+    timeout_seconds: float = 2.0,
+) -> dict[str, Any]:
+    import httpx
+
+    checked_at = datetime.now(timezone.utc).isoformat()
+    if not urls:
+        return {
+            "service": service_name,
+            "status": "unconfigured",
+            "checked_at": checked_at,
+            "last_probe": {
+                "endpoint": None,
+                "http_status": None,
+                "error": "no_urls_configured",
+            },
+        }
+
+    attempts: list[dict[str, Any]] = []
+    async with httpx.AsyncClient(timeout=timeout_seconds, follow_redirects=True) as client:
+        for base_url in urls:
+            endpoint = _join_endpoint(base_url, health_path)
+            try:
+                response = await client.get(endpoint)
+                attempt_payload = {
+                    "endpoint": endpoint,
+                    "http_status": response.status_code,
+                    "error": None,
+                }
+                attempts.append(attempt_payload)
+                if response.status_code == 200:
+                    return {
+                        "service": service_name,
+                        "status": "ready",
+                        "endpoint": endpoint,
+                        "checked_at": checked_at,
+                        "last_probe": attempt_payload,
+                        "attempts": attempts,
+                    }
+            except Exception as exc:
+                attempts.append(
+                    {
+                        "endpoint": endpoint,
+                        "http_status": None,
+                        "error": str(exc),
+                    }
+                )
+
+    return {
+        "service": service_name,
+        "status": "unavailable",
+        "endpoint": attempts[-1]["endpoint"] if attempts else None,
+        "checked_at": checked_at,
+        "last_probe": attempts[-1] if attempts else {"endpoint": None, "http_status": None, "error": "unknown"},
+        "attempts": attempts,
+    }
 
 
 async def _build_health_payload() -> tuple[dict, int]:
@@ -129,13 +234,12 @@ async def _build_health_payload() -> tuple[dict, int]:
 
 
 async def _build_readiness_payload() -> tuple[dict, int]:
-    import httpx
-
     from app.db.supabase_client import check_supabase_health
     from app.services.model_store import model_store
 
-    checks = {}
+    checks: dict[str, Any] = {}
     is_ready = True
+    dependency_status: dict[str, Any] = {}
 
     try:
         sb_health = check_supabase_health()
@@ -153,17 +257,74 @@ async def _build_readiness_payload() -> tuple[dict, int]:
         is_ready = False
 
     if settings.GROBID_ENABLED:
-        try:
-            async with httpx.AsyncClient(timeout=2) as client:
-                response = await client.get(f"{settings.GROBID_URL}/api/isalive")
-                checks["grobid"] = "ready" if response.status_code == 200 else "unavailable"
-                if response.status_code != 200:
-                    is_ready = False
-        except (httpx.RequestError, Exception):
-            checks["grobid"] = "unavailable"
+        grobid_status = await _probe_service_targets(
+            service_name="grobid",
+            urls=_service_urls("get_grobid_urls", "GROBID_URL"),
+            health_path=_service_health_path("grobid", "/api/isalive"),
+            timeout_seconds=2.0,
+        )
+        dependency_status["grobid"] = grobid_status
+        checks["grobid"] = grobid_status["status"]
+        if grobid_status["status"] != "ready":
             is_ready = False
     else:
+        dependency_status["grobid"] = {
+            "status": "disabled",
+            "checked_at": datetime.now(timezone.utc).isoformat(),
+            "last_probe": {"endpoint": None, "http_status": None, "error": "disabled"},
+        }
         checks["grobid"] = "disabled"
+
+    dependency_status["docling"] = await _probe_service_targets(
+        service_name="docling",
+        urls=_service_urls("get_docling_urls", "DOCLING_URL"),
+        health_path=_service_health_path("docling", "/"),
+        timeout_seconds=2.0,
+    )
+    checks["docling"] = dependency_status["docling"]["status"]
+
+    dependency_status["ocr"] = await _probe_service_targets(
+        service_name="ocr",
+        urls=_service_urls("get_ocr_urls", "OCR_URL"),
+        health_path=_service_health_path("ocr", "/"),
+        timeout_seconds=2.0,
+    )
+    checks["ocr"] = dependency_status["ocr"]["status"]
+
+    dependency_status["docx_converter"] = await _probe_service_targets(
+        service_name="docx_converter",
+        urls=_service_urls("get_docx_converter_urls", "DOCX_CONVERTER_URL"),
+        health_path=_service_health_path("docx_converter", "/"),
+        timeout_seconds=2.0,
+    )
+    checks["docx_converter"] = dependency_status["docx_converter"]["status"]
+
+    nougat_urls = _service_urls("get_nougat_urls", "NOUGAT_URL")
+    if getattr(settings, "ENABLE_NOUGAT_PARSER", False):
+        if nougat_urls:
+            dependency_status["nougat"] = await _probe_service_targets(
+                service_name="nougat",
+                urls=nougat_urls,
+                health_path=_service_health_path("nougat", "/"),
+                timeout_seconds=2.0,
+            )
+            checks["nougat"] = dependency_status["nougat"]["status"]
+            if dependency_status["nougat"]["status"] != "ready":
+                is_ready = False
+        else:
+            dependency_status["nougat"] = {
+                "status": "local_or_unconfigured",
+                "checked_at": datetime.now(timezone.utc).isoformat(),
+                "last_probe": {"endpoint": None, "http_status": None, "error": "no_remote_urls"},
+            }
+            checks["nougat"] = "local_or_unconfigured"
+    else:
+        dependency_status["nougat"] = {
+            "status": "disabled",
+            "checked_at": datetime.now(timezone.utc).isoformat(),
+            "last_probe": {"endpoint": None, "http_status": None, "error": "disabled"},
+        }
+        checks["nougat"] = "disabled"
 
     try:
         from app.services.llm_service import check_health as llm_check_health
@@ -172,23 +333,45 @@ async def _build_readiness_payload() -> tuple[dict, int]:
     except Exception:
         checks["llm_status"] = "unknown"
 
+    scibert_urls = _service_urls("get_scibert_urls", "SCIBERT_URL")
     if should_enable_scibert():
-        try:
-            if model_store.get_model("scibert_model") is not None:
-                checks["ai_models"] = "loaded"
-            else:
-                checks["ai_models"] = "not_loaded"
+        if scibert_urls:
+            dependency_status["scibert"] = await _probe_service_targets(
+                service_name="scibert",
+                urls=scibert_urls,
+                health_path=_service_health_path("scibert", "/"),
+                timeout_seconds=2.0,
+            )
+            checks["scibert"] = dependency_status["scibert"]["status"]
+            checks["ai_models"] = "remote"
+            if dependency_status["scibert"]["status"] != "ready":
                 is_ready = False
-        except Exception:
-            checks["ai_models"] = "error"
-            is_ready = False
+        else:
+            try:
+                if model_store.get_model("scibert_model") is not None:
+                    checks["ai_models"] = "loaded"
+                    checks["scibert"] = "local"
+                else:
+                    checks["ai_models"] = "not_loaded"
+                    checks["scibert"] = "local_unavailable"
+                    is_ready = False
+            except Exception:
+                checks["ai_models"] = "error"
+                checks["scibert"] = "local_error"
+                is_ready = False
     else:
         checks["ai_models"] = "disabled"
         checks["scibert_gate"] = get_scibert_gate_state()
+        dependency_status["scibert"] = {
+            "status": "disabled",
+            "checked_at": datetime.now(timezone.utc).isoformat(),
+            "last_probe": {"endpoint": None, "http_status": None, "error": "disabled"},
+        }
 
     payload = {
         "ready": is_ready,
         "checks": checks,
+        "dependencies": dependency_status,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
     return payload, 200 if is_ready else 503
