@@ -13,13 +13,13 @@ jobs:
       - name: Validate deploy secrets
         id: preflight
         env:
-          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
-          RENDER_PROD_SERVICE_ID: ${{ secrets.RENDER_PROD_SERVICE_ID }}
-          RENDER_PROD_DEPLOY_HOOK_URL: ${{ secrets.RENDER_PROD_DEPLOY_HOOK_URL }}
-          PROD_BACKEND_URL: ${{ secrets.PROD_BACKEND_URL }}
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROD_PROJECT_ID: ${{ secrets.VERCEL_PROD_PROJECT_ID }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY || vars.RENDER_API_KEY }}
+          RENDER_PROD_SERVICE_ID: ${{ secrets.RENDER_PROD_SERVICE_ID || vars.RENDER_PROD_SERVICE_ID }}
+          RENDER_PROD_DEPLOY_HOOK_URL: ${{ secrets.RENDER_PROD_DEPLOY_HOOK_URL || vars.RENDER_PROD_DEPLOY_HOOK_URL }}
+          PROD_BACKEND_URL: ${{ secrets.PROD_BACKEND_URL || vars.PROD_BACKEND_URL }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN || vars.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID || vars.VERCEL_ORG_ID }}
+          VERCEL_PROD_PROJECT_ID: ${{ secrets.VERCEL_PROD_PROJECT_ID || vars.VERCEL_PROD_PROJECT_ID }}
         run: |
           missing=()
           [ -z "${PROD_BACKEND_URL}" ] && missing+=("PROD_BACKEND_URL")
@@ -52,7 +52,7 @@ jobs:
       - name: Deploy backend to Render (Deploy Hook)
         if: steps.preflight.outputs.ready == 'true' && steps.preflight.outputs.deploy_mode == 'hook'
         env:
-          RENDER_PROD_DEPLOY_HOOK_URL: ${{ secrets.RENDER_PROD_DEPLOY_HOOK_URL }}
+          RENDER_PROD_DEPLOY_HOOK_URL: ${{ secrets.RENDER_PROD_DEPLOY_HOOK_URL || vars.RENDER_PROD_DEPLOY_HOOK_URL }}
         run: |
           echo "Triggering backend deploy via Render deploy hook..."
           HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${RENDER_PROD_DEPLOY_HOOK_URL}")
@@ -66,8 +66,8 @@ jobs:
       - name: Deploy backend to Render
         if: steps.preflight.outputs.ready == 'true' && steps.preflight.outputs.deploy_mode == 'api'
         env:
-          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
-          RENDER_PROD_SERVICE_ID: ${{ secrets.RENDER_PROD_SERVICE_ID }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY || vars.RENDER_API_KEY }}
+          RENDER_PROD_SERVICE_ID: ${{ secrets.RENDER_PROD_SERVICE_ID || vars.RENDER_PROD_SERVICE_ID }}
         run: |
           echo "Triggering deploy for service: ${RENDER_PROD_SERVICE_ID}"
           RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST \
@@ -87,7 +87,7 @@ jobs:
       - name: Wait for backend health
         if: steps.preflight.outputs.ready == 'true'
         env:
-          PROD_BACKEND_URL: ${{ secrets.PROD_BACKEND_URL }}
+          PROD_BACKEND_URL: ${{ secrets.PROD_BACKEND_URL || vars.PROD_BACKEND_URL }}
         run: |
           echo "Waiting for backend at ${PROD_BACKEND_URL}..."
           for i in {1..20}; do
@@ -105,9 +105,9 @@ jobs:
       - name: Deploy frontend to Vercel
         if: steps.preflight.outputs.ready == 'true'
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROD_PROJECT_ID: ${{ secrets.VERCEL_PROD_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN || vars.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID || vars.VERCEL_ORG_ID }}
+          VERCEL_PROD_PROJECT_ID: ${{ secrets.VERCEL_PROD_PROJECT_ID || vars.VERCEL_PROD_PROJECT_ID }}
         run: |
           npx vercel@latest --version
           VERCEL_ORG_ID=${VERCEL_ORG_ID} VERCEL_PROJECT_ID=${VERCEL_PROD_PROJECT_ID} \

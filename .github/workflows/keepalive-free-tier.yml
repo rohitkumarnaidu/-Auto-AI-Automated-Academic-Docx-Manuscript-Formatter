@@ -11,7 +11,7 @@ jobs:
     steps:
       - name: Ping Render backend live endpoint
         env:
-          PROD_BACKEND_URL: ${{ secrets.PROD_BACKEND_URL }}
+          PROD_BACKEND_URL: ${{ secrets.PROD_BACKEND_URL || vars.PROD_BACKEND_URL }}
         run: |
           set -euo pipefail
           if [ -z "${PROD_BACKEND_URL}" ]; then
@@ -36,18 +36,18 @@ jobs:
 
       - name: Ping Hugging Face primary/shadow services
         env:
-          HF_GROBID_PRIMARY_URL: ${{ secrets.HF_GROBID_PRIMARY_URL }}
-          HF_GROBID_SHADOW_URL: ${{ secrets.HF_GROBID_SHADOW_URL }}
-          HF_DOCLING_PRIMARY_URL: ${{ secrets.HF_DOCLING_PRIMARY_URL }}
-          HF_DOCLING_SHADOW_URL: ${{ secrets.HF_DOCLING_SHADOW_URL }}
-          HF_OCR_PRIMARY_URL: ${{ secrets.HF_OCR_PRIMARY_URL }}
-          HF_OCR_SHADOW_URL: ${{ secrets.HF_OCR_SHADOW_URL }}
-          HF_DOCX_PRIMARY_URL: ${{ secrets.HF_DOCX_PRIMARY_URL }}
-          HF_DOCX_SHADOW_URL: ${{ secrets.HF_DOCX_SHADOW_URL }}
-          HF_NOUGAT_PRIMARY_URL: ${{ secrets.HF_NOUGAT_PRIMARY_URL }}
-          HF_NOUGAT_SHADOW_URL: ${{ secrets.HF_NOUGAT_SHADOW_URL }}
-          HF_SCIBERT_PRIMARY_URL: ${{ secrets.HF_SCIBERT_PRIMARY_URL }}
-          HF_SCIBERT_SHADOW_URL: ${{ secrets.HF_SCIBERT_SHADOW_URL }}
+          HF_GROBID_PRIMARY_URL: ${{ secrets.HF_GROBID_PRIMARY_URL || vars.HF_GROBID_PRIMARY_URL }}
+          HF_GROBID_SHADOW_URL: ${{ secrets.HF_GROBID_SHADOW_URL || vars.HF_GROBID_SHADOW_URL }}
+          HF_DOCLING_PRIMARY_URL: ${{ secrets.HF_DOCLING_PRIMARY_URL || vars.HF_DOCLING_PRIMARY_URL }}
+          HF_DOCLING_SHADOW_URL: ${{ secrets.HF_DOCLING_SHADOW_URL || vars.HF_DOCLING_SHADOW_URL }}
+          HF_OCR_PRIMARY_URL: ${{ secrets.HF_OCR_PRIMARY_URL || vars.HF_OCR_PRIMARY_URL }}
+          HF_OCR_SHADOW_URL: ${{ secrets.HF_OCR_SHADOW_URL || vars.HF_OCR_SHADOW_URL }}
+          HF_DOCX_PRIMARY_URL: ${{ secrets.HF_DOCX_PRIMARY_URL || vars.HF_DOCX_PRIMARY_URL }}
+          HF_DOCX_SHADOW_URL: ${{ secrets.HF_DOCX_SHADOW_URL || vars.HF_DOCX_SHADOW_URL }}
+          HF_NOUGAT_PRIMARY_URL: ${{ secrets.HF_NOUGAT_PRIMARY_URL || vars.HF_NOUGAT_PRIMARY_URL }}
+          HF_NOUGAT_SHADOW_URL: ${{ secrets.HF_NOUGAT_SHADOW_URL || vars.HF_NOUGAT_SHADOW_URL }}
+          HF_SCIBERT_PRIMARY_URL: ${{ secrets.HF_SCIBERT_PRIMARY_URL || vars.HF_SCIBERT_PRIMARY_URL }}
+          HF_SCIBERT_SHADOW_URL: ${{ secrets.HF_SCIBERT_SHADOW_URL || vars.HF_SCIBERT_SHADOW_URL }}
         run: |
           set -euo pipefail
 
