@@ -256,6 +256,72 @@ async def _probe_grobid_startup(*, attempts: int = 3, timeout_seconds: float = 2
 
 
 # ── Lifespan (replaces deprecated @app.on_event) ─────────────────────────────
+def _reset_interrupted_jobs_on_startup() -> None:
+    """Best-effort reset for jobs interrupted by a previous restart."""
+    try:
+        from app.db.supabase_client import get_supabase_client
+
+        sb = get_supabase_client()
+        if sb is not None:
+            result = sb.table("documents").select("id").eq("status", "PROCESSING").execute()
+            interrupted = result.data or []
+            if interrupted:
+                ids = [row["id"] for row in interrupted]
+                logger.info("Startup: Found %d interrupted jobs. Marking as FAILED.", len(ids))
+                sb.table("documents").update(
+                    {
+                        "status": "FAILED",
+                        "error_message": "Processing interrupted by server restart.",
+                    }
+                ).in_("id", ids).execute()
+        else:
+            logger.warning("Startup DB Link Status: UNCONFIGURED. App starting in degraded mode.")
+    except Exception as exc:
+        logger.warning("Startup DB Link Status: UNREACHABLE. Error: %s", exc)
+        logger.info(
+            "Note: App is starting in degraded mode. DB-dependent endpoints will fail at request-time."
+        )
+
+
+def _refresh_enhancement_capabilities() -> None:
+    profile = enhancement_manager.refresh()
+    logger.info("Enhancement capabilities loaded: %s", profile.to_dict())
+
+
+def _preload_preview_css() -> None:
+    from app.services.preview_renderer import preload_template_css
+
+    preload_template_css()
+    logger.info("Preview template CSS preloaded.")
+
+
+async def _run_startup_step(
+    step_name: str,
+    callback,
+    *,
+    timeout_seconds: float,
+    default_value=None,
+):
+    """
+    Run a startup callback with a hard timeout so service boot cannot hang.
+    """
+    try:
+        return await asyncio.wait_for(asyncio.to_thread(callback), timeout=timeout_seconds)
+    except asyncio.TimeoutError:
+        logger.warning(
+            "Startup step '%s' timed out after %.1fs. Continuing in degraded mode.",
+            step_name,
+            timeout_seconds,
+        )
+    except Exception as exc:
+        logger.warning(
+            "Startup step '%s' failed: %s. Continuing in degraded mode.",
+            step_name,
+            exc,
+        )
+    return default_value
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
@@ -284,28 +350,23 @@ async def lifespan(app: FastAPI):
     queue_metrics_task = asyncio.create_task(_periodic_queue_depth_update())
 
     with safe_execution("Application Startup"):
-        # ── Supabase-py: reset interrupted jobs ───────────────────────────────
-        try:
-            from app.db.supabase_client import get_supabase_client
-            sb = get_supabase_client()
-            if sb is not None:
-                result = sb.table("documents").select("id").eq("status", "PROCESSING").execute()
-                interrupted = result.data or []
-                if interrupted:
-                    ids = [row["id"] for row in interrupted]
-                    logger.info("Startup: Found %d interrupted jobs. Marking as FAILED.", len(ids))
-                    sb.table("documents").update({
-                        "status": "FAILED",
-                        "error_message": "Processing interrupted by server restart.",
-                    }).in_("id", ids).execute()
-            else:
-                logger.warning("Startup DB Link Status: UNCONFIGURED. App starting in degraded mode.")
-        except Exception as e:
-            logger.warning("Startup DB Link Status: UNREACHABLE. Error: %s", e)
-            logger.info("Note: App is starting in degraded mode. DB-dependent endpoints will fail at request-time.")
+        await _run_startup_step(
+            "supabase_reset_interrupted_jobs",
+            _reset_interrupted_jobs_on_startup,
+            timeout_seconds=8.0,
+        )
 
-        app.state.grobid_startup_probe_ok = await _probe_grobid_startup()
-                
+        try:
+            app.state.grobid_startup_probe_ok = await asyncio.wait_for(
+                _probe_grobid_startup(),
+                timeout=25.0,
+            )
+        except asyncio.TimeoutError:
+            app.state.grobid_startup_probe_ok = False
+            logger.warning(
+                "Startup step 'grobid_probe' timed out after 25.0s. Continuing in degraded mode."
+            )
+
         if settings.PRELOAD_AI_MODELS and not settings.LOW_MEMORY_MODE:
             # Phase 2: AI Model Pre-loading (optional, can be disabled for low-memory deploys)
             from app.services.model_store import model_store
@@ -338,19 +399,16 @@ async def lifespan(app: FastAPI):
                 settings.PRELOAD_AI_MODELS,
                 settings.LOW_MEMORY_MODE,
             )
-
-        try:
-            profile = enhancement_manager.refresh()
-            logger.info("Enhancement capabilities loaded: %s", profile.to_dict())
-        except Exception as e:
-            logger.warning("Enhancement capability bootstrap failed: %s", e)
-
-        try:
-            from app.services.preview_renderer import preload_template_css
-            preload_template_css()
-            logger.info("Preview template CSS preloaded.")
-        except Exception as e:
-            logger.warning("Preview CSS preload failed: %s", e)
+        await _run_startup_step(
+            "enhancement_refresh",
+            _refresh_enhancement_capabilities,
+            timeout_seconds=8.0,
+        )
+        await _run_startup_step(
+            "preview_css_preload",
+            _preload_preview_css,
+            timeout_seconds=5.0,
+        )
 
     yield  # App is running
 
