@@ -19,10 +19,18 @@ jobs:
             exit 1
           fi
           TARGET="${PROD_BACKEND_URL%/}/health"
-          STATUS=$(curl -sS -L --connect-timeout 5 --max-time 12 -o /dev/null -w "%{http_code}" "${TARGET}" || true)
-          echo "backend: ${TARGET} -> HTTP ${STATUS}"
-          if [ "${STATUS}" != "200" ]; then
-            echo "Backend live endpoint unhealthy."
+          backend_ok=0
+          for attempt in {1..6}; do
+            STATUS=$(curl -sS -L --connect-timeout 5 --max-time 12 -o /dev/null -w "%{http_code}" "${TARGET}" || true)
+            echo "backend attempt ${attempt}: ${TARGET} -> HTTP ${STATUS}"
+            if [ "${STATUS}" = "200" ]; then
+              backend_ok=1
+              break
+            fi
+            sleep 10
+          done
+          if [ "${backend_ok}" -ne 1 ]; then
+            echo "Backend live endpoint unhealthy after retries."
             exit 1
           fi
 
