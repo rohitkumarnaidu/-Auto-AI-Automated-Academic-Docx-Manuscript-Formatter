@@ -13,7 +13,6 @@ from app.config.settings import settings
 from app.middleware.request_id import RequestIdMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.middleware.tier_rate_limit import TierRateLimitMiddleware
-from app.routers.v1 import v1_router
 from app.services.health_checks import get_health_payload, get_readiness_payload
 from contextlib import asynccontextmanager
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -295,6 +294,20 @@ def _preload_preview_css() -> None:
     logger.info("Preview template CSS preloaded.")
 
 
+def _load_optional_routers(target_app: FastAPI) -> None:
+    """Load heavy API routers lazily so module import can stay fast on low-memory hosts."""
+    if getattr(target_app.state, "_routers_loaded", False):
+        return
+
+    from app.routers.v1 import v1_router
+    from app.routers import preview
+
+    target_app.include_router(v1_router)
+    target_app.include_router(preview.router)
+    target_app.state._routers_loaded = True
+    logger.info("Startup: API routers loaded.")
+
+
 async def _run_startup_step(
     step_name: str,
     callback,
@@ -408,6 +421,11 @@ async def lifespan(app: FastAPI):
             "preview_css_preload",
             _preload_preview_css,
             timeout_seconds=5.0,
+        )
+        await _run_startup_step(
+            "router_load",
+            lambda: _load_optional_routers(app),
+            timeout_seconds=20.0,
         )
 
     yield  # App is running
@@ -550,14 +568,6 @@ async def audit_write_operations(request: Request, call_next):
     except Exception as exc:
         logger.debug("Audit middleware skipped due to logging error: %s", exc)
     return response
-
-# Include Routers
-# v1_router now includes synthesis endpoints under /api/v1/synthesis
-app.include_router(v1_router)
-
-# Live Preview (Formatter Mode B)
-from app.routers import preview
-app.include_router(preview.router)
 
 # Document Generator (generate from scratch — no upload needed)
 # Hard-cut migration: only /api/v1 routers are mounted from app.main.
