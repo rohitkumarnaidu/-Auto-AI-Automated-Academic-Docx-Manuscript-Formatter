@@ -655,10 +655,12 @@ async def root():
 @app.get("/health")
 async def health_check():
     """
-    Health check endpoint for monitoring.
-    Returns status of Supabase DB, AI models, and Ollama server.
+    Liveness endpoint for platform health checks.
+    Always returns HTTP 200 so host-level liveness does not flap when
+    optional dependencies are degraded; use /ready or /api/v1/health/ready
+    for strict readiness.
     """
-    payload, status_code = await get_health_payload()
-    return JSONResponse(content=payload, status_code=status_code)
+    payload, _status_code = await get_health_payload()
+    return JSONResponse(content=payload, status_code=200)
 
 
