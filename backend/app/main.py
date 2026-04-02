@@ -121,7 +121,6 @@ def _init_sentry() -> None:
 
 from app.pipeline.safety import safe_execution
 from app.services.enhancement_manager import enhancement_manager
-from app.services.audit_log_service import audit_log_service
 from app.services.scibert_gate import should_enable_scibert
 from app.routers.v1._helpers import DEFAULT_ERROR_CODES, build_error_response
 
@@ -308,6 +307,30 @@ def _load_optional_routers(target_app: FastAPI) -> None:
     logger.info("Startup: API routers loaded.")
 
 
+_router_load_lock: asyncio.Lock | None = None
+
+
+async def _ensure_routers_loaded(target_app: FastAPI) -> None:
+    """
+    Lazily load heavy API routers on first API request so cold boot can bind a port fast.
+    """
+    if getattr(target_app.state, "_routers_loaded", False):
+        return
+
+    global _router_load_lock
+    if _router_load_lock is None:
+        _router_load_lock = asyncio.Lock()
+
+    async with _router_load_lock:
+        if getattr(target_app.state, "_routers_loaded", False):
+            return
+        await _run_startup_step(
+            "router_load",
+            lambda: _load_optional_routers(target_app),
+            timeout_seconds=20.0,
+        )
+
+
 async def _run_startup_step(
     step_name: str,
     callback,
@@ -422,12 +445,6 @@ async def lifespan(app: FastAPI):
             _preload_preview_css,
             timeout_seconds=5.0,
         )
-        await _run_startup_step(
-            "router_load",
-            lambda: _load_optional_routers(app),
-            timeout_seconds=20.0,
-        )
-
     yield  # App is running
 
     # ── SHUTDOWN ──
@@ -558,9 +575,21 @@ app.add_middleware(RequestIdMiddleware)
 
 
 @app.middleware("http")
+async def lazy_router_loader(request: Request, call_next):
+    path = request.url.path or ""
+    if (
+        (path.startswith("/api/v1/") or path.startswith("/api/preview"))
+        and not getattr(app.state, "_routers_loaded", False)
+    ):
+        await _ensure_routers_loaded(app)
+    return await call_next(request)
+
+
+@app.middleware("http")
 async def audit_write_operations(request: Request, call_next):
     response = await call_next(request)
     try:
+        from app.services.audit_log_service import audit_log_service
         await audit_log_service.log_http_write(
             request,
             status_code=response.status_code,
