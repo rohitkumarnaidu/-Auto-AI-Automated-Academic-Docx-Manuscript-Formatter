@@ -9,11 +9,13 @@ from fastapi.exception_handlers import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 from app.config.settings import settings
-from app.middleware.request_id import RequestIdMiddleware
+from app.middleware.request_id import RequestIdMiddleware, get_request_id
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.middleware.tier_rate_limit import TierRateLimitMiddleware
 from app.services.health_checks import get_health_payload, get_readiness_payload
+from app.schemas.api_envelope import error_response
 from contextlib import asynccontextmanager
 from prometheus_fastapi_instrumentator import Instrumentator
 
@@ -122,9 +124,44 @@ def _init_sentry() -> None:
 from app.pipeline.safety import safe_execution
 from app.services.enhancement_manager import enhancement_manager
 from app.services.scibert_gate import should_enable_scibert
-from app.routers.v1._helpers import DEFAULT_ERROR_CODES, build_error_response
 
 _queue_depth_redis_client = None
+
+
+DEFAULT_ERROR_CODES = {
+    400: "BAD_REQUEST",
+    401: "UNAUTHORIZED",
+    403: "FORBIDDEN",
+    404: "NOT_FOUND",
+    409: "CONFLICT",
+    413: "PAYLOAD_TOO_LARGE",
+    422: "VALIDATION_ERROR",
+    429: "RATE_LIMITED",
+    500: "INTERNAL_SERVER_ERROR",
+    501: "NOT_IMPLEMENTED",
+    502: "BAD_GATEWAY",
+    503: "SERVICE_UNAVAILABLE",
+}
+
+
+def build_error_response(
+    request: Request,
+    *,
+    status_code: int,
+    code: str,
+    message: str,
+    details: dict | None = None,
+) -> JSONResponse:
+    payload = error_response(
+        code=code,
+        message=message,
+        request_id=get_request_id(request),
+        details=jsonable_encoder(details) if details is not None else None,
+    )
+    return JSONResponse(
+        status_code=status_code,
+        content=payload.model_dump(mode="json"),
+    )
 
 
 def _build_cors_origins(raw_origins: str) -> list[str]:
