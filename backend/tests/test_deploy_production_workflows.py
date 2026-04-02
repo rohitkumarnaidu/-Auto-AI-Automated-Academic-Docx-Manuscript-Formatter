@@ -13,7 +13,7 @@ def test_deploy_production_workflow_is_manual_and_health_guarded():
     assert "name: deploy-production" in workflow_text
     assert "workflow_dispatch:" in workflow_text
     assert "push:" not in workflow_text
-    assert "/api/v1/health/live" in workflow_text
+    assert "/health" in workflow_text
     assert "--connect-timeout 5" in workflow_text
     assert "--max-time 10" in workflow_text
     assert "exit 1" in workflow_text
@@ -29,7 +29,7 @@ def test_keepalive_workflow_contract_for_free_tier_reliability():
     assert "name: keepalive-free-tier" in workflow_text
     assert 'cron: "*/14 * * * *"' in workflow_text
     assert "workflow_dispatch:" in workflow_text
-    assert "/api/v1/health/live" in workflow_text
+    assert "/health" in workflow_text
 
     required_hf_secrets = [
         "HF_GROBID_PRIMARY_URL",
