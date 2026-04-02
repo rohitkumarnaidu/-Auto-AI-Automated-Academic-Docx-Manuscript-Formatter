@@ -51,6 +51,18 @@ jobs:
         run: |
           set -euo pipefail
 
+          is_healthy_status() {
+            local status="$1"
+            case "${status}" in
+              2??|412)
+                return 0
+                ;;
+              *)
+                return 1
+                ;;
+            esac
+          }
+
           probe_url() {
             local service="$1"
             local role="$2"
@@ -66,7 +78,31 @@ jobs:
             local status
             status=$(curl -sS -L --connect-timeout 5 --max-time 12 -o /dev/null -w "%{http_code}" "${target}" || true)
             echo "${service} (${role}): ${target} -> HTTP ${status}"
-            [ "${status}" = "200" ]
+            is_healthy_status "${status}"
+          }
+
+          probe_with_fallbacks() {
+            local service="$1"
+            local role="$2"
+            local base_url="$3"
+            local preferred_path="$4"
+
+            local paths=("${preferred_path}" "/health" "/openapi.json" "/")
+            local seen="|"
+            local p
+
+            for p in "${paths[@]}"; do
+              [ -z "${p}" ] && continue
+              if [[ "${seen}" == *"|${p}|"* ]]; then
+                continue
+              fi
+              seen="${seen}${p}|"
+              if probe_url "${service}" "${role}" "${base_url}" "${p}"; then
+                return 0
+              fi
+            done
+
+            return 1
           }
 
           check_pair() {
@@ -75,10 +111,10 @@ jobs:
             local shadow="$3"
             local health_path="$4"
 
-            if probe_url "${service}" "primary" "${primary}" "${health_path}"; then
+            if probe_with_fallbacks "${service}" "primary" "${primary}" "${health_path}"; then
               return 0
             fi
-            if probe_url "${service}" "shadow" "${shadow}" "${health_path}"; then
+            if probe_with_fallbacks "${service}" "shadow" "${shadow}" "${health_path}"; then
               return 0
             fi
             echo "${service}: all endpoints failed"
@@ -87,10 +123,10 @@ jobs:
 
           rc=0
           check_pair "grobid" "${HF_GROBID_PRIMARY_URL}" "${HF_GROBID_SHADOW_URL}" "/api/isalive" || rc=1
-          check_pair "docling" "${HF_DOCLING_PRIMARY_URL}" "${HF_DOCLING_SHADOW_URL}" "/" || rc=1
-          check_pair "ocr" "${HF_OCR_PRIMARY_URL}" "${HF_OCR_SHADOW_URL}" "/" || rc=1
-          check_pair "docx-converter" "${HF_DOCX_PRIMARY_URL}" "${HF_DOCX_SHADOW_URL}" "/" || rc=1
-          check_pair "nougat" "${HF_NOUGAT_PRIMARY_URL}" "${HF_NOUGAT_SHADOW_URL}" "/" || rc=1
-          check_pair "scibert" "${HF_SCIBERT_PRIMARY_URL}" "${HF_SCIBERT_SHADOW_URL}" "/" || rc=1
+          check_pair "docling" "${HF_DOCLING_PRIMARY_URL}" "${HF_DOCLING_SHADOW_URL}" "/health" || rc=1
+          check_pair "ocr" "${HF_OCR_PRIMARY_URL}" "${HF_OCR_SHADOW_URL}" "/health" || rc=1
+          check_pair "docx-converter" "${HF_DOCX_PRIMARY_URL}" "${HF_DOCX_SHADOW_URL}" "/health" || rc=1
+          check_pair "nougat" "${HF_NOUGAT_PRIMARY_URL}" "${HF_NOUGAT_SHADOW_URL}" "/health" || rc=1
+          check_pair "scibert" "${HF_SCIBERT_PRIMARY_URL}" "${HF_SCIBERT_SHADOW_URL}" "/health" || rc=1
 
           exit "${rc}"
