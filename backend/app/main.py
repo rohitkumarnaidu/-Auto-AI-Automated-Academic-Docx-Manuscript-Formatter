@@ -8,7 +8,7 @@ from fastapi.exception_handlers import (
     request_validation_exception_handler as fastapi_validation_exception_handler,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.encoders import jsonable_encoder
 from app.config.settings import settings
 from app.middleware.request_id import RequestIdMiddleware, get_request_id
@@ -596,14 +596,38 @@ from app.middleware.security_headers import SecurityHeadersMiddleware, MaxBodySi
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(MaxBodySizeMiddleware, max_size=60 * 1024 * 1024)  # 60MB global limit
 
+_HTTPS_REDIRECT_EXEMPT_PATHS = {
+    "/health",
+    "/ready",
+    "/api/v1/health",
+    "/api/v1/health/live",
+    "/api/v1/health/ready",
+    "/api/v1/health/admin",
+}
+
+
+def _normalize_request_path(path: str | None) -> str:
+    if not path:
+        return "/"
+    normalized = path if path.startswith("/") else f"/{path}"
+    if len(normalized) > 1:
+        normalized = normalized.rstrip("/")
+    return normalized or "/"
+
+
+def _should_bypass_https_redirect(path: str | None) -> bool:
+    return _normalize_request_path(path) in _HTTPS_REDIRECT_EXEMPT_PATHS
+
+
 # HTTPS Redirect (production only)
 if settings.FORCE_HTTPS and not settings.DEBUG:
-    from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
-
-    app.add_middleware(HTTPSRedirectMiddleware)
-
     @app.middleware("http")
-    async def add_hsts_header(request: Request, call_next):
+    async def enforce_https_except_health(request: Request, call_next):
+        request_path = request.url.path
+        if request.url.scheme != "https" and not _should_bypass_https_redirect(request_path):
+            redirect_url = str(request.url.replace(scheme="https"))
+            return RedirectResponse(url=redirect_url, status_code=307)
+
         response = await call_next(request)
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
         return response
