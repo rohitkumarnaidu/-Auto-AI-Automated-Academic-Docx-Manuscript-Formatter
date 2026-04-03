@@ -46,9 +46,15 @@ def _resolve_benchmark_model():
 @pytest.mark.llm
 @pytest.mark.service
 @pytest.mark.slow
-def test_scibert_benchmark():
+def test_scibert_benchmark(monkeypatch):
     original_flag = settings.USE_SCIBERT_CLASSIFICATION
+    original_scibert_urls = getattr(settings, "SCIBERT_URLS", "")
+    original_scibert_url = getattr(settings, "SCIBERT_URL", "")
     settings.USE_SCIBERT_CLASSIFICATION = True
+    settings.SCIBERT_URLS = ""
+    settings.SCIBERT_URL = ""
+    monkeypatch.setenv("SCIBERT_URLS", "")
+    monkeypatch.setenv("SCIBERT_URL", "")
 
     try:
         samples = _load_samples()
@@ -89,3 +95,5 @@ def test_scibert_benchmark():
         assert overall_f1 >= 0.85
     finally:
         settings.USE_SCIBERT_CLASSIFICATION = original_flag
+        settings.SCIBERT_URLS = original_scibert_urls
+        settings.SCIBERT_URL = original_scibert_url

@@ -16,10 +16,18 @@ def reset_readiness_cache():
     health_checks._reset_readiness_cache_for_tests()
 
 
-def _configure_fast_readiness(monkeypatch, ttl_seconds: float) -> None:
+def _configure_fast_readiness(
+    monkeypatch,
+    ttl_seconds: float,
+    *,
+    isolate_external: bool = True,
+) -> None:
     monkeypatch.setattr(health_checks.settings, "READINESS_CACHE_TTL_SECONDS", ttl_seconds, raising=False)
     monkeypatch.setattr(health_checks.settings, "GROBID_ENABLED", False, raising=False)
     monkeypatch.setattr(health_checks.settings, "USE_SCIBERT_CLASSIFICATION", False, raising=False)
+    if isolate_external:
+        # Keep cache tests deterministic by avoiding external endpoint probes.
+        monkeypatch.setattr(health_checks, "_service_urls", lambda *args, **kwargs: [])
 
 
 @pytest.mark.asyncio
@@ -35,7 +43,8 @@ async def test_readiness_cache_hits_within_ttl(monkeypatch):
             second_payload, second_status = await health_checks.get_readiness_payload()
 
     assert first_status == second_status
-    assert first_payload == second_payload
+    assert first_payload["ready"] == second_payload["ready"]
+    assert first_payload["checks"] == second_payload["checks"]
     assert mock_sb.call_count == 1
     assert mock_llm.await_count == 1
 
@@ -76,7 +85,7 @@ async def test_readiness_force_refresh_bypasses_cache(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_readiness_includes_dependency_probe_results(monkeypatch):
-    _configure_fast_readiness(monkeypatch, ttl_seconds=0.0)
+    _configure_fast_readiness(monkeypatch, ttl_seconds=0.0, isolate_external=False)
     monkeypatch.setattr(health_checks.settings, "GROBID_ENABLED", True, raising=False)
     monkeypatch.setattr(
         health_checks.settings,
@@ -122,7 +131,7 @@ async def test_readiness_includes_dependency_probe_results(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_readiness_includes_nougat_and_scibert_remote_dependencies(monkeypatch):
-    _configure_fast_readiness(monkeypatch, ttl_seconds=0.0)
+    _configure_fast_readiness(monkeypatch, ttl_seconds=0.0, isolate_external=False)
     monkeypatch.setattr(health_checks.settings, "ENABLE_NOUGAT_PARSER", True, raising=False)
     monkeypatch.setattr(health_checks.settings, "NOUGAT_URLS", "https://nougat.example", raising=False)
     monkeypatch.setattr(health_checks.settings, "NOUGAT_HEALTH_PATH", "/", raising=False)

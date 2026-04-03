@@ -87,6 +87,8 @@ class TestSemanticParser:
         parser = SemanticParser()
         parser.model = object()
         parser.tokenizer = MagicMock(side_effect=RuntimeError("tokenizer boom"))
+        parser.remote_base_urls = []
+        parser._last_good_remote_url = None
 
         with patch("app.pipeline.intelligence.semantic_parser.torch", object()):
             predictions = parser._predict_block_types_batch(

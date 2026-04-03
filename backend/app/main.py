@@ -406,7 +406,11 @@ async def lifespan(app: FastAPI):
     # cleanup_task = asyncio.create_task(cleanup_old_uploads())
     cleanup_task = None
     queue_metrics_task = None
-    _init_sentry()
+    await _run_startup_step(
+        "sentry_init",
+        _init_sentry,
+        timeout_seconds=3.0,
+    )
     enable_cleanup = settings.ENABLE_FILE_CLEANUP
     retention_days = int(settings.RETENTION_DAYS)
     if enable_cleanup:

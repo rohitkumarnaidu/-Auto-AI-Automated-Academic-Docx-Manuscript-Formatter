@@ -116,6 +116,7 @@ class TestGROBIDTestConfig:
     def test_grobid_host_port_uses_url_when_host_not_set(self, monkeypatch):
         monkeypatch.delenv("GROBID_HOST", raising=False)
         monkeypatch.delenv("GROBID_PORT", raising=False)
+        monkeypatch.delenv("GROBID_URLS", raising=False)
         monkeypatch.setenv("GROBID_URL", "https://rohith083-scholarform-grobid.hf.space")
         host, port = _grobid_host_port_from_env()
         assert host == "rohith083-scholarform-grobid.hf.space"
@@ -130,6 +131,7 @@ class TestGROBIDTestConfig:
         assert port == 8070
 
     def test_grobid_base_url_falls_back_to_localhost(self, monkeypatch):
+        monkeypatch.delenv("GROBID_URLS", raising=False)
         monkeypatch.delenv("GROBID_URL", raising=False)
         monkeypatch.delenv("GROBID_BASE_URL", raising=False)
         monkeypatch.delenv("GROBID_HOST", raising=False)
@@ -323,8 +325,16 @@ class TestGROBIDIntegration:
         assert 0.0 <= result["confidence"] <= 1.0
     
     @pytest.mark.integration
-    def test_extract_metadata_service_unavailable(self):
+    def test_extract_metadata_service_unavailable(self, monkeypatch):
         """Test error handling when service is unavailable."""
+        monkeypatch.delenv("GROBID_URLS", raising=False)
+        monkeypatch.delenv("GROBID_URL", raising=False)
+        monkeypatch.delenv("GROBID_BASE_URL", raising=False)
+        monkeypatch.setattr(
+            "app.config.settings.Settings.get_grobid_urls",
+            lambda self: ["http://localhost:9999"],
+            raising=False,
+        )
         client = GROBIDClient(base_url="http://localhost:9999")  # Wrong port
         
         with pytest.raises(GROBIDException, match="not available"):
