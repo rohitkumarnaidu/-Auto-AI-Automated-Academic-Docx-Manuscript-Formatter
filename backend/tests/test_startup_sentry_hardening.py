@@ -15,9 +15,8 @@ These tests verify:
 from __future__ import annotations
 
 import asyncio
-import logging
 import time
-from unittest.mock import MagicMock, AsyncMock, patch, call
+from unittest.mock import MagicMock, AsyncMock, patch
 
 import pytest
 
@@ -261,7 +260,7 @@ class TestLifespanSentryIntegration:
         ), f"Expected exactly one _run_startup_step('sentry_init', ...) call, got {len(sentry_calls)}"
         _, kwargs = sentry_calls[0].args, sentry_calls[0].kwargs
         assert sentry_calls[0].args[1] is _init_sentry
-        assert kwargs.get("timeout_seconds") == 3.0 or sentry_calls[0].args[1] is _init_sentry
+        assert kwargs.get("timeout_seconds") == 3.0
 
     def test_app_healthy_even_when_sentry_init_times_out(self):
         """If Sentry init times out, the app must still serve /api/v1/health."""
@@ -291,8 +290,11 @@ class TestLifespanSentryIntegration:
 
         async def _fake_step(name, cb, *, timeout_seconds, default_value=None):
             if name == "sentry_init":
-                # Simulate exception — _run_startup_step catches it
-                return default_value
+                # Simulate _run_startup_step catching a real exception from cb().
+                try:
+                    raise RuntimeError("Sentry SDK exploded during init")
+                except Exception:
+                    return default_value
             return cb()
 
         with (
