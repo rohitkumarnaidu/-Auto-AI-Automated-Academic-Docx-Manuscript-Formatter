@@ -8,9 +8,12 @@ from datetime import datetime, timezone
 from time import monotonic
 from typing import Any, Optional
 
+from postgrest import APIError
+
 from app.config.settings import settings
 from app.db.supabase_client import get_supabase_client
 from app.utils.logging_context import log_extra
+from app.exceptions import DatabaseUnavailableError
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +131,7 @@ class GeneratorSessionService:
         sb = get_supabase_client()
         if sb is None:
             logger.error("Generator session create failed: Supabase client unavailable.", extra=log_extra())
-            raise RuntimeError("Supabase client unavailable.")
+            raise DatabaseUnavailableError("Supabase client unavailable.")
 
         payload = {
             "id": session_id,
@@ -141,7 +144,22 @@ class GeneratorSessionService:
             "created_at": self._now_iso(),
             "updated_at": self._now_iso(),
         }
-        sb.table("generator_sessions").insert(payload).execute()
+
+        def run_insert():
+            client = get_supabase_client()
+            if client is None:
+                raise RuntimeError("Supabase client not available.")
+            return client.table("generator_sessions").insert(payload).execute()
+
+        try:
+            await asyncio.to_thread(run_insert)
+        except APIError as e:
+            logger.error("Generator session create failed: %s", e, extra=log_extra(session_id=session_id))
+            raise DatabaseUnavailableError(f"Failed to create session: {e}") from e
+        except Exception as e:
+            logger.error("Generator session create failed: %s", e, extra=log_extra(session_id=session_id))
+            raise DatabaseUnavailableError(f"Failed to create session: {e}") from e
+
         await self._set_cached(
             self._session_cache,
             session_id,
@@ -168,15 +186,30 @@ class GeneratorSessionService:
         sb = get_supabase_client()
         if sb is None:
             logger.error("Generator session fetch failed: Supabase client unavailable.", extra=log_extra(session_id=session_id))
-            raise RuntimeError("Supabase client unavailable.")
-        result = (
-            sb.table("generator_sessions")
-            .select("*")
-            .eq("id", sid)
-            .maybe_single()
-            .execute()
-        )
-        payload = result.data if result else None
+            raise DatabaseUnavailableError("Supabase client unavailable.")
+
+        def run_query():
+            client = get_supabase_client()
+            if client is None:
+                raise RuntimeError("Supabase client not available.")
+            return (
+                client.table("generator_sessions")
+                .select("*")
+                .eq("id", sid)
+                .maybe_single()
+                .execute()
+            )
+
+        try:
+            result = await asyncio.to_thread(run_query)
+            payload = result.data if result else None
+        except APIError as e:
+            logger.error("Generator session fetch failed: %s", e, extra=log_extra(session_id=session_id))
+            raise DatabaseUnavailableError(f"Failed to get session: {e}") from e
+        except Exception as e:
+            logger.error("Generator session fetch failed: %s", e, extra=log_extra(session_id=session_id))
+            raise DatabaseUnavailableError(f"Failed to get session: {e}") from e
+
         await self._set_cached(
             self._session_cache,
             sid,
@@ -189,10 +222,25 @@ class GeneratorSessionService:
         sb = get_supabase_client()
         if sb is None:
             logger.error("Generator session update failed: Supabase client unavailable.", extra=log_extra(session_id=session_id))
-            raise RuntimeError("Supabase client unavailable.")
+            raise DatabaseUnavailableError("Supabase client unavailable.")
         payload = dict(fields)
         payload["updated_at"] = self._now_iso()
-        sb.table("generator_sessions").update(payload).eq("id", str(session_id)).execute()
+
+        def run_update():
+            client = get_supabase_client()
+            if client is None:
+                raise RuntimeError("Supabase client not available.")
+            return client.table("generator_sessions").update(payload).eq("id", str(session_id)).execute()
+
+        try:
+            await asyncio.to_thread(run_update)
+        except APIError as e:
+            logger.error("Generator session update failed: %s", e, extra=log_extra(session_id=session_id))
+            raise DatabaseUnavailableError(f"Failed to update session: {e}") from e
+        except Exception as e:
+            logger.error("Generator session update failed: %s", e, extra=log_extra(session_id=session_id))
+            raise DatabaseUnavailableError(f"Failed to update session: {e}") from e
+
         await self._invalidate_session_caches(str(session_id))
         await self._invalidate_session_lists()
         logger.info("Generator session updated", extra=log_extra(session_id=session_id))
@@ -207,7 +255,7 @@ class GeneratorSessionService:
         sb = get_supabase_client()
         if sb is None:
             logger.error("Generator message create failed: Supabase client unavailable.", extra=log_extra(session_id=session_id))
-            raise RuntimeError("Supabase client unavailable.")
+            raise DatabaseUnavailableError("Supabase client unavailable.")
         payload = {
             "session_id": str(session_id),
             "role": role,
@@ -215,7 +263,22 @@ class GeneratorSessionService:
             "token_count": int(token_count or 0),
             "created_at": self._now_iso(),
         }
-        sb.table("generator_messages").insert(payload).execute()
+
+        def run_insert():
+            client = get_supabase_client()
+            if client is None:
+                raise RuntimeError("Supabase client not available.")
+            return client.table("generator_messages").insert(payload).execute()
+
+        try:
+            await asyncio.to_thread(run_insert)
+        except APIError as e:
+            logger.error("Generator message create failed: %s", e, extra=log_extra(session_id=session_id))
+            raise DatabaseUnavailableError(f"Failed to add message: {e}") from e
+        except Exception as e:
+            logger.error("Generator message create failed: %s", e, extra=log_extra(session_id=session_id))
+            raise DatabaseUnavailableError(f"Failed to add message: {e}") from e
+
         await self._invalidate_session_caches(str(session_id))
         logger.info("Generator message stored", extra=log_extra(session_id=session_id))
 
@@ -233,16 +296,31 @@ class GeneratorSessionService:
         sb = get_supabase_client()
         if sb is None:
             logger.error("Generator messages fetch failed: Supabase client unavailable.", extra=log_extra(session_id=session_id))
-            raise RuntimeError("Supabase client unavailable.")
-        result = (
-            sb.table("generator_messages")
-            .select("*")
-            .eq("session_id", sid)
-            .order("created_at", desc=False)
-            .limit(int(limit or 50))
-            .execute()
-        )
-        payload = result.data or []
+            raise DatabaseUnavailableError("Supabase client unavailable.")
+
+        def run_query():
+            client = get_supabase_client()
+            if client is None:
+                raise RuntimeError("Supabase client not available.")
+            return (
+                client.table("generator_messages")
+                .select("*")
+                .eq("session_id", sid)
+                .order("created_at", desc=False)
+                .limit(int(limit or 50))
+                .execute()
+            )
+
+        try:
+            result = await asyncio.to_thread(run_query)
+            payload = result.data or []
+        except APIError as e:
+            logger.error("Generator messages fetch failed: %s", e, extra=log_extra(session_id=session_id))
+            raise DatabaseUnavailableError(f"Failed to get messages: {e}") from e
+        except Exception as e:
+            logger.error("Generator messages fetch failed: %s", e, extra=log_extra(session_id=session_id))
+            raise DatabaseUnavailableError(f"Failed to get messages: {e}") from e
+
         await self._set_cached(
             self._messages_cache,
             cache_key,
@@ -265,16 +343,31 @@ class GeneratorSessionService:
         sb = get_supabase_client()
         if sb is None:
             logger.error("Generator sessions list failed: Supabase client unavailable.", extra=log_extra())
-            raise RuntimeError("Supabase client unavailable.")
-        query = sb.table("generator_sessions").select("*")
-        if user_id:
-            query = query.eq("user_id", str(user_id))
-        result = (
-            query.order("updated_at", desc=True)
-            .limit(int(limit or 50))
-            .execute()
-        )
-        payload = result.data or []
+            raise DatabaseUnavailableError("Supabase client unavailable.")
+
+        def run_query():
+            client = get_supabase_client()
+            if client is None:
+                raise RuntimeError("Supabase client not available.")
+            query = client.table("generator_sessions").select("*")
+            if user_id:
+                query = query.eq("user_id", str(user_id))
+            return (
+                query.order("updated_at", desc=True)
+                .limit(int(limit or 50))
+                .execute()
+            )
+
+        try:
+            result = await asyncio.to_thread(run_query)
+            payload = result.data or []
+        except APIError as e:
+            logger.error("Generator sessions list failed: %s", e, extra=log_extra())
+            raise DatabaseUnavailableError(f"Failed to list sessions: {e}") from e
+        except Exception as e:
+            logger.error("Generator sessions list failed: %s", e, extra=log_extra())
+            raise DatabaseUnavailableError(f"Failed to list sessions: {e}") from e
+
         await self._set_cached(
             self._session_list_cache,
             cache_key,
@@ -293,25 +386,38 @@ class GeneratorSessionService:
         sb = get_supabase_client()
         if sb is None:
             logger.error("Generator document save failed: Supabase client unavailable.", extra=log_extra(session_id=session_id))
-            raise RuntimeError("Supabase client unavailable.")
+            raise DatabaseUnavailableError("Supabase client unavailable.")
 
         version_number = int(version or 0)
         if version_number <= 0:
-            latest = (
-                sb.table("generator_documents")
-                .select("version_number")
-                .eq("session_id", str(session_id))
-                .order("version_number", desc=True)
-                .limit(1)
-                .execute()
-            )
-            if latest.data:
-                try:
-                    version_number = int(latest.data[0].get("version_number") or 0) + 1
-                except (TypeError, ValueError):
+            def run_latest_query():
+                client = get_supabase_client()
+                if client is None:
+                    raise RuntimeError("Supabase client not available.")
+                return (
+                    client.table("generator_documents")
+                    .select("version_number")
+                    .eq("session_id", str(session_id))
+                    .order("version_number", desc=True)
+                    .limit(1)
+                    .execute()
+                )
+
+            try:
+                latest = await asyncio.to_thread(run_latest_query)
+                if latest.data:
+                    try:
+                        version_number = int(latest.data[0].get("version_number") or 0) + 1
+                    except (TypeError, ValueError):
+                        version_number = 1
+                else:
                     version_number = 1
-            else:
-                version_number = 1
+            except APIError as e:
+                logger.error("Generator document version lookup failed: %s", e, extra=log_extra(session_id=session_id))
+                raise DatabaseUnavailableError(f"Failed to get latest version: {e}") from e
+            except Exception as e:
+                logger.error("Generator document version lookup failed: %s", e, extra=log_extra(session_id=session_id))
+                raise DatabaseUnavailableError(f"Failed to get latest version: {e}") from e
 
         payload = {
             "session_id": str(session_id),
@@ -319,7 +425,22 @@ class GeneratorSessionService:
             "docx_path": str(docx_path) if docx_path else None,
             "version_number": version_number,
         }
-        sb.table("generator_documents").insert(payload).execute()
+
+        def run_insert():
+            client = get_supabase_client()
+            if client is None:
+                raise RuntimeError("Supabase client not available.")
+            return client.table("generator_documents").insert(payload).execute()
+
+        try:
+            await asyncio.to_thread(run_insert)
+        except APIError as e:
+            logger.error("Generator document save failed: %s", e, extra=log_extra(session_id=session_id))
+            raise DatabaseUnavailableError(f"Failed to save document version: {e}") from e
+        except Exception as e:
+            logger.error("Generator document save failed: %s", e, extra=log_extra(session_id=session_id))
+            raise DatabaseUnavailableError(f"Failed to save document version: {e}") from e
+
         await self._invalidate_session_caches(str(session_id))
         await self._invalidate_session_lists()
         logger.info(
@@ -341,17 +462,32 @@ class GeneratorSessionService:
         sb = get_supabase_client()
         if sb is None:
             logger.error("Generator document fetch failed: Supabase client unavailable.", extra=log_extra(session_id=session_id))
-            raise RuntimeError("Supabase client unavailable.")
-        result = (
-            sb.table("generator_documents")
-            .select("*")
-            .eq("session_id", sid)
-            .order("version_number", desc=True)
-            .limit(1)
-            .maybe_single()
-            .execute()
-        )
-        payload = result.data if result else None
+            raise DatabaseUnavailableError("Supabase client unavailable.")
+
+        def run_query():
+            client = get_supabase_client()
+            if client is None:
+                raise RuntimeError("Supabase client not available.")
+            return (
+                client.table("generator_documents")
+                .select("*")
+                .eq("session_id", sid)
+                .order("version_number", desc=True)
+                .limit(1)
+                .maybe_single()
+                .execute()
+            )
+
+        try:
+            result = await asyncio.to_thread(run_query)
+            payload = result.data if result else None
+        except APIError as e:
+            logger.error("Generator document fetch failed: %s", e, extra=log_extra(session_id=session_id))
+            raise DatabaseUnavailableError(f"Failed to get latest document: {e}") from e
+        except Exception as e:
+            logger.error("Generator document fetch failed: %s", e, extra=log_extra(session_id=session_id))
+            raise DatabaseUnavailableError(f"Failed to get latest document: {e}") from e
+
         await self._set_cached(
             self._latest_document_cache,
             sid,

@@ -103,7 +103,8 @@ class PreviewRenderer:
             return {}
         try:
             return yaml.safe_load(contract_path.read_text(encoding="utf-8")) or {}
-        except Exception:
+        except Exception as exc:
+            logger.warning("Failed to load contract %s: %s", contract_path, exc)
             return {}
 
     def _build_fallback_css(self, template_name: str, contract: dict) -> str:
@@ -204,7 +205,8 @@ class PreviewRenderer:
             if path.exists():
                 try:
                     return path.read_text(encoding="utf-8")
-                except Exception:
+                except Exception as exc:
+                    logger.warning("Failed to read CSS file %s: %s", path, exc)
                     continue
         contract = self._load_contract(template_dir)
         return self._build_fallback_css(template_name, contract)
@@ -219,7 +221,8 @@ class PreviewRenderer:
                 if cached_css:
                     self._css_cache[template_name] = cached_css
                     return cached_css
-            except Exception:
+            except Exception as exc:
+                logger.warning("Redis cache get failed for CSS %s: %s", template_name, exc)
                 pass
         if template_name not in self._template_names:
             warnings.append(f"unknown_template:{template_name}")
@@ -228,7 +231,8 @@ class PreviewRenderer:
         if self._redis is not None:
             try:
                 self._redis.setex(cache_key, 3600, css)
-            except Exception:
+            except Exception as exc:
+                logger.warning("Redis cache set failed for CSS %s: %s", template_name, exc)
                 pass
         return css
 
@@ -255,35 +259,35 @@ class PreviewRenderer:
         return raw_blocks
 
     def _is_list_item(self, text: str) -> bool:
-        return bool(re.match(r"^([-*]|\\d+[.)])\\s+", text))
+        return bool(re.match(r"^([-*]|\d+[.)])\s+", text))
 
     def _strip_list_marker(self, text: str) -> str:
-        return re.sub(r"^([-*]|\\d+[.)])\\s+", "", text).strip()
+        return re.sub(r"^([-*]|\d+[.)])\s+", "", text).strip()
 
     def _is_caption(self, text: str) -> bool:
-        return bool(re.match(r"^(figure|fig\\.|table)\\s+\\d+[:\\s-]", text, re.IGNORECASE))
+        return bool(re.match(r"^(figure|fig\.|table)\s+\d+[:\s-]", text, re.IGNORECASE))
 
     def _is_heading(self, text: str) -> bool:
-        if re.match(r"^#{1,6}\\s+", text):
+        if re.match(r"^#{1,6}\s+", text):
             return True
-        if re.match(r"^\\d+(?:\\.\\d+)*\\s+\\S+", text):
+        if re.match(r"^\d+(?:\.\d+)*\s+\S+", text):
             return True
         letters_only = re.sub(r"[^A-Za-z]", "", text)
         return len(letters_only) >= 4 and text.isupper() and len(text) <= 80
 
     def _heading_level(self, text: str) -> int:
-        hash_match = re.match(r"^(#{1,6})\\s+", text)
+        hash_match = re.match(r"^(#{1,6})\s+", text)
         if hash_match:
             return min(4, max(2, len(hash_match.group(1))))
-        numeric_match = re.match(r"^(\\d+(?:\\.\\d+)*)\\s+", text)
+        numeric_match = re.match(r"^(\d+(?:\.\d+)*)\s+", text)
         if numeric_match:
             depth = numeric_match.group(1).count(".")
             return min(4, 2 + depth)
         return 2
 
     def _strip_heading_marker(self, text: str) -> str:
-        text = re.sub(r"^#{1,6}\\s+", "", text)
-        text = re.sub(r"^\\d+(?:\\.\\d+)*\\s+", "", text)
+        text = re.sub(r"^#{1,6}\s+", "", text)
+        text = re.sub(r"^\d+(?:\.\d+)*\s+", "", text)
         return text.strip()
 
     def _is_title(self, text: str, index: int) -> bool:

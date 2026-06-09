@@ -299,7 +299,8 @@ class Formatter:
                 continue
             try:
                 ref.formatted_text = self.reference_formatter.format_reference(ref, template_name)
-            except Exception:
+            except Exception as e:
+                logger.warning("Failed to format reference %s: %s", ref.block_id, e)
                 ref.formatted_text = ref.raw_text or ''
 
     @safe_function(fallback_value=None, error_message="Equation rendering failed")
@@ -587,7 +588,8 @@ class Formatter:
         """Create a paragraph and move it to the beginning of the document."""
         try:
             paragraph = doc.add_paragraph(style=style) if style else doc.add_paragraph()
-        except Exception:
+        except Exception as e:
+            logger.warning("Failed to create styled paragraph: %s", e)
             paragraph = doc.add_paragraph()
 
         if text:
@@ -1191,7 +1193,8 @@ class Formatter:
             # Apply contract-driven spacing
             self._apply_spacing_from_contract(p, block, template_name)
             
-        except Exception:
+        except Exception as e:
+            logger.warning("Block rendering failed, using fallback: %s", e)
             # Fallback if style missing
             if clean_text:
                 p = doc.add_paragraph()

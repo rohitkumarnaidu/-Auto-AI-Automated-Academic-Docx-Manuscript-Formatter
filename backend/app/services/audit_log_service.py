@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Tuple
@@ -82,8 +83,15 @@ class AuditLogService:
             "details": details_payload,
             "created_at": event_timestamp,
         }
+
+        def run_insert():
+            client = get_supabase_client()
+            if client is None:
+                raise RuntimeError("Supabase client not available.")
+            return client.table("audit_log").insert(payload).execute()
+
         try:
-            sb.table("audit_log").insert(payload).execute()
+            await asyncio.to_thread(run_insert)
             self._audit_table_available = True
         except Exception as exc:
             error_text = str(exc)

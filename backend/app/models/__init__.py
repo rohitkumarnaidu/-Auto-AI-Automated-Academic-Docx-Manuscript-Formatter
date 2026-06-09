@@ -15,3 +15,5 @@ from app.models.pipeline_document import (
     PipelineDocument
 )
 from app.models.document_version import DocumentVersion
+from app.models.api_key import UserApiKey
+from app.models.api_key_usage_log import ApiKeyUsageLog

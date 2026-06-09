@@ -22,6 +22,7 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 from app.config.settings import settings
 from app.pipeline.safety.safe_execution import safe_function
+from app.exceptions import ExternalServiceError
 
 logger = logging.getLogger(__name__)
 
@@ -491,6 +492,7 @@ class GROBIDClient:
         }
 
 
-class GROBIDException(Exception):
+class GROBIDException(ExternalServiceError):
     """Exception raised for GROBID service errors."""
-    pass
+    def __init__(self, message: str = "GROBID service call failed.") -> None:
+        super().__init__(service="GROBID", message=message)

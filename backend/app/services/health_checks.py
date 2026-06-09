@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from datetime import datetime, timezone
 from time import monotonic
 from typing import Any
 
 from app.config.settings import settings
 from app.services.scibert_gate import get_scibert_gate_state, should_enable_scibert
+
+logger = logging.getLogger(__name__)
 
 
 _readiness_cache_lock: asyncio.Lock | None = None
@@ -91,7 +94,8 @@ def _service_urls(setting_method_name: str, fallback_attr: str | None = None) ->
     if callable(resolver):
         try:
             resolved = resolver()
-        except Exception:
+        except Exception as e:
+            logger.warning("Failed to resolve URLs for %s: %s", setting_method_name, e)
             resolved = []
         if isinstance(resolved, list):
             return [str(url).rstrip("/") for url in resolved if str(url).strip()]
@@ -108,7 +112,8 @@ def _service_health_path(service_name: str, default_path: str = "/") -> str:
     if callable(resolver):
         try:
             path = str(resolver(service_name)).strip()
-        except Exception:
+        except Exception as e:
+            logger.warning("Failed to resolve health path for %s: %s", service_name, e)
             path = default_path
     else:
         path = default_path
@@ -217,7 +222,12 @@ async def _build_health_payload() -> tuple[dict, int]:
             else:
                 health_status["components"]["ollama"] = "unhealthy"
                 health_status["status"] = "degraded"
-    except (httpx.RequestError, Exception):
+    except httpx.RequestError as exc:
+        logger.warning("Ollama health check request failed: %s", exc)
+        health_status["components"]["ollama"] = "unavailable (fallback active)"
+        health_status["status"] = "degraded"
+    except Exception as exc:
+        logger.error("Ollama health check unexpected error: %s", exc)
         health_status["components"]["ollama"] = "unavailable (fallback active)"
         health_status["status"] = "degraded"
 
@@ -226,7 +236,8 @@ async def _build_health_payload() -> tuple[dict, int]:
             health_status["components"]["ai_models"] = "loaded"
         else:
             health_status["components"]["ai_models"] = "not_loaded"
-    except Exception:
+    except Exception as exc:
+        logger.error("AI models health check failed: %s", exc)
         health_status["components"]["ai_models"] = "error"
 
     status_code = 200 if health_status["status"] == "healthy" else 503
@@ -330,7 +341,8 @@ async def _build_readiness_payload() -> tuple[dict, int]:
         from app.services.llm_service import check_health as llm_check_health
 
         checks["llm_status"] = await llm_check_health()
-    except Exception:
+    except Exception as exc:
+        logger.error("LLM health check failed in readiness: %s", exc)
         checks["llm_status"] = "unknown"
 
     scibert_urls = _service_urls("get_scibert_urls", "SCIBERT_URL")
@@ -355,7 +367,8 @@ async def _build_readiness_payload() -> tuple[dict, int]:
                     checks["ai_models"] = "not_loaded"
                     checks["scibert"] = "local_unavailable"
                     is_ready = False
-            except Exception:
+            except Exception as exc:
+                logger.error("Scibert local model check failed: %s", exc)
                 checks["ai_models"] = "error"
                 checks["scibert"] = "local_error"
                 is_ready = False

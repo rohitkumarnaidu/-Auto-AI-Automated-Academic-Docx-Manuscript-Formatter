@@ -78,7 +78,7 @@ def _get_synthesizer() -> MultiDocSynthesizer:
     return _synthesizer
 
 
-def _assert_generation_owner(job_id: str, user_id: str) -> None:
+async def _assert_generation_owner(job_id: str, user_id: str) -> None:
     generator = get_generator()
     session = generator.get_session(job_id)
     if session:
@@ -87,7 +87,7 @@ def _assert_generation_owner(job_id: str, user_id: str) -> None:
             raise HTTPException(status_code=403, detail="Not authorized to access this generation job.")
         return
 
-    record = DocumentService.get_document(job_id)
+    record = await DocumentService.get_document(job_id)
     if not record:
         return
     owner = record.get("user_id")
@@ -95,12 +95,12 @@ def _assert_generation_owner(job_id: str, user_id: str) -> None:
         raise HTTPException(status_code=403, detail="Not authorized to access this generation job.")
 
 
-def _download_generated_artifact(job_id: str, requested_format: str, user: Any) -> FileResponse:
+async def _download_generated_artifact(job_id: str, requested_format: str, user: Any) -> FileResponse:
     if requested_format not in {"docx", "pdf"}:
         raise HTTPException(status_code=400, detail="Unsupported format. Supported: docx, pdf")
 
     user_id = user.id if hasattr(user, "id") else str(user)
-    _assert_generation_owner(job_id, str(user_id))
+    await _assert_generation_owner(job_id, str(user_id))
 
     generator = get_generator()
     try:
@@ -542,7 +542,7 @@ async def download_generated(
     user=Depends(get_current_user),
 ):
     async def operation():
-        return _download_generated_artifact(
+        return await _download_generated_artifact(
             job_id=sessionId,
             requested_format=(format or "").strip().lower(),
             user=user,

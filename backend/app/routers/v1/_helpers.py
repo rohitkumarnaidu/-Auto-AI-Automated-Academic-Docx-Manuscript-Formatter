@@ -65,7 +65,7 @@ def _record_persona_kpis(request: Request, operation_name: str, success: bool, d
             duration_seconds=max(duration_seconds, 0.0),
         )
     except Exception:
-        return
+        pass  # Metrics recording is non-critical; silent failure is acceptable.
 
 
 def build_success_response(

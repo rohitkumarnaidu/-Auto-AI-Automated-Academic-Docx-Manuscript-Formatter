@@ -10,6 +10,7 @@ schema definition and is used by Alembic migrations.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import time
@@ -20,14 +21,14 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse, parse_qsl, urlencode, urlunparse
 
-# ── Old ORM imports (kept for reference, replaced by supabase-py) ──────────────
-# from sqlalchemy.orm import Session
-# from app.models.document import Document as DocumentModel
-# from app.models.document_result import DocumentResult as DocumentResultModel
-# from app.models.processing_status import ProcessingStatus as ProcessingStatusModel
+from postgrest import APIError
 
 from app.db.supabase_client import get_supabase_client
 from app.utils.logging_context import log_extra
+from app.exceptions import (
+    DatabaseUnavailableError,
+    DocumentNotFoundError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +65,7 @@ class DocumentService:
         return any(marker in message for marker in DocumentService._TRANSIENT_ERROR_MARKERS)
 
     @staticmethod
-    def _execute_with_transient_retry(
+    async def _execute_with_transient_retry(
         operation_name: str,
         operation,
         *,
@@ -74,7 +75,7 @@ class DocumentService:
         attempt = 0
         while True:
             try:
-                return operation()
+                return await asyncio.to_thread(operation)
             except Exception as exc:
                 attempt += 1
                 should_retry = (
@@ -94,9 +95,8 @@ class DocumentService:
                     delay_seconds,
                     extra=log_extra(job_id=job_id),
                 )
-                # Refresh singleton client in case underlying HTTP pool/socket is stale.
                 get_supabase_client(refresh=True)
-                time.sleep(delay_seconds)
+                await asyncio.sleep(delay_seconds)
 
     @staticmethod
     def _is_valid_uuid(value: str) -> bool:
@@ -187,42 +187,48 @@ class DocumentService:
     # ── Documents ──────────────────────────────────────────────────────────────
 
     @staticmethod
-    def get_document(doc_id: str, user_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    async def get_document(doc_id: str, user_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
         Fetch a single document by ID.
         Optionally scope to a specific user_id for ownership checks.
-        Returns None if not found or on error.
+        Raises DocumentNotFoundError if not found.
+        Raises DatabaseUnavailableError on database errors.
         """
         doc_id = str(doc_id)
-        if user_id: user_id = str(user_id)
+        if user_id:
+            user_id = str(user_id)
         if not DocumentService._should_query_document_tables(doc_id, "get_document"):
             return None
         sb = get_supabase_client()
         if sb is None:
             logger.error("get_document: Supabase client not available.", extra=log_extra(job_id=doc_id))
-            return None
-        try:
-            def run_query():
-                client = get_supabase_client()
-                if client is None:
-                    raise RuntimeError("Supabase client not available.")
-                query = client.table("documents").select("*").eq("id", str(doc_id))
-                if user_id:
-                    query = query.eq("user_id", str(user_id))
-                return query.maybe_single().execute()
+            raise DatabaseUnavailableError("Supabase client is not configured.")
 
-            result = DocumentService._execute_with_transient_retry(
+        def run_query():
+            client = get_supabase_client()
+            if client is None:
+                raise RuntimeError("Supabase client not available.")
+            query = client.table("documents").select("*").eq("id", str(doc_id))
+            if user_id:
+                query = query.eq("user_id", str(user_id))
+            return query.maybe_single().execute()
+
+        try:
+            result = await DocumentService._execute_with_transient_retry(
                 "get_document",
                 run_query,
                 job_id=doc_id,
             )
             return result.data
-        except Exception as exc:
-            logger.error("get_document(%s) failed: %s", doc_id, exc, extra=log_extra(job_id=doc_id))
-            return None
+        except APIError as e:
+            logger.error("get_document(%s) failed: %s", doc_id, e, extra=log_extra(job_id=doc_id))
+            raise DatabaseUnavailableError(f"Failed to get document: {e}") from e
+        except Exception as e:
+            logger.error("get_document(%s) failed: %s", doc_id, e, extra=log_extra(job_id=doc_id))
+            raise DatabaseUnavailableError(f"Failed to get document: {e}") from e
 
     @staticmethod
-    def list_documents(
+    async def list_documents(
         user_id: str,
         status: Optional[str] = None,
         template: Optional[str] = None,
@@ -231,16 +237,20 @@ class DocumentService:
     ) -> List[Dict[str, Any]]:
         """
         List documents for a user with optional filters and pagination.
-        Returns empty list on error.
+        Raises DatabaseUnavailableError on database errors.
         """
         sb = get_supabase_client()
         user_id = str(user_id)
         if sb is None:
             logger.error("list_documents: Supabase client not available.", extra=log_extra())
-            return []
-        try:
+            raise DatabaseUnavailableError("Supabase client is not configured.")
+
+        def run_query():
+            client = get_supabase_client()
+            if client is None:
+                raise RuntimeError("Supabase client not available.")
             query = (
-                sb.table("documents")
+                client.table("documents")
                 .select("*")
                 .eq("user_id", str(user_id))
                 .order("created_at", desc=True)
@@ -250,28 +260,38 @@ class DocumentService:
                 query = query.eq("status", status.upper())
             if template:
                 query = query.eq("template", template.upper())
-            result = query.execute()
+            return query.execute()
+
+        try:
+            result = await asyncio.to_thread(run_query)
             return result.data or []
-        except Exception as exc:
-            logger.error("list_documents(user=%s) failed: %s", user_id, exc, extra=log_extra())
-            return []
+        except APIError as e:
+            logger.error("list_documents(user=%s) failed: %s", user_id, e, extra=log_extra())
+            raise DatabaseUnavailableError(f"Failed to list documents: {e}") from e
+        except Exception as e:
+            logger.error("list_documents(user=%s) failed: %s", user_id, e, extra=log_extra())
+            raise DatabaseUnavailableError(f"Failed to list documents: {e}") from e
 
     @staticmethod
-    def count_documents(
+    async def count_documents(
         user_id: str,
         status: Optional[str] = None,
         template: Optional[str] = None,
     ) -> int:
         """
         Count documents for a user with optional filters.
-        Returns 0 on error.
+        Raises DatabaseUnavailableError on database errors.
         """
         sb = get_supabase_client()
         if sb is None:
-            return 0
-        try:
+            raise DatabaseUnavailableError("Supabase client is not configured.")
+
+        def run_query():
+            client = get_supabase_client()
+            if client is None:
+                raise RuntimeError("Supabase client not available.")
             query = (
-                sb.table("documents")
+                client.table("documents")
                 .select("id", count="exact")
                 .eq("user_id", str(user_id))
             )
@@ -279,39 +299,55 @@ class DocumentService:
                 query = query.eq("status", status.upper())
             if template:
                 query = query.eq("template", template.upper())
-            result = query.execute()
+            return query.execute()
+
+        try:
+            result = await asyncio.to_thread(run_query)
             return result.count or 0
-        except Exception as exc:
-            logger.error("count_documents(user=%s) failed: %s", user_id, exc, extra=log_extra())
-            return 0
+        except APIError as e:
+            logger.error("count_documents(user=%s) failed: %s", user_id, e, extra=log_extra())
+            raise DatabaseUnavailableError(f"Failed to count documents: {e}") from e
+        except Exception as e:
+            logger.error("count_documents(user=%s) failed: %s", user_id, e, extra=log_extra())
+            raise DatabaseUnavailableError(f"Failed to count documents: {e}") from e
 
     @staticmethod
-    def count_uploads_today(user_id: str) -> int:
+    async def count_uploads_today(user_id: str) -> int:
         """
         Count uploads created by this user during the current UTC day.
-        Returns 0 on error.
+        Raises DatabaseUnavailableError on database errors.
         """
         sb = get_supabase_client()
         if sb is None:
-            return 0
-        try:
+            raise DatabaseUnavailableError("Supabase client is not configured.")
+
+        def run_query():
+            client = get_supabase_client()
+            if client is None:
+                raise RuntimeError("Supabase client not available.")
             day_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
             day_end = day_start + timedelta(days=1)
-            result = (
-                sb.table("documents")
+            return (
+                client.table("documents")
                 .select("id", count="exact")
                 .eq("user_id", str(user_id))
                 .gte("created_at", day_start.isoformat())
                 .lt("created_at", day_end.isoformat())
                 .execute()
             )
+
+        try:
+            result = await asyncio.to_thread(run_query)
             return int(result.count or 0)
-        except Exception as exc:
-            logger.error("count_uploads_today(user=%s) failed: %s", user_id, exc, extra=log_extra())
-            return 0
+        except APIError as e:
+            logger.error("count_uploads_today(user=%s) failed: %s", user_id, e, extra=log_extra())
+            raise DatabaseUnavailableError(f"Failed to count uploads: {e}") from e
+        except Exception as e:
+            logger.error("count_uploads_today(user=%s) failed: %s", user_id, e, extra=log_extra())
+            raise DatabaseUnavailableError(f"Failed to count uploads: {e}") from e
 
     @staticmethod
-    def create_document(
+    async def create_document(
         doc_id: str,
         user_id: Optional[str],
         filename: str,
@@ -323,42 +359,49 @@ class DocumentService:
         """
         Insert a new document row.
         Returns the inserted row dict or None on error.
+        Raises DatabaseUnavailableError on database errors.
         """
         sb = get_supabase_client()
         doc_id = str(doc_id)
-        if user_id: user_id = str(user_id)
+        if user_id:
+            user_id = str(user_id)
         if sb is None:
             logger.error("create_document: Supabase client not available.", extra=log_extra(job_id=doc_id))
-            return None
-        try:
-            payload: Dict[str, Any] = {
-                "id": str(doc_id),
-                "filename": filename,
-                "status": "PROCESSING",
-                "progress": 0,
-            }
-            if user_id:
-                payload["user_id"] = str(user_id)
-            if template:
-                payload["template"] = template
-            if original_file_path:
-                payload["original_file_path"] = original_file_path
-            if formatting_options:
-                payload["formatting_options"] = formatting_options
-            include_file_hash = (
-                bool(file_hash)
-                and DocumentService._supports_file_hash is not False
-            )
-            if include_file_hash:
-                payload["file_hash"] = file_hash
+            raise DatabaseUnavailableError("Supabase client is not configured.")
 
-            result = sb.table("documents").insert(payload).execute()
+        payload: Dict[str, Any] = {
+            "id": str(doc_id),
+            "filename": filename,
+            "status": "PROCESSING",
+            "progress": 0,
+        }
+        if user_id:
+            payload["user_id"] = str(user_id)
+        if template:
+            payload["template"] = template
+        if original_file_path:
+            payload["original_file_path"] = original_file_path
+        if formatting_options:
+            payload["formatting_options"] = formatting_options
+        include_file_hash = (
+            bool(file_hash)
+            and DocumentService._supports_file_hash is not False
+        )
+        if include_file_hash:
+            payload["file_hash"] = file_hash
+
+        def run_insert(data: Dict[str, Any]):
+            client = get_supabase_client()
+            if client is None:
+                raise RuntimeError("Supabase client not available.")
+            return client.table("documents").insert(data).execute()
+
+        try:
+            result = await asyncio.to_thread(run_insert, payload)
             if include_file_hash:
                 DocumentService._supports_file_hash = True
             return result.data[0] if result.data else None
         except Exception as exc:
-            # Backward-compat: some deployments don't yet have `documents.file_hash`.
-            # Retry once without the optional field instead of failing upload.
             err = str(exc)
             missing_file_hash = (
                 "file_hash" in err
@@ -376,7 +419,7 @@ class DocumentService:
                             extra=log_extra(job_id=doc_id),
                         )
                         DocumentService._file_hash_warning_logged = True
-                    retry_result = sb.table("documents").insert(retry_payload).execute()
+                    retry_result = await asyncio.to_thread(run_insert, retry_payload)
                     return retry_result.data[0] if retry_result.data else None
                 except Exception as retry_exc:
                     logger.error(
@@ -385,35 +428,46 @@ class DocumentService:
                         retry_exc,
                         extra=log_extra(job_id=doc_id),
                     )
-                    return None
+                    raise DatabaseUnavailableError(f"Failed to create document: {retry_exc}") from retry_exc
             logger.error("create_document(%s) failed: %s", doc_id, exc, extra=log_extra(job_id=doc_id))
-            return None
+            raise DatabaseUnavailableError(f"Failed to create document: {exc}") from exc
 
     @staticmethod
-    def update_document(doc_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    async def update_document(doc_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
         Update fields on a document row.
         Returns the updated row dict or None on error.
+        Raises DatabaseUnavailableError on database errors.
         """
         sb = get_supabase_client()
         doc_id = str(doc_id)
         if sb is None:
             logger.error("update_document: Supabase client not available.", extra=log_extra(job_id=doc_id))
-            return None
-        try:
-            result = (
-                sb.table("documents")
+            raise DatabaseUnavailableError("Supabase client is not configured.")
+
+        def run_update():
+            client = get_supabase_client()
+            if client is None:
+                raise RuntimeError("Supabase client not available.")
+            return (
+                client.table("documents")
                 .update(updates)
                 .eq("id", str(doc_id))
                 .execute()
             )
+
+        try:
+            result = await asyncio.to_thread(run_update)
             return result.data[0] if result.data else None
-        except Exception as exc:
-            logger.error("update_document(%s) failed: %s", doc_id, exc, extra=log_extra(job_id=doc_id))
-            return None
+        except APIError as e:
+            logger.error("update_document(%s) failed: %s", doc_id, e, extra=log_extra(job_id=doc_id))
+            raise DatabaseUnavailableError(f"Failed to update document: {e}") from e
+        except Exception as e:
+            logger.error("update_document(%s) failed: %s", doc_id, e, extra=log_extra(job_id=doc_id))
+            raise DatabaseUnavailableError(f"Failed to update document: {e}") from e
 
     @staticmethod
-    def delete_document(document_id: str, user_id: Optional[str] = None) -> bool:
+    async def delete_document(document_id: str, user_id: Optional[str] = None) -> bool:
         """
         Delete a document and associated DB artifacts/files.
         Returns True on success, raises on failure.
@@ -423,13 +477,12 @@ class DocumentService:
         owner_id = str(user_id) if user_id else None
 
         if sb is None:
-            raise RuntimeError("Supabase client not available")
+            raise DatabaseUnavailableError("Supabase client is not configured.")
 
-        doc = DocumentService.get_document(doc_id, owner_id)
+        doc = await DocumentService.get_document(doc_id, owner_id)
         if not doc:
-            raise ValueError("Document not found or not owned by user")
+            raise DocumentNotFoundError(doc_id)
 
-        # Best-effort local file cleanup
         for key in ("output_path", "original_file_path"):
             candidate = doc.get(key)
             if candidate and os.path.isfile(candidate):
@@ -444,27 +497,39 @@ class DocumentService:
                         extra=log_extra(job_id=doc_id),
                     )
 
+        def run_cleanup():
+            client = get_supabase_client()
+            if client is None:
+                raise RuntimeError("Supabase client not available.")
+            client.table("processing_status").delete().eq("document_id", doc_id).execute()
+            client.table("document_results").delete().eq("document_id", doc_id).execute()
+            client.table("document_versions").delete().eq("document_id", doc_id).execute()
+
         try:
-            sb.table("processing_status").delete().eq("document_id", doc_id).execute()
-            sb.table("document_results").delete().eq("document_id", doc_id).execute()
-            sb.table("document_versions").delete().eq("document_id", doc_id).execute()
+            await asyncio.to_thread(run_cleanup)
         except Exception as exc:
             logger.warning("Auxiliary cleanup failed for document %s: %s", doc_id, exc, extra=log_extra(job_id=doc_id))
 
-        try:
-            query = sb.table("documents").delete().eq("id", doc_id)
+        def run_delete():
+            client = get_supabase_client()
+            if client is None:
+                raise RuntimeError("Supabase client not available.")
+            query = client.table("documents").delete().eq("id", doc_id)
             if owner_id:
                 query = query.eq("user_id", owner_id)
-            result = query.execute()
+            return query.execute()
+
+        try:
+            result = await asyncio.to_thread(run_delete)
             if result.data is not None and len(result.data) == 0:
                 raise ValueError("Document delete affected 0 rows")
             return True
         except Exception as exc:
             logger.error("delete_document(%s, user=%s) failed: %s", doc_id, owner_id, exc, extra=log_extra(job_id=doc_id))
-            raise
+            raise DatabaseUnavailableError(f"Failed to delete document: {exc}") from exc
 
     @staticmethod
-    def update_output_hash(doc_id: str, output_hash: str) -> bool:
+    async def update_output_hash(doc_id: str, output_hash: str) -> bool:
         """
         Persist SHA256 for generated output artifacts.
         Returns True when persisted, False otherwise.
@@ -477,8 +542,15 @@ class DocumentService:
         sb = get_supabase_client()
         if sb is None:
             return False
+
+        def run_update():
+            client = get_supabase_client()
+            if client is None:
+                raise RuntimeError("Supabase client not available.")
+            return client.table("documents").update({"output_hash": output_hash}).eq("id", str(doc_id)).execute()
+
         try:
-            sb.table("documents").update({"output_hash": output_hash}).eq("id", str(doc_id)).execute()
+            await asyncio.to_thread(run_update)
             DocumentService._supports_output_hash = True
             return True
         except Exception as exc:
@@ -501,7 +573,7 @@ class DocumentService:
             return False
 
     @staticmethod
-    def mark_document_failed(doc_id: str, error_message: str) -> None:
+    async def mark_document_failed(doc_id: str, error_message: str) -> None:
         """
         Convenience: mark a document as FAILED with an error message.
         Never raises — safe to call from background tasks and exception handlers.
@@ -511,17 +583,24 @@ class DocumentService:
         if sb is None:
             logger.error("mark_document_failed: Supabase client not available.", extra=log_extra(job_id=doc_id))
             return
-        try:
-            sb.table("documents").update({
+
+        def run_update():
+            client = get_supabase_client()
+            if client is None:
+                raise RuntimeError("Supabase client not available.")
+            return client.table("documents").update({
                 "status": "FAILED",
                 "error_message": error_message,
                 "progress": 0,
             }).eq("id", str(doc_id)).execute()
+
+        try:
+            await asyncio.to_thread(run_update)
         except Exception as exc:
             logger.error("mark_document_failed(%s) failed: %s", doc_id, exc, extra=log_extra(job_id=doc_id))
 
     @staticmethod
-    def mark_document_completed(
+    async def mark_document_completed(
         doc_id: str,
         output_path: str,
         raw_text: Optional[str] = None,
@@ -535,7 +614,11 @@ class DocumentService:
         if sb is None:
             logger.error("mark_document_completed: Supabase client not available.", extra=log_extra(job_id=doc_id))
             return
-        try:
+
+        def run_update():
+            client = get_supabase_client()
+            if client is None:
+                raise RuntimeError("Supabase client not available.")
             updates: Dict[str, Any] = {
                 "status": "COMPLETED",
                 "output_path": output_path,
@@ -544,38 +627,43 @@ class DocumentService:
             }
             if raw_text is not None:
                 updates["raw_text"] = raw_text
-            sb.table("documents").update(updates).eq("id", str(doc_id)).execute()
+            return client.table("documents").update(updates).eq("id", str(doc_id)).execute()
+
+        try:
+            await asyncio.to_thread(run_update)
         except Exception as exc:
             logger.error("mark_document_completed(%s) failed: %s", doc_id, exc, extra=log_extra(job_id=doc_id))
 
     # ── Document Results ───────────────────────────────────────────────────────
 
     @staticmethod
-    def get_document_result(doc_id: str) -> Optional[Dict[str, Any]]:
+    async def get_document_result(doc_id: str) -> Optional[Dict[str, Any]]:
         """
         Fetch the processing result for a document.
         Returns None if not found or on error.
+        Raises DatabaseUnavailableError on database errors.
         """
         doc_id = str(doc_id)
         if not DocumentService._should_query_document_tables(doc_id, "get_document_result"):
             return None
         sb = get_supabase_client()
         if sb is None:
-            return None
-        try:
-            def run_query():
-                client = get_supabase_client()
-                if client is None:
-                    raise RuntimeError("Supabase client not available.")
-                return (
-                    client.table("document_results")
-                    .select("*")
-                    .eq("document_id", str(doc_id))
-                    .maybe_single()
-                    .execute()
-                )
+            raise DatabaseUnavailableError("Supabase client is not configured.")
 
-            result = DocumentService._execute_with_transient_retry(
+        def run_query():
+            client = get_supabase_client()
+            if client is None:
+                raise RuntimeError("Supabase client not available.")
+            return (
+                client.table("document_results")
+                .select("*")
+                .eq("document_id", str(doc_id))
+                .maybe_single()
+                .execute()
+            )
+
+        try:
+            result = await DocumentService._execute_with_transient_retry(
                 "get_document_result",
                 run_query,
                 job_id=doc_id,
@@ -585,75 +673,93 @@ class DocumentService:
             if isinstance(result, dict):
                 return result.get("data")
             return getattr(result, "data", None)
-        except Exception as exc:
-            logger.error("get_document_result(%s) failed: %s", doc_id, exc, extra=log_extra(job_id=doc_id))
-            return None
+        except APIError as e:
+            logger.error("get_document_result(%s) failed: %s", doc_id, e, extra=log_extra(job_id=doc_id))
+            raise DatabaseUnavailableError(f"Failed to get document result: {e}") from e
+        except Exception as e:
+            logger.error("get_document_result(%s) failed: %s", doc_id, e, extra=log_extra(job_id=doc_id))
+            raise DatabaseUnavailableError(f"Failed to get document result: {e}") from e
 
     @staticmethod
-    def upsert_document_result(
+    async def upsert_document_result(
         doc_id: str,
         structured_data: Optional[Dict[str, Any]] = None,
         validation_results: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
         Insert or update the document_results row for a document.
-        Never raises.
+        Raises DatabaseUnavailableError on database errors.
         """
         sb = get_supabase_client()
         doc_id = str(doc_id)
         if sb is None:
             logger.error("upsert_document_result: Supabase client not available.", extra=log_extra(job_id=doc_id))
-            return
-        try:
+            raise DatabaseUnavailableError("Supabase client is not configured.")
+
+        def run_upsert():
+            client = get_supabase_client()
+            if client is None:
+                raise RuntimeError("Supabase client not available.")
             payload: Dict[str, Any] = {"document_id": str(doc_id)}
             if structured_data is not None:
                 payload["structured_data"] = structured_data
             if validation_results is not None:
                 payload["validation_results"] = validation_results
-            sb.table("document_results").upsert(
+            return client.table("document_results").upsert(
                 payload, on_conflict="document_id"
             ).execute()
-        except Exception as exc:
-            logger.error("upsert_document_result(%s) failed: %s", doc_id, exc, extra=log_extra(job_id=doc_id))
+
+        try:
+            await asyncio.to_thread(run_upsert)
+        except APIError as e:
+            logger.error("upsert_document_result(%s) failed: %s", doc_id, e, extra=log_extra(job_id=doc_id))
+            raise DatabaseUnavailableError(f"Failed to upsert document result: {e}") from e
+        except Exception as e:
+            logger.error("upsert_document_result(%s) failed: %s", doc_id, e, extra=log_extra(job_id=doc_id))
+            raise DatabaseUnavailableError(f"Failed to upsert document result: {e}") from e
 
     # ── Processing Status ──────────────────────────────────────────────────────
 
     @staticmethod
-    def get_processing_statuses(doc_id: str) -> List[Dict[str, Any]]:
+    async def get_processing_statuses(doc_id: str) -> List[Dict[str, Any]]:
         """
         Fetch all processing phase statuses for a document.
-        Returns empty list on error.
+        Raises DatabaseUnavailableError on database errors.
         """
         doc_id = str(doc_id)
         if not DocumentService._should_query_document_tables(doc_id, "get_processing_statuses"):
             return []
         sb = get_supabase_client()
         if sb is None:
-            return []
-        try:
-            def run_query():
-                client = get_supabase_client()
-                if client is None:
-                    raise RuntimeError("Supabase client not available.")
-                return (
-                    client.table("processing_status")
-                    .select("*")
-                    .eq("document_id", str(doc_id))
-                    .execute()
-                )
+            raise DatabaseUnavailableError("Supabase client is not configured.")
 
-            result = DocumentService._execute_with_transient_retry(
+        def run_query():
+            client = get_supabase_client()
+            if client is None:
+                raise RuntimeError("Supabase client not available.")
+            return (
+                client.table("processing_status")
+                .select("*")
+                .eq("document_id", str(doc_id))
+                .execute()
+            )
+
+        try:
+            result = await DocumentService._execute_with_transient_retry(
                 "get_processing_statuses",
                 run_query,
                 job_id=doc_id,
             )
             return result.data or []
-        except Exception as exc:
-            logger.error("get_processing_statuses(%s) failed: %s", doc_id, exc, extra=log_extra(job_id=doc_id))
-            return []
+        except APIError as e:
+            logger.error("get_processing_statuses(%s) failed: %s", doc_id, e, extra=log_extra(job_id=doc_id))
+            raise DatabaseUnavailableError(f"Failed to get processing statuses: {e}") from e
+        except Exception as e:
+            logger.error("get_processing_statuses(%s) failed: %s", doc_id, e, extra=log_extra(job_id=doc_id))
+            raise DatabaseUnavailableError(f"Failed to get processing statuses: {e}") from e
 
     @staticmethod
-    def upsert_processing_status(
+    async def upsert_processing_status(
         doc_id: str,
         phase: str,
         status: str,
@@ -662,14 +768,18 @@ class DocumentService:
     ) -> None:
         """
         Insert or update a processing phase status row.
-        Never raises.
+        Raises DatabaseUnavailableError on database errors.
         """
         sb = get_supabase_client()
         doc_id = str(doc_id)
         if sb is None:
             logger.error("upsert_processing_status: Supabase client not available.", extra=log_extra(job_id=doc_id))
-            return
-        try:
+            raise DatabaseUnavailableError("Supabase client is not configured.")
+
+        def run_upsert():
+            client = get_supabase_client()
+            if client is None:
+                raise RuntimeError("Supabase client not available.")
             payload: Dict[str, Any] = {
                 "document_id": str(doc_id),
                 "phase": phase,
@@ -679,14 +789,27 @@ class DocumentService:
                 payload["progress_percentage"] = progress_percentage
             if message is not None:
                 payload["message"] = message
-            sb.table("processing_status").upsert(
+            return client.table("processing_status").upsert(
                 payload, on_conflict="document_id,phase"
             ).execute()
-        except Exception as exc:
+
+        try:
+            await asyncio.to_thread(run_upsert)
+        except APIError as e:
             logger.error(
                 "upsert_processing_status(%s, %s) failed: %s",
                 doc_id,
                 phase,
-                exc,
+                e,
                 extra=log_extra(job_id=doc_id),
             )
+            raise DatabaseUnavailableError(f"Failed to upsert processing status: {e}") from e
+        except Exception as e:
+            logger.error(
+                "upsert_processing_status(%s, %s) failed: %s",
+                doc_id,
+                phase,
+                e,
+                extra=log_extra(job_id=doc_id),
+            )
+            raise DatabaseUnavailableError(f"Failed to upsert processing status: {e}") from e

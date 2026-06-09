@@ -263,8 +263,8 @@ class DocxParser(BaseParser):
                             block.metadata["is_endnote"] = True
                             block.metadata["endnote_id"] = en_id
                             note_blocks.append(block)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Endnote extraction skipped: %s", e)
 
         return note_blocks
 
@@ -493,8 +493,8 @@ class DocxParser(BaseParser):
                             links.append({"text": text, "url": url})
                     except (KeyError, AttributeError):
                         continue
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Hyperlink extraction failed: %s", e)
         return links
 
     def _extract_note_references(self, paragraph: DocxParagraph, tag_name: str) -> List[str]:
@@ -505,8 +505,8 @@ class DocxParser(BaseParser):
                 note_id = note_ref.get(qn("w:id"))
                 if note_id:
                     refs.append(str(note_id))
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Note reference extraction failed: %s", e)
         return refs
 
     def _get_list_info(self, paragraph: DocxParagraph) -> Optional[Dict[str, Any]]:
@@ -544,8 +544,8 @@ class DocxParser(BaseParser):
                             "list_level": max(0, level),
                             "list_id": f"style_{style_val}"
                         }
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("List info detection failed: %s", e)
         return None
     
     def _extract_paragraph_style(self, paragraph: DocxParagraph) -> TextStyle:

@@ -16,7 +16,7 @@ class CrossReferenceEngine:
         # Patterns for common academic cross-references
         self.fig_pattern = re.compile(r'\b(Figure|Fig\.)\s*(?P<num>\d+)\b', re.IGNORECASE)
         self.tbl_pattern = re.compile(r'\b(Table)\s*(?P<num>\d+)\b', re.IGNORECASE)
-        self.eq_pattern = re.compile(r'\b(Equation|Eq\.)\s*\((?P<num>\d+)\)\b', re.IGNORECASE)
+        self.eq_pattern = re.compile(r'\b(Equation|Eq\.)\s*\((?P<num>\d+)\)', re.IGNORECASE)
         self.sect_pattern = re.compile(r'\b(Section|Sect\.)\s*(?P<id>[I|V|X|L|C]+|\d+)\b', re.IGNORECASE)
 
     def validate_integrity(self, document: Document) -> List[str]:

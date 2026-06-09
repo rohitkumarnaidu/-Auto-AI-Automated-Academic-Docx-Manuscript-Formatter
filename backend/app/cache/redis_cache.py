@@ -3,39 +3,60 @@ import json
 import logging
 import hashlib
 from typing import Optional, Any
-from app.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
 class RedisCache:
     """
     Redis-based caching service for document processing results.
+    Uses lazy initialization - client is created on first use, not at import time.
     """
-    
+
     def __init__(self, host: str = "localhost", port: int = 6379, db: int = 0):
-        redis_enabled = bool(settings.REDIS_ENABLED)
-        if not redis_enabled:
-            logger.info("Redis cache disabled via REDIS_ENABLED=false. Using in-memory/no-cache mode.")
-            self.client = None
-            return
+        self._client: Optional[redis.Redis] = None
+        self._initialized = False
+        self._init_kwargs = {"host": host, "port": port, "db": db}
+
+    def _ensure_client(self) -> Optional[redis.Redis]:
+        """Lazily create the Redis client on first use."""
+        if self._initialized:
+            return self._client
+
+        self._initialized = True
 
         try:
-            # Prefer REDIS_URL so managed providers (e.g., Upstash) work with TLS.
-            redis_url = settings.REDIS_URL or f"redis://{settings.REDIS_HOST or host}:{int(settings.REDIS_PORT or port)}"
-            self.client = redis.Redis.from_url(
+            from app.config.settings import settings
+            redis_enabled = bool(getattr(settings, "REDIS_ENABLED", False))
+        except Exception:
+            redis_enabled = False
+
+        if not redis_enabled:
+            logger.info("Redis cache disabled via REDIS_ENABLED=false. Using in-memory/no-cache mode.")
+            self._client = None
+            return self._client
+
+        try:
+            from app.config.settings import settings
+            redis_url = getattr(settings, "REDIS_URL", None) or f"redis://{getattr(settings, 'REDIS_HOST', 'localhost')}:{int(getattr(settings, 'REDIS_PORT', 6379))}"
+            self._client = redis.Redis.from_url(
                 redis_url,
-                db=db,
+                db=self._init_kwargs["db"],
                 decode_responses=True,
                 socket_connect_timeout=1,
                 socket_timeout=1,
                 retry_on_timeout=False,
             )
-            # Test connection quickly; fail fast if unreachable.
-            self.client.ping()
+            self._client.ping()
             logger.info("Connected to Redis at %s", redis_url)
         except Exception as e:
             logger.info("Redis cache unavailable (%s). Caching disabled; pipeline continues normally.", e)
-            self.client = None
+            self._client = None
+
+        return self._client
+
+    @property
+    def client(self) -> Optional[redis.Redis]:
+        return self._ensure_client()
 
     def _generate_key(self, content: str, prefix: str = "grobid") -> str:
         """Generate a deterministic key based on content hash."""
@@ -44,28 +65,30 @@ class RedisCache:
 
     def get_grobid_result(self, file_content: str) -> Optional[dict]:
         """Retrieve cached GROBID results for the given file content."""
-        if not self.client:
+        client = self._ensure_client()
+        if not client:
             return None
-            
+
         key = self._generate_key(file_content)
         try:
-            cached_data = self.client.get(key)
+            cached_data = client.get(key)
             if cached_data:
                 logger.info(f"Cache hit for key: {key}")
                 return json.loads(cached_data)
         except Exception as e:
             logger.error(f"Error reading from Redis cache: {e}")
-            
+
         return None
 
     def set_grobid_result(self, file_content: str, result: dict, ttl: int = 3600):
         """Cache GROBID results for the given file content with TTL."""
-        if not self.client:
+        client = self._ensure_client()
+        if not client:
             return
-            
+
         key = self._generate_key(file_content)
         try:
-            self.client.setex(
+            client.setex(
                 key,
                 ttl,
                 json.dumps(result)
@@ -76,10 +99,11 @@ class RedisCache:
 
     def get_llm_result(self, cache_key: str) -> Optional[str]:
         """Retrieve cached LLM result."""
-        if not self.client:
+        client = self._ensure_client()
+        if not client:
             return None
         try:
-            cached_data = self.client.get(cache_key)
+            cached_data = client.get(cache_key)
             if cached_data:
                 logger.info(f"LLM Cache hit for key: {cache_key}")
                 return cached_data
@@ -89,13 +113,14 @@ class RedisCache:
 
     def set_llm_result(self, cache_key: str, text: str, ttl: int = 86400):
         """Cache LLM text result for 24h by default."""
-        if not self.client:
+        client = self._ensure_client()
+        if not client:
             return
         try:
-            self.client.setex(cache_key, ttl, text)
+            client.setex(cache_key, ttl, text)
             logger.info(f"Cached LLM results for key: {cache_key} (TTL: {ttl}s)")
         except Exception as e:
             logger.error(f"Error writing to LLM Redis cache: {e}")
 
-# Global instance
+# Global instance - lazily initialized on first use
 redis_cache = RedisCache()

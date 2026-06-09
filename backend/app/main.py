@@ -337,11 +337,92 @@ def _load_optional_routers(target_app: FastAPI) -> None:
 
     from app.routers.v1 import v1_router
     from app.routers import preview
+    from app.routers.v1 import api_keys
 
     target_app.include_router(v1_router)
     target_app.include_router(preview.router)
+    target_app.include_router(api_keys.router)
     target_app.state._routers_loaded = True
-    logger.info("Startup: API routers loaded.")
+    logger.info("Startup: API routers loaded (including api-keys).")
+
+
+def _validate_startup() -> None:
+    """Comprehensive startup validation of required and optional dependencies."""
+    required_keys = {
+        "ALGORITHM": getattr(settings, "ALGORITHM", None),
+    }
+    missing_required = [name for name, value in required_keys.items() if not value]
+    if missing_required:
+        logger.error("Startup validation FAILED: missing required settings: %s", missing_required)
+        raise RuntimeError(f"Missing required settings: {', '.join(missing_required)}")
+
+    optional_api_keys = {
+        "NVIDIA_API_KEY": getattr(settings, "NVIDIA_API_KEY", None),
+        "GROQ_API_KEY": getattr(settings, "GROQ_API_KEY", None),
+        "OPENAI_API_KEY": getattr(settings, "OPENAI_API_KEY", None),
+        "OPENROUTER_API_KEY": getattr(settings, "OPENROUTER_API_KEY", None),
+        "ANTHROPIC_API_KEY": getattr(settings, "ANTHROPIC_API_KEY", None),
+    }
+    missing_optional = [name for name, value in optional_api_keys.items() if not value]
+    if missing_optional:
+        logger.warning(
+            "Startup validation: optional API keys not configured: %s. "
+            "LLM fallback tiers will be limited.",
+            ", ".join(missing_optional),
+        )
+
+    db_url = getattr(settings, "SUPABASE_DB_URL", None)
+    if not db_url:
+        logger.warning(
+            "Startup validation: SUPABASE_DB_URL not set. "
+            "Alembic migrations will not work until configured."
+        )
+
+    if getattr(settings, "REDIS_ENABLED", False):
+        redis_url = getattr(settings, "REDIS_URL", None)
+        if not redis_url:
+            logger.error(
+                "Startup validation: REDIS_ENABLED=true but REDIS_URL is not set."
+            )
+        else:
+            try:
+                import redis
+                client = redis.Redis.from_url(redis_url, socket_connect_timeout=2, socket_timeout=2)
+                client.ping()
+                logger.info("Startup validation: Redis connection OK at %s", redis_url)
+            except Exception as e:
+                logger.warning(
+                    "Startup validation: Redis connection failed (%s). "
+                    "Caching will be disabled until Redis is available.",
+                    e,
+                )
+
+    supabase_url = getattr(settings, "SUPABASE_URL", None)
+    supabase_key = getattr(settings, "SUPABASE_SERVICE_ROLE_KEY", None)
+    if supabase_url and supabase_key:
+        try:
+            from app.db.supabase_client import check_supabase_health
+            health = check_supabase_health()
+            if health.get("status") == "healthy":
+                logger.info("Startup validation: Supabase database connection OK.")
+            else:
+                logger.warning(
+                    "Startup validation: Supabase database health check returned: %s",
+                    health.get("status"),
+                )
+        except Exception as e:
+            logger.warning(
+                "Startup validation: Supabase database connection failed: %s. "
+                "App will start in degraded mode.",
+                e,
+            )
+    else:
+        logger.warning(
+            "Startup validation: Supabase credentials not fully configured. "
+            "DB-dependent endpoints will return 503."
+        )
+
+    logger.info("Startup validation complete.")
 
 
 _router_load_lock: asyncio.Lock | None = None
@@ -411,6 +492,14 @@ async def lifespan(app: FastAPI):
         _init_sentry,
         timeout_seconds=3.0,
     )
+
+    # ── STARTUP VALIDATION ──
+    await _run_startup_step(
+        "startup_validation",
+        _validate_startup,
+        timeout_seconds=15.0,
+    )
+
     enable_cleanup = settings.ENABLE_FILE_CLEANUP
     retention_days = int(settings.RETENTION_DAYS)
     if enable_cleanup:
@@ -505,13 +594,15 @@ async def lifespan(app: FastAPI):
 
 
 # ── App creation ──────────────────────────────────────────────────────────────
+# Disable Swagger/ReDoc in production to avoid exposing API internals
+_is_debug = getattr(settings, "DEBUG", False)
 app = FastAPI(
     title="ScholarForm AI Backend",
     description="Backend API for ScholarForm AI with Supabase Auth",
     version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url="/openapi.json",
+    docs_url="/docs" if _is_debug else None,
+    redoc_url="/redoc" if _is_debug else None,
+    openapi_url="/openapi.json" if _is_debug else None,
     lifespan=lifespan,
 )
 
@@ -584,9 +675,13 @@ app.add_middleware(
         "X-Requested-With",
         "Accept",
         "X-Request-Id",
+        "X-CSRF-Token",
         "Idempotency-Key",
     ],
 )
+
+# Request ID Middleware MUST be first after CORS so every request gets an ID.
+app.add_middleware(RequestIdMiddleware)
 
 # Rate Limiting Middleware (DoS Protection)
 app.add_middleware(
@@ -599,6 +694,18 @@ app.add_middleware(TierRateLimitMiddleware, guest_daily_limit=5)
 from app.middleware.security_headers import SecurityHeadersMiddleware, MaxBodySizeMiddleware
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(MaxBodySizeMiddleware, max_size=60 * 1024 * 1024)  # 60MB global limit
+
+# CSRF Protection Middleware
+from app.middleware.csrf import CSRFMiddleware
+app.add_middleware(CSRFMiddleware)
+
+# Feature Flag Middleware (dev only — adds X-Feature-Flags header)
+from app.middleware.feature_flags import FeatureFlagMiddleware
+app.add_middleware(FeatureFlagMiddleware)
+
+# Monitoring Middleware (adds request timing and structured logging)
+from app.middleware.monitoring import MonitoringMiddleware
+app.add_middleware(MonitoringMiddleware)
 
 _HTTPS_REDIRECT_EXEMPT_PATHS = {
     "/health",
@@ -623,8 +730,10 @@ def _should_bypass_https_redirect(path: str | None) -> bool:
     return _normalize_request_path(path) in _HTTPS_REDIRECT_EXEMPT_PATHS
 
 
-# HTTPS Redirect (production only)
+# HTTPS Redirect + HSTS (production only)
 if settings.FORCE_HTTPS and not settings.DEBUG:
+    from app.middleware.https_redirect import HSTSMiddleware
+
     @app.middleware("http")
     async def enforce_https_except_health(request: Request, call_next):
         request_path = request.url.path
@@ -634,9 +743,18 @@ if settings.FORCE_HTTPS and not settings.DEBUG:
 
         response = await call_next(request)
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         return response
-
-app.add_middleware(RequestIdMiddleware)
+else:
+    # Development: still add security headers but skip HSTS
+    @app.middleware("http")
+    async def add_security_headers_dev(request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        return response
 
 
 @app.middleware("http")

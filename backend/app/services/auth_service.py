@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import warnings
 from typing import Optional
@@ -77,8 +78,8 @@ class AuthService:
     async def signup(email: str, password: str, full_name: str, institution: str):
         sb = _require_supabase()
         try:
-            response = sb.auth.sign_up(
-                {
+            response = await asyncio.to_thread(
+                lambda: sb.auth.sign_up({
                     "email": email,
                     "password": password,
                     "options": {
@@ -87,7 +88,7 @@ class AuthService:
                             "institution": institution,
                         }
                     },
-                }
+                })
             )
             return response
         except HTTPException:
@@ -103,11 +104,11 @@ class AuthService:
     async def login(email: str, password: str):
         sb = _require_supabase()
         try:
-            response = sb.auth.sign_in_with_password(
-                {
+            response = await asyncio.to_thread(
+                lambda: sb.auth.sign_in_with_password({
                     "email": email,
                     "password": password,
-                }
+                })
             )
             return response.model_dump() if hasattr(response, "model_dump") else response.dict() if hasattr(response, "dict") else response
         except HTTPException:
@@ -123,8 +124,7 @@ class AuthService:
     async def forgot_password(email: str):
         sb = _require_supabase()
         try:
-            # Supabase dashboard email template should be configured to send a 6-digit OTP code.
-            response = sb.auth.reset_password_for_email(email)
+            response = await asyncio.to_thread(lambda: sb.auth.reset_password_for_email(email))
             return response
         except HTTPException:
             raise
@@ -139,16 +139,16 @@ class AuthService:
     async def reset_password(email: str, otp: str, new_password: str):
         sb = _require_supabase()
         try:
-            # Step 1: Re-verify OTP to get a temporary session
-            sb.auth.verify_otp(
-                {
+            await asyncio.to_thread(
+                lambda: sb.auth.verify_otp({
                     "email": email,
                     "token": otp,
                     "type": "recovery",
-                }
+                })
             )
-            # Step 2: Update the password
-            response = sb.auth.update_user({"password": new_password})
+            response = await asyncio.to_thread(
+                lambda: sb.auth.update_user({"password": new_password})
+            )
             return response
         except HTTPException:
             raise
@@ -163,13 +163,12 @@ class AuthService:
     async def verify_otp(email: str, token: str):
         sb = _require_supabase()
         try:
-            # Validates the recovery OTP without creating a long-lived session for the client
-            response = sb.auth.verify_otp(
-                {
+            response = await asyncio.to_thread(
+                lambda: sb.auth.verify_otp({
                     "email": email,
                     "token": token,
                     "type": "recovery",
-                }
+                })
             )
             return response
         except HTTPException:

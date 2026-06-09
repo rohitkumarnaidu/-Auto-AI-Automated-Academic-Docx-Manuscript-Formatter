@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any, Optional
 
@@ -45,16 +46,22 @@ async def submit_feedback(
             try:
                 sb = get_supabase_client()
                 if sb:
-                    sb.table("feedback").insert(
-                        {
-                            "document_id": feedback.document_id,
-                            "user_id": str(current_user.id),
-                            "field": feedback.field,
-                            "original_value": str(feedback.original_value),
-                            "corrected_value": str(feedback.corrected_value),
-                            "comments": feedback.comments,
-                        }
-                    ).execute()
+                    payload = {
+                        "document_id": feedback.document_id,
+                        "user_id": str(current_user.id),
+                        "field": feedback.field,
+                        "original_value": str(feedback.original_value),
+                        "corrected_value": str(feedback.corrected_value),
+                        "comments": feedback.comments,
+                    }
+
+                    def run_insert():
+                        client = get_supabase_client()
+                        if client is None:
+                            raise RuntimeError("Supabase client not available.")
+                        return client.table("feedback").insert(payload).execute()
+
+                    await asyncio.to_thread(run_insert)
             except Exception as db_err:
                 logger.warning("Failed to persist feedback to Supabase: %s", db_err)
 

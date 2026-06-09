@@ -21,6 +21,7 @@ from app.pipeline.export.latex_exporter import LaTeXExporter
 from app.pipeline.export.pdf_exporter import PDFExporter
 from app.config.settings import settings
 from app.utils.virus_scanner import virus_scanner
+from app.exceptions import DatabaseUnavailableError
 
 # ── Old SQLAlchemy imports (kept for reference, replaced by DocumentService) ───
 # from sqlalchemy import exc
@@ -427,7 +428,7 @@ async def upload_document_chunked(
                 "virus_scan": scan_result,
             }
 
-            created = DocumentService.create_document(
+            created = await DocumentService.create_document(
                 doc_id=str(job_id),
                 user_id=str(current_user.id),
                 filename=original_filename,
@@ -518,14 +519,14 @@ async def list_documents(
         return {"documents": [], "total": 0, "limit": limit, "offset": offset}
 
     try:
-        documents = DocumentService.list_documents(
+        documents = await DocumentService.list_documents(
             user_id=current_user.id,
             status=status,
             template=template,
             limit=limit,
             offset=offset,
         )
-        total = DocumentService.count_documents(
+        total = await DocumentService.count_documents(
             user_id=current_user.id,
             status=status,
             template=template,
@@ -550,9 +551,11 @@ async def list_documents(
             "limit": limit,
             "offset": offset,
         }
+    except DatabaseUnavailableError:
+        raise HTTPException(status_code=503, detail="Database temporarily unavailable. Please retry later.")
     except Exception as e:
         logger.error("Error listing documents: %s", e)
-        return {"documents": [], "total": 0, "limit": limit, "offset": offset}
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 async def upload_document(
@@ -579,6 +582,7 @@ async def upload_document(
 
     logger.debug("upload_document received template='%s' from request.", template)
 
+    job_id = None
     try:
         # ── File validation ────────────────────────────────────────────────────
 
@@ -638,7 +642,7 @@ async def upload_document(
 
         file_hash = hashlib.sha256(file_content).hexdigest()
 
-        created = DocumentService.create_document(
+        created = await DocumentService.create_document(
             doc_id=str(job_id),
             user_id=str(current_user.id) if current_user else None,
             filename=safe_filename,
@@ -700,7 +704,7 @@ async def upload_document(
             "Upload error: %s\n%s",
             e,
             traceback.format_exc(),
-            extra=log_extra(job_id=job_id),
+            extra=log_extra(job_id=job_id) if job_id else None,
         )
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
@@ -718,14 +722,14 @@ async def get_status(
         if cached_payload is not _STATUS_CACHE_MISS:
             return cached_payload
 
-        doc = DocumentService.get_document(job_id)
+        doc = await DocumentService.get_document(job_id)
         if not doc:
             # Briefly retry to tolerate transient DB reconnects / eventual consistency right after upload.
             await asyncio.sleep(0.25)
-            doc = DocumentService.get_document(job_id)
+            doc = await DocumentService.get_document(job_id)
 
         if not doc:
-            statuses = DocumentService.get_processing_statuses(job_id)
+            statuses = await DocumentService.get_processing_statuses(job_id)
             if statuses:
                 latest = max(
                     statuses,
@@ -769,10 +773,10 @@ async def get_status(
             if not current_user or str(doc["user_id"]) != str(current_user.id):
                 raise HTTPException(status_code=403, detail="Not authorized to access this document")
 
-        statuses = DocumentService.get_processing_statuses(job_id)
+        statuses = await DocumentService.get_processing_statuses(job_id)
         doc_status = str(doc.get("status") or "").upper()
         should_fetch_result = doc_status in _READY_FOR_EXPORT_STATUSES
-        result = DocumentService.get_document_result(job_id) if should_fetch_result else None
+        result = await DocumentService.get_document_result(job_id) if should_fetch_result else None
         quality_payload = _extract_quality_payload(result)
 
         payload = {
@@ -803,14 +807,11 @@ async def get_status(
         return payload
     except HTTPException:
         raise
+    except DatabaseUnavailableError:
+        raise HTTPException(status_code=503, detail="Database temporarily unavailable")
     except Exception as e:
         logger.error("Status check failed for job %s: %s", job_id, e)
-        return {
-            "job_id": job_id,
-            "status": "ERROR",
-            "message": f"Status check failed: {str(e)}",
-            "progress_percentage": 0,
-        }
+        raise HTTPException(status_code=500, detail="Status check failed")
 
 
 async def get_document_summary(
@@ -818,7 +819,7 @@ async def get_document_summary(
     current_user: Optional[User] = Depends(get_optional_user),
 ):
     """Lightweight job summary for URL-based page hydration."""
-    doc = DocumentService.get_document(job_id)
+    doc = await DocumentService.get_document(job_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Not found")
 
@@ -827,7 +828,7 @@ async def get_document_summary(
             raise HTTPException(status_code=403, detail="Not authorized to access this document")
 
     status = doc.get("status")
-    result = DocumentService.get_document_result(job_id) if status in _READY_FOR_EXPORT_STATUSES else None
+    result = await DocumentService.get_document_result(job_id) if status in _READY_FOR_EXPORT_STATUSES else None
     quality_payload = _extract_quality_payload(result)
     return {
         "id": job_id,
@@ -851,7 +852,7 @@ async def edit_document(
     Handle user edits and trigger non-destructive re-formatting.
     """
     try:
-        doc = DocumentService.get_document(job_id)
+        doc = await DocumentService.get_document(job_id)
         if not doc:
             raise HTTPException(status_code=404, detail="Document not found")
 
@@ -904,7 +905,7 @@ async def get_preview(
     Get the structured preview data for a document.
     """
     try:
-        doc = DocumentService.get_document(job_id)
+        doc = await DocumentService.get_document(job_id)
         if not doc:
             raise HTTPException(status_code=404, detail="Document job not found")
 
@@ -912,7 +913,7 @@ async def get_preview(
             if not current_user or str(doc["user_id"]) != str(current_user.id):
                 raise HTTPException(status_code=403, detail="Not authorized to preview this document")
 
-        result = DocumentService.get_document_result(job_id)
+        result = await DocumentService.get_document_result(job_id)
         if not result:
             raise HTTPException(status_code=404, detail="Processing results not found")
 
@@ -948,7 +949,7 @@ async def get_comparison_data(
     import difflib
 
     try:
-        doc = DocumentService.get_document(job_id)
+        doc = await DocumentService.get_document(job_id)
         if not doc:
             raise HTTPException(status_code=404, detail="Document not found")
 
@@ -966,7 +967,7 @@ async def get_comparison_data(
                 ),
             )
 
-        result = DocumentService.get_document_result(job_id)
+        result = await DocumentService.get_document_result(job_id)
         if not result:
             logger.warning("DocumentResult missing for completed job %s", job_id)
             raise HTTPException(status_code=404, detail="Processing results not found")
@@ -1017,7 +1018,7 @@ async def download_document(
     from fastapi.responses import FileResponse
 
     try:
-        doc = DocumentService.get_document(job_id)
+        doc = await DocumentService.get_document(job_id)
         if not doc:
             raise HTTPException(status_code=404, detail="Document job not found")
 
@@ -1174,7 +1175,7 @@ async def delete_document(
     Requires authentication and ownership verification.
     """
     try:
-        doc = DocumentService.get_document(job_id)
+        doc = await DocumentService.get_document(job_id)
         if not doc:
             raise HTTPException(status_code=404, detail="Document not found")
 
@@ -1200,7 +1201,7 @@ async def delete_document(
                 logger.warning("Failed to remove uploaded file %s: %s", original_path, e)
 
         # Delete from database
-        DocumentService.delete_document(job_id, str(current_user.id))
+        await DocumentService.delete_document(job_id, str(current_user.id))
 
         await audit_log_service.log(
             user_id=str(current_user.id) if current_user else None,
@@ -1275,7 +1276,7 @@ async def batch_upload(
                 f.write(content)
 
             # Create DB record
-            DocumentService.create_document(
+            await DocumentService.create_document(
                 doc_id=job_id,
                 filename=file.filename,
                 original_file_path=file_path,

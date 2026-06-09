@@ -16,11 +16,14 @@ import time
 from typing import Dict, Any, Optional
 from difflib import SequenceMatcher
 
+from app.exceptions import ExternalServiceError
+
 logger = logging.getLogger(__name__)
 
-class CrossRefException(Exception):
+class CrossRefException(ExternalServiceError):
     """Exception raised for CrossRef service errors."""
-    pass
+    def __init__(self, message: str = "CrossRef service call failed.") -> None:
+        super().__init__(service="CrossRef", message=message)
 
 class CrossRefClient:
     """REST API client for CrossRef service."""

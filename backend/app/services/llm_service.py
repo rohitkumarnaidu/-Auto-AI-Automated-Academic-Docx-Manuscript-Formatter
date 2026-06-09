@@ -156,9 +156,20 @@ def _extract_prompts(messages: List[Dict[str, str]]) -> tuple[str, str]:
     return "\n".join(system_parts), "\n".join(user_parts)
 
 
-def _cache_key(system_prompt: str, user_message: str, model: str, temperature: float) -> str:
+def _cache_key(
+    system_prompt: str,
+    user_message: str,
+    model: str,
+    temperature: float,
+    max_tokens: int = 2048,
+    api_base: str | None = None,
+    api_key_prefix: str | None = None,
+) -> str:
     import hashlib
-    key_input = f"{model}:{temperature}:{system_prompt}:{user_message}"
+    key_input = (
+        f"{model}:{temperature}:{max_tokens}:{api_base or ''}:{api_key_prefix or ''}:"
+        f"{system_prompt}:{user_message}"
+    )
     return "llm_cache:" + hashlib.sha256(key_input.encode()).hexdigest()
 
 def generate(
@@ -190,7 +201,15 @@ def generate(
         Exception: On API error — callers should catch and fall back.
     """
     system_prompt, user_message = _extract_prompts(messages)
-    key = _cache_key(system_prompt, user_message, model, temperature)
+    api_key_prefix = None
+    if api_key:
+        api_key_prefix = api_key[:8] if len(api_key) > 8 else api_key
+    key = _cache_key(
+        system_prompt, user_message, model, temperature,
+        max_tokens=max_tokens,
+        api_base=api_base,
+        api_key_prefix=api_key_prefix,
+    )
     from app.cache.redis_cache import redis_cache
     
     # ── Cache Lookup ──
@@ -202,15 +221,15 @@ def generate(
             try:
                 from app.middleware.prometheus_metrics import MetricsManager
                 MetricsManager.record_llm_cache_hit(provider, model)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Metrics recording failed: %s", e)
             logger.info("LLM cache hit", extra=log_extra())
             return cached
         try:
             from app.middleware.prometheus_metrics import MetricsManager
             MetricsManager.record_llm_cache_miss(provider, model)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Metrics recording failed: %s", e)
     start_time = time.perf_counter()
     request_success = False
     effective_timeout = int(timeout) if timeout is not None else _provider_timeout_seconds()
@@ -290,8 +309,8 @@ def generate(
             MetricsManager.record_llm_request(provider, model, request_success)
             MetricsManager.record_llm_duration(provider, model, duration)
             MetricsManager.record_llm_ttft(provider, model, duration)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("LLM metrics recording failed: %s", e)
 
 
 def generate_with_fallback(
@@ -333,7 +352,8 @@ def generate_with_fallback(
             try:
                 from app.middleware.prometheus_metrics import MetricsManager
                 MetricsManager.record_llm_failure("nvidia")
-            except Exception: pass
+            except Exception as e:
+                logger.warning("Metrics recording failed: %s", e)
             logger.warning("llm_service: Tier 1 (NVIDIA) failed: %s - trying Groq.", exc, extra=log_extra())
 
     # Tier 2: Groq
@@ -359,8 +379,8 @@ def generate_with_fallback(
             try:
                 from app.middleware.prometheus_metrics import MetricsManager
                 MetricsManager.record_llm_failure("groq")
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Metrics recording failed: %s", e)
             logger.warning("llm_service: Tier 2 (Groq) failed: %s - trying Ollama.", exc, extra=log_extra())
 
             # Tier 3: OpenRouter (prefer when Groq is rate-limited)
@@ -386,8 +406,8 @@ def generate_with_fallback(
                     try:
                         from app.middleware.prometheus_metrics import MetricsManager
                         MetricsManager.record_llm_failure("openrouter")
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.warning("Metrics recording failed: %s", e)
                     logger.warning(
                         "llm_service: Tier 3 (OpenRouter) failed: %s - trying Ollama.",
                         openrouter_exc,
@@ -414,8 +434,8 @@ def generate_with_fallback(
             try:
                 from app.middleware.prometheus_metrics import MetricsManager
                 MetricsManager.record_llm_failure("openrouter")
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Metrics recording failed: %s", e)
             logger.warning(
                 "llm_service: Tier 3 (OpenRouter) failed: %s - trying Ollama.",
                 openrouter_exc,
@@ -441,8 +461,8 @@ def generate_with_fallback(
         try:
             from app.middleware.prometheus_metrics import MetricsManager
             MetricsManager.record_llm_failure("ollama")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Metrics recording failed: %s", e)
         logger.warning("llm_service: Tier 4 (Ollama) failed: %s - no LLM available.", exc, extra=log_extra())
 
     raise LLMUnavailableError("All LLM tiers failed. Use rule-based fallback.")
@@ -561,7 +581,8 @@ async def check_health() -> Dict[str, str]:
             results["nvidia"] = "healthy"
         else:
             results["nvidia"] = "unconfigured"
-    except Exception:
+    except Exception as e:
+        logger.warning("LLM health check NVIDIA failed: %s", e)
         results["nvidia"] = "unavailable"
 
     try:
@@ -569,7 +590,8 @@ async def check_health() -> Dict[str, str]:
             results["openrouter"] = "healthy"
         else:
             results["openrouter"] = "unconfigured"
-    except Exception:
+    except Exception as e:
+        logger.warning("LLM health check OpenRouter failed: %s", e)
         results["openrouter"] = "unavailable"
         
     # Check Ollama/DeepSeek
@@ -587,7 +609,8 @@ async def check_health() -> Dict[str, str]:
                     results["deepseek"] = "model_missing"
             else:
                 results["deepseek"] = "unavailable"
-    except Exception:
+    except Exception as e:
+        logger.warning("LLM health check Ollama/DeepSeek failed: %s", e)
         results["deepseek"] = "unavailable"
         
     return results
