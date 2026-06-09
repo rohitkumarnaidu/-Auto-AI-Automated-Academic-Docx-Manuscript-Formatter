@@ -393,7 +393,8 @@ class RagEngine:
 
         try:
             return [float(v) for v in raw_embedding]
-        except Exception:
+        except Exception as e:
+            logger.warning("RagEngine: Failed to coerce embedding vector: %s", e)
             return []
 
     def _is_reusable_embedding_model(self, candidate: Any) -> tuple[bool, Optional[int]]:
@@ -414,7 +415,8 @@ class RagEngine:
             if not probe:
                 return False, None
             return True, dim
-        except Exception:
+        except Exception as e:
+            logger.warning("RagEngine: Embedding model validation failed: %s", e)
             return False, None
 
     def _activate_deterministic_embedding(self, model_store: Any, reason: str):
@@ -426,7 +428,8 @@ class RagEngine:
         self.active_model_name = DETERMINISTIC_FALLBACK_MODEL
         try:
             model_store.set_model("embedding_model", self.embedding_model)
-        except Exception:
+        except Exception as e:
+            logger.warning("RagEngine: Failed to store embedding model in ModelStore: %s", e)
             pass
         logger.warning(
             "RagEngine: %s Using deterministic fallback model '%s' (dim=%d).",
@@ -650,7 +653,8 @@ class RagEngine:
                 self.collection = self.client.get_or_create_collection(
                     self._collection_name
                 )
-            except Exception:
+            except Exception as e:
+                logger.warning("RagEngine: Failed to reset ChromaDB collection: %s", e)
                 pass
         self.knowledge_base = []
         if os.path.exists(self.kb_file):

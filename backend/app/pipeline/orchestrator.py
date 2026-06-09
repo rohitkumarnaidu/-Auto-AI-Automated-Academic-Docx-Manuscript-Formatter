@@ -245,6 +245,7 @@ class PipelineOrchestrator:
 
     def _check_cancelled(self, job_id: str):
         """Check if the job has been cancelled by the user in Supabase."""
+        import asyncio
         try:
             sb = get_supabase_client()
             if not sb:
@@ -252,7 +253,6 @@ class PipelineOrchestrator:
 
             response = sb.table("documents").select("status").eq("id", job_id).execute()
             if response.data and response.data[0].get("status") == "CANCELLED":
-                import asyncio
                 logger.info("Pipeline job %s was cancelled by user.", job_id)
                 raise asyncio.CancelledError("Job was cancelled by the user")
         except asyncio.CancelledError:
