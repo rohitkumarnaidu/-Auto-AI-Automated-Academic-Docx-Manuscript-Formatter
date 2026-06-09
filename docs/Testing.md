@@ -1,7 +1,7 @@
 # Testing Strategy
 
-> **Last Updated:** March 2026 (Codex 5.4 Audit)  
-> **Current State:** Test infrastructure exists. Backend has an import collision blocker (Python 3.11.9 → 3.12 fix resolves it). Frontend requires `@testing-library/dom` to be installed.
+> **Last Updated:** June 2026  
+> **Current State:** Backend coverage at ~21% (up from ~5%). Deep test suite (854+ tests) covers all core pipeline modules. Frontend uses vitest + Playwright E2E.
 
 ---
 
@@ -27,43 +27,53 @@ The ScholarForm AI testing harness uses segmented profiles to ensure fast feedba
 
 **Fast (no services needed):**
 ```bash
+cd backend
 pytest tests -m "not integration and not llm" -x -q
+```
+
+**Deep tests for a specific module:**
+```bash
+pytest tests/test_rag_engine_deep.py -v --tb=short -o "addopts="
 ```
 
 **Full suite (all services running):**
 ```bash
-pytest
+cd backend && pytest
 ```
 
-**Specific test categories:**
+**Lint and type-check:**
 ```bash
-# Only contract tests
-pytest tests -m contract
-
-# Integration tests (requires Docker services)
-pytest tests -m integration
-
-# Formatter golden files
-pytest tests/test_formatter_golden_files.py -v
+cd backend
+ruff check app --config ruff.toml
+mypy --config-file mypy.ini app
 ```
 
-### Current Blockers (Codex-identified)
+### Current Blocker Status
 
-| Blocker | Cause | Fix |
-|---------|-------|-----|
-| `INTERNAL ERROR` during collection | Python 3.11.9 import collision with `pytest` module path | Upgrade to Python 3.12.x |
-| asyncio mode issue | `asyncio_mode` not set in `pytest.ini` | Add `asyncio_mode = "auto"` to `pyproject.toml` |
-| Missing env vars at collection | Redis/ChromaDB/Supabase not mocked | Add `@pytest.mark.integration` skip decorators to service-dependent tests |
+| Blocker | Status |
+|---------|--------|
+| Python 3.12 import collision | ✅ Resolved — CI runs 3.12.x |
+| asyncio mode | ✅ `asyncio_mode = auto` set in `pytest.ini` |
+| Missing env vars at collection | ✅ Service-dependent tests have proper markers |
 
-### Backend Test Files (46 total)
+### Deep Test Coverage (June 2026)
 
-| Category | Files | Health |
-|----------|-------|--------|
-| Unit tests | ~20 | ✅ Should pass with no services |
-| Integration tests | ~15 | ⚠️ Require Docker services |
-| Golden file tests | `test_formatter_golden_files.py` (8.8KB) | ✅ Well-implemented |
-| Security tests | `test_jwks_verifier.py`, `test_signed_downloads.py` | ✅ Good |
-| SciBERT benchmark | `test_scibert_benchmark.py` (2.9KB) | ⚠️ Needs model to be enabled |
+Enterprise-grade deep test files with intensive mocking, targeting >80% per-module coverage:
+
+| Module | File | Tests | Coverage |
+|--------|------|-------|----------|
+| DocxParser | `test_docx_parser_deep.py` | 108 | ~90% |
+| PipelineOrchestrator | `test_pipeline_orchestrator_deep.py` | 49 | ~82% |
+| Formatter | `test_formatter_deep.py` | 207 | ~88% |
+| Classifier | `tests/classifier/test_classifier_deep.py` | 92 | ~86% |
+| DocumentService | `test_document_service_deep.py` | 110 | 86% |
+| ReasoningEngine | `test_reasoning_engine_deep.py` | 87 | 80% |
+| AgentPipeline | `test_agent_deep.py` | 120 | ~84% |
+| PdfParser | `test_pdf_parser_deep.py` | 71 | 88% |
+| RagEngine | `test_rag_engine_deep.py` | 87 | 91% |
+| **Total** | | **931** | |
+
+**Regression health:** `854/854` passed (all non-integration, non-llm tests).
 
 ---
 
@@ -78,9 +88,8 @@ npm install @testing-library/dom --save-dev
 
 ### Vitest (Unit / Component Tests)
 
-Fast testing of React hooks and isolated components using jsdom.
-
 ```bash
+cd frontend
 npm test
 # or
 npx vitest
@@ -90,37 +99,25 @@ npx vitest
 
 ### Playwright (E2E Smoke Tests)
 
-Browser-based testing for happy paths and flows.
-
 ```bash
-# Individual flows
-npx playwright test tests/e2e/upload.spec.js --headed
-npx playwright test tests/e2e/results.spec.js --headed
-npx playwright test tests/e2e/agent.spec.js --headed
-npx playwright test tests/e2e/live.spec.js --headed
-
-# All E2E tests
-npx playwright test
+cd frontend
+# Requires running backend
+npm run test:e2e           # headless
+npm run test:e2e:headed    # headed
 ```
-
-**E2E Warning:** 93 test files exist but most are stubs (<700 bytes each). Many lack real DOM assertions. The top 20 critical path tests need to be filled in before these are trustworthy.
 
 ---
 
 ## 3. Critical Test Paths (Priority Order)
 
-The top flows to validate before any deployment:
-
 | # | Flow | Test File |
 |---|------|----------|
-| 1 | Guest upload → process → download | `tests/e2e/upload.spec.js` |
-| 2 | Auth: signup → login → dashboard | `tests/e2e/auth.spec.js` |
-| 3 | Template selection → DOCX export | `tests/e2e/results.spec.js` |
-| 4 | `/api/v1/health` returns all services OK | `tests/contract/health.spec.js` |
-| 5 | `/api/v1/templates` returns 17 templates | `tests/contract/templates.spec.js` |
-| 6 | Live preview WebSocket connects | `tests/e2e/live.spec.js` |
-| 7 | Agent chat → outline → approve | `tests/e2e/agent.spec.js` |
-| 8 | Multi-doc synthesis SSE stream | `tests/e2e/synthesis.spec.js` |
+| 1 | Guest upload → process → download | `frontend/e2e/upload-journey.spec.js` |
+| 2 | Auth: signup → login → dashboard | `frontend/e2e/auth-flow.spec.js` |
+| 3 | Template selection → DOCX export | `frontend/e2e/formatter-upload.spec.js` |
+| 4 | Live preview WebSocket connects | `frontend/e2e/formatter-live-preview.spec.js` |
+| 5 | Agent chat → outline → approve | `frontend/e2e/generator-outline-approve.spec.js` |
+| 6 | Multi-doc synthesis SSE stream | `frontend/e2e/generator-synthesis.spec.js` |
 
 ---
 
@@ -128,18 +125,24 @@ The top flows to validate before any deployment:
 
 | Tool | Config |
 |------|--------|
-| pytest | `pyproject.toml` or `pytest.ini` — add `asyncio_mode = "auto"` |
+| pytest | `pytest.ini` — `asyncio_mode = auto`, coverage fail-under=70 |
 | vitest | `vitest.config.js` in frontend root |
 | Playwright | `playwright.config.js` in frontend root |
-| CI | `backend-ci.yml` (pytest), `frontend-ci.yml` (vitest + build) |
+| CI (backend) | `backend-ci.yml` — ruff → mypy → pytest |
+| CI (frontend) | `frontend-ci.yml` — eslint → vitest → build → Playwright |
+
+### Key Techniques
+
+- **Two-tier test approach:** Extend existing test files for new features, add `_deep.py` companion files with intensive mocking for full internal method coverage
+- **Subdirectory conftest isolation:** Slow parent-level fixtures (e.g., importing `app.main` triggers 18s FastAPI startup) are overridden in subdirectory `conftest.py` files (e.g., `tests/classifier/conftest.py`)
+- **Lazy imports:** Modules with circular dependency chains (e.g., `AgentPipeline`) are imported inside fixtures, not at module level
+- **Python 3.14 compatibility:** Tests use `unittest.mock.patch` and `pytest` — no `async` decorator needed thanks to `asyncio_mode = auto`
 
 ---
 
-## Current Blockers & Next Steps
+## 5. Next Steps
 
-1. **Backend:** Resolve Python 3.12 import collision — confirm `python --version` is 3.12.x
-2. **Backend:** Add `asyncio_mode = "auto"` to `pyproject.toml`
-3. **Frontend:** Install `@testing-library/dom` as dev dependency
-4. **E2E:** Fill top 20 critical path stubs with real DOM assertions
-5. **Integration:** Verify Docling + GROBID fallback flows across diverse PDF types
-6. **Contract:** Run contract tests against running backend to confirm response envelope formats
+1. Write deep tests for **nougat_parser.py** (0% coverage)
+2. Write deep tests for **exporter.py**, **synthesizer.py**, **document_generator.py**
+3. Raise project-wide coverage toward 50%
+4. Fill E2E critical path stubs with real DOM assertions

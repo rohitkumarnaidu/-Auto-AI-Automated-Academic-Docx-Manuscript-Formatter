@@ -143,3 +143,20 @@ docs/audits/2026-03-25-full-audit/*
 !deploy/hf/**/requirements.txt
 backend/generated_outputs/
 backend/tests_outputs/
+
+# AI audit/report artifacts (generated, not source)
+/[A-Z]*_AUDIT*.md
+/[A-Z]*_REPORT*.md
+/[A-Z]*_COMPLETE*.md
+/[A-Z]*_PLAN*.md
+/ALL_PHASES_COMPLETE.md
+/AGENTS.md
+/IMPLEMENTATION_COMPLETE.md
+/SECURITY.md
+
+# Coverage output
+backend/coverage.json
+
+# Generated dotenv templates
+backend/.env.template
+frontend/.env.template
