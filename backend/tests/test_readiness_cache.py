@@ -89,17 +89,14 @@ async def test_readiness_includes_dependency_probe_results(monkeypatch):
     monkeypatch.setattr(health_checks.settings, "GROBID_ENABLED", True, raising=False)
     monkeypatch.setattr(
         health_checks.settings,
-        "GROBID_URLS",
-        "https://grobid-primary.example,https://grobid-shadow.example",
+        "get_grobid_urls",
+        lambda: ["https://grobid-primary.example", "https://grobid-shadow.example"],
         raising=False,
     )
     monkeypatch.setattr(health_checks.settings, "DOCLING_URLS", "https://docling.example", raising=False)
     monkeypatch.setattr(health_checks.settings, "OCR_URLS", "https://ocr.example", raising=False)
     monkeypatch.setattr(health_checks.settings, "DOCX_CONVERTER_URLS", "https://docx.example", raising=False)
-    monkeypatch.setattr(health_checks.settings, "GROBID_HEALTH_PATH", "/api/isalive", raising=False)
-    monkeypatch.setattr(health_checks.settings, "DOCLING_HEALTH_PATH", "/", raising=False)
-    monkeypatch.setattr(health_checks.settings, "OCR_HEALTH_PATH", "/", raising=False)
-    monkeypatch.setattr(health_checks.settings, "DOCX_CONVERTER_HEALTH_PATH", "/", raising=False)
+    monkeypatch.setattr(health_checks.settings, "get_service_health_path", lambda _name: "/api/isalive", raising=False)
 
     class _ProbeClient:
         async def __aenter__(self):

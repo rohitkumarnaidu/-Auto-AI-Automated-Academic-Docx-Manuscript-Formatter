@@ -59,7 +59,7 @@ class TestSafetyChaos(unittest.TestCase):
             with safe_execution("Chaos Block"):
                 raise ValueError("Random unexpected crash!")
             crash_survived = True
-        except:
+        except Exception:
             crash_survived = False
             
         self.assertTrue(crash_survived, "Safe execution block failed to suppress exception")

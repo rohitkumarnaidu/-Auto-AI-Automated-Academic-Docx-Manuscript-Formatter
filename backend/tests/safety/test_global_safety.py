@@ -43,8 +43,8 @@ class TestGlobalSafety:
         """Test the basic safe_execution context manager."""
         with safe_execution("Test Operation"):
             raise ValueError("Simulated Crash")
-        # If we reach here, the exception was caught.
-        assert True
+        # If we reach here, the exception was caught by safe_execution.
+        # Verify no unhandled exception propagated.
 
     def test_safe_function_decorator(self):
         """Test the safe_function decorator."""

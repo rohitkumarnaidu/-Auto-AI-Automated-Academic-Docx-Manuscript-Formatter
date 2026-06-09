@@ -1,18 +1,25 @@
-from unittest.mock import patch
+import pytest
+from unittest.mock import patch, AsyncMock
 
 from app.services.document_service import DocumentService
 
 
-def test_get_document_skips_supabase_for_non_uuid_id():
+@pytest.mark.asyncio
+async def test_get_document_skips_supabase_for_non_uuid_id():
     with patch("app.services.document_service.get_supabase_client", side_effect=AssertionError("should not query")):
-        assert DocumentService.get_document("formatter-e2e") is None
+        result = await DocumentService.get_document("formatter-e2e")
+        assert result is None
 
 
-def test_get_document_result_skips_supabase_for_non_uuid_id():
+@pytest.mark.asyncio
+async def test_get_document_result_skips_supabase_for_non_uuid_id():
     with patch("app.services.document_service.get_supabase_client", side_effect=AssertionError("should not query")):
-        assert DocumentService.get_document_result("formatter-e2e") is None
+        result = await DocumentService.get_document_result("formatter-e2e")
+        assert result is None
 
 
-def test_get_processing_statuses_skips_supabase_for_non_uuid_id():
+@pytest.mark.asyncio
+async def test_get_processing_statuses_skips_supabase_for_non_uuid_id():
     with patch("app.services.document_service.get_supabase_client", side_effect=AssertionError("should not query")):
-        assert DocumentService.get_processing_statuses("formatter-e2e") == []
+        result = await DocumentService.get_processing_statuses("formatter-e2e")
+        assert result == []

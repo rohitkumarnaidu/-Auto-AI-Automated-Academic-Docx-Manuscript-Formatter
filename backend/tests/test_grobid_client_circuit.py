@@ -46,18 +46,8 @@ def test_grobid_client_request_sets_timeout_tuple(monkeypatch):
 
 def test_grobid_client_prefers_url_list_over_single(monkeypatch):
     monkeypatch.setattr(
-        "app.pipeline.services.grobid_client.settings.GROBID_URLS",
-        "https://primary-grobid.example, https://shadow-grobid.example",
-        raising=False,
-    )
-    monkeypatch.setattr(
-        "app.pipeline.services.grobid_client.settings.GROBID_URL",
-        "https://legacy-single.example",
-        raising=False,
-    )
-    monkeypatch.setattr(
-        "app.pipeline.services.grobid_client.settings.GROBID_BASE_URL",
-        "https://legacy-base.example",
+        "app.pipeline.services.grobid_client.settings.get_grobid_urls",
+        lambda: ["https://primary-grobid.example", "https://shadow-grobid.example"],
         raising=False,
     )
 
@@ -70,13 +60,13 @@ def test_grobid_client_failover_to_shadow_on_transient_error(monkeypatch, tmp_pa
     monkeypatch.setattr("app.pipeline.services.grobid_client.settings.GROBID_MAX_RETRIES", 1, raising=False)
     monkeypatch.setattr("app.pipeline.services.grobid_client.settings.GROBID_TIMEOUT", 15, raising=False)
     monkeypatch.setattr(
-        "app.pipeline.services.grobid_client.settings.GROBID_URLS",
-        "https://primary-grobid.example,https://shadow-grobid.example",
+        "app.pipeline.services.grobid_client.settings.get_grobid_urls",
+        lambda: ["https://primary-grobid.example", "https://shadow-grobid.example"],
         raising=False,
     )
     monkeypatch.setattr(
-        "app.pipeline.services.grobid_client.settings.GROBID_HEALTH_PATH",
-        "/api/isalive",
+        "app.pipeline.services.grobid_client.settings.get_service_health_path",
+        lambda _name: "/api/isalive",
         raising=False,
     )
     monkeypatch.setattr("app.pipeline.services.grobid_client.time.sleep", lambda _seconds: None)
@@ -115,8 +105,8 @@ def test_grobid_client_backoff_is_bounded():
 
 def test_grobid_client_prioritizes_recent_last_good_endpoint(monkeypatch):
     monkeypatch.setattr(
-        "app.pipeline.services.grobid_client.settings.GROBID_URLS",
-        "https://primary-grobid.example,https://shadow-grobid.example",
+        "app.pipeline.services.grobid_client.settings.get_grobid_urls",
+        lambda: ["https://primary-grobid.example", "https://shadow-grobid.example"],
         raising=False,
     )
     client = GROBIDClient()

@@ -123,12 +123,24 @@ class TestContentParser:
 
 class TestDocumentGenerator:
     def setup_method(self):
+        from unittest.mock import patch, MagicMock
         from app.pipeline.generation.document_generator import DocumentGenerator
+        self._ds_patch = patch("app.pipeline.generation.document_generator.DocumentService")
+        self._ds_mock = self._ds_patch.start()
+        self._ds_mock.create_document.return_value = {"id": "test"}
+        self._ds_mock.get_document.return_value = None
+        self._ds_mock.get_document_result.return_value = None
+        self._ds_mock.upsert_document_result.return_value = None
+        self._supa_patch = patch("app.pipeline.generation.document_generator.get_supabase_client", return_value=None)
+        self._supa_patch.start()
         self.dg = DocumentGenerator()
+
+    def teardown_method(self):
+        import unittest.mock
+        unittest.mock.patch.stopall()
 
     @pytest.mark.asyncio
     async def test_start_job_returns_uuid(self):
-        import asyncio
         job_id = await self.dg.start_job(
             doc_type="academic_paper",
             template="ieee",

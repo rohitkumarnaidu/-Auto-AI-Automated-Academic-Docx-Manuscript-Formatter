@@ -37,10 +37,8 @@ async def test_probe_grobid_startup_success():
 
     with (
         patch("app.main.settings.GROBID_ENABLED", True),
-        patch("app.main.settings.GROBID_URLS", ""),
-        patch("app.main.settings.GROBID_URL", "http://grobid.local:8070"),
-        patch("app.main.settings.GROBID_BASE_URL", "http://grobid.local:8070"),
-        patch("app.main.settings.GROBID_HEALTH_PATH", "/api/isalive"),
+        patch("app.main.settings.get_grobid_urls", lambda: ["http://grobid.local:8070"]),
+        patch("app.main.settings.get_service_health_path", lambda _name: "/api/isalive"),
         patch("httpx.AsyncClient", _HealthyClient),
     ):
         result = await _probe_grobid_startup(attempts=3, timeout_seconds=0.01)
@@ -70,10 +68,8 @@ async def test_probe_grobid_startup_retries_then_degrades():
 
     with (
         patch("app.main.settings.GROBID_ENABLED", True),
-        patch("app.main.settings.GROBID_URLS", ""),
-        patch("app.main.settings.GROBID_URL", "http://grobid.local:8070"),
-        patch("app.main.settings.GROBID_BASE_URL", "http://grobid.local:8070"),
-        patch("app.main.settings.GROBID_HEALTH_PATH", "/api/isalive"),
+        patch("app.main.settings.get_grobid_urls", lambda: ["http://grobid.local:8070"]),
+        patch("app.main.settings.get_service_health_path", lambda _name: "/api/isalive"),
         patch("httpx.AsyncClient", _UnhealthyClient),
     ):
         result = await _probe_grobid_startup(attempts=3, timeout_seconds=0.01)
