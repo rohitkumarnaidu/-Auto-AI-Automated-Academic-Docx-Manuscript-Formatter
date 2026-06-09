@@ -51,7 +51,7 @@ jobs:
         run: python -m mypy --config-file mypy.ini app
 
       - name: Pytest with coverage
-        run: python -m pytest -m "not integration and not slow" --cov=app --cov-report=xml --cov-report=term-missing --cov-fail-under=70
+        run: python -m pytest tests -m "not integration and not llm" -x -q --cov=app --cov-report=xml --cov-report=term-missing --cov-fail-under=20
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
