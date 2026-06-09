@@ -1,11 +1,5 @@
-services:
-  - type: web
-    name: scholarform-backend
-    runtime: python
-    rootDir: backend
-    buildCommand: pip install -r requirements-render.txt
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --log-level info
-    healthCheckPath: /api/v1/health/live
+envVarGroups:
+  - name: shared-config
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.2
@@ -57,61 +51,32 @@ services:
         value: "true"
       - key: DEFAULT_FAST_MODE
         value: "false"
+      - key: REDIS_URL
+        value: "${REDIS_URL}"
+
+services:
+  - type: redis
+    name: scholarform-redis
+    plan: free
+    maxmemoryPolicy: allkeys-lru
+
+  - type: web
+    name: scholarform-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements-render.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --log-level info --workers ${WEB_CONCURRENCY:-1}
+    healthCheckPath: /api/v1/health/live
+    envVarGroups:
+      - name: shared-config
+    services:
+      - name: scholarform-redis
 
   - type: worker
     name: scholarform-celery-worker
     runtime: python
     rootDir: backend
     buildCommand: pip install -r requirements-render.txt
-    startCommand: celery -A app.tasks.celery_tasks worker -Q interactive,batch -c 1 --loglevel=info
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.12.2
-      - key: DEBUG
-        value: "false"
-      - key: ENABLE_LEGACY_ROUTES
-        value: "false"
-      - key: FORCE_HTTPS
-        value: "true"
-      - key: GROBID_ENABLED
-        value: "true"
-      - key: USE_DOCLING_FALLBACK
-        value: "true"
-      - key: PYMUPDF_FALLBACK
-        value: "true"
-      - key: PIPELINE_DOCLING_SKIP_DIGITAL_PDF
-        value: "false"
-      - key: PIPELINE_DOCLING_FORCE
-        value: "true"
-      - key: ENHANCEMENTS_ENABLED
-        value: "true"
-      - key: ENHANCEMENT_OCR_ENABLED
-        value: "true"
-      - key: ENHANCEMENT_KEYWORD_ENABLED
-        value: "true"
-      - key: REDIS_ENABLED
-        value: "true"
-      - key: EXTERNAL_CIRCUIT_BREAKER_ENABLED
-        value: "true"
-      - key: PRELOAD_AI_MODELS
-        value: "false"
-      - key: LOW_MEMORY_MODE
-        value: "false"
-      - key: RAG_USE_TRANSFORMERS
-        value: "false"
-      - key: ENHANCEMENT_QUEUE_ENABLED
-        value: "true"
-      - key: ENHANCEMENT_QUEUE_PROVIDER
-        value: "celery"
-      - key: ENABLE_NVIDIA_REASONER
-        value: "true"
-      - key: ENABLE_NOUGAT_PARSER
-        value: "true"
-      - key: USE_SCIBERT_CLASSIFICATION
-        value: "true"
-      - key: ENABLE_STRUCTURED_LOGGING
-        value: "true"
-      - key: ENABLE_FILE_CLEANUP
-        value: "true"
-      - key: DEFAULT_FAST_MODE
-        value: "false"
+    startCommand: celery -A app.tasks.celery_tasks worker -Q interactive,batch -c ${WORKER_CONCURRENCY:-2} --loglevel=info --prefetch-multiplier=1
+    envVarGroups:
+      - name: shared-config
