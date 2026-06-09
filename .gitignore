@@ -145,6 +145,7 @@ backend/generated_outputs/
 backend/tests_outputs/
 
 # AI audit/report artifacts (generated, not source)
+/AUDIT*.md
 /[A-Z]*_AUDIT*.md
 /[A-Z]*_REPORT*.md
 /[A-Z]*_COMPLETE*.md
@@ -153,6 +154,8 @@ backend/tests_outputs/
 /AGENTS.md
 /IMPLEMENTATION_COMPLETE.md
 /SECURITY.md
+/FINAL_RECOMMENDATIONS.md
+/ENTERPRISE_IMPLEMENTATION_FINAL.md
 
 # Coverage output
 backend/coverage.json
