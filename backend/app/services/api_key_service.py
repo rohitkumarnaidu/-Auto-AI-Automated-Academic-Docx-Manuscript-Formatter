@@ -27,7 +27,7 @@ SUPPORTED_PROVIDERS = {
 class ApiKeyService:
     """CRUD operations for user API keys."""
 
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: Session):
         self.db = db
         self.encryption = get_encryption_service()
 
@@ -101,7 +101,7 @@ class ApiKeyService:
         rate_limit_per_hour: Optional[int] = None,
         daily_quota: Optional[int] = None,
     ) -> Optional[UserApiKey]:
-        key = await self.get_key(key_id, user_id)
+        key = self.get_key(key_id, user_id)
         if not key:
             return None
 
@@ -122,7 +122,7 @@ class ApiKeyService:
         return key
 
     def delete_key(self, key_id: str, user_id: str) -> bool:
-        key = await self.get_key(key_id, user_id)
+        key = self.get_key(key_id, user_id)
         if not key:
             return False
         self.db.delete(key)

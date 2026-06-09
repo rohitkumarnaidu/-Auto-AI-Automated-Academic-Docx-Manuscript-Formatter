@@ -14,8 +14,6 @@ const APP_SESSION_STORAGE_KEYS = [
     'scholarform_active_job',
     'scholarform_e2e_user',
 ];
-const AUTH_ERROR_REDIRECT_LOCK_MS = 1500;
-
 export const CHUNK_SIZE_BYTES = 5 * 1024 * 1024;
 export const CHUNK_UPLOAD_THRESHOLD_BYTES = 10 * 1024 * 1024;
 

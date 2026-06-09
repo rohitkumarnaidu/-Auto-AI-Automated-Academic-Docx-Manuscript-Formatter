@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/src/context/AuthContext';
 import { useRouter } from 'next/navigation';
 
@@ -19,7 +19,7 @@ export default function ApiKeysPage() {
     const { user, isLoggedIn, loading } = useAuth();
     const router = useRouter();
     const [keys, setKeys] = useState([]);
-    const [providers, setProviders] = useState({});
+    const [, setProviders] = useState({});
     const [showForm, setShowForm] = useState(false);
     const [newKey, setNewKey] = useState({ provider: 'openai', api_key: '', key_label: '' });
     const [error, setError] = useState('');
@@ -38,9 +38,9 @@ export default function ApiKeysPage() {
             fetchKeys();
             fetchProviders();
         }
-    }, [isLoggedIn]);
+    }, [isLoggedIn, fetchKeys]);
 
-    const fetchKeys = async () => {
+    const fetchKeys = useCallback(async () => {
         try {
             const res = await fetch(`${API_BASE}/api/v1/keys`, {
                 headers: { Authorization: `Bearer ${user?.access_token || ''}` },
@@ -49,7 +49,7 @@ export default function ApiKeysPage() {
         } catch (e) {
             setError('Failed to load API keys');
         }
-    };
+    }, [user?.access_token]);
 
     const fetchProviders = async () => {
         try {

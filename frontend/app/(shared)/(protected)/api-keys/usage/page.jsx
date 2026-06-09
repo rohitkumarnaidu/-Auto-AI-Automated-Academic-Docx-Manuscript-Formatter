@@ -20,31 +20,31 @@ export default function ApiKeysUsagePage() {
     }, [loading, isLoggedIn, router]);
 
     useEffect(() => {
-        if (isLoggedIn) {
-            fetchUsage();
-            fetchKeys();
-        }
-    }, [isLoggedIn, hours]);
+        if (!isLoggedIn) return;
 
-    const fetchUsage = async () => {
-        try {
-            const res = await fetch(`${API_BASE}/api/v1/keys/usage?hours=${hours}`, {
-                headers: { Authorization: `Bearer ${user?.access_token || ''}` },
-            });
-            if (res.ok) setUsage(await res.json());
-        } catch (e) {
-            setError('Failed to load usage data');
-        }
-    };
+        const fetchUsage = async () => {
+            try {
+                const res = await fetch(`${API_BASE}/api/v1/keys/usage?hours=${hours}`, {
+                    headers: { Authorization: `Bearer ${user?.access_token || ''}` },
+                });
+                if (res.ok) setUsage(await res.json());
+            } catch (e) {
+                setError('Failed to load usage data');
+            }
+        };
 
-    const fetchKeys = async () => {
-        try {
-            const res = await fetch(`${API_BASE}/api/v1/keys`, {
-                headers: { Authorization: `Bearer ${user?.access_token || ''}` },
-            });
-            if (res.ok) setKeys(await res.json());
-        } catch (e) { /* ignore */ }
-    };
+        const fetchKeys = async () => {
+            try {
+                const res = await fetch(`${API_BASE}/api/v1/keys`, {
+                    headers: { Authorization: `Bearer ${user?.access_token || ''}` },
+                });
+                if (res.ok) setKeys(await res.json());
+            } catch (e) { /* ignore */ }
+        };
+
+        fetchUsage();
+        fetchKeys();
+    }, [isLoggedIn, hours, user?.access_token]);
 
     if (loading) {
         return (

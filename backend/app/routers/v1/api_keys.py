@@ -78,12 +78,12 @@ class ProviderInfo(BaseModel):
 @router.post("", response_model=ApiKeyResponse, status_code=201)
 async def create_api_key(
     request: CreateApiKeyRequest,
-    db: db: Session = Depends(get_db),
+    db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
     service = ApiKeyService(db)
     try:
-        key = await service.create_key(
+        key = service.create_key(
             user_id=str(user.id),
             provider=request.provider,
             api_key=request.api_key,
@@ -100,22 +100,22 @@ async def create_api_key(
 @router.get("", response_model=list[ApiKeyResponse])
 async def list_api_keys(
     provider: Optional[str] = Query(None, description="Filter by provider"),
-    db: db: Session = Depends(get_db),
+    db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
     service = ApiKeyService(db)
-    keys = await service.list_keys(user_id=str(user.id), provider=provider)
+    keys = service.list_keys(user_id=str(user.id), provider=provider)
     return [ApiKeyResponse(**k.to_dict(mask_key=True)) for k in keys]
 
 
 @router.get("/{key_id}", response_model=ApiKeyResponse)
 async def get_api_key(
     key_id: str,
-    db: db: Session = Depends(get_db),
+    db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
     service = ApiKeyService(db)
-    key = await service.get_key(key_id, str(user.id))
+    key = service.get_key(key_id, str(user.id))
     if not key:
         raise HTTPException(status_code=404, detail="API key not found")
     return ApiKeyResponse(**key.to_dict(mask_key=True))
@@ -125,11 +125,11 @@ async def get_api_key(
 async def update_api_key(
     key_id: str,
     request: UpdateApiKeyRequest,
-    db: db: Session = Depends(get_db),
+    db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
     service = ApiKeyService(db)
-    key = await service.update_key(
+    key = service.update_key(
         key_id=key_id,
         user_id=str(user.id),
         key_label=request.key_label,
@@ -146,11 +146,11 @@ async def update_api_key(
 @router.delete("/{key_id}", status_code=204)
 async def delete_api_key(
     key_id: str,
-    db: db: Session = Depends(get_db),
+    db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
     service = ApiKeyService(db)
-    deleted = await service.delete_key(key_id, str(user.id))
+    deleted = service.delete_key(key_id, str(user.id))
     if not deleted:
         raise HTTPException(status_code=404, detail="API key not found")
 
@@ -158,11 +158,11 @@ async def delete_api_key(
 @router.get("/usage", response_model=dict[str, UsageStatsResponse])
 async def get_usage_stats(
     hours: int = Query(24, ge=1, le=720, description="Hours of history (1-720)"),
-    db: db: Session = Depends(get_db),
+    db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
     service = ApiKeyService(db)
-    stats = await service.get_usage_stats(user_id=str(user.id), hours=hours)
+    stats = service.get_usage_stats(user_id=str(user.id), hours=hours)
     return {
         provider: UsageStatsResponse(provider=provider, **data)
         for provider, data in stats.items()
@@ -172,11 +172,11 @@ async def get_usage_stats(
 @router.get("/{key_id}/usage", response_model=dict)
 async def get_key_usage(
     key_id: str,
-    db: db: Session = Depends(get_db),
+    db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
     service = ApiKeyService(db)
-    key = await service.get_key(key_id, str(user.id))
+    key = service.get_key(key_id, str(user.id))
     if not key:
         raise HTTPException(status_code=404, detail="API key not found")
 
