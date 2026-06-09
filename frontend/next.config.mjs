@@ -13,8 +13,38 @@ const nextConfig = {
     reactStrictMode: true,
     transpilePackages: ['react-resizable-panels'],
     experimental: {
-        // Tree-shake heavy packages so only used exports are compiled
         optimizePackageImports: ['lucide-react', 'framer-motion', '@tanstack/react-query'],
+    },
+    // CDN configuration for production static assets
+    assetPrefix: process.env.CDN_URL || "",
+    images: {
+        remotePatterns: process.env.CDN_URL
+            ? [{ protocol: "https", hostname: new URL(process.env.CDN_URL).hostname }]
+            : [],
+    },
+    async headers() {
+        return [
+            {
+                source: "/(.*)",
+                headers: [
+                    { key: "X-Content-Type-Options", value: "nosniff" },
+                    { key: "X-Frame-Options", value: "DENY" },
+                    { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+                ],
+            },
+            {
+                source: "/_next/static/(.*)",
+                headers: [
+                    { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+                ],
+            },
+            {
+                source: "/static/(.*)",
+                headers: [
+                    { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+                ],
+            },
+        ];
     },
     async rewrites() {
         return [

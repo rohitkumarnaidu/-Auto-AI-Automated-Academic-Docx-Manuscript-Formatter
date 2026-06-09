@@ -6,14 +6,8 @@ import {
     getFriendlyErrorMessage,
     normalizeExportFormat,
     sanitizePayload,
+    unwrapV1Payload,
 } from './api.core';
-
-const unwrapV1Payload = (payload) => {
-    if (payload && typeof payload === 'object' && 'data' in payload) {
-        return payload.data;
-    }
-    return payload;
-};
 
 const buildV1SessionPayload = (rawPayload) => {
     const sanitizedPayload = sanitizePayload(rawPayload || {});

@@ -1,9 +1,10 @@
 'use client';
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import { supabase } from '../lib/supabaseClient';
 
 const UserPreferencesContext = createContext();
+const DEBOUNCE_MS = 1000;
 
 export const UserPreferencesProvider = ({ children }) => {
     const { user, isLoggedIn } = useAuth();
@@ -12,8 +13,9 @@ export const UserPreferencesProvider = ({ children }) => {
         statusUpdates: true,
         newsletter: false,
     });
+    const pendingChangesRef = useRef(null);
+    const debounceTimerRef = useRef(null);
 
-    // 1. Load preferences from Supabase metadata
     useEffect(() => {
         if (isLoggedIn && user?.user_metadata?.preferences) {
             setPreferencesState((prev) => ({
@@ -21,7 +23,6 @@ export const UserPreferencesProvider = ({ children }) => {
                 ...user.user_metadata.preferences,
             }));
         } else if (!isLoggedIn) {
-            // Load from localStorage for guest users
             const saved = localStorage.getItem('scholarform_preferences');
             if (saved) {
                 try {
@@ -33,22 +34,49 @@ export const UserPreferencesProvider = ({ children }) => {
         }
     }, [isLoggedIn, user]);
 
-    // 2. Save preferences to local storage
     useEffect(() => {
         localStorage.setItem('scholarform_preferences', JSON.stringify(preferences));
     }, [preferences]);
+
+    const syncToSupabase = useCallback((prefs) => {
+        if (isLoggedIn && supabase) {
+            supabase.auth.updateUser({
+                data: { preferences: prefs }
+            }).catch(err => console.error("Failed to sync preferences to Supabase:", err));
+        }
+    }, [isLoggedIn]);
+
+    const flushPendingChanges = useCallback(() => {
+        if (pendingChangesRef.current) {
+            syncToSupabase(pendingChangesRef.current);
+            pendingChangesRef.current = null;
+        }
+    }, [syncToSupabase]);
+
+    useEffect(() => {
+        return () => {
+            if (debounceTimerRef.current) {
+                clearTimeout(debounceTimerRef.current);
+                flushPendingChanges();
+            }
+        };
+    }, [flushPendingChanges]);
 
     const setPreference = (key, value) => {
         setPreferencesState((prev) => {
             const next = { ...prev, [key]: value };
 
-            // Sync to Supabase if logged in
             if (isLoggedIn && supabase) {
-                supabase.auth.updateUser({
-                    data: {
-                        preferences: next
-                    }
-                }).catch(err => console.error("Failed to sync preferences to Supabase:", err));
+                pendingChangesRef.current = next;
+
+                if (debounceTimerRef.current) {
+                    clearTimeout(debounceTimerRef.current);
+                }
+
+                debounceTimerRef.current = setTimeout(() => {
+                    flushPendingChanges();
+                    debounceTimerRef.current = null;
+                }, DEBOUNCE_MS);
             }
 
             return next;

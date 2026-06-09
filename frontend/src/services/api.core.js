@@ -20,7 +20,7 @@ export const CHUNK_SIZE_BYTES = 5 * 1024 * 1024;
 export const CHUNK_UPLOAD_THRESHOLD_BYTES = 10 * 1024 * 1024;
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-let unauthorizedRecoveryInProgress = false;
+const AUTH_RECOVERY_IN_FLIGHT = new Map();
 
 /**
  * Generate a UUID v4 for Request IDs.
@@ -35,6 +35,13 @@ export const generateRequestId = () => {
         const v = c === 'x' ? r : (r & 0x3) | 0x8;
         return v.toString(16);
     });
+};
+
+export const unwrapV1Payload = (payload) => {
+    if (payload && typeof payload === 'object' && 'data' in payload) {
+        return payload.data;
+    }
+    return payload;
 };
 
 const removeControlChars = (input) => (
@@ -226,38 +233,45 @@ export const handleUnauthorizedSession = async ({ endpoint = '' } = {}) => {
     if (typeof window === 'undefined' || isLoginEndpoint(endpoint)) {
         return;
     }
-    if (unauthorizedRecoveryInProgress) return;
-    unauthorizedRecoveryInProgress = true;
 
-    try {
-        if (supabase?.auth?.signOut) {
-            await supabase.auth.signOut({ scope: 'local' });
-        }
-    } catch (error) {
-        console.warn('Auth teardown failed after unauthorized response:', error);
-    } finally {
-        clearAppSessionStorage();
-        clearSupabaseAuthStorage();
+    const recoveryKey = endpoint || '__default__';
+    if (AUTH_RECOVERY_IN_FLIGHT.has(recoveryKey)) return;
 
+    const recoveryPromise = (async () => {
         try {
-            window.dispatchEvent(new CustomEvent('scholarform:session-expired'));
-        } catch {
-            // no-op in environments without CustomEvent support
-        }
+            if (supabase?.auth?.signOut) {
+                await supabase.auth.signOut({ scope: 'local' });
+            }
+        } catch (error) {
+            console.warn('Auth teardown failed after unauthorized response:', error);
+        } finally {
+            clearAppSessionStorage();
+            clearSupabaseAuthStorage();
 
-        const onLoginRoute = window.location?.pathname?.startsWith('/login');
-        if (!onLoginRoute && !isJsdomEnvironment() && typeof window.location?.replace === 'function') {
-            const nextParam = buildNextParam();
             try {
-                window.location.replace(`/login${nextParam}`);
+                window.dispatchEvent(new CustomEvent('scholarform:session-expired'));
             } catch {
-                // Some test runners/JSDOM environments do not implement navigation.
+                // no-op in environments without CustomEvent support
+            }
+
+            const onLoginRoute = window.location?.pathname?.startsWith('/login');
+            if (!onLoginRoute && !isJsdomEnvironment() && typeof window.location?.replace === 'function') {
+                const nextParam = buildNextParam();
+                try {
+                    window.location.replace(`/login${nextParam}`);
+                } catch {
+                    // Some test runners/JSDOM environments do not implement navigation.
+                }
             }
         }
+    })();
 
-        window.setTimeout(() => {
-            unauthorizedRecoveryInProgress = false;
-        }, AUTH_ERROR_REDIRECT_LOCK_MS);
+    AUTH_RECOVERY_IN_FLIGHT.set(recoveryKey, recoveryPromise);
+
+    try {
+        await recoveryPromise;
+    } finally {
+        AUTH_RECOVERY_IN_FLIGHT.delete(recoveryKey);
     }
 };
 

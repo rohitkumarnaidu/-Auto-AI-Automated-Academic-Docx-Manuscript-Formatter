@@ -1,10 +1,14 @@
 import { test, expect } from '@playwright/test';
-test('smoke test loads without crashing', async ({ page }) => {
-    try {
-      await page.goto('/profile', { waitUntil: 'domcontentloaded', timeout: 5000 });
-    } catch (e) {
-      expect(e).toBeDefined();
-    }
-    const text = await page.textContent('body');
-    expect(text).toBeTruthy();
+
+test.describe('Profile Update', () => {
+    test('profile page loads with editable fields', async ({ page }) => {
+        await page.goto('/profile');
+        await expect(page.locator('body')).toBeVisible();
+
+        const heading = page.getByRole('heading', { name: /Account Settings/i });
+        await expect(heading).toBeVisible();
+
+        const editButton = page.getByRole('button', { name: /Edit Profile/i });
+        await expect(editButton).toBeVisible();
+    });
 });

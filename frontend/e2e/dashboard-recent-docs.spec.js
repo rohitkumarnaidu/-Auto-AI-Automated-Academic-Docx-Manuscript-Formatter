@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test';
-test('smoke test loads without crashing', async ({ page }) => {
-    try {
-      await page.goto('/dashboard', { waitUntil: 'domcontentloaded', timeout: 5000 });
-    } catch (e) {
-      expect(e).toBeDefined();
-    }
-    const text = await page.textContent('body');
-    expect(text).toBeTruthy();
+
+test.describe('Dashboard Recent Docs', () => {
+    test('dashboard page loads with heading', async ({ page }) => {
+        await page.goto('/dashboard');
+        await expect(page.locator('body')).toBeVisible();
+
+        const heading = page.getByRole('heading', { name: /dashboard/i });
+        await expect(heading).toBeVisible();
+    });
 });

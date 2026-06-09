@@ -5,6 +5,7 @@ import { ThemeProvider } from '@/src/context/ThemeContext';
 import { AuthProvider } from '@/src/context/AuthContext';
 import { ToastProvider } from '@/src/context/ToastContext';
 import { DocumentProvider } from '@/src/context/DocumentContext';
+import { UserPreferencesProvider } from '@/src/context/UserPreferencesContext';
 import FocusManager from '@/src/components/layout/FocusManager';
 import DynamicMeta from '@/src/components/layout/DynamicMeta';
 import { useEffect, useState } from 'react';
@@ -37,11 +38,13 @@ export default function ClientProviders({ children }) {
             <ThemeProvider>
                 <ToastProvider>
                     <AuthProvider>
-                        <DocumentProvider>
-                            <FocusManager />
-                            <DynamicMeta />
-                            {children}
-                        </DocumentProvider>
+                        <UserPreferencesProvider>
+                            <DocumentProvider>
+                                <FocusManager />
+                                <DynamicMeta />
+                                {children}
+                            </DocumentProvider>
+                        </UserPreferencesProvider>
                     </AuthProvider>
                 </ToastProvider>
             </ThemeProvider>

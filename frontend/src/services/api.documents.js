@@ -9,6 +9,7 @@ import {
     normalizeExportFormat,
     sanitizeText,
     parseApiResponse,
+    unwrapV1Payload,
 } from './api.core';
 import {
     JobStatusResponseSchema,
@@ -112,13 +113,6 @@ const parseResponseJson = (responseText) => {
     } catch {
         return {};
     }
-};
-
-const unwrapV1Payload = (payload) => {
-    if (payload && typeof payload === 'object' && 'data' in payload) {
-        return payload.data;
-    }
-    return payload;
 };
 
 const createAbortError = (message) => {

@@ -19,6 +19,18 @@ body {
 
 /* Animation utilities used across pages without external plugin dependency */
 @layer utilities {
+    .animate-in,
+    .animate-pulse,
+    .animate-spin,
+    .animate-ping,
+    .fade-in-up,
+    .stagger-fade {
+        animation-name: sf-fade-in;
+        animation-duration: 200ms;
+        animation-fill-mode: both;
+        animation-timing-function: ease-out;
+    }
+
     @media (prefers-reduced-motion: reduce) {
 
         .animate-in,
@@ -27,92 +39,15 @@ body {
         .animate-ping,
         .fade-in-up,
         .stagger-fade {
-            animation: none !important;
-            transition: none !important;
+            animation: none;
+            transition: none;
         }
 
         .scroll-reveal {
-            opacity: 1 !important;
-            transform: none !important;
-            transition: none !important;
-        }
-    }
-
-    @keyframes sf-fade-in {
-        from {
-            opacity: 0.3;
-        }
-
-        to {
             opacity: 1;
+            transform: none;
+            transition: none;
         }
-    }
-
-    @keyframes sf-zoom-in {
-        from {
-            opacity: 0.3;
-            transform: scale(0.98);
-        }
-
-        to {
-            opacity: 1;
-            transform: scale(1);
-        }
-    }
-
-    @keyframes sf-slide-in-top {
-        from {
-            opacity: 0.3;
-            transform: translateY(-8px);
-        }
-
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-
-    @keyframes sf-slide-in-bottom {
-        from {
-            opacity: 0.3;
-            transform: translateY(10px);
-        }
-
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-
-    @keyframes sf-fade-in-up {
-        from {
-            opacity: 0.3;
-            transform: translateY(10px);
-        }
-
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-
-    @keyframes sf-stagger-fade {
-        from {
-            opacity: 0.3;
-            transform: translateY(12px);
-        }
-
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-
-    .animate-in {
-        animation-name: sf-fade-in;
-        animation-duration: 200ms;
-        animation-fill-mode: both;
-        animation-timing-function: ease-out;
     }
 
     .fade-in {

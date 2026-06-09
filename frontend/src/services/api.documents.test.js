@@ -6,6 +6,8 @@ const {
     getAuthorizedHeadersMock,
     normalizeExportFormatMock,
     sanitizeTextMock,
+    unwrapV1PayloadMock,
+    parseApiResponseMock,
 } = vi.hoisted(() => ({
     fetchWithAuthMock: vi.fn(),
     fetchWithRetryMock: vi.fn(),
@@ -15,6 +17,8 @@ const {
         return ['docx', 'pdf'].includes(normalized) ? normalized : 'docx';
     }),
     sanitizeTextMock: vi.fn((value) => String(value ?? '').replace(/[<>]/g, '')),
+    unwrapV1PayloadMock: vi.fn((payload) => payload?.data ?? payload),
+    parseApiResponseMock: vi.fn((_schema, data, { fallback } = {}) => data ?? fallback),
 }));
 
 vi.mock('./api.core', () => ({
@@ -27,6 +31,8 @@ vi.mock('./api.core', () => ({
     getFriendlyErrorMessage: vi.fn(({ fallbackMessage = 'Request failed.' } = {}) => fallbackMessage),
     normalizeExportFormat: normalizeExportFormatMock,
     sanitizeText: sanitizeTextMock,
+    unwrapV1Payload: unwrapV1PayloadMock,
+    parseApiResponse: parseApiResponseMock,
 }));
 
 import {

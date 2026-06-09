@@ -290,11 +290,12 @@ async function installAgentHarness(page) {
 }
 
 test.describe('Phase 4 Core Flows', () => {
-    test.setTimeout(240000); // Production processing can exceed 2 minutes under load
+    test.setTimeout(240000);
 
-    test('Test full formatter flow (Upload -> Process -> Results -> Download)', async ({ page }) => {
+    test('full formatter flow: upload -> process -> results -> download', async ({ page }) => {
         await installFormatterHarness(page);
         await page.goto('/upload');
+
         await expect.poll(async () => {
             const uploadHeadingVisible = await page
                 .getByRole('heading', { name: /Upload Manuscript/i })
@@ -346,7 +347,7 @@ test.describe('Phase 4 Core Flows', () => {
         await expect(downloadBtn).toBeVisible();
     });
 
-    test('Test full agent flow (Prompt -> Outline -> Approve -> Write)', async ({ page }) => {
+    test('full agent flow: prompt -> outline -> approve -> write', async ({ page }) => {
         await installAgentHarness(page);
         await page.goto('/agent');
 
@@ -357,7 +358,7 @@ test.describe('Phase 4 Core Flows', () => {
         const submitBtn = page.locator('button[title*="Submit"]').first();
         await expect(submitBtn).toBeVisible({ timeout: 10000 });
         await submitBtn.click();
-        
+
         await expect(page.getByText(AGENT_PROMPT)).toBeVisible({ timeout: 20000 });
         await expect(page.getByText('Review Outline')).toBeVisible({ timeout: 20000 });
 
@@ -365,13 +366,13 @@ test.describe('Phase 4 Core Flows', () => {
         const writingState = page.locator('text=/writing|generating|formatting/i').first();
         const errorState = page.locator('text=/error|failed|unable/i').first();
 
-        await Promise.any([
-            proceedToWrite.waitFor({ state: 'visible', timeout: 60000 }),
-            writingState.waitFor({ state: 'visible', timeout: 60000 }),
-            errorState.waitFor({ state: 'visible', timeout: 60000 }),
-        ]);
+        const proceedVisible = await proceedToWrite.isVisible().catch(() => false);
+        const writingVisible = await writingState.isVisible().catch(() => false);
+        const errorVisible = await errorState.isVisible().catch(() => false);
 
-        if (await proceedToWrite.isVisible().catch(() => false)) {
+        expect(proceedVisible || writingVisible || errorVisible).toBeTruthy();
+
+        if (proceedVisible) {
             await proceedToWrite.click();
             await expect(page.locator('text=/writing|generating/i').first()).toBeVisible({ timeout: 30000 });
         }

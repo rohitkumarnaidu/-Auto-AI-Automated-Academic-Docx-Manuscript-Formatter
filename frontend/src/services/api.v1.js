@@ -5,30 +5,13 @@ import {
     parseResponseData,
     parseApiResponse,
     handleUnauthorizedSession,
+    generateRequestId,
 } from './api.core';
 import { GeneratorSessionsResponseSchema } from '../lib/schemas';
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 export const BASE_V1_URL = `${API_BASE_URL}/api/v1`;
 
-/**
- * Generate a UUID v4 for Request IDs.
- * Falls back to Math.random() if crypto.randomUUID is unavailable (e.g. older browsers / non-secure contexts).
- */
-export const generateRequestId = () => {
-    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-        return crypto.randomUUID();
-    }
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-        const r = (Math.random() * 16) | 0;
-        const v = c === 'x' ? r : (r & 0x3) | 0x8;
-        return v.toString(16);
-    });
-};
-
-/**
- * Helper to generate a predictable hash for Idempotency keys based on endpoint and body.
- */
 const generateIdempotencyHash = async (text) => {
     if (typeof crypto !== 'undefined' && crypto.subtle) {
         const msgUint8 = new TextEncoder().encode(text);

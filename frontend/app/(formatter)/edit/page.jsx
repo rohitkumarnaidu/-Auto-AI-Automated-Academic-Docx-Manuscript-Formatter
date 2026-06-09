@@ -1,6 +1,7 @@
 'use client';
 import usePageTitle from '@/src/hooks/usePageTitle';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import ErrorBoundary from '@/src/components/ErrorBoundary';
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -15,7 +16,7 @@ import { CharacterCount } from '@tiptap/extension-character-count';
 import { useDocument } from '@/src/context/DocumentContext';
 import { useToast } from '@/src/context/ToastContext';
 import Skeleton from '@/src/components/ui/Skeleton';
-import Minimap from '@/src/components/ui/Minimap';
+const Minimap = dynamic(() => import('@/src/components/ui/Minimap'), { ssr: false, loading: () => null });
 import { useUnsavedChanges } from '@/src/hooks/useUnsavedChanges';
 import { isCompleted } from '@/src/constants/status';
 import { submitEdit, getPreview } from '@/src/services/api';

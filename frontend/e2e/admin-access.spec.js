@@ -1,10 +1,14 @@
 import { test, expect } from '@playwright/test';
-test('smoke test loads without crashing', async ({ page }) => {
-    try {
-      await page.goto('/admin-dashboard', { waitUntil: 'domcontentloaded', timeout: 5000 });
-    } catch (e) {
-      expect(e).toBeDefined();
-    }
-    const text = await page.textContent('body');
-    expect(text).toBeTruthy();
+
+test.describe('Admin Access', () => {
+    test('admin dashboard page loads or redirects to login when unauthenticated', async ({ page }) => {
+        await page.goto('/admin-dashboard');
+
+        await expect(page.locator('body')).toBeVisible();
+
+        const url = page.url();
+        const isLoginPage = url.includes('/login');
+        const isAdminPage = url.includes('/admin-dashboard');
+        expect(isLoginPage || isAdminPage).toBeTruthy();
+    });
 });

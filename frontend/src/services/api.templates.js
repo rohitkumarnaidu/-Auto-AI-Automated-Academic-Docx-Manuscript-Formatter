@@ -1,12 +1,5 @@
-import { fetchWithAuth, sanitizePayload, sanitizeText } from './api.core';
+import { fetchWithAuth, sanitizePayload, sanitizeText, unwrapV1Payload } from './api.core';
 import { getV1, unwrapResponse } from './api.v1';
-
-const unwrapV1Payload = (payload) => {
-    if (payload && typeof payload === 'object' && 'data' in payload) {
-        return payload.data;
-    }
-    return payload;
-};
 
 export const getCustomTemplates = async () => {
     const response = await fetchWithAuth('/api/v1/templates/custom', {

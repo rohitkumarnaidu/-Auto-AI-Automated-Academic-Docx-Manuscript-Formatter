@@ -1,12 +1,25 @@
 'use client';
 import usePageTitle from '@/src/hooks/usePageTitle';
 import { useState, useEffect, useRef, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import SplitEditor from '@/src/components/live-preview/SplitEditor';
+
+const SplitEditor = dynamic(() => import('@/src/components/live-preview/SplitEditor'), {
+    ssr: false,
+    loading: () => (
+        <div className="flex-1 flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+            <div className="flex flex-col items-center gap-4">
+                <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+                <p className="text-sm text-slate-500 dark:text-slate-400 animate-pulse">Loading editor...</p>
+            </div>
+        </div>
+    ),
+});
+
 import useLivePreviewSocket from '@/src/hooks/useLivePreviewSocket';
 import { getAiSuggestion } from '@/src/services/api.preview.v1';
-import { fetchWithAuth } from '@/src/services/api.core';
+import { fetchWithAuth, generateRequestId } from '@/src/services/api.core';
 import { getBuiltinTemplates } from '@/src/services/api.templates';
 import { supabase } from '@/src/lib/supabaseClient';
 import { trackPageView } from '@/src/lib/rum';
@@ -15,18 +28,6 @@ import { trackPageView } from '@/src/lib/rum';
 const FALLBACK_TEMPLATES = [
     { id: 'ieee', label: 'IEEE' },
 ];
-
-// Generate a UUID — same utility as api.core.js
-function generateUUID() {
-    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-        return crypto.randomUUID();
-    }
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-        const r = (Math.random() * 16) | 0;
-        const v = c === 'x' ? r : (r & 0x3) | 0x8;
-        return v.toString(16);
-    });
-}
 
 // ── Connection Status Dot ──────────────────────────────────────────────────
 function ConnectionDot({ isConnected, isReconnecting = false, reconnectAttempt = 0 }) {
@@ -216,7 +217,7 @@ export default function LiveFormatterPage() {
     const router = useRouter();
 
     // Session ID — generated once, never changes
-    const [sessionId] = useState(() => generateUUID());
+    const [sessionId] = useState(() => generateRequestId());
 
     // Template
     const [templateId, setTemplateId] = useState('ieee');

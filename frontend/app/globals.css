@@ -2,82 +2,117 @@
 @tailwind components;
 @tailwind utilities;
 
-.sidebar-desktop,
-.sidebar-mobile {
-  background-color: #f6f6f8 !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+@layer components {
+  .sidebar-desktop,
+  .sidebar-mobile {
+    background-color: #f6f6f8;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .sidebar-desktop {
+    border-right: 1px solid rgba(148, 163, 184, 0.24);
+  }
+
+  .sidebar-mobile {
+    border-right: 1px solid rgba(148, 163, 184, 0.28);
+  }
+
+  .dark .sidebar-desktop,
+  .dark .sidebar-mobile {
+    background-color: #09090b;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .dark .sidebar-desktop {
+    border-right: 1px solid var(--surface-06);
+  }
+
+  .dark .sidebar-mobile {
+    border-right: 1px solid var(--surface-10);
+  }
+
+  .appshell-root {
+    background: transparent;
+  }
+
+  .dark .appshell-root {
+    background: transparent;
+  }
+
+  .dark .active-mode-btn.bg-white {
+    background-color: var(--surface-14);
+    color: #ffffff;
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--surface-14);
+  }
+
+  .dark .active-mode-btn {
+    transition: all 0.2s ease;
+  }
+
+  .dark .active-mode-btn:hover {
+    background-color: var(--surface-10);
+  }
+
+  .dark .active-nav-link {
+    background-color: var(--surface-10);
+    border: 1px solid var(--surface-14);
+  }
+
+  .dark .active-nav-link:hover {
+    background-color: var(--surface-14);
+  }
+
+  .sidebar-desktop .material-symbols-outlined {
+    font-size: 20px;
+  }
+
+  .dark .theme-dark-base {
+    background: #09090b;
+  }
+
+  .dark .theme-dark-neutral {
+    background-image: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.02), transparent);
+  }
+
+  .dark .theme-dark-cta {
+    background: linear-gradient(135deg, #09090b, #111115, #09090b);
+  }
+
+  .dark .surface-ladder-06 {
+    background-color: var(--surface-06);
+  }
+
+  .dark .surface-ladder-10 {
+    background-color: var(--surface-10);
+  }
+
+  .dark .surface-ladder-14 {
+    background-color: var(--surface-14);
+  }
+
+  .dark .surface-ladder-border-06 {
+    border-color: var(--surface-06);
+  }
+
+  .dark .surface-ladder-border-10 {
+    border-color: var(--surface-10);
+  }
+
+  .dark .surface-ladder-border-14 {
+    border-color: var(--surface-14);
+  }
+
+  .dark .surface-ladder-hover-10:hover {
+    background-color: var(--surface-10);
+  }
+
+  .dark .surface-ladder-hover-14:hover {
+    background-color: var(--surface-14);
+  }
 }
-
-.sidebar-desktop {
-  border-right: 1px solid rgba(148, 163, 184, 0.24) !important;
-}
-
-.sidebar-mobile {
-  border-right: 1px solid rgba(148, 163, 184, 0.28) !important;
-}
-
-.dark .sidebar-desktop,
-.dark .sidebar-mobile {
-  background-color: #09090b !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-
-.dark .sidebar-desktop {
-  border-right: 1px solid var(--surface-06) !important;
-}
-
-.dark .sidebar-mobile {
-  border-right: 1px solid var(--surface-10) !important;
-}
-
-/* ── APP SHELL ROOT — transparent so body background shows through ── */
-/* Light: body is #f6f6f8 (bg-background-light) */
-.appshell-root {
-  background: transparent !important;
-}
-
-/* Dark: body is #09090b (bg-background-dark) */
-.dark .appshell-root {
-  background: transparent !important;
-}
-
-/* ── SIDEBAR INTERACTIVE STATES ── */
-
-/* Mode switcher — active button in dark mode (glass highlight, not solid white) */
-.dark .active-mode-btn.bg-white {
-  background-color: var(--surface-14) !important;
-  color: #ffffff !important;
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.05) !important;
-  border: 1px solid var(--surface-14) !important;
-}
-
-.dark .active-mode-btn {
-  transition: all 0.2s ease !important;
-}
-
-.dark .active-mode-btn:hover {
-  background-color: var(--surface-10) !important;
-}
-
-/* Nav link — active state */
-.dark .active-nav-link {
-  background-color: var(--surface-10) !important;
-  border: 1px solid var(--surface-14) !important;
-}
-
-.dark .active-nav-link:hover {
-  background-color: var(--surface-14) !important;
-}
-
-/* Icons consistent sizing */
-.sidebar-desktop .material-symbols-outlined {
-  font-size: 20px !important;
-}
-
-/* ── DESIGN TOKEN CSS CUSTOM PROPERTIES ── */
-/* Glass design system: enables bg-glass-surface, border-glass-border via Tailwind */
 
 :root {
   --glass-surface: rgba(255, 255, 255, 0.7);
@@ -90,48 +125,4 @@
   --surface-14: rgba(255, 255, 255, 0.14);
   --glass-surface: rgba(9, 9, 11, 0.72);
   --glass-border: rgba(255, 255, 255, 0.14);
-}
-
-.dark .theme-dark-base {
-  background: #09090b !important;
-}
-
-.dark .theme-dark-neutral {
-  background-image: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.02), transparent) !important;
-}
-
-.dark .theme-dark-cta {
-  background: linear-gradient(135deg, #09090b, #111115, #09090b) !important;
-}
-
-.dark .surface-ladder-06 {
-  background-color: var(--surface-06) !important;
-}
-
-.dark .surface-ladder-10 {
-  background-color: var(--surface-10) !important;
-}
-
-.dark .surface-ladder-14 {
-  background-color: var(--surface-14) !important;
-}
-
-.dark .surface-ladder-border-06 {
-  border-color: var(--surface-06) !important;
-}
-
-.dark .surface-ladder-border-10 {
-  border-color: var(--surface-10) !important;
-}
-
-.dark .surface-ladder-border-14 {
-  border-color: var(--surface-14) !important;
-}
-
-.dark .surface-ladder-hover-10:hover {
-  background-color: var(--surface-10) !important;
-}
-
-.dark .surface-ladder-hover-14:hover {
-  background-color: var(--surface-14) !important;
 }
