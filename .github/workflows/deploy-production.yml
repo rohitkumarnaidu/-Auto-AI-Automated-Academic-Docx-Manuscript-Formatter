@@ -4,8 +4,63 @@ on:
   workflow_dispatch:
 
 jobs:
+  verify-ci-gates:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check backend-ci workflow status
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runs = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'backend-ci.yml',
+              branch: context.ref || 'main',
+              status: 'success',
+              per_page: 5
+            });
+            if (runs.data.workflow_runs.length === 0) {
+              core.setFailed('No successful backend-ci runs found on this branch');
+            }
+
+      - name: Check security workflow status
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runs = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'security.yml',
+              branch: context.ref || 'main',
+              status: 'success',
+              per_page: 5
+            });
+            if (runs.data.workflow_runs.length === 0) {
+              core.setFailed('No successful security runs found on this branch');
+            }
+
+  pre-deploy-health:
+    runs-on: ubuntu-latest
+    needs: verify-ci-gates
+    environment: production
+    steps:
+      - name: Pre-deployment health check
+        env:
+          PROD_BACKEND_URL: ${{ secrets.PROD_BACKEND_URL || vars.PROD_BACKEND_URL }}
+        run: |
+          echo "Running pre-deployment health check..."
+          STATUS=$(curl -L -sS --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "${PROD_BACKEND_URL}/api/v1/health/live")
+          echo "Current production health: HTTP $STATUS"
+          if [ "$STATUS" = "200" ]; then
+            echo "Production is healthy, proceeding with deploy."
+          else
+            echo "::warning::Production health check returned HTTP $STATUS. Proceeding with caution."
+          fi
+
   deploy-production:
     runs-on: ubuntu-latest
+    needs: [verify-ci-gates, pre-deploy-health]
+    environment: production
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -49,7 +104,17 @@ jobs:
             echo "deploy_mode=${deploy_mode}" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Run database migrations
+        if: steps.preflight.outputs.ready == 'true'
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          cd backend
+          pip install -r requirements-render.txt
+          alembic upgrade head
+
       - name: Deploy backend to Render (Deploy Hook)
+        id: deploy
         if: steps.preflight.outputs.ready == 'true' && steps.preflight.outputs.deploy_mode == 'hook'
         env:
           RENDER_PROD_DEPLOY_HOOK_URL: ${{ secrets.RENDER_PROD_DEPLOY_HOOK_URL || vars.RENDER_PROD_DEPLOY_HOOK_URL }}
@@ -64,6 +129,7 @@ jobs:
           echo "Deploy hook triggered successfully."
 
       - name: Deploy backend to Render
+        id: deploy-api
         if: steps.preflight.outputs.ready == 'true' && steps.preflight.outputs.deploy_mode == 'api'
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY || vars.RENDER_API_KEY }}
@@ -91,7 +157,7 @@ jobs:
         run: |
           echo "Waiting for backend at ${PROD_BACKEND_URL}..."
           for i in {1..20}; do
-            STATUS=$(curl -L -sS --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "${PROD_BACKEND_URL}/health")
+            STATUS=$(curl -L -sS --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "${PROD_BACKEND_URL}/api/v1/health/live")
             echo "Attempt $i: HTTP $STATUS"
             if [ "$STATUS" = "200" ]; then
               echo "Backend is healthy."
@@ -101,6 +167,30 @@ jobs:
           done
           echo "Backend health check timed out."
           exit 1
+
+      - name: Post-deployment verification
+        if: steps.preflight.outputs.ready == 'true'
+        env:
+          PROD_BACKEND_URL: ${{ secrets.PROD_BACKEND_URL || vars.PROD_BACKEND_URL }}
+        run: |
+          echo "Running post-deployment verification..."
+          STATUS=$(curl -L -sS --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "${PROD_BACKEND_URL}/api/v1/health/live")
+          if [ "$STATUS" != "200" ]; then
+            echo "Post-deployment health check failed with HTTP $STATUS"
+            exit 1
+          fi
+          echo "Post-deployment verification passed."
+
+      - name: Auto-rollback on health check failure
+        if: failure() && (steps.deploy.outcome == 'success' || steps.deploy-api.outcome == 'success')
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY || vars.RENDER_API_KEY }}
+          RENDER_PROD_SERVICE_ID: ${{ secrets.RENDER_PROD_SERVICE_ID || vars.RENDER_PROD_SERVICE_ID }}
+        run: |
+          echo "Health check failed, initiating rollback..."
+          DEPLOY_ID="${{ steps.deploy.outputs.deploy_id || steps.deploy-api.outputs.deploy_id }}"
+          curl -X POST "https://api.render.com/v1/services/${RENDER_PROD_SERVICE_ID}/deploys/${DEPLOY_ID}/rollback" \
+            -H "Authorization: Bearer ${RENDER_API_KEY}"
 
       - name: Deploy frontend to Vercel
         if: steps.preflight.outputs.ready == 'true'

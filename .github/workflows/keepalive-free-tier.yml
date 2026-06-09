@@ -18,7 +18,7 @@ jobs:
             echo "PROD_BACKEND_URL is not configured."
             exit 1
           fi
-          TARGET="${PROD_BACKEND_URL%/}/health"
+          TARGET="${PROD_BACKEND_URL%/}/api/v1/health/live"
           backend_ok=0
           for attempt in {1..6}; do
             STATUS=$(curl -sS -L --connect-timeout 5 --max-time 12 -o /dev/null -w "%{http_code}" "${TARGET}" || true)

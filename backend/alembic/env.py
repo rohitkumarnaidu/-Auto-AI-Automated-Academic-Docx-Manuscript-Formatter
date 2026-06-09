@@ -36,6 +36,23 @@ target_metadata = Base.metadata
 # ... etc.
 
 
+def _get_database_url() -> str:
+    """Resolve the database URL from SUPABASE_DB_URL environment variable."""
+    url = os.environ.get("SUPABASE_DB_URL")
+    if url and url.strip():
+        return url.strip()
+
+    url_from_settings = getattr(settings, "SUPABASE_DB_URL", None)
+    if url_from_settings and url_from_settings.strip():
+        return url_from_settings.strip()
+
+    raise RuntimeError(
+        "SUPABASE_DB_URL environment variable is not set. "
+        "Alembic requires a direct PostgreSQL connection URL (not the Supabase REST API URL). "
+        "Example: postgresql://postgres.<project-ref>:<password>@db.<project-ref>.supabase.co:5432/postgres"
+    )
+
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
 
@@ -46,10 +63,8 @@ def run_migrations_offline() -> None:
 
     Calls to context.execute() here emit the given string to the
     script output.
-
     """
-    # Overwrite the URL from settings
-    url = settings.SUPABASE_DB_URL
+    url = _get_database_url()
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -66,12 +81,11 @@ def run_migrations_online() -> None:
 
     In this scenario we need to create an Engine
     and associate a connection with the context.
-
     """
+    url = _get_database_url()
     configuration = config.get_section(config.config_ini_section, {})
-    # Overwrite the URL from settings
-    configuration["sqlalchemy.url"] = settings.SUPABASE_DB_URL
-    
+    configuration["sqlalchemy.url"] = url
+
     connectable = engine_from_config(
         configuration,
         prefix="sqlalchemy.",

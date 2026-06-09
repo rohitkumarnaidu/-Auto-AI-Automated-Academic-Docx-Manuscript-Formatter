@@ -2,8 +2,15 @@ name: backend-ci
 
 on:
   push:
-    branches:
-      - "**"
+    branches: ["**"]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+  pull_request:
+    branches: ["main"]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
 
 jobs:
   backend-ci:
@@ -19,6 +26,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements-render.txt') }}
+          restore-keys: ${{ runner.os }}-pip-
 
       - name: Prepare env
         run: cp .env.example .env
@@ -36,5 +50,11 @@ jobs:
         continue-on-error: true
         run: python -m mypy --config-file mypy.ini app
 
-      - name: Pytest
-        run: python -m pytest -m "not integration and not slow"
+      - name: Pytest with coverage
+        run: python -m pytest -m "not integration and not slow" --cov=app --cov-report=xml --cov-report=term-missing --cov-fail-under=70
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml

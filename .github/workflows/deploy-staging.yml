@@ -53,6 +53,15 @@ jobs:
             echo "deploy_mode=${deploy_mode}" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Run database migrations
+        if: steps.preflight.outputs.ready == 'true'
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          cd backend
+          pip install -r requirements-render.txt
+          alembic upgrade head
+
       - name: Deploy backend to Render (Deploy Hook)
         if: steps.preflight.outputs.ready == 'true' && steps.preflight.outputs.deploy_mode == 'hook'
         env:
@@ -93,7 +102,7 @@ jobs:
         run: |
           echo "Waiting for staging backend at ${STAGING_BACKEND_URL}..."
           for i in {1..20}; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${STAGING_BACKEND_URL}/api/v1/health")
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${STAGING_BACKEND_URL}/api/v1/health/live")
             echo "Attempt $i: HTTP $STATUS"
             if [ "$STATUS" = "200" ]; then
               echo "Staging backend is healthy."
@@ -101,8 +110,8 @@ jobs:
             fi
             sleep 15
           done
-          echo "Health check timed out; deploy may still be proceeding."
-          exit 0
+          echo "Staging health check timed out after 20 attempts."
+          exit 1
 
       - name: Set up Python for load tests
         if: steps.preflight.outputs.ready == 'true'

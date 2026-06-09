@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -39,6 +39,13 @@ jobs:
           pip install bandit
           bandit -r backend/app -f json -o bandit-report.json
 
+      - name: Upload Bandit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: bandit-report.json
+
       - name: OWASP Dependency Check
         continue-on-error: ${{ github.event_name != 'pull_request' }}
         uses: dependency-check/Dependency-Check_Action@main
@@ -47,4 +54,11 @@ jobs:
           path: "backend"
           format: "JSON"
           out: "dependency-check-report"
-          args: "--scan backend/requirements.txt --failOnCVSS 7"
+          args: "--scan backend/requirements-render.txt --failOnCVSS 7"
+
+      - name: Upload OWASP Dependency-Check report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-check-report
+          path: dependency-check-report/
