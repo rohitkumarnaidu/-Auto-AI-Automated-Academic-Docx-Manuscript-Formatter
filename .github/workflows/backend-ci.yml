@@ -12,8 +12,11 @@ on:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'
 
+env:
+  PYTHON_VERSION: "3.12"
+
 jobs:
-  backend-ci:
+  lint:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -25,14 +28,16 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Cache pip dependencies
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements-render.txt') }}
-          restore-keys: ${{ runner.os }}-pip-
+          key: ${{ runner.os }}-pip-lint-${{ hashFiles('backend/requirements-render.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-lint-
+            ${{ runner.os }}-pip-
 
       - name: Prepare env
         run: cp .env.example .env
@@ -41,7 +46,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements-render.txt
-          pip install ruff mypy pytest pytest-asyncio pytest-cov pytest-mock
+          pip install ruff mypy
 
       - name: Ruff
         run: python -m ruff check app --config ruff.toml --select E9,F63,F7,F82
@@ -50,10 +55,44 @@ jobs:
         continue-on-error: true
         run: python -m mypy --config-file mypy.ini app
 
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-test-${{ hashFiles('backend/requirements-render.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-test-
+            ${{ runner.os }}-pip-
+
+      - name: Prepare env
+        run: cp .env.example .env
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-render.txt
+          pip install pytest pytest-asyncio pytest-cov pytest-mock
+
       - name: Pytest with coverage
+        timeout-minutes: 20
         run: python -m pytest tests -m "not integration and not llm" -x -q --cov=app --cov-report=xml --cov-report=term-missing --cov-fail-under=20
 
       - name: Upload coverage report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
