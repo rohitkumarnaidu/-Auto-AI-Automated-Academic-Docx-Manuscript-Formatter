@@ -124,6 +124,37 @@ class RedisCache:
         except Exception as e:
             logger.error(f"Error writing to LLM Redis cache: {e}")
 
+    def delete(self, key: str) -> None:
+        """Delete a key from the cache."""
+        client = self._ensure_client()
+        if not client:
+            return
+        try:
+            client.delete(key)
+        except Exception as e:
+            logger.error(f"Error deleting from Redis cache: {e}")
+
+    def clear(self) -> None:
+        """Clear all cached entries."""
+        client = self._ensure_client()
+        if not client:
+            return
+        try:
+            client.flushdb()
+        except Exception as e:
+            logger.error(f"Error clearing Redis cache: {e}")
+
+    def health(self) -> dict:
+        """Return cache health status."""
+        client = self._ensure_client()
+        if not client:
+            return {"status": "unavailable"}
+        try:
+            client.ping()
+            return {"status": "available"}
+        except Exception as e:
+            return {"status": "unavailable", "detail": str(e)}
+
 # Global instance - lazily initialized on first use
 redis_cache = RedisCache()
 
