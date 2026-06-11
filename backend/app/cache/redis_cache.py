@@ -12,10 +12,12 @@ class RedisCache:
     Uses lazy initialization - client is created on first use, not at import time.
     """
 
-    def __init__(self, host: str = "localhost", port: int = 6379, db: int = 0):
+    def __init__(self, host: str = "localhost", port: int = 6379, db: int = 0, redis_url: str | None = None):
         self._client: Optional[redis.Redis] = None
         self._initialized = False
         self._init_kwargs = {"host": host, "port": port, "db": db}
+        if redis_url is not None:
+            self._init_kwargs["redis_url"] = redis_url
 
     def _ensure_client(self) -> Optional[redis.Redis]:
         """Lazily create the Redis client on first use."""
