@@ -208,9 +208,9 @@ class TestFigureModel:
 
     def test_figure_type_enum(self):
         from app.models.figure import FigureType
-        assert FigureType.IMAGE.value == "image"
         assert FigureType.DIAGRAM.value == "diagram"
         assert FigureType.CHART.value == "chart"
+        assert FigureType.GRAPH.value == "graph"
 
     def test_image_format_enum(self):
         from app.models.figure import ImageFormat
