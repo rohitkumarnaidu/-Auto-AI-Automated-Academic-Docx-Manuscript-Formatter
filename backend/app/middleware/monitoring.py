@@ -15,7 +15,7 @@ class MonitoringMiddleware(BaseHTTPMiddleware):
     Middleware for request logging, timing, and unique ID generation.
     """
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        request_id = str(uuid.uuid4())
+        request_id = getattr(request.state, "request_id", None) or str(uuid.uuid4())
         request.state.request_id = request_id
         
         start_time = time.time()
@@ -36,7 +36,7 @@ class MonitoringMiddleware(BaseHTTPMiddleware):
             )
             
             # Add custom headers
-            response.headers["X-Request-ID"] = request_id
+            response.headers["X-Request-Id"] = request_id
             response.headers["X-Processing-Time"] = str(duration)
             
             return response
