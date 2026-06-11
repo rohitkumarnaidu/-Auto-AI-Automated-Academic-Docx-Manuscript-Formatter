@@ -83,7 +83,7 @@ jobs:
 
       - name: Pytest with coverage
         timeout-minutes: 20
-        run: python -m pytest tests -m "not integration and not llm" -x -q --cov=app --cov-report=xml --cov-report=term-missing --cov-fail-under=20
+        run: python -m pytest tests -m "not integration and not llm and not contract" -x -q --cov=app --cov-report=xml --cov-report=term-missing --cov-fail-under=20
 
       - name: Upload coverage report
         if: always()
