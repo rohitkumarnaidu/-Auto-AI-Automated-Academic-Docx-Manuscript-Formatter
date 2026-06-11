@@ -41,6 +41,8 @@ def mock_ai_models():
     with (
         patch("app.pipeline.intelligence.semantic_parser.get_semantic_parser", return_value=MagicMock()),
         patch("app.pipeline.intelligence.rag_engine.get_rag_engine", return_value=MagicMock()),
+        patch("app.services.generator_session_service.get_supabase_client", return_value=MagicMock()),
+        patch("app.db.supabase_client.get_supabase_client", return_value=MagicMock()),
     ):
         yield
 
@@ -124,7 +126,6 @@ def test_v1_generator_malformed_json_returns_validation_envelope(client: TestCli
     assert "Malformed JSON body" in payload["error"]["message"]
 
 
-@pytest.mark.skip(reason="Flaky in CI: _session_service mock not isolated, hits real Supabase client")
 @pytest.mark.contract
 def test_v1_generator_create_agent_success_contract(client: TestClient):
     audit_mock = AsyncMock()
