@@ -144,10 +144,10 @@ class TestMiddlewareAbuseDetector:
         detector = AbuseDetector()
         assert detector is not None
 
-    def test_abuse_detector_track_request(self):
+    def test_abuse_detector_record_generation_request(self):
         from app.middleware.abuse_detector import AbuseDetector
         detector = AbuseDetector()
-        detector.track_request("127.0.0.1", "/api/v1/test")
+        detector.record_generation_request("127.0.0.1")
 
 
 class TestMiddlewareCSRF:
