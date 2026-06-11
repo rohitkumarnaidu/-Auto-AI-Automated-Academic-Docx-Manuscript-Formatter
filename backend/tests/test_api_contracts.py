@@ -43,6 +43,7 @@ def mock_ai_models():
         patch("app.pipeline.intelligence.rag_engine.get_rag_engine", return_value=MagicMock()),
         patch("app.services.generator_session_service.get_supabase_client", return_value=MagicMock()),
         patch("app.db.supabase_client.get_supabase_client", return_value=MagicMock()),
+        patch("app.services.llm_service.generate_with_fallback", new=AsyncMock(return_value="Mocked LLM response")),
     ):
         yield
 
