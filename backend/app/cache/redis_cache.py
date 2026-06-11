@@ -124,3 +124,8 @@ class RedisCache:
 
 # Global instance - lazily initialized on first use
 redis_cache = RedisCache()
+
+
+def get_redis_cache() -> RedisCache:
+    """Return the global RedisCache singleton."""
+    return redis_cache
