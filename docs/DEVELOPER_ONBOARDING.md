@@ -1,15 +1,17 @@
 # ScholarForm AI — Developer Onboarding Guide
 
-**Last Updated:** May 21, 2026  
-**Audience:** New developers joining the ScholarForm AI team
+**Last Updated:** June 11, 2026  
+**Audience:** New developers and open-source contributors
 
 ---
+
+> **New contributor?** Check [CONTRIBUTING.md](../CONTRIBUTING.md) first for the full guide on submitting issues and PRs.
 
 ## Quick Start (15 minutes)
 
 ### 1. Clone & Setup
 ```bash
-git clone https://github.com/scholarform/automated-manuscript-formatter.git
+git clone https://github.com/rohitkumarnaidu/-Auto-AI-Automated-Academic-Docx-Manuscript-Formatter.git
 cd automated-manuscript-formatter
 
 # Backend
@@ -155,7 +157,6 @@ git push origin feature/your-feature-name
 ### 5. Create PR
 - Link to relevant issue
 - Include test results
-- Request review from 2 team members
 
 ---
 
@@ -191,26 +192,5 @@ git push origin feature/your-feature-name
 | Tests hang | Check if Supabase/Redis is reachable |
 
 ### Getting Help
-- **Slack:** `#scholarform-dev`
-- **Issues:** https://github.com/scholarform/automated-manuscript-formatter/issues
-- **Docs:** https://docs.scholarform.ai
-- **On-call:** Check PagerDuty rotation
-
----
-
-## Production Access
-
-### Request Access
-1. Get approval from engineering lead
-2. Request Supabase project access
-3. Request Render dashboard access
-4. Request AWS/GCP console access (if applicable)
-
-### Deployment
-```bash
-# Deploy to staging
-git push origin main  # Triggers staging CI/CD
-
-# Deploy to production (requires approval)
-# Via GitHub: Create release → Approve in GitHub Environments
-```
+- **Issues:** https://github.com/rohitkumarnaidu/-Auto-AI-Automated-Academic-Docx-Manuscript-Formatter/issues
+- **Discussions:** https://github.com/rohitkumarnaidu/-Auto-AI-Automated-Academic-Docx-Manuscript-Formatter/discussions

@@ -1,6 +1,15 @@
 # ScholarForm AI — Automated Academic Manuscript Formatter
 
-> **Codex Verdict (March 2026):** Feature-rich but operationally unstable. The repository has ~90% file coverage but needs runtime validation across all 34 routes. Phase 0 (restore truth & fast feedback) is complete.
+<div align="center">
+
+[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
+[![Next.js 14](https://img.shields.io/badge/Next.js-14-black)](https://nextjs.org/)
+[![CI](https://github.com/rohitkumarnaidu/-Auto-AI-Automated-Academic-Docx-Manuscript-Formatter/actions/workflows/backend-ci.yml/badge.svg)](https://github.com/rohitkumarnaidu/-Auto-AI-Automated-Academic-Docx-Manuscript-Formatter/actions/workflows/backend-ci.yml)
+[![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
+[![Coverage](https://img.shields.io/badge/coverage-22%25-yellow)](backend/coverage.xml)
+
+</div>
 
 ScholarForm AI formats academic manuscripts into publisher-ready outputs using deterministic rules plus AI-assisted analysis. It also generates full research documents through AI Agent and Multi-Doc Synthesis modes.
 
@@ -225,3 +234,13 @@ When configured, the app captures:
 - `$pageview`
 
 If PostHog is not configured, analytics calls are no-ops and do not block user flows.
+
+---
+
+## Contributing
+
+We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+## License
+
+Distributed under the MIT License. See [LICENSE](LICENSE) for more information.
