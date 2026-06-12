@@ -14,6 +14,8 @@ import time
 from unittest.mock import MagicMock, patch, ANY, call
 import pytest
 
+pytestmark = pytest.mark.llm
+
 from app.models.block import BlockType
 from app.pipeline.parsing.nougat_parser import (
     _check_available_ram_gb,

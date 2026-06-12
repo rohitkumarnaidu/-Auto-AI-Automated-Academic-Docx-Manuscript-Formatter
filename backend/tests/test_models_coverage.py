@@ -130,18 +130,19 @@ class TestFigureModel:
     def test_create_figure(self):
         fig = Figure(
             figure_id="fig-001",
-            caption="Test figure",
-            figure_type=FigureType.IMAGE,
+            index=0,
+            caption_text="Test figure",
+            figure_type=FigureType.DIAGRAM,
             image_format=ImageFormat.PNG,
         )
         assert fig.figure_id == "fig-001"
-        assert fig.caption == "Test figure"
-        assert fig.figure_type == FigureType.IMAGE
+        assert fig.caption_text == "Test figure"
+        assert fig.figure_type == FigureType.DIAGRAM
 
     def test_figure_type_enum(self):
-        assert FigureType.IMAGE.value == "image"
         assert FigureType.DIAGRAM.value == "diagram"
         assert FigureType.CHART.value == "chart"
+        assert FigureType.GRAPH.value == "graph"
 
 
 class TestTableModel:
@@ -149,17 +150,17 @@ class TestTableModel:
 
     def test_create_table(self):
         cells = [
-            TableCell(text="Header 1", row=0, col=0, is_header=True, index=0, block_index=0),
-            TableCell(text="Header 2", row=0, col=1, is_header=True, index=1, block_index=0),
-            TableCell(text="Data 1", row=1, col=0, is_header=False, index=2, block_index=0),
+            TableCell(text="Header 1", row=0, col=0, is_header=True),
+            TableCell(text="Header 2", row=0, col=1, is_header=True),
+            TableCell(text="Data 1", row=1, col=0, is_header=False),
         ]
-        table = Table(table_id="tbl-001", caption="Test table", cells=cells, index=0, block_index=0)
+        table = Table(table_id="tbl-001", caption_text="Test table", cells=cells, num_rows=2, num_cols=2, index=0, block_index=0)
         assert table.table_id == "tbl-001"
         assert len(table.cells) == 3
         assert table.cells[0].is_header is True
 
     def test_table_cell(self):
-        cell = TableCell(text="Cell content", row=2, col=3, is_header=False, index=0, block_index=0)
+        cell = TableCell(text="Cell content", row=2, col=3, is_header=False)
         assert cell.text == "Cell content"
         assert cell.row == 2
         assert cell.col == 3
@@ -173,8 +174,8 @@ class TestReferenceModel:
             reference_id="ref-001",
             raw_text="Smith, J. (2024). Test paper. Journal, 1(2), 100-110.",
             reference_type=ReferenceType.JOURNAL_ARTICLE,
-            citation_style=CitationStyle.APA,
             citation_key="smith2024",
+            index=0,
         )
         assert ref.reference_id == "ref-001"
         assert ref.reference_type == ReferenceType.JOURNAL_ARTICLE
@@ -191,9 +192,9 @@ class TestEquationModel:
     def test_create_equation(self):
         eq = Equation(
             equation_id="eq-001",
-            latex="E = mc^2",
+            mathml="<math><mi>E</mi><mo>=</mo><mi>m</mi><msup><mi>c</mi><mn>2</mn></msup></math>",
             text="E equals m c squared",
             index=0,
         )
         assert eq.equation_id == "eq-001"
-        assert eq.latex == "E = mc^2"
+        assert eq.text == "E equals m c squared"

@@ -17,7 +17,7 @@ def test_long_heading_detection():
     """Verify that headings > 120 chars are detected with reduced confidence."""
     
     # Create a long heading (150 chars) with typical heading characteristics
-    long_heading_text = "1. A Comprehensive Analysis of Machine Learning Algorithms for Natural Language Processing Tasks in Academic Research Publications and Their Applications"
+    long_heading_text = "1. A COMPREHENSIVE ANALYSIS OF MACHINE LEARNING ALGORITHMS FOR NATURAL LANGUAGE PROCESSING TASKS IN ACADEMIC RESEARCH PUBLICATIONS AND THEIR APPLICATIONS"
     
     block = Block(
         block_id="test_long_heading",
