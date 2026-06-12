@@ -55,9 +55,10 @@ class TestInit:
         assert orch.docling_client is not None
         assert orch._stage_start_times == {}
 
-    def test_initialization_custom_temp_dir(self):
-        orch = _make_orchestrator(temp_dir="/custom/tmp")
-        assert orch.temp_dir == "/custom/tmp"
+    def test_initialization_custom_temp_dir(self, tmp_path):
+        custom = str(tmp_path / "custom_tmp")
+        orch = _make_orchestrator(temp_dir=custom)
+        assert orch.temp_dir == custom
 
     def test_temp_dir_created(self, tmp_path):
         d = str(tmp_path / "my_temp")
