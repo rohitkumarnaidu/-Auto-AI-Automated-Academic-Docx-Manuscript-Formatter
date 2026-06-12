@@ -26,7 +26,7 @@ def test_long_heading_detection():
         block_type=BlockType.UNKNOWN,
         style=TextStyle(
             bold=True,
-            font_size=14.0
+            font_size=16.0
         )
     )
     
