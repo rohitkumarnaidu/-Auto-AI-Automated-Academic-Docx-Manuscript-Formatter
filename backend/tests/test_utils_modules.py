@@ -16,7 +16,7 @@ class TestSerialization:
 
         doc = SimpleNamespace(
             blocks=[
-                Block(block_id="b1", text="Hello", index=0, block_type=BlockType.TEXT, style=TextStyle()),
+                Block(block_id="b1", text="Hello", index=0,                 block_type=BlockType.BODY, style=TextStyle()),
             ],
             metadata=DocumentMetadata(title="Test"),
             references=[],
