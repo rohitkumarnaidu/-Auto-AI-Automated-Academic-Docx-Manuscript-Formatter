@@ -7,7 +7,7 @@
 [![Next.js 14](https://img.shields.io/badge/Next.js-14-black)](https://nextjs.org/)
 [![CI](https://github.com/rohitkumarnaidu/ScholarFormAI/actions/workflows/backend-ci.yml/badge.svg)](https://github.com/rohitkumarnaidu/ScholarFormAI/actions/workflows/backend-ci.yml)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
-[![Coverage](https://img.shields.io/badge/coverage-21%25-yellow)](backend/coverage.xml)
+[![Coverage](https://img.shields.io/badge/coverage-61%25-yellow)](backend/coverage.xml)
 
 </div>
 
