@@ -4,7 +4,12 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.config.settings import settings
 
+pytestmark = pytest.mark.skipif(
+    not getattr(settings, "DEBUG", False),
+    reason="OpenAPI docs are disabled outside DEBUG mode",
+)
 
 def _trigger_lazy_routers(client: TestClient) -> None:
     """Hit a v1 path to trigger the lazy router loader middleware."""
