@@ -30,11 +30,11 @@ class TestSettingsDefaults:
         s = Settings()
         assert "localhost" in s.CORS_ORIGINS
 
-    def test_default_template_is_none(self):
-        """Default template must be 'none' (neutral / no-style)."""
+    def test_default_template_is_ieee(self):
+        """Default template must be 'ieee'."""
         from app.config.settings import Settings
         s = Settings()
-        assert s.DEFAULT_TEMPLATE == "none"
+        assert s.DEFAULT_TEMPLATE == "ieee"
 
     def test_confidence_thresholds_are_between_0_and_1(self):
         """All confidence thresholds must be in [0, 1]."""
