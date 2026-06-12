@@ -84,6 +84,7 @@ async def test_readiness_force_refresh_bypasses_cache(monkeypatch):
 
 
 @pytest.mark.asyncio
+@pytest.mark.integration
 async def test_readiness_includes_dependency_probe_results(monkeypatch):
     _configure_fast_readiness(monkeypatch, ttl_seconds=0.0, isolate_external=False)
     monkeypatch.setattr(health_checks.settings, "GROBID_ENABLED", True, raising=False)
@@ -127,6 +128,7 @@ async def test_readiness_includes_dependency_probe_results(monkeypatch):
 
 
 @pytest.mark.asyncio
+@pytest.mark.integration
 async def test_readiness_includes_nougat_and_scibert_remote_dependencies(monkeypatch):
     _configure_fast_readiness(monkeypatch, ttl_seconds=0.0, isolate_external=False)
     monkeypatch.setattr(health_checks.settings, "ENABLE_NOUGAT_PARSER", True, raising=False)

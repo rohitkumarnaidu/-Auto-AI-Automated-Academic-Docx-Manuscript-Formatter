@@ -19,6 +19,8 @@ def test_rate_limiting_upload():
     """
     # Mock authentication to simulate a specific user
     # Use random token to avoid rate limit collision from previous test runs
+    if not settings.SUPABASE_URL or not settings.SUPABASE_JWT_SECRET:
+        pytest.skip("Supabase credentials not configured, skipping rate limit test")
     payload = {
         "sub": "test-user",
         "email": "test@example.com",

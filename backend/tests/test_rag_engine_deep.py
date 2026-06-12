@@ -15,6 +15,10 @@ from unittest.mock import MagicMock, patch, ANY
 import pytest
 import numpy as np
 
+try:
+    import sentence_transformers  # noqa: F401
+except ImportError:
+    pytestmark = pytest.mark.skipif(True, reason="sentence_transformers not installed in CI")
 
 # ---------------------------------------------------------------------------
 #  Helpers
