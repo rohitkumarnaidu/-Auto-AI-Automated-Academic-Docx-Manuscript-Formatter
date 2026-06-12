@@ -5,9 +5,9 @@
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
 [![Next.js 14](https://img.shields.io/badge/Next.js-14-black)](https://nextjs.org/)
-[![CI](https://github.com/rohitkumarnaidu/-Auto-AI-Automated-Academic-Docx-Manuscript-Formatter/actions/workflows/backend-ci.yml/badge.svg)](https://github.com/rohitkumarnaidu/-Auto-AI-Automated-Academic-Docx-Manuscript-Formatter/actions/workflows/backend-ci.yml)
+[![CI](https://github.com/rohitkumarnaidu/ScholarFormAI/actions/workflows/backend-ci.yml/badge.svg)](https://github.com/rohitkumarnaidu/ScholarFormAI/actions/workflows/backend-ci.yml)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
-[![Coverage](https://img.shields.io/badge/coverage-22%25-yellow)](backend/coverage.xml)
+[![Coverage](https://img.shields.io/badge/coverage-21%25-yellow)](backend/coverage.xml)
 
 </div>
 
@@ -16,11 +16,11 @@ ScholarForm AI formats academic manuscripts into publisher-ready outputs using d
 ## Quick Links
 
 - **Frontend:** `http://localhost:3000` (Next.js 14)
-- **Backend API:** `http://localhost:8000` — Swagger at `http://localhost:8000/docs`
-- **OpenAPI Schema:** `http://localhost:8000/openapi.json`
+- **Backend API:** `http://localhost:8000` — Swagger at `http://localhost:8000/docs` (requires `DEBUG=true`)
+- **OpenAPI Schema:** `http://localhost:8000/openapi.json` (requires `DEBUG=true`)
 - **Framework:** Next.js 14 (App Router), **NOT** Vite
 - **Python:** 3.12.x (pinned)
-- **Routes:** 34 pages in `frontend/src/app/`
+- **Routes:** 36 pages in `frontend/app/`
 
 ---
 
@@ -115,7 +115,7 @@ Set backend env vars in `backend/.env`, then start:
 uvicorn app.main:app --reload --port 8000
 ```
 
-API docs: `http://localhost:8000/docs`
+API docs: `http://localhost:8000/docs` (requires `DEBUG=true` in `.env`)
 
 > **Python version:** Must be **3.12.x**. Python 3.11.9 causes pytest import collisions. Verify with `python --version`.
 
@@ -166,7 +166,7 @@ See [`docs/architecture.md`](docs/architecture.md) for the full system diagram.
 **Backend (fast, no external services):**
 ```bash
 cd backend
-pytest tests -m "not integration and not llm" -x -q
+pytest tests -m "not integration and not llm and not contract" -x -q
 ```
 
 **Frontend:**
@@ -177,7 +177,7 @@ npm test
 
 **E2E (Playwright, requires running backend):**
 ```bash
-npx playwright test tests/e2e/upload.spec.js --headed
+npm run test:e2e:headed
 ```
 
 See [`docs/Testing.md`](docs/Testing.md) for the full test strategy.
