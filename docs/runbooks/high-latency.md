@@ -1,5 +1,15 @@
-# Runbook: High Latency
+---
+title: ScholarForm AI — Runbook: High Latency
+description: P1 escalation for elevated API response times exceeding SLO thresholds
+sidebar_position: 4
+version: "1.0"
+status: ✅ Complete
+owner: DevOps Team
+review_cadence: quarterly
+last_updated: June 2026
+---
 
+# ScholarForm AI — Runbook: High Latency
 **Severity:** P1 (High)  
 **Alert:** `ScholarFormHighLatency`  
 **On-Call Response:** < 15 minutes

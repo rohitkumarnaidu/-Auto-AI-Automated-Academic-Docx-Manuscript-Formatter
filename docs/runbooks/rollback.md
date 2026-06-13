@@ -1,4 +1,17 @@
-# Rollback Runbook
+---
+title: ScholarForm AI — Rollback Runbook
+description: Deployment rollback procedures for backend and frontend
+sidebar_position: 5
+version: "1.0"
+status: ✅ Complete
+owner: DevOps Team
+review_cadence: quarterly
+last_updated: June 2026
+---
+
+# ScholarForm AI — Rollback Runbook
+
+> **See also:** [Deployment Guide](../Deployment.md), [Disaster Recovery](../DISASTER_RECOVERY.md), [Incident Response](incident-response.md)
 
 ## Backend (Render)
 1. Open the Render dashboard and select the backend service.

@@ -1,4 +1,26 @@
-# ScholarForm AI — Implementation Plan for Two Agents
+---
+title: ScholarForm AI — Implementation Plan
+description: Agent-based implementation plan with task breakdown
+sidebar_position: 71
+version: "1.0"
+status: 📋 Planned
+owner: Engineering Team
+review_cadence: quarterly
+last_updated: June 2026
+---
+
+# ScholarForm AI — Implementation Plan
+
+## Table of Contents
+- [Critical Findings](#-critical-findings-combined-from-both-audits)
+- [Phase 0: Restore Truth & Fast Feedback](#-phase-0-restore-truth--fast-feedback)
+- [Phase 1: Canonical Documentation Reset](#phase-1-canonical-documentation-reset)
+- [Phase 2: Contract & Smoke Validation](#phase-2-contract--smoke-validation)
+- [Phase 3: Critical Gap Fixes](#phase-3-critical-gap-fixes)
+- [Phase 4: Service-Backed Validation](#phase-4-service-backed-validation)
+- [Phase 5: Launch Readiness](#phase-5-launch-readiness)
+- [Additional Suggestions](#-my-additional-suggestions-not-in-any-audit)
+- [Verification Plan](#verification-plan)
 
 > **Sources combined:** Codex 5.4 audit (13 files), Antigravity audit (19 sections), Master Plan v4 DOCX (50 sections), 4 planning markdown files, user's original prompts
 > **Agents:** Agent 1 (Backend/Infrastructure) + Agent 2 (Frontend/Docs)

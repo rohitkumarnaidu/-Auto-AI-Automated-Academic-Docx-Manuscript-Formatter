@@ -1,3 +1,12 @@
+"""
+ScholarForm AI — Documentation Update Script
+Last Updated: June 2026
+Status: ✅ Complete
+Owner: Docs Team
+
+Automates replacement of stale technology references across docs.
+"""
+
 import os
 
 DOCS_DIR = os.path.dirname(os.path.abspath(__file__))

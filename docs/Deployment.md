@@ -1,8 +1,62 @@
-# ScholarForm Deployment Guide
+---
+title: ScholarForm AI — Deployment Guide
+description: Production deployment guide for Render, Vercel, and CI/CD pipelines
+sidebar_position: 2
+version: "1.0"
+status: ✅ Complete
+owner: DevOps Team
+review_cadence: quarterly
+last_updated: June 2026
+---
 
-Last updated: March 30, 2026
+# ScholarForm AI — Deployment Guide
+
+> **See also:** [Architecture](architecture.md), [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md), [Testing.md](Testing.md)
+
+---
+
+## Table of Contents
+- [Architecture (Strict $0)](#architecture-strict-0)
+- [Production Runtime Profile (Render 512MB)](#production-runtime-profile-render-512mb)
+- [Remote Service Routing](#remote-service-routing)
+- [CI/CD Control](#cicd-control)
+- [Required GitHub Secrets](#required-github-secrets)
+- [Render Environment Checklist](#render-environment-checklist)
+- [Deployment Acceptance Criteria](#deployment-acceptance-criteria)
+- [Deferred Scope](#deferred-scope-not-enabled-in-this-phase)
 
 ## Architecture (Strict $0)
+
+```mermaid
+graph LR
+    subgraph FRONTEND["Frontend"]
+        V["Vercel<br/>(Next.js 16)"]
+    end
+
+    subgraph BACKEND["Backend"]
+        R["Render Web Service<br/>(512MB)"]
+        C["Celery Worker<br/>(Background)"]
+    end
+
+    subgraph CACHE["Cache & Broker"]
+        RS["Upstash Redis"]
+    end
+
+    subgraph DB["Database"]
+        S["Supabase<br/>(PostgreSQL + Auth + Storage)"]
+    end
+
+    subgraph ML["ML Services"]
+        HF["Hugging Face Spaces<br/>(Primary + Shadow)"]
+    end
+
+    V --> R
+    R --> RS
+    R --> S
+    C --> RS
+    C --> HF
+    R --> HF
+```
 
 - Frontend: Vercel
 - Backend API: Render Web Service (512MB free tier)

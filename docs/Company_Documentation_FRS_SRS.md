@@ -1,4 +1,15 @@
-# ScholarForm AI Company Documentation Pack
+---
+title: ScholarForm AI — FRS & SRS Documentation
+description: Functional requirements specification and software requirements specification
+sidebar_position: 56
+version: "1.0"
+status: ✅ Complete
+owner: Product Team
+review_cadence: annually
+last_updated: June 2026
+---
+
+# ScholarForm AI — FRS & SRS Documentation
 
 ## Document Control
 - Document Title: ScholarForm AI Application Documentation, FRS, and SRS
@@ -7,6 +18,25 @@
 - Date: February 28, 2026
 - Prepared For: Product, Engineering, QA, and Operations teams
 - Prepared By: Codex codebase audit synthesis
+
+## Table of Contents
+- [1. Executive Summary](#1-executive-summary)
+- [2. Scope and Audit Basis](#2-scope-and-audit-basis)
+- [3. Product Overview](#3-product-overview)
+- [4. System Architecture](#4-system-architecture)
+- [5. End-to-End Functional Flow](#5-end-to-end-functional-flow)
+- [6. Supported Formats and Options](#6-supported-formats-and-options)
+- [7. Template Coverage](#7-template-coverage-and-formatting-capability)
+- [8. API Surface Summary](#8-api-surface-summary)
+- [9. Data Model Summary](#9-data-model-summary)
+- [10. Security and Reliability Controls](#10-security-and-reliability-controls)
+- [11. Testing and Quality](#11-testing-and-quality)
+- [12. Known Integration Gaps](#12-known-integration-gaps-and-risks-high-priority)
+- [13. Future Scope](#13-future-scope-and-product-direction)
+- [14. Functional Requirements](#14-functional-requirements-specification-frs)
+- [15. System Requirements](#15-system-requirements-specification-srs)
+- [16. FRS-SRS Traceability](#16-frs-srs-traceability-matrix-condensed)
+- [17. Production-Readiness Backlog](#17-production-readiness-improvement-backlog)
 
 ## 1. Executive Summary
 ScholarForm AI is a full-stack academic manuscript processing platform with a React frontend and a FastAPI backend. The system accepts multiple manuscript input formats, applies template-driven formatting rules, runs AI-assisted analysis, and exports publication-ready outputs.
@@ -60,7 +90,7 @@ ScholarForm AI provides automated formatting and validation of academic manuscri
 ## 4. System Architecture
 
 ### 4.1 High-level components
-- Frontend: React 18, Vite, Tailwind, React Router, React Query
+- Frontend: React 19, Next.js 16 (App Router), Tailwind CSS
 - Backend: FastAPI, Supabase integration, pipeline orchestrator
 - Data store: Supabase Postgres tables (`documents`, `document_results`, `processing_status`, etc.)
 - AI/ML services: SciBERT, RAG engine, reasoning engine (NVIDIA and local fallback paths)

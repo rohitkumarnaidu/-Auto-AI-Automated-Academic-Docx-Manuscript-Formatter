@@ -1,3 +1,14 @@
+---
+title: ScholarForm AI — Agent Documentation
+description: AI agent pipeline with 11-step generation workflow
+sidebar_position: 21
+version: "1.0"
+status: ✅ Complete
+owner: Docs Team
+review_cadence: quarterly
+last_updated: June 2026
+---
+
 # ScholarForm AI — Agent Documentation
 
 ## Agent Pipeline Overview

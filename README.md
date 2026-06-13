@@ -33,10 +33,15 @@
 - [Testing](#testing)
 - [Project Structure](#project-structure)
 - [Pre-commit Hooks](#pre-commit-hooks)
-- [Contributing](#contributing)
-- [Roadmap](#roadmap)
-- [Security](#security)
-- [FAQ](#faq)
+- [Quickstart](docs/quickstart.md)
+- [Examples](#examples)
+- [Building](BUILDING.md)
+- [Contributing](CONTRIBUTING.md)
+- [Governance](#governance)
+- [Roadmap](docs/Roadmap.md)
+- [Support](SUPPORT.md)
+- [Security](SECURITY.md)
+- [FAQ](FAQ.md)
 - [License](#license)
 
 ---
@@ -320,30 +325,57 @@ pre-commit run --all-files
 
 ---
 
+## Building
+
+See [`BUILDING.md`](BUILDING.md) for build-from-source instructions.
+
+## Examples
+
+See the [`examples/`](examples/) directory for working code:
+
+- **[quick-format](examples/quick-format/)** — Format a paper from the CLI
+- **[custom-template](examples/custom-template/)** — Create and register a new template
+- **[api-scripts](examples/api-scripts/)** — Python API client example
+
 ## Contributing
 
-We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
+We welcome contributions! All contributors must agree to the [Developer Certificate of Origin](DEVELOPER_CERTIFICATE_OF_ORIGIN.md). Use `git commit -s` to sign off your commits.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines and use the [Pull Request Template](PULL_REQUEST_TEMPLATE.md).
 
 **Quick workflow:**
 1. Fork the repo and create a branch from `main`
-2. Make your changes (keep commits small and focused)
-3. Run lint + tests locally (`ruff` → `pytest` → `npm test`)
-4. Open a pull request with a clear description
+2. See [`BUILDING.md`](BUILDING.md) to set up your environment
+3. Make your changes (keep commits small and focused)
+4. Run lint + tests locally (`ruff` → `pytest` → `npm test`)
+5. Open a pull request using the [template](PULL_REQUEST_TEMPLATE.md)
 
-All PRs must pass CI checks (ruff, mypy, pytest, eslint, vitest) before merging.
+All PRs must pass CI checks and include DCO sign-off before merging.
+
+---
+
+## Governance
+
+ScholarForm AI uses a **BDFL + Core Team** governance model. See:
+- [GOVERNANCE.md](GOVERNANCE.md) — decision-making, RFC process, roles
+- [MAINTAINERS.md](MAINTAINERS.md) — core team and committer roster
 
 ---
 
 ## Roadmap
 
-See [`docs/Roadmap.md`](docs/Roadmap.md) for the full implementation plan across phases 0–5, covering:
+See [`docs/Roadmap.md`](docs/Roadmap.md) for the full implementation plan.
 
-- Phase 0: Restore Truth & Fast Feedback ✅
-- Phase 1: Pipeline Hardening & Test Coverage 🔄
-- Phase 2: Real-Time Preview & Editing
-- Phase 3: AI Agent & Synthesis
-- Phase 4: Production Hardening
-- Phase 5: Enterprise & Scale
+---
+
+## Support
+
+- **Community help:** [GitHub Discussions](https://github.com/rohitkumarnaidu/ScholarFormAI/discussions)
+- **Bug reports:** [GitHub Issues](https://github.com/rohitkumarnaidu/ScholarFormAI/issues)
+- **FAQ:** [FAQ.md](FAQ.md)
+- **Security:** [SECURITY.md](SECURITY.md)
+- **Commercial:** enterprise@scholarform.ai
+- See [SUPPORT.md](SUPPORT.md) for full details.
 
 ---
 
@@ -363,6 +395,8 @@ This project uses:
 
 ## FAQ
 
+See the full [FAQ.md](FAQ.md) for 20+ questions. Quick highlights:
+
 **Q: Does this require a GPU?**  
 A: No. All AI inference uses cloud APIs (NVIDIA NIM, Groq) or runs CPU-friendly via Ollama for local fallback.
 
@@ -373,19 +407,21 @@ A: Yes, but you'll need Redis for realtime features and Supabase credentials for
 A: Input: DOCX, PDF, LaTeX, Markdown, HTML, TXT. Output: DOCX, PDF (LaTeX export in development).
 
 **Q: How do I add a new template?**  
-A: Create a template YAML in `backend/app/templates/` and a corresponding CSL file. See existing templates for reference.
+A: See the [Template Creation Guide](docs/template_creation.md) and [examples/custom-template](examples/custom-template/).
 
 **Q: Does it work on Render free tier?**  
-A: Yes — the app runs with `LOW_MEMORY_MODE=true` and `PRELOAD_AI_MODELS=false` on a 512MB RAM instance. PDF parsing uses lightweight fallbacks.
+A: Yes — the app runs with `LOW_MEMORY_MODE=true` and `PRELOAD_AI_MODELS=false` on a 512MB RAM instance.
 
 **Q: Where can I get help?**  
-A: Open a [GitHub Issue](https://github.com/rohitkumarnaidu/ScholarFormAI/issues) for bugs/feature requests. See CONTRIBUTING.md for discussion guidelines.
+A: [SUPPORT.md](SUPPORT.md) — community channels, commercial support, and response SLAs.
 
 ---
 
 ## License
 
 Distributed under the **MIT License**. See [LICENSE](LICENSE) for more information.
+
+This project includes third-party components under various licenses. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for details.
 
 ---
 

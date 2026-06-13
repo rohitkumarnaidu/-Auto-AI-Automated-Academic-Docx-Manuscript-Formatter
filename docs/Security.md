@@ -1,6 +1,19 @@
+---
+title: ScholarForm AI — Security
+description: Security controls, gaps, and hardening measures
+sidebar_position: 35
+version: "1.0"
+status: ✅ Complete
+owner: Security Team
+review_cadence: quarterly
+last_updated: June 2026
+---
+
 # ScholarForm AI — Security
 
-> **Codex Finding (March 2026):** Security is **"better scaffolded than plans claim"** — most security primitives are in place and properly sized. However, live validation across production endpoints has not been performed. Critical gaps in RBAC and audit logging remain.
+> **Codex Finding:** Security is **"better scaffolded than plans claim"** — most security primitives are in place and properly sized. However, live validation across production endpoints has not been performed. Critical gaps in RBAC and audit logging remain.
+
+> **See also:** [Risk Register](Risk_Register.md), [Secret Rotation](SECRET_ROTATION.md), [API Key Quick Start](API_KEY_QUICK_START.md)
 
 ---
 

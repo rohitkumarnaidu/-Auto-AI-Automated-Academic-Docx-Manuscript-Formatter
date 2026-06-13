@@ -1,4 +1,23 @@
-# Template Creation Tutorial
+---
+title: ScholarForm AI — Template Creation Tutorial
+description: How to create, test, and deploy manuscript templates with contract.yaml
+sidebar_position: 11
+version: "1.0"
+status: ✅ Complete
+owner: Docs Team
+review_cadence: quarterly
+last_updated: June 2026
+---
+
+# ScholarForm AI — Template Creation Tutorial
+
+## Table of Contents
+- [1. Create Template Folder](#1-create-template-folder)
+- [2. Add Jinja2 Tags in DOCX](#2-add-jinja2-tags-in-docx)
+- [3. Minimal Template Snippets](#3-minimal-template-snippets)
+- [4. Validate the Template](#4-validate-the-template)
+- [5. Template Quality Checklist](#5-template-quality-checklist)
+- [6. Rollout Steps](#6-rollout-steps)
 
 This guide explains how to create a new manuscript template for the formatter pipeline.
 
@@ -73,12 +92,7 @@ References
 {% endif %}
 ```
 
-## 4. Screenshot Slots (Tutorial)
-
-![Template DOCX with Jinja tags](./screenshots/10-template-docx-jinja.png)
-![Rendered output sample](./screenshots/11-rendered-template-output.png)
-
-## 5. Validate the Template
+## 4. Validate the Template
 
 Run backend template tests:
 
@@ -93,18 +107,20 @@ Run CSL/template integration:
 python -m pytest tests/integration/test_csl_formatting.py --no-cov
 ```
 
-## 6. Template Quality Checklist
+## 5. Template Quality Checklist
 
 - No unresolved Jinja tags remain after rendering.
 - Cover page appears only when enabled.
 - TOC appears only when enabled.
 - Page numbers appear only when enabled.
 - References render correctly with selected citation style.
+- `contract.yaml` matches the expected schema (see `backend/app/pipeline/contract_schema.py`).
 
-## 7. Rollout Steps
+## 6. Rollout Steps
 
 1. Add template folder and files.
-2. Commit template assets.
-3. Run tests.
-4. Validate manually using one sample `.docx`, one `.pdf`, and one `.tex`.
-5. Release.
+2. Add template entry to the whitelist in `backend/app/routers/v1/documents.py`.
+3. Commit template assets.
+4. Run tests.
+5. Validate manually using one sample `.docx`, one `.pdf`, and one `.tex`.
+6. Release.

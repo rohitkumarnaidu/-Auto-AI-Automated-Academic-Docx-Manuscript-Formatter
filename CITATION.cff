@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+title: ScholarForm AI
+message: >-
+  If you use ScholarForm AI in your research, please cite it
+  using the metadata below.
+type: software
+authors:
+  - family-names: "ScholarForm Team"
+    given-names: ""
+    orcid: ""
+    affiliation: "ScholarForm AI"
+repository-code: "https://github.com/scholarform/scholarform"
+license: MIT
+version: 1.0.0
+date-released: 2026-06-13
+keywords:
+  - academic-writing
+  - manuscript-formatting
+  - ai-agent
+  - document-processing
+  - fastapi
+  - nextjs

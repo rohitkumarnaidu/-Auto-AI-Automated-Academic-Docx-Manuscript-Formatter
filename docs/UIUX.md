@@ -1,8 +1,30 @@
+---
+title: ScholarForm AI — UI/UX Analysis & Recommendations
+description: Design audit findings and proposed improvements
+sidebar_position: 53
+version: "1.0"
+status: 🔄 In Progress
+owner: Design Team
+review_cadence: quarterly
+last_updated: June 2026
+---
+
 # ScholarForm AI — UI/UX Analysis & Recommendations
 
-> **Last Updated:** March 2026 (Codex 5.4 Audit)
+> **See also:** [Features](Features.md), [Comprehensive Audit](comprehensive_audit.md), [User Guide](user_guide.md)
 
 ---
+
+## Table of Contents
+- [Current Color Palette](#current-color-palette)
+- [Typography](#typography)
+- [Icon System](#icon-system)
+- [Component Library](#component-library)
+- [Critical CSS Issue](#critical-css-issue)
+- [Dark Mode](#dark-mode)
+- [Design System Maturity](#design-system-maturity)
+- [Responsive Status](#responsive-status)
+- [Recommended Design System Tooling](#recommended-design-system-tooling)
 
 ## Current Color Palette (from `tailwind.config.js`)
 

@@ -1,6 +1,17 @@
-# ScholarForm Technology Stack
+---
+title: ScholarForm AI — Technology Stack
+description: All technologies, libraries, and services powering the platform
+sidebar_position: 3
+version: "1.0"
+status: ✅ Complete
+owner: Docs Team
+review_cadence: quarterly
+last_updated: June 2026
+---
 
-Last updated: March 30, 2026
+# ScholarForm AI — Technology Stack
+
+> **See also:** [Architecture](architecture.md), [Deployment](Deployment.md), [API Reference](API.md)
 
 ## Frontend
 

@@ -1,5 +1,15 @@
-# Runbook: High Error Rate
+---
+title: ScholarForm AI — Runbook: High Error Rate
+description: P1 escalation for elevated API error rates exceeding SLO thresholds
+sidebar_position: 3
+version: "1.0"
+status: ✅ Complete
+owner: DevOps Team
+review_cadence: quarterly
+last_updated: June 2026
+---
 
+# ScholarForm AI — Runbook: High Error Rate
 **Severity:** P1 (High)  
 **Alert:** `ScholarFormHighErrorRate`  
 **On-Call Response:** < 15 minutes

@@ -1,6 +1,17 @@
-# Queue and Remote Offload Plan (Deferred)
+---
+title: ScholarForm AI — Queue and Remote Offload Plan (Deferred)
+description: Future queue-based architecture for heavy document processing tasks
+sidebar_position: 7
+version: "1.0"
+status: 📋 Planned
+owner: Engineering Team
+review_cadence: quarterly
+last_updated: June 2026
+---
 
-Last updated: March 30, 2026
+# ScholarForm AI — Queue and Remote Offload Plan (Deferred)
+
+> **See also:** [Roadmap](../Roadmap.md), [Deployment Guide](../Deployment.md)
 
 This document captures deferred work. It does not enable queue mode or Nougat/SciBERT paths yet.
 

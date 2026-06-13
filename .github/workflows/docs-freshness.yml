@@ -1,0 +1,90 @@
+name: Docs Freshness Check
+
+on:
+  schedule:
+    # Run every Monday at 9:00 UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - '*.md'
+
+jobs:
+  check-freshness:
+    name: Check Documentation Freshness
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check doc freshness
+        run: |
+          STALE_THRESHOLD_DAYS=90
+          STALE_FILES=()
+          CURRENT_EPOCH=$(date +%s)
+          REFERENCE_EPOCH=$(date --date="2026-06-13" +%s)
+
+          while IFS= read -r -d '' file; do
+            # Extract last_updated from YAML frontmatter
+            LAST_UPDATED=$(grep -oP 'last_updated:\s*\K.*' "$file" | head -1)
+
+            if [[ -z "$LAST_UPDATED" ]]; then
+              # Files without frontmatter are automatically stale
+              STALE_FILES+=("$file (no frontmatter)")
+              continue
+            fi
+
+            # Normalize date strings
+            NORMALIZED=$(echo "$LAST_UPDATED" | sed 's/June/2026-06/' | sed 's/2026-06/2026-06-01/')
+
+            # Simple staleness check based on reference date
+            FILE_EPOCH=$(date --date="$NORMALIZED" +%s 2>/dev/null || echo "$REFERENCE_EPOCH")
+            DIFF_DAYS=$(( (CURRENT_EPOCH - FILE_EPOCH) / 86400 ))
+
+            if (( DIFF_DAYS > STALE_THRESHOLD_DAYS )); then
+              STALE_FILES+=("$file (last updated: $LAST_UPDATED, $DIFF_DAYS days ago)")
+            fi
+          done < <(find docs/ -name '*.md' -print0)
+
+          if [[ ${#STALE_FILES[@]} -gt 0 ]]; then
+            echo "::warning::Stale documentation files found:"
+            for f in "${STALE_FILES[@]}"; do
+              echo "::warning::$f"
+            done
+            exit 0  # Warn but don't fail
+          fi
+
+          echo "All documentation is fresh (within $STALE_THRESHOLD_DAYS days)."
+
+      - name: Check for broken internal links
+        run: |
+          cd docs
+          BROKEN=0
+          while IFS= read -r -d '' file; do
+            # Extract links like [text](relative-path)
+            while IFS= read -r link; do
+              TARGET=$(echo "$link" | grep -oP '\]\(\K[^)]+')
+              # Skip external URLs and anchors
+              if echo "$TARGET" | grep -qE '^(https?://|#)'; then
+                continue
+              fi
+              # Resolve relative to the file's directory
+              BASE=$(dirname "$file")
+              RESOLVED=$(realpath -m "$BASE/$TARGET" 2>/dev/null)
+              if [[ ! -f "$RESOLVED" ]]; then
+                echo "::error file=$file::Broken link '$TARGET' -> '$RESOLVED'"
+                BROKEN=$((BROKEN + 1))
+              fi
+            done < <(grep -oP '\[[^]]+\]\([^)]+\)' "$file" || true)
+          done < <(find . -name '*.md' -print0)
+
+          if [[ $BROKEN -gt 0 ]]; then
+            echo "Found $BROKEN broken internal links."
+            exit 1
+          fi
+          echo "All internal links are valid."

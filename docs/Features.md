@@ -1,9 +1,34 @@
+---
+title: ScholarForm AI — Features List
+description: Complete feature inventory with implementation status
+sidebar_position: 52
+version: "1.0"
+status: 🔄 In Progress
+owner: Docs Team
+review_cadence: monthly
+last_updated: June 2026
+---
+
 # ScholarForm AI — Features List
 
 > **Codex Status Key:** ✅ Confirmed working | ⚠️ Files exist, needs runtime verification | ❌ Stub / not implemented  
-> **Source:** Codex 5.4 Audit, March 2026. Items marked TODO in earlier plans but **confirmed done** are now marked ✅.
+> **Source:** Codex 5.4 Audit. Items marked TODO in earlier plans but **confirmed done** are now marked ✅.
+
+> **See also:** [PRD](PRD.md), [Roadmap](Roadmap.md), [Testing](Testing.md)
 
 ---
+
+## Table of Contents
+- [Formatter Mode A (Upload & Format)](#formatter-mode-a-upload--format)
+- [Formatter Mode B (Live Preview Editor)](#formatter-mode-b-live-preview-editor)
+- [Generator Mode A (Multi-Doc Synthesis)](#generator-mode-a-multi-doc-synthesis)
+- [Generator Mode B (AI Agent)](#generator-mode-b-ai-agent)
+- [LLM & AI](#llm--ai)
+- [Security & Auth](#security--auth)
+- [UX & Design](#ux--design)
+- [Billing](#billing)
+- [CI/CD & DevOps](#cicd--devops)
+- [Frontend Route Count](#frontend-route-count)
 
 ## Formatter Mode A (Upload & Format)
 

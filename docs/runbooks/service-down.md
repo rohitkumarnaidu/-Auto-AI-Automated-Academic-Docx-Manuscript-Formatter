@@ -1,8 +1,20 @@
-# Runbook: Service Down
+---
+title: ScholarForm AI — Runbook: Service Down
+description: P0 outage response procedures for complete service unavailability
+sidebar_position: 2
+version: "1.0"
+status: ✅ Complete
+owner: DevOps Team
+review_cadence: quarterly
+last_updated: June 2026
+---
 
+# ScholarForm AI — Runbook: Service Down
 **Severity:** P0 (Critical)  
 **Alert:** `ScholarFormServiceDown`  
 **On-Call Response:** < 5 minutes
+
+> **See also:** [Disaster Recovery](../DISASTER_RECOVERY.md), [Incident Response](incident-response.md), [Rollback](rollback.md)
 
 ---
 

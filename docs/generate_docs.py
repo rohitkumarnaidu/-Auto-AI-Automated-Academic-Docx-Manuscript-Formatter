@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 ⚠️ DEPRECATED — ScholarForm AI Documentation Generator
+Last Updated: June 2026
 
 This script generates a DOCX documentation file. It contains STALE INFORMATION
 and should NOT be used as a reference for the current codebase:

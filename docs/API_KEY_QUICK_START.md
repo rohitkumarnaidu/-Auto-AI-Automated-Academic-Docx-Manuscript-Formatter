@@ -1,9 +1,32 @@
-# API Key Quick-Start Tutorial
+---
+title: ScholarForm AI — API Key Quick-Start Tutorial
+description: Add your own LLM provider keys to ScholarForm AI
+sidebar_position: 51
+version: "1.0"
+status: ✅ Complete
+owner: Docs Team
+review_cadence: quarterly
+last_updated: June 2026
+---
 
+# ScholarForm AI — API Key Quick-Start Tutorial
 **Audience:** Users who want to add their own LLM provider API keys  
 **Time:** 5 minutes
 
+> **See also:** [API Reference](API.md), [Security](Security.md), [Secret Rotation](SECRET_ROTATION.md)
+
 ---
+
+## Table of Contents
+- [Why Add Your Own API Key?](#why-add-your-own-api-key)
+- [Step 1: Get Your API Key](#step-1-get-your-api-key)
+- [Step 2: Add Key to ScholarForm](#step-2-add-key-to-scholarform)
+- [Step 3: Verify It Works](#step-3-verify-it-works)
+- [Step 4: Monitor Usage](#step-4-monitor-usage)
+- [Rate Limits Explained](#rate-limits-explained)
+- [Troubleshooting](#troubleshooting)
+- [Security Notes](#security-notes)
+- [Supported Providers](#supported-providers)
 
 ## Why Add Your Own API Key?
 

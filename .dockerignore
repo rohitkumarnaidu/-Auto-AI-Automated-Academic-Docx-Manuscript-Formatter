@@ -1,0 +1,62 @@
+# ScholarForm AI .dockerignore
+
+# Git
+.git
+.gitattributes
+.gitignore
+.git-blame-ignore-revs
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Secrets
+.env
+.env.local
+.secrets.baseline
+
+# Docker
+.dockerignore
+Dockerfile*
+docker-compose*
+
+# Documentation
+docs/
+*.md
+
+# CI
+.github/
+deploy/
+
+# Node (if included in context)
+node_modules/
+.next/
+
+# Reports
+*.audit.md
+*_REPORT.md
+*_AUDIT.md

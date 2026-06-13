@@ -1,9 +1,28 @@
-# Testing Strategy
+---
+title: ScholarForm AI — Testing Strategy
+description: Testing frameworks, commands, CI pipelines, and coverage targets
+sidebar_position: 6
+version: "1.0"
+status: 🔄 In Progress
+owner: QA Team
+review_cadence: quarterly
+last_updated: June 2026
+---
 
-> **Last Updated:** June 2026  
-> **Current State:** Backend coverage at ~21% (up from ~5%). Deep test suite (854+ tests) covers all core pipeline modules. Frontend uses vitest + Playwright E2E.
+# ScholarForm AI — Testing Strategy
+
+> **Current State:** Backend coverage at ~21% (up from ~5%). Deep test suite (931+ tests) covers all core pipeline modules. Frontend uses vitest + Playwright E2E.
+
+> **See also:** [Developer Onboarding](DEVELOPER_ONBOARDING.md), [CI/CD](Deployment.md)
 
 ---
+
+## Table of Contents
+- [1. Backend Profiles](#1-backend-profiles)
+- [2. Frontend Profiles](#2-frontend-profiles)
+- [3. Critical Test Paths](#3-critical-test-paths)
+- [4. Test Infrastructure](#4-test-infrastructure)
+- [5. Next Steps](#5-next-steps)
 
 ## Overview
 
@@ -139,6 +158,18 @@ npm run test:e2e:headed    # headed
 - **Python 3.14 compatibility:** Tests use `unittest.mock.patch` and `pytest` — no `async` decorator needed thanks to `asyncio_mode = auto`
 
 ---
+
+## Performance Benchmarks (Test Suite)
+
+| Test Suite | Runtime | Concurrency | Environment |
+|-----------|---------|-------------|-------------|
+| Backend unit tests (fast) | ~45s | 4 workers | Local |
+| Backend full suite | ~6m | 4 workers | CI (skip integration) |
+| Frontend vitest | ~15s | Auto | Local/CI |
+| Frontend E2E (headed) | ~2m | 3 workers | Local |
+| Frontend E2E (headless) | ~1m | 3 workers | CI |
+
+**Targets:** Unit suite < 60s. Full backend < 10m. E2E < 3m.
 
 ## 5. Next Steps
 

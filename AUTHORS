@@ -1,0 +1,23 @@
+# ScholarForm AI Contributors
+
+This project exists thanks to all the people who contribute.
+
+## Core Team
+
+- Your Name <your.email@example.com>
+
+## Contributors
+
+Generated from git history. Add yourself with:
+
+```
+git log --format='- %aN <%aE>' | sort -u
+```
+
+## Organizations
+
+- ECLearnIX (original project incubation)
+
+---
+
+*Last updated: June 2026*

@@ -1,8 +1,19 @@
-# ScholarForm AI — PRD (Product Requirements Document)
+---
+title: ScholarForm AI — Product Requirements Document (PRD)
+description: Product vision, user stories, acceptance criteria, and out-of-scope items
+sidebar_position: 55
+version: "1.0"
+status: ✅ Complete
+owner: Product Team
+review_cadence: quarterly
+last_updated: June 2026
+---
 
-> **Last Updated:** March 2026  
-> **Status:** Reflects codebase reality as of Codex 5.4 Audit  
+# ScholarForm AI — Product Requirements Document (PRD)
+
 > **Codex Verdict:** "Feature-rich but operationally unstable" — strong file coverage, runtime validation required across all 34 routes.
+
+> **See also:** [Features](Features.md), [Roadmap](Roadmap.md), [Architecture](architecture.md)
 
 ---
 

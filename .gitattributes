@@ -1,0 +1,48 @@
+# Auto-detect text files and normalize line endings
+* text=auto
+
+# Source code
+*.py text diff=python
+*.js text
+*.jsx text
+*.ts text
+*.tsx text
+*.css text
+*.scss text
+*.html text
+*.json text
+*.yaml text
+*.yml text
+*.toml text
+*.ini text
+*.cfg text
+*.md text diff=markdown
+*.rst text
+*.sh text eol=lf
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+
+# Binaries (never normalized)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg binary
+*.woff binary
+*.woff2 binary
+*.eot binary
+*.ttf binary
+*.docx binary
+*.xlsx binary
+*.pdf binary
+*.zip binary
+*.tar.gz binary
+
+# Generated / vendored (linguist won't count them)
+*.min.js linguist-generated=true
+*.min.css linguist-generated=true
+package-lock.json linguist-generated=true
+
+# Merge strategy for specific files
+CHANGELOG.md merge=union

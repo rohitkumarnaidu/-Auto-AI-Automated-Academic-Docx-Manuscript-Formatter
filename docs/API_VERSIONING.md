@@ -1,8 +1,19 @@
-# ScholarForm AI — API Versioning Strategy
+---
+title: ScholarForm AI — API Versioning Strategy
+description: Versioning policy, migration plan, and deprecation timeline
+sidebar_position: 7
+version: "1.0"
+status: ✅ Complete
+owner: Engineering Team
+review_cadence: quarterly
+last_updated: June 2026
+---
 
-**Last Updated:** May 21, 2026  
+# ScholarForm AI — API Versioning Strategy
 **Current Version:** v1  
 **Next Version:** v2 (planned)
+
+> **See also:** [API Reference](API.md), [ADR 003: API Versioning Strategy](adr/003-api-versioning-strategy.md)
 
 ---
 

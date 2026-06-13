@@ -1,11 +1,33 @@
-# Incident Postmortem Template
+---
+title: ScholarForm AI — Incident Postmortem Template
+description: Structured template for post-incident analysis documentation
+sidebar_position: 60
+version: "1.0"
+status: ✅ Complete
+owner: Engineering Team
+review_cadence: annually
+last_updated: June 2026
+---
 
+# ScholarForm AI — Incident Postmortem Template
 **Incident ID:** INC-YYYY-NNN  
 **Date:** YYYY-MM-DD  
 **Author:** [Name]  
 **Status:** Draft / Review / Complete
 
+> **See also:** [Runbooks](runbooks/), [Disaster Recovery](DISASTER_RECOVERY.md), [SLO Definitions](SLO_DEFINITIONS.md)
+
 ---
+
+## Table of Contents
+- [Summary](#summary)
+- [Timeline](#timeline)
+- [Impact Assessment](#impact-assessment)
+- [Root Cause Analysis](#root-cause-analysis)
+- [Resolution](#resolution)
+- [Action Items](#action-items)
+- [Lessons Learned](#lessons-learned)
+- [Review](#review)
 
 ## Summary
 

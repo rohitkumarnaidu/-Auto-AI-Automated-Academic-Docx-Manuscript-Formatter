@@ -1,7 +1,18 @@
-# ScholarForm AI — Secret Rotation Policy
+---
+title: ScholarForm AI — Secret Rotation Policy
+description: Procedures for rotating API keys, JWT secrets, and database credentials
+sidebar_position: 36
+version: "1.0"
+status: ✅ Complete
+owner: DevOps Team
+review_cadence: quarterly
+last_updated: June 2026
+---
 
-**Last Updated:** May 21, 2026  
+# ScholarForm AI — Secret Rotation Policy
 **Frequency:** Quarterly (90 days)
+
+> **See also:** [Security](Security.md), [Disaster Recovery](DISASTER_RECOVERY.md), [Deployment](Deployment.md)
 
 ---
 

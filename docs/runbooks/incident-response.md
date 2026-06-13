@@ -1,4 +1,17 @@
-# Incident Response Runbook
+---
+title: ScholarForm AI — Incident Response Runbook
+description: Structured incident response procedures from detection to postmortem
+sidebar_position: 1
+version: "1.0"
+status: ✅ Complete
+owner: DevOps Team
+review_cadence: quarterly
+last_updated: June 2026
+---
+
+# ScholarForm AI — Incident Response Runbook
+
+> **See also:** [Postmortem Template](../POSTMORTEM_TEMPLATE.md), [Disaster Recovery](../DISASTER_RECOVERY.md), [Runbooks](.)
 
 ## Alert Matrix
 - 5xx error rate > 1% for 5 minutes.

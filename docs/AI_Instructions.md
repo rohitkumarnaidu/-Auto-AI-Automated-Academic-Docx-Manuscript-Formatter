@@ -1,3 +1,14 @@
+---
+title: ScholarForm AI — AI Instructions
+description: LLM tiers, RAG pipeline, prompt rules, and fallback behavior
+sidebar_position: 20
+version: "1.0"
+status: ✅ Complete
+owner: Docs Team
+review_cadence: quarterly
+last_updated: June 2026
+---
+
 # ScholarForm AI — AI Instructions
 
 ## LLM Tier Strategy

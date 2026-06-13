@@ -1,37 +1,101 @@
+---
+title: ScholarForm AI — Architecture
+description: System layers, request flows, middleware stack, and key architecture decisions
+sidebar_position: 1
+version: "1.0"
+status: ✅ Complete
+owner: Engineering Team
+review_cadence: quarterly
+last_updated: June 2026
+---
+
 # ScholarForm AI — Architecture
 
-> **Last Updated:** March 2026 — Codex 5.4 Audit  
 > **Key correction:** The Spring Boot API gateway referenced in early plan documents is **obsolete/incorrect**. The system uses **FastAPI only** as the backend gateway.
+
+> **See also:** [API Reference](API.md), [Database](Database.md), [ADRs](adr/)
 
 ---
 
+## Table of Contents
+- [System Layers](#system-layers)
+- [Current Architecture (FastAPI-Only)](#current-architecture-fastapi-only)
+- [Request Flows](#request-flows)
+- [Key Architecture Decisions](#key-architecture-decisions)
+- [Middleware Stack (Execution Order)](#middleware-stack-execution-order)
+- [Data Flow Diagram (Simplified)](#data-flow-diagram-simplified)
+
 ## System Layers
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    BROWSER (Next.js 16 + React 19)           │
-│  Auth │ Formatter UI │ Generator UI │ Live Editor │ Admin    │
-│  34 frontend routes in frontend/src/app/                     │
-├─────────────────────────────────────────────────────────────┤
-│              API GATEWAY — FastAPI only                      │
-│  JWKS JWT Verify │ Rate Limit │ Request ID │ CORS            │
-│  (⚠️ No Spring Boot gateway — that requirement is obsolete)  │
-├─────────────────────────────────────────────────────────────┤
-│               BACKEND (FastAPI + Uvicorn)                    │
-│  v1 Routers │ Middleware │ Security │ Background Tasks        │
-├──────────────┬───────────────┬──────────────────────────────┤
-│  Pipeline    │   Services    │   Realtime                    │
-│  12-Stage    │   LLM Service │   Redis Pub/Sub               │
-│  Formatter   │   Auth Service│   WebSocket (live preview)    │
-│  Synthesizer │   Generator   │   SSE Events (formatting)     │
-│  Agent       │   Quality     │                               │
-├──────────────┴───────────────┴──────────────────────────────┤
-│              DATA LAYER                                       │
-│  PostgreSQL (Supabase) │ Redis │ ChromaDB │ Supabase Storage  │
-├─────────────────────────────────────────────────────────────┤
-│              EXTERNAL SERVICES                                │
-│  NVIDIA NIM │ Groq │ Ollama │ ClamAV │ GROBID/Docling │ Stripe│
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph BROWSER["BROWSER (Next.js 16 + React 19)"]
+        B1["Auth"]
+        B2["Formatter UI"]
+        B3["Generator UI"]
+        B4["Live Editor"]
+        B5["Admin"]
+    end
+
+    subgraph GATEWAY["API GATEWAY — FastAPI only"]
+        G1["JWKS JWT Verify"]
+        G2["Rate Limit"]
+        G3["Request ID"]
+        G4["CORS"]
+    end
+
+    subgraph BACKEND["BACKEND (FastAPI + Uvicorn)"]
+        B6["v1 Routers"]
+        B7["Middleware"]
+        B8["Security"]
+        B9["Background Tasks"]
+    end
+
+    subgraph PIPELINE["Pipeline Layer"]
+        P1["Formatter (12-Stage)"]
+        P2["Synthesizer"]
+        P3["Agent"]
+    end
+
+    subgraph SERVICES["Services Layer"]
+        S1["LLM Service"]
+        S2["Auth Service"]
+        S3["Generator"]
+        S4["Quality"]
+    end
+
+    subgraph REALTIME["Realtime Layer"]
+        R1["Redis Pub/Sub"]
+        R2["WebSocket"]
+        R3["SSE Events"]
+    end
+
+    subgraph DATA["Data Layer"]
+        D1["PostgreSQL<br/>(Supabase)"]
+        D2["Redis"]
+        D3["ChromaDB"]
+        D4["Supabase Storage"]
+    end
+
+    subgraph EXTERNAL["External Services"]
+        E1["NVIDIA NIM"]
+        E2["Groq"]
+        E3["Ollama"]
+        E4["ClamAV"]
+        E5["GROBID / Docling"]
+        E6["Stripe"]
+    end
+
+    BROWSER --> GATEWAY
+    GATEWAY --> BACKEND
+    BACKEND --> PIPELINE
+    BACKEND --> SERVICES
+    BACKEND --> REALTIME
+    PIPELINE --> DATA
+    SERVICES --> DATA
+    REALTIME --> DATA
+    SERVICES --> EXTERNAL
+    PIPELINE --> EXTERNAL
 ```
 
 ---

@@ -1,9 +1,26 @@
-# ScholarForm AI — Developer Onboarding Guide
+---
+title: ScholarForm AI — Developer Onboarding Guide
+description: 15-minute development setup guide from clone to running locally
+sidebar_position: 50
+version: "1.0"
+status: ✅ Complete
+owner: Docs Team
+review_cadence: quarterly
+last_updated: June 2026
+---
 
-**Last Updated:** June 11, 2026  
+# ScholarForm AI — Developer Onboarding Guide
 **Audience:** New developers and open-source contributors
 
 ---
+
+## Table of Contents
+- [Quick Start (15 minutes)](#quick-start-15-minutes)
+- [Architecture Overview](#architecture-overview)
+- [Key Directories](#key-directories)
+- [Development Workflow](#development-workflow)
+- [API Documentation](#api-documentation)
+- [Troubleshooting](#troubleshooting)
 
 > **New contributor?** Check [CONTRIBUTING.md](../CONTRIBUTING.md) first for the full guide on submitting issues and PRs.
 

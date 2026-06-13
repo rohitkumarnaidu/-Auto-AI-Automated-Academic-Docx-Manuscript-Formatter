@@ -1,0 +1,11 @@
+# Git Blame Ignore Revisions
+# 
+# Commits in this file are ignored by `git blame` (reformatting, lint fixes, etc.)
+# Use: git blame --ignore-revs-file .git-blame-ignore-revs
+#
+# Add commits that are purely formatting/code-style changes here to keep
+# git blame focused on meaningful changes.
+
+# Example (uncomment after a reformat commit):
+# abc123def4567890123456789012345678901234  # ruff format whole codebase
+# 0123456789abcdef0123456789abcdef01234567  # eslint --fix all files

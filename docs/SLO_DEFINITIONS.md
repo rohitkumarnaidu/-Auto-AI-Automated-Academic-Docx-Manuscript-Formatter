@@ -1,8 +1,15 @@
-# ScholarForm AI — SLO Definitions
+---
+title: ScholarForm AI — SLO Definitions
+description: Service level objectives, error budgets, and monitoring thresholds
+sidebar_position: 38
+version: "1.0"
+status: ✅ Complete
+owner: Engineering Team
+review_cadence: quarterly
+last_updated: May 2026
+---
 
-**Last Updated:** May 21, 2026  
-**Owner:** Engineering Team  
-**Review Cadence:** Quarterly
+# ScholarForm AI — SLO Definitions
 
 ---
 
@@ -79,7 +86,9 @@
 
 ## Dashboard Links
 
-- **Grafana:** `https://grafana.scholarform.ai/d/scholarform`
-- **Prometheus:** `https://prometheus.scholarform.ai`
-- **Uptime:** `https://status.scholarform.ai`
-- **Error Budget:** `https://grafana.scholarform.ai/d/error-budget`
+> **Note:** These dashboards are planned for Phase 5 deployment and are not yet live.
+
+- **Grafana:** `https://grafana.scholarform.ai/d/scholarform` *(not yet deployed)*
+- **Prometheus:** `https://prometheus.scholarform.ai` *(not yet deployed)*
+- **Uptime:** `https://status.scholarform.ai` *(not yet deployed)*
+- **Error Budget:** `https://grafana.scholarform.ai/d/error-budget` *(not yet deployed)*

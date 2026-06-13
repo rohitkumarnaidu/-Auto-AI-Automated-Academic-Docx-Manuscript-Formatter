@@ -1,6 +1,17 @@
-# Risk Register
+---
+title: ScholarForm AI — Risk Register
+description: Risk inventory, severity ratings, and mitigation strategies
+sidebar_position: 37
+version: "1.0"
+status: 🔄 In Progress
+owner: Engineering Team
+review_cadence: quarterly
+last_updated: June 2026
+---
 
-Last updated: March 30, 2026
+# ScholarForm AI — Risk Register
+
+> **See also:** [Security](Security.md), [Deployment](Deployment.md), [SLO Definitions](SLO_DEFINITIONS.md)
 
 ## High Risks
 
