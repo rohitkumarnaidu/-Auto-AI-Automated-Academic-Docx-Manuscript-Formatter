@@ -44,7 +44,8 @@ jobs:
 
       - name: Generate CycloneDX SBOM (Python)
         run: |
-          pip freeze | cyclonedx-py -- - --output-format json -o sbom/backend-sbom.json
+          pip freeze > /tmp/pip-freeze.txt
+          cyclonedx-py requirements /tmp/pip-freeze.txt --output-format json -o sbom/backend-sbom.json
 
       - name: Generate CycloneDX SBOM (npm)
         working-directory: ./frontend
