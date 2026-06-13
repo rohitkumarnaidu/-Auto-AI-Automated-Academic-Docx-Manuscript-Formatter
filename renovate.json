@@ -1,0 +1,68 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":semanticCommits",
+    ":separateMajorMinor",
+    ":combinePatchMinorUpdates",
+    "group:allNonMajor",
+    ":enableVulnerabilityAlerts",
+    ":rebaseStalePrs"
+  ],
+  "labels": ["dependencies"],
+  "schedule": ["before 9am on monday"],
+  "timezone": "UTC",
+  "packageRules": [
+    {
+      "matchManagers": ["pip_requirements"],
+      "matchUpdateTypes": ["patch"],
+      "groupName": "Python patch dependencies",
+      "automerge": true
+    },
+    {
+      "matchManagers": ["pip_requirements"],
+      "matchUpdateTypes": ["minor"],
+      "groupName": "Python minor dependencies"
+    },
+    {
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["patch"],
+      "groupName": "npm patch dependencies",
+      "automerge": true
+    },
+    {
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["minor"],
+      "groupName": "npm minor dependencies"
+    },
+    {
+      "matchDepTypes": ["devDependencies"],
+      "automerge": true
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions dependencies"
+    },
+    {
+      "matchPackageNames": ["torch", "torchvision", "transformers"],
+      "labels": ["dependencies", "ml-stack"],
+      "schedule": ["before 9am on thursday"]
+    },
+    {
+      "matchPackageNames": ["chromadb"],
+      "labels": ["dependencies", "chromadb"],
+      "enabled": false
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "labels": ["security"],
+    "assignees": ["@rohitkumarnaidu"]
+  },
+  "prHourlyLimit": 4,
+  "prConcurrentLimit": 10,
+  "branchPrefix": "renovate/",
+  "assignees": ["rohitkumarnaidu"],
+  "reviewers": ["rohitkumarnaidu"],
+  "platformAutomerge": true
+}

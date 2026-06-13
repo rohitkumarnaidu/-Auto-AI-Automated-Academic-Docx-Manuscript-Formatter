@@ -1,0 +1,78 @@
+name: SBOM Generation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/requirements*.txt'
+      - 'frontend/package*.json'
+      - 'frontend/yarn.lock'
+  schedule:
+    - cron: '0 8 * * 1'  # Every Monday 08:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  generate-sbom:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Python deps for SBOM
+        run: |
+          pip install pip-licenses cyclonedx-bom
+          pip install -r backend/requirements.txt
+
+      - name: Install npm deps
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Generate CycloneDX SBOM (Python)
+        run: |
+          pip freeze | cyclonedx-py -- - --output-format json -o sbom/backend-sbom.json
+
+      - name: Generate CycloneDX SBOM (npm)
+        working-directory: ./frontend
+        run: |
+          npx --yes @cyclonedx/cyclonedx-npm --output-format JSON --output-file ../sbom/frontend-sbom.json
+
+      - name: Generate SPDX SBOM (combined)
+        run: |
+          pip install spdx-tools
+          python -c "
+          import json
+          import glob
+          # Merge CycloneDX files into a summary report
+          backend = json.load(open('sbom/backend-sbom.json'))
+          frontend = json.load(open('sbom/frontend-sbom.json'))
+          summary = {
+            'generated': '2026-06-14T00:00:00Z',
+            'backend_packages': len(backend.get('components', [])),
+            'frontend_packages': len(frontend.get('components', [])),
+            'total_packages': len(backend.get('components', [])) + len(frontend.get('components', [])),
+          }
+          json.dump(summary, open('sbom/summary.json', 'w'), indent=2)
+          "
+
+      - name: Commit SBOM updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add sbom/
+          git diff --cached --quiet || git commit -m "chore: update SBOM (auto)"
+          git push

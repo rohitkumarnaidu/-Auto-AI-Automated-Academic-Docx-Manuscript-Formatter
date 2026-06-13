@@ -1,0 +1,24 @@
+# FOSSA License Compliance Configuration
+# See https://docs.fossa.com/docs/api-reference/fossa-yml
+
+version: 3
+
+project:
+  name: scholarform-ai
+  url: https://github.com/rohitkumarnaidu/ScholarFormAI
+
+revision:
+  branch: main
+
+paths:
+  exclude:
+    - ./docs/
+    - ./logo/
+    - ./scripts/_sbom_tmp/
+    - ./sbom/
+
+licenseScanning:
+  includeDev: false
+
+telemetry:
+  disabled: false

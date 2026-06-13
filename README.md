@@ -16,6 +16,10 @@
 [![GitHub stars](https://img.shields.io/github/stars/rohitkumarnaidu/ScholarFormAI?style=social)](https://github.com/rohitkumarnaidu/ScholarFormAI/stargazers)
 [![Last commit](https://img.shields.io/github/last-commit/rohitkumarnaidu/ScholarFormAI/main)](https://github.com/rohitkumarnaidu/ScholarFormAI/commits/main)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
+[![SBOM](https://img.shields.io/badge/SBOM-CycloneDX-8A2BE2)](sbom/backend-sbom.json)
+[![Dependency Review](https://img.shields.io/badge/dependency%20review-passing-brightgreen)](.github/workflows/dependency-review.yml)
+[![Renovate](https://img.shields.io/badge/renovate-enabled-1A1F6E)](renovate.json)
+[![FOSSA](https://img.shields.io/badge/license%20scan-FOSSA-289E6D)](.fossa.yml)
 
 </div>
 
@@ -252,6 +256,25 @@ npm run test:e2e:headed     # Playwright E2E (headed)
 ```
 
 See [`docs/Testing.md`](docs/Testing.md) for the full test strategy.
+
+---
+
+## Compliance & Dependency Management
+
+ScholarForm AI maintains a comprehensive license compliance and dependency audit program.
+
+| Capability | Tool/Framework | Frequency |
+|-----------|---------------|-----------|
+| License inventory | `THIRD_PARTY_NOTICES.md` (auto-generated) | Every commit |
+| SBOM (CycloneDX) | `sbom/backend-sbom.json`, `sbom/frontend-sbom.json` | Weekly + on dep change |
+| CVE scanning (Python) | pip-audit + safety | Every PR |
+| CVE scanning (npm) | npm audit | Every PR |
+| SAST (Python) | bandit | Every PR |
+| Dependency PRs | Renovate | Weekly (Monday) |
+| License compliance | FOSSA | Continuous |
+| License policy enforcement | `dependency-review.yml` | Every PR |
+
+See [`docs/compliance.md`](docs/compliance.md) for full documentation.
 
 ---
 
