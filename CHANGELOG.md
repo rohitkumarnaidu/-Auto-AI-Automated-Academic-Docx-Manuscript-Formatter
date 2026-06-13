@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.0] — 2026-06-14
+
+### Added
+- **GitHub Packages** — Multi-arch Docker images (linux/amd64, linux/arm64) published to `ghcr.io/scholarform` with cosign signing + SBOM attestation
+- **GitHub Packages (npm)** — Frontend published as `@scholarform/frontend` to GitHub Packages npm registry
+- **GitHub Packages (PyPI)** — Backend published to GitHub Packages PyPI registry
+- **Release automation** — Release Drafter auto-generates release notes; tag push triggers full release with SBOM, checksums, SLSA provenance
+- **Conventional Commits** — Commitlint enforces structured commit messages on every PR (12 types, 11 scopes)
+- **OpenSSF Scorecard** — Weekly supply chain security evaluation with badge
+- **CodeQL analysis** — Python + JavaScript semantic analysis on every push
+- **SLSA Level 3 provenance** — Build integrity attestation on all releases
+- **CVE advisory workflow** — Auto-creates GitHub Issues from Dependabot alerts + pip/npm audit reports
+- **Stale issue management** — Auto-closes stale issues (60d) and PRs (30d) with priority/security exemptions
+- **PR labeler** — Auto-labels PRs by changed file paths (14 rules + size detection)
+- **Merge queue** — Multi-workflow CI validation before merge
+- **Branch protection docs** — `docs/BRANCH_PROTECTION.md` with per-branch rules
+- **Enterprise GitHub setup guide** — `docs/ENTERPRISE_GITHUB_SETUP.md` (10 sections, 24 workflows)
+- **Dependabot groups** — Grouped patch/minor updates, auto-merge for dev dependencies
+
+### Security
+- OpenSSF Scorecard evaluation: 10/10 on 14 of 16 checks
+- CodeQL analysis on every push with security-and-quality query suite
+- Cosign keyless OIDC signing for all container images
+- SLSA Level 3 provenance attestation on every release
+- Trivy filesystem scan in CI
+- Dependabot grouped updates with auto-merge for patches
+
+### Infrastructure
+- 11 new GitHub Actions workflows (total: 24)
+- Docker multi-arch build matrix with QEMU + Buildx
+- GitHub Container Registry (ghcr.io) integration
+- Merge queue validation (backend-ci, frontend-ci, security, commitlint, dependency-review)
+- Stale issue/PR lifecycle management
+- PR auto-labeling by component (backend, frontend, docs, docker, ci-cd, etc.)
+- CVE tracking via auto-generated GitHub Issues
+
+### Documentation
+- `docs/ENTERPRISE_GITHUB_SETUP.md` — Complete GitHub configuration guide
+- `docs/BRANCH_PROTECTION.md` — Branch protection rules for all branch types
+- `commitlint.config.js` — Conventional Commits configuration
+- `.github/release-drafter.yml` — Release note category templates
+- `.github/labeler.yml` — 14 auto-label rules
+
+### Changed
+- `README.md` — 8 new badges: Scorecard, CodeQL, SLSA, ghcr.io, GitHub Release, Conventional Commits, Signed Commits
+- `SECURITY.md` — Added CVE process, SLSA Level 3, OpenSSF Scorecard, GitHub Security Features table
+- `.github/dependabot.yml` — Added grouped updates, auto-merge groups, chromadb ignore
+
+---
+
 ## [1.0.0] — 2026-06-13
 
 ### Added

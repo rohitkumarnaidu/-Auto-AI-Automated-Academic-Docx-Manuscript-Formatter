@@ -20,6 +20,13 @@
 [![Dependency Review](https://img.shields.io/badge/dependency%20review-passing-brightgreen)](.github/workflows/dependency-review.yml)
 [![Renovate](https://img.shields.io/badge/renovate-enabled-1A1F6E)](renovate.json)
 [![FOSSA](https://img.shields.io/badge/license%20scan-FOSSA-289E6D)](.fossa.yml)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/rohitkumarnaidu/ScholarFormAI/badge)](https://securityscorecards.dev/viewer/?uri=github.com/rohitkumarnaidu/ScholarFormAI)
+[![CodeQL](https://github.com/rohitkumarnaidu/ScholarFormAI/actions/workflows/codeql.yml/badge.svg)](.github/workflows/codeql.yml)
+[![SLSA](https://img.shields.io/badge/SLSA-3-brightgreen)](.github/workflows/slsa-provenance.yml)
+[![ghcr.io](https://img.shields.io/badge/ghcr.io-packages-2496ED?logo=docker)](https://github.com/rohitkumarnaidu/ScholarFormAI/pkgs/container/scholarform)
+[![GitHub Release](https://img.shields.io/github/v/release/rohitkumarnaidu/ScholarFormAI?logo=github)](https://github.com/rohitkumarnaidu/ScholarFormAI/releases)
+[![Conventional Commits](https://img.shields.io/badge/conventional%20commits-1.0.0-FE5196)](commitlint.config.js)
+[![Signed commits](https://img.shields.io/badge/signed%20commits-required-red)](docs/BRANCH_PROTECTION.md)
 
 </div>
 

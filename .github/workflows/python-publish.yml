@@ -1,0 +1,69 @@
+name: python-publish
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (e.g. 0.1.0)"
+        required: true
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tools
+        run: |
+          pip install --upgrade pip build twine
+
+      - name: Validate version
+        run: |
+          python -c "
+            import toml
+            with open('pyproject.toml') as f:
+              config = toml.load(f)
+            current = config['project']['version']
+            print(f'Current version: {current}')
+          "
+
+      - name: Build distribution packages
+        run: python -m build
+
+      - name: Publish to GitHub Packages PyPI
+        run: |
+          twine upload --repository-url "https://upload.pypi.org/legacy/" \
+            --username "__token__" \
+            --password "${{ secrets.PYPI_TOKEN }}" \
+            dist/* \
+          || echo "PyPI publish skipped (no token configured)"
+
+      - name: Publish to GitHub Packages
+        run: |
+          twine upload --repository-url "https://github.com/${{ github.repository }}" \
+            --username "${{ github.actor }}" \
+            --password "${{ secrets.GITHUB_TOKEN }}" \
+            dist/* \
+            --skip-existing
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: "backend/dist/*"

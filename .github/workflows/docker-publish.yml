@@ -1,0 +1,202 @@
+name: docker-publish
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tags:
+        description: "Additional tags (space-separated)"
+        required: false
+        default: "latest"
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+  attestations: write
+
+env:
+  REGISTRY: ghcr.io
+  BACKEND_IMAGE: ${{ github.repository }}/backend
+  WORKER_IMAGE: ${{ github.repository }}/celery-worker
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      tags: ${{ steps.meta.outputs.tags }}
+      backend_labels: ${{ steps.meta-backend.outputs.labels }}
+      worker_labels: ${{ steps.meta-worker.outputs.labels }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Extract version
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" =~ ^refs/tags/v ]]; then
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ github.event_name }}" == "release" ]]; then
+            echo "version=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Docker metadata (backend)
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}
+          tags: |
+            type=semver,pattern={{version}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=semver,pattern={{major}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=sha,prefix=sha-,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=${{ github.event.inputs.tags }},enable=${{ github.event_name == 'workflow_dispatch' }}
+
+      - name: Docker metadata (worker)
+        id: meta-worker
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.WORKER_IMAGE }}
+          tags: |
+            type=semver,pattern={{version}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=semver,pattern={{major}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=sha,prefix=sha-,enable=${{ github.ref == 'refs/heads/main' }}
+
+  build-and-push-backend:
+    needs: prepare
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform: [linux/amd64, linux/arm64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push (backend)
+        uses: docker/build-push-action@v6
+        id: build-backend
+        with:
+          context: backend
+          file: backend/docker/Dockerfile
+          platforms: ${{ matrix.platform }}
+          labels: ${{ needs.prepare.outputs.backend_labels }}
+          tags: ${{ needs.prepare.outputs.tags }}
+          push: true
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+          provenance: mode=max
+          sbom: true
+          outputs: |
+            type=image,name=${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }},push-by-digest=true,name-canonical=true
+
+      - name: Attest backend image
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}
+          subject-digest: ${{ steps.build-backend.outputs.digest }}
+          push-to-registry: true
+
+  build-and-push-worker:
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push (celery worker)
+        uses: docker/build-push-action@v6
+        id: build-worker
+        with:
+          context: backend
+          file: backend/docker/Dockerfile
+          platforms: linux/amd64
+          labels: ${{ needs.prepare.outputs.worker_labels }}
+          tags: ${{ needs.prepare.outputs.worker_labels }}
+          push: true
+          target: runtime
+          cache-from: type=gha,scope=worker
+          cache-to: type=gha,mode=max,scope=worker
+          build-args: |
+            CELERY_WORKER=true
+          provenance: mode=max
+          sbom: true
+
+      - name: Attest worker image
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.WORKER_IMAGE }}
+          subject-digest: ${{ steps.build-worker.outputs.digest }}
+          push-to-registry: true
+
+  sign-images:
+    needs: [build-and-push-backend, build-and-push-worker]
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      id-token: write
+    steps:
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign backend image
+        run: |
+          cosign sign --yes \
+            --oidc-issuer "https://token.actions.githubusercontent.com" \
+            "${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}@${{ needs.build-and-push-backend.outputs.digest }}"
+
+      - name: Sign worker image
+        run: |
+          cosign sign --yes \
+            --oidc-issuer "https://token.actions.githubusercontent.com" \
+            "${{ env.REGISTRY }}/${{ env.WORKER_IMAGE }}@${{ needs.build-and-push-worker.outputs.digest }}"
+
+  generate-sbom:
+    needs: [build-and-push-backend, build-and-push-worker]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate SBOM attestation
+        uses: actions/attest-sbom@v2
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}
+          subject-digest: ${{ needs.build-and-push-backend.outputs.digest }}
+          sbom-path: sbom/backend-sbom.json
+
+      - name: Generate SBOM attestation (worker)
+        uses: actions/attest-sbom@v2
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.WORKER_IMAGE }}
+          subject-digest: ${{ needs.build-and-push-worker.outputs.digest }}
+          sbom-path: sbom/backend-sbom.json

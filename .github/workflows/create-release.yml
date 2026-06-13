@@ -1,0 +1,108 @@
+name: create-release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  packages: read
+  attestations: read
+  id-token: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Verify tag matches version files
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          BACKEND_VERSION=$(grep -m1 'version = "' backend/pyproject.toml | cut -d'"' -f2)
+          FRONTEND_VERSION=$(grep -m1 '"version"' frontend/package.json | cut -d'"' -f4)
+          echo "Tag: v$TAG_VERSION"
+          echo "Backend: $BACKEND_VERSION"
+          echo "Frontend: $FRONTEND_VERSION"
+          if [ "$BACKEND_VERSION" != "$TAG_VERSION" ] && [ -n "$BACKEND_VERSION" ]; then
+            echo "::warning::Backend version $BACKEND_VERSION != tag version $TAG_VERSION"
+          fi
+          if [ "$FRONTEND_VERSION" != "$TAG_VERSION" ] && [ -n "$FRONTEND_VERSION" ]; then
+            echo "::warning::Frontend version $FRONTEND_VERSION != tag version $TAG_VERSION"
+          fi
+
+      - name: Generate release notes
+        id: release_notes
+        uses: release-drafter/release-drafter@v6
+        with:
+          config-name: release-drafter.yml
+          publish: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate checksums
+        run: |
+          sha256sum backend/pyproject.toml frontend/package.json > release-checksums.txt
+          cat release-checksums.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: v${{ github.ref_name }}
+          body: ${{ steps.release_notes.outputs.payload }}
+          draft: false
+          prerelease: ${{ contains(github.ref_name, 'rc') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') }}
+          files: |
+            release-checksums.txt
+            sbom/backend-sbom.json
+            sbom/frontend-sbom.json
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-artifacts:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Generate SPDX SBOM for release
+        run: |
+          pip install cyclonedx-bom
+          pip freeze | cyclonedx-py -- --output-format json -o sbom/release-sbom.json
+          echo "SBOM generated with $(jq '.components | length' sbom/release-sbom.json) components"
+
+      - name: Upload release SBOM
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ needs.release.outputs.upload_url }}
+          asset_path: sbom/release-sbom.json
+          asset_name: scholarform-sbom-${{ github.ref_name }}.json
+          asset_content_type: application/json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  provenance:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      id-token: write
+      contents: write
+    steps:
+      - name: Generate SLSA provenance
+        uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+        with:
+          base64-subjects: "${{ needs.release.outputs.artifacts }}"
+          upload-assets: true

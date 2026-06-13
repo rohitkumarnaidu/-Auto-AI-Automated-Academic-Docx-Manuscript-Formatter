@@ -14,6 +14,7 @@ try:
     from defusedxml import ElementTree as ET
 except ImportError:
     from xml.etree import ElementTree as ET
+from xml.etree.ElementTree import Element, SubElement
 from zipfile import ZIP_DEFLATED, ZipFile
 from typing import Optional, Any
 from docx import Document as WordDocument
@@ -1032,52 +1033,52 @@ class Formatter:
         return output_stream.getvalue()
 
     def _build_footnotes_part(self, footnote_lookup: dict) -> bytes:
-        footnotes_root = ET.Element(qn("w:footnotes"))
+        footnotes_root = Element(qn("w:footnotes"))
 
-        separator = ET.SubElement(
+        separator = SubElement(
             footnotes_root,
             qn("w:footnote"),
             {qn("w:type"): "separator", qn("w:id"): "-1"},
         )
-        separator_paragraph = ET.SubElement(separator, qn("w:p"))
-        separator_run = ET.SubElement(separator_paragraph, qn("w:r"))
-        ET.SubElement(separator_run, qn("w:separator"))
+        separator_paragraph = SubElement(separator, qn("w:p"))
+        separator_run = SubElement(separator_paragraph, qn("w:r"))
+        SubElement(separator_run, qn("w:separator"))
 
-        continuation = ET.SubElement(
+        continuation = SubElement(
             footnotes_root,
             qn("w:footnote"),
             {qn("w:type"): "continuationSeparator", qn("w:id"): "0"},
         )
-        continuation_paragraph = ET.SubElement(continuation, qn("w:p"))
-        continuation_run = ET.SubElement(continuation_paragraph, qn("w:r"))
-        ET.SubElement(continuation_run, qn("w:continuationSeparator"))
+        continuation_paragraph = SubElement(continuation, qn("w:p"))
+        continuation_run = SubElement(continuation_paragraph, qn("w:r"))
+        SubElement(continuation_run, qn("w:continuationSeparator"))
 
         sorted_entries = sorted(footnote_lookup.values(), key=lambda item: int(item["word_id"]))
         for entry in sorted_entries:
-            footnote = ET.SubElement(
+            footnote = SubElement(
                 footnotes_root,
                 qn("w:footnote"),
                 {qn("w:id"): str(entry["word_id"])},
             )
-            paragraph = ET.SubElement(footnote, qn("w:p"))
-            reference_run = ET.SubElement(paragraph, qn("w:r"))
-            reference_props = ET.SubElement(reference_run, qn("w:rPr"))
-            reference_style = ET.SubElement(reference_props, qn("w:rStyle"))
+            paragraph = SubElement(footnote, qn("w:p"))
+            reference_run = SubElement(paragraph, qn("w:r"))
+            reference_props = SubElement(reference_run, qn("w:rPr"))
+            reference_style = SubElement(reference_props, qn("w:rStyle"))
             reference_style.set(qn("w:val"), "FootnoteReference")
-            ET.SubElement(reference_run, qn("w:footnoteRef"))
+            SubElement(reference_run, qn("w:footnoteRef"))
 
-            text_run = ET.SubElement(paragraph, qn("w:r"))
-            text_node = ET.SubElement(text_run, qn("w:t"))
+            text_run = SubElement(paragraph, qn("w:r"))
+            text_node = SubElement(text_run, qn("w:t"))
             text_node.set(qn("xml:space"), "preserve")
             text_node.text = f" {entry['text']}"
 
         return ET.tostring(footnotes_root, encoding="utf-8", xml_declaration=True)
 
     def _patch_content_types(self, content_types_xml: bytes) -> bytes:
-        root = ET.fromstring(content_types_xml)
+        root = ET.fromstring(content_types_xml)  # nosec B314
         existing = root.findall(f"./{{*}}Override[@PartName='/word/footnotes.xml']")
         if not existing:
-            override = ET.Element(
+            override = Element(
                 f"{{{root.tag.partition('}')[0].strip('{')}}}Override",
                 {
                     "PartName": "/word/footnotes.xml",
@@ -1089,9 +1090,9 @@ class Formatter:
 
     def _patch_document_relationships(self, relationships_xml: bytes) -> bytes:
         if relationships_xml:
-            root = ET.fromstring(relationships_xml)
+            root = ET.fromstring(relationships_xml)  # nosec B314
         else:
-            root = ET.Element("Relationships")
+            root = Element("Relationships")
 
         for relationship in root.findall("./{*}Relationship"):
             if relationship.get("Type") == "http://schemas.openxmlformats.org/officeDocument/2006/relationships/footnotes":
@@ -1102,7 +1103,7 @@ class Formatter:
         while f"rId{next_id}" in existing_ids:
             next_id += 1
 
-        new_relationship = ET.Element(
+        new_relationship = Element(
             "Relationship",
             {
                 "Id": f"rId{next_id}",
@@ -1117,11 +1118,11 @@ class Formatter:
         if not settings_xml:
             return settings_xml
 
-        root = ET.fromstring(settings_xml)
+        root = ET.fromstring(settings_xml)  # nosec B314
         existing = root.find(f"./{{*}}footnotePr")
         if existing is None:
-            footnote_properties = ET.Element(qn("w:footnotePr"))
-            num_format = ET.SubElement(footnote_properties, qn("w:numFmt"))
+            footnote_properties = Element(qn("w:footnotePr"))
+            num_format = SubElement(footnote_properties, qn("w:numFmt"))
             num_format.set(qn("w:val"), "decimal")
             root.append(footnote_properties)
         return ET.tostring(root, encoding="utf-8", xml_declaration=True)

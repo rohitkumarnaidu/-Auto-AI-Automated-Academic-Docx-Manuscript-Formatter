@@ -1,0 +1,100 @@
+name-template: "v$RESOLVED_VERSION"
+tag-template: "v$RESOLVED_VERSION"
+
+categories:
+  - title: "🚨 Breaking Changes"
+    labels:
+      - "breaking"
+  - title: "🚀 Features"
+    labels:
+      - "feature"
+      - "enhancement"
+  - title: "🐛 Bug Fixes"
+    labels:
+      - "bug"
+      - "fix"
+  - title: "🔒 Security"
+    labels:
+      - "security"
+  - title: "📖 Documentation"
+    labels:
+      - "documentation"
+      - "docs"
+  - title: "🧰 Maintenance"
+    labels:
+      - "chore"
+      - "dependencies"
+      - "ci"
+      - "refactor"
+  - title: "⚡ Performance"
+    labels:
+      - "performance"
+
+exclude-labels:
+  - "skip-changelog"
+
+change-template: "- $TITLE (#$NUMBER) @$AUTHOR"
+change-title-escapes: '\<*_&'
+
+version-resolver:
+  major:
+    labels:
+      - "breaking"
+  minor:
+    labels:
+      - "feature"
+      - "enhancement"
+  patch:
+    labels:
+      - "bug"
+      - "fix"
+      - "security"
+      - "dependencies"
+  default: patch
+
+template: |
+  ## What's Changed
+
+  $CHANGES
+
+  ## Docker Images
+
+  - `ghcr.io/$OWNER/$REPOSITORY/backend:$RESOLVED_VERSION`
+  - `ghcr.io/$OWNER/$REPOSITORY/celery-worker:$RESOLVED_VERSION`
+
+  ## Packages
+
+  - `@$OWNER/frontend@$RESOLVED_VERSION` (npm)
+  - `scholarform-backend==$RESOLVED_VERSION` (PyPI)
+
+  **Full Changelog:** https://github.com/$OWNER/$REPOSITORY/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION
+
+autolabeler:
+  - label: "documentation"
+    files:
+      - "*.md"
+      - "docs/**/*.md"
+  - label: "backend"
+    files:
+      - "backend/**/*"
+  - label: "frontend"
+    files:
+      - "frontend/**/*"
+  - label: "ci"
+    files:
+      - ".github/**/*"
+  - label: "dependencies"
+    files:
+      - "backend/requirements*.txt"
+      - "frontend/package*.json"
+      - "frontend/yarn.lock"
+  - label: "docker"
+    files:
+      - "**/Dockerfile*"
+      - "**/.dockerignore"
+      - "docker-compose*"
+  - label: "security"
+    files:
+      - "SECURITY.md"
+      - ".secrets.baseline"
+      - ".github/workflows/security*"

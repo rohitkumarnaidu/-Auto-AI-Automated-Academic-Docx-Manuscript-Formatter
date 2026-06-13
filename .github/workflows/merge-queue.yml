@@ -1,0 +1,45 @@
+name: Merge Queue
+
+on:
+  merge_group:
+    types: [checks_requested]
+
+permissions:
+  contents: read
+  pull-requests: read
+  checks: write
+
+jobs:
+  backend-ci:
+    uses: ./.github/workflows/backend-ci.yml
+    secrets: inherit
+
+  frontend-ci:
+    uses: ./.github/workflows/frontend-ci.yml
+    secrets: inherit
+
+  security:
+    uses: ./.github/workflows/security.yml
+    secrets: inherit
+
+  commitlint:
+    uses: ./.github/workflows/commitlint.yml
+    secrets: inherit
+
+  dependency-review:
+    uses: ./.github/workflows/dependency-review.yml
+    secrets: inherit
+
+  merge-queue-check:
+    runs-on: ubuntu-latest
+    needs: [backend-ci, frontend-ci, security, commitlint, dependency-review]
+    if: always()
+    steps:
+      - name: Check all required checks passed
+        run: |
+          FAILED_JOBS="${{ toJSON(needs.*.result) }}"
+          if echo "$FAILED_JOBS" | grep -q "failure"; then
+            echo "❌ Some required checks failed. Merge blocked."
+            exit 1
+          fi
+          echo "✅ All required checks passed. Ready to merge."

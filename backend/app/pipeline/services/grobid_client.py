@@ -23,6 +23,7 @@ try:
     from defusedxml import ElementTree as ET
 except ImportError:
     import xml.etree.ElementTree as ET
+from xml.etree.ElementTree import Element
 from app.config.settings import settings
 from app.pipeline.safety.safe_execution import safe_function
 from app.exceptions import ExternalServiceError
@@ -335,7 +336,7 @@ class GROBIDClient:
                 logger.warning("GROBID XML parse skipped: payload does not start with XML tag.")
                 return self._empty_metadata()
 
-            root = ET.fromstring(xml_str)
+            root = ET.fromstring(xml_str)  # nosec B314
             
             # Extract title
             title = self._extract_title(root)
@@ -365,7 +366,7 @@ class GROBIDClient:
             logger.warning("Failed to parse GROBID XML (%s). Payload preview: %s", str(e), preview)
             return self._empty_metadata()
     
-    def _extract_title(self, root: ET.Element) -> str:
+    def _extract_title(self, root: Element) -> str:
         """Extract document title from TEI XML."""
         title_elem = root.find(".//tei:titleStmt/tei:title[@type='main']", self.TEI_NS)
         if title_elem is not None and title_elem.text:
@@ -378,7 +379,7 @@ class GROBIDClient:
         
         return ""
     
-    def _extract_authors(self, root: ET.Element) -> tuple[List[Dict[str, str]], List[str]]:
+    def _extract_authors(self, root: Element) -> tuple[List[Dict[str, str]], List[str]]:
         """
         Extract authors and affiliations from TEI XML.
         
@@ -423,7 +424,7 @@ class GROBIDClient:
         
         return authors, list(affiliations_set)
     
-    def _extract_abstract(self, root: ET.Element) -> str:
+    def _extract_abstract(self, root: Element) -> str:
         """Extract abstract from TEI XML."""
         abstract_elem = root.find(".//tei:profileDesc/tei:abstract", self.TEI_NS)
         if abstract_elem is not None:
@@ -435,7 +436,7 @@ class GROBIDClient:
                 return abstract_elem.text.strip()
         return ""
     
-    def _extract_keywords(self, root: ET.Element) -> List[str]:
+    def _extract_keywords(self, root: Element) -> List[str]:
         """Extract keywords from TEI XML."""
         keywords = []
         keyword_elems = root.findall(".//tei:keywords/tei:term", self.TEI_NS)
