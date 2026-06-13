@@ -6,7 +6,7 @@ test.describe('Signup', () => {
         await expect(page).toHaveTitle(/Create Account/i);
 
         await expect(page.locator('input[type="email"]')).toBeVisible();
-        await expect(page.locator('input[type="password"]')).toBeVisible();
+        await expect(page.locator('input[type="password"]').first()).toBeVisible();
         await expect(page.getByRole('button', { name: /Create Account/i })).toBeVisible();
     });
 

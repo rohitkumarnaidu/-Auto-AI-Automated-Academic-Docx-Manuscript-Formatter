@@ -303,7 +303,11 @@ async function installAgentHarness(page) {
 }
 
 test.describe('Phase 4 Core Flows', () => {
-    test.skip(!backendReachable, 'Backend not reachable');
+    test.beforeAll(async () => {
+        if (!backendReachable) {
+            test.skip(!backendReachable, 'Backend not reachable');
+        }
+    });
     test.setTimeout(240000);
 
     test('full formatter flow: upload -> process -> results -> download', async ({ page }) => {

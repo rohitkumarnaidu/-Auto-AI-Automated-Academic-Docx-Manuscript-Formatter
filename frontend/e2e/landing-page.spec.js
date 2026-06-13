@@ -9,13 +9,13 @@ test.describe('Landing Page', () => {
         await expect(heading).toBeVisible();
     });
 
-    test('landing page has navigation to login and signup', async ({ page }) => {
+    test('landing page has hero CTA links to formatter and generator', async ({ page }) => {
         await page.goto('/');
 
-        const loginLink = page.getByRole('link', { name: /Sign In|Login/i }).first();
-        await expect(loginLink).toBeVisible();
+        const formatterCta = page.getByRole('link', { name: /Upload Manuscript/i }).first();
+        await expect(formatterCta).toBeVisible();
 
-        const signupLink = page.getByRole('link', { name: /Sign Up|Get Started/i }).first();
-        await expect(signupLink).toBeVisible();
+        const generatorCta = page.getByRole('link', { name: /Create Draft/i }).first();
+        await expect(generatorCta).toBeVisible();
     });
 });
