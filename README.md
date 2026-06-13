@@ -71,28 +71,53 @@
 
 ## Architecture
 
-```
-┌───────────────────────────────────────────────────────────────┐
-│                    BROWSER (Next.js 16 + React 19)             │
-│  Auth │ Formatter UI │ Generator UI │ Live Editor │ Admin      │
-│  36 pages — Route Groups: (formatter), (generator), (shared)  │
-├───────────────────────────────────────────────────────────────┤
-│              API GATEWAY — FastAPI only                        │
-│  JWKS JWT Verify │ Rate Limit │ CORS │ Request ID │ CSRF       │
-│  34 routes under /api/v1/                                     │
-├───────────────────────────────────────────────────────────────┤
-│              BACKEND (FastAPI + Uvicorn)                       │
-│  25 Services │ 15 Route Modules │ 26 Pipeline Packages          │
-│  Agents │ Classification │ Equations │ Export │ Formatting     │
-│  Figures │ Integrity │ NLP │ OCR │ Parsing │ References        │
-│  Safety │ Structure Detection │ Synthesis │ Tables │ Validation│
-├───────────────────────────────────────────────────────────────┤
-│  Celery Worker    │     Redis Pub/Sub    │    ChromaDB (RAG)   │
-│  (background jobs) │  (realtime events)   │  (style-rule store)│
-├───────────────────────────────────────────────────────────────┤
-│              DATA LAYER                                       │
-│  Supabase (PostgreSQL) │ Supabase Storage │ Redis Cache        │
-└───────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph BROWSER["BROWSER (Next.js 16 + React 19)"]
+        A1["Auth"]
+        A2["Formatter UI"]
+        A3["Generator UI"]
+        A4["Live Editor"]
+        A5["Admin"]
+    end
+
+    subgraph GATEWAY["API GATEWAY — FastAPI"]
+        G1["JWKS JWT Verify"]
+        G2["Rate Limit"]
+        G3["CORS"]
+        G4["Request ID"]
+        G5["CSRF"]
+    end
+
+    subgraph BACKEND["BACKEND (FastAPI + Uvicorn)"]
+        direction TB
+        B1["25 Services"]
+        B2["15 Route Modules"]
+        B3["26 Pipeline Packages"]
+        B4["Agents │ Classification<br/>Equations │ Export<br/>Formatting │ Figures<br/>Integrity │ NLP │ OCR<br/>Parsing │ References<br/>Safety │ Structure Detection<br/>Synthesis │ Tables │ Validation"]
+    end
+
+    subgraph INFRA["INFRASTRUCTURE"]
+        I1["Celery Worker<br/>(background jobs)"]
+        I2["Redis Pub/Sub<br/>(realtime events)"]
+        I3["ChromaDB<br/>(RAG / style-rule store)"]
+    end
+
+    subgraph DATA["DATA LAYER"]
+        D1["Supabase<br/>(PostgreSQL)"]
+        D2["Supabase Storage"]
+        D3["Redis Cache"]
+    end
+
+    BROWSER <--> GATEWAY
+    GATEWAY <--> BACKEND
+    BACKEND <--> I1
+    BACKEND <--> I2
+    BACKEND <--> I3
+    I1 <--> D1
+    I1 <--> D2
+    I2 <--> D3
+    I3 <--> D1
 ```
 
 - **LLM Tier 1:** NVIDIA NIM — Llama 3.3 70B Instruct (primary)
