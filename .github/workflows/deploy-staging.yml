@@ -115,7 +115,7 @@ jobs:
 
       - name: Set up Python for load tests
         if: steps.preflight.outputs.ready == 'true'
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
