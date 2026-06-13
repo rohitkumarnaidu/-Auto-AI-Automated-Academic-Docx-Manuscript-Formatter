@@ -1,6 +1,9 @@
 import { test, expect } from '@playwright/test';
 
+const hasSupabaseUrl = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL);
+
 test.describe('Settings', () => {
+    test.skip(!hasSupabaseUrl, 'NEXT_PUBLIC_SUPABASE_URL not set');
     test('settings page loads with form elements', async ({ page }) => {
         await page.goto('/settings');
         await expect(page.locator('body')).toBeVisible();

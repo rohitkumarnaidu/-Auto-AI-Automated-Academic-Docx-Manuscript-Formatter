@@ -1,5 +1,7 @@
-import AppShell from '@/src/components/layout/AppShell';
+export const metadata = {
+    title: 'Automated Academic Manuscript Formatter | ScholarForm AI',
+};
 
 export default function SharedLayout({ children }) {
-    return <AppShell section="shared">{children}</AppShell>;
+    return children;
 }

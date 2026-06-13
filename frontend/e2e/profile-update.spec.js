@@ -1,6 +1,9 @@
 import { test, expect } from '@playwright/test';
 
+const hasSupabaseUrl = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL);
+
 test.describe('Profile Update', () => {
+    test.skip(!hasSupabaseUrl, 'NEXT_PUBLIC_SUPABASE_URL not set');
     test('profile page loads with editable fields', async ({ page }) => {
         await page.goto('/profile');
         await expect(page.locator('body')).toBeVisible();

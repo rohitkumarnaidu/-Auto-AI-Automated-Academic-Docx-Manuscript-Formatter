@@ -1,5 +1,18 @@
 import { test, expect } from '@playwright/test';
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+let backendReachable = true;
+
+test.beforeAll(async ({ request }) => {
+    try {
+        const resp = await request.get(`${BACKEND_URL}/health`, { timeout: 5000 });
+        backendReachable = resp.ok();
+    } catch {
+        backendReachable = false;
+    }
+});
+
 const AGENT_SESSION_ID = 'agent-e2e';
 const AGENT_PROMPT = 'Write a short paper about machine learning';
 const AGENT_OUTLINE = {
@@ -290,6 +303,7 @@ async function installAgentHarness(page) {
 }
 
 test.describe('Phase 4 Core Flows', () => {
+    test.skip(!backendReachable, 'Backend not reachable');
     test.setTimeout(240000);
 
     test('full formatter flow: upload -> process -> results -> download', async ({ page }) => {
