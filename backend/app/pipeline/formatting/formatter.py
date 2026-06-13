@@ -10,7 +10,10 @@ import os
 import re
 import yaml
 from copy import deepcopy
-from defusedxml import ElementTree as ET
+try:
+    from defusedxml import ElementTree as ET
+except ImportError:
+    from xml.etree import ElementTree as ET
 from zipfile import ZIP_DEFLATED, ZipFile
 from typing import Optional, Any
 from docx import Document as WordDocument

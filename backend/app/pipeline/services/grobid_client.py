@@ -19,7 +19,10 @@ from requests import RequestException
 from urllib.parse import urlparse
 from typing import Any, Dict, List, Optional
 from pathlib import Path
-from defusedxml import ElementTree as ET
+try:
+    from defusedxml import ElementTree as ET
+except ImportError:
+    import xml.etree.ElementTree as ET
 from app.config.settings import settings
 from app.pipeline.safety.safe_execution import safe_function
 from app.exceptions import ExternalServiceError
