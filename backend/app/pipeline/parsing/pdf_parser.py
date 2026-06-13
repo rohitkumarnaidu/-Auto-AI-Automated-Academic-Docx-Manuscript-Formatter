@@ -616,11 +616,11 @@ class PdfParser(BaseParser):
                     if not image_data:
                         continue
 
-                    image_hash = hashlib.sha1(image_data).hexdigest()
+                    image_hash = hashlib.sha1(image_data, usedforsecurity=False).hexdigest()
                     if image_hash in seen_image_hashes:
                         continue
                     seen_image_hashes.add(image_hash)
-                    
+
                     # Map extension to ImageFormat
                     format_map = {
                         'png': ImageFormat.PNG,
@@ -678,7 +678,7 @@ class PdfParser(BaseParser):
                         image_data = raw_block.get("image")
                         if not isinstance(image_data, (bytes, bytearray)):
                             continue
-                        image_hash = hashlib.sha1(image_data).hexdigest()
+                        image_hash = hashlib.sha1(image_data, usedforsecurity=False).hexdigest()
                         if image_hash in seen_image_hashes:
                             continue
                         seen_image_hashes.add(image_hash)

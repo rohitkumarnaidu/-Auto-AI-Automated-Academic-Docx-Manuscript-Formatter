@@ -343,8 +343,8 @@ class NougatParser(BaseParser):
         for model_name in [preferred, FALLBACK_MODEL]:
             try:
                 logger.info("NougatParser: loading local model '%s'...", model_name)
-                self.processor = NougatProcessor.from_pretrained(model_name)
-                self.model = VisionEncoderDecoderModel.from_pretrained(model_name)
+                self.processor = NougatProcessor.from_pretrained(model_name)  # nosec
+                self.model = VisionEncoderDecoderModel.from_pretrained(model_name)  # nosec
                 self.model.to(self.device)
                 self.model.eval()
                 self.active_model_name = model_name

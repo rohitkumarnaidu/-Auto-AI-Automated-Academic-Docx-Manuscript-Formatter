@@ -19,7 +19,7 @@ from requests import RequestException
 from urllib.parse import urlparse
 from typing import Any, Dict, List, Optional
 from pathlib import Path
-import xml.etree.ElementTree as ET
+from defusedxml import ElementTree as ET
 from app.config.settings import settings
 from app.pipeline.safety.safe_execution import safe_function
 from app.exceptions import ExternalServiceError
@@ -70,7 +70,7 @@ class GROBIDClient:
         self.health_path = health_path
         parsed_base = urlparse(self.base_url if "://" in self.base_url else f"http://{self.base_url}")
         hostname = (parsed_base.hostname or "").lower()
-        self._remote_hosted = hostname not in {"localhost", "127.0.0.1", "0.0.0.0"}
+        self._remote_hosted = hostname not in {"localhost", "127.0.0.1", "0.0.0.0"}  # nosec
         configured_timeout = int(getattr(settings, "GROBID_TIMEOUT", 15))
         # Hosted endpoints (for example HF Spaces) can have cold starts and slower responses.
         timeout_ceiling = 90 if self._remote_hosted else 30

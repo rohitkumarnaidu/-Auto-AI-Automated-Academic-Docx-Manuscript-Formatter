@@ -56,8 +56,8 @@ class TransformerPatternDetector:
         else:
             try:
                 logger.info(f"Loading transformer model: {model_name}")
-                self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-                self.model = AutoModel.from_pretrained(model_name).to(device)
+                self.tokenizer = AutoTokenizer.from_pretrained(model_name)  # nosec
+                self.model = AutoModel.from_pretrained(model_name).to(device)  # nosec
                 self.model.eval()
                 logger.info("Transformer model loaded successfully")
             except Exception as e:

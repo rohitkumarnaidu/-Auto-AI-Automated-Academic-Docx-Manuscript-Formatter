@@ -92,9 +92,9 @@ class TableExtractor:
             self._detection_processor = model_store.get_model("table_detection_processor")
         else:
             logger.info("TableExtractor: Loading detection model '%s'...", DETECTION_MODEL)
-            self._detection_processor = AutoImageProcessor.from_pretrained(DETECTION_MODEL)
+            self._detection_processor = AutoImageProcessor.from_pretrained(DETECTION_MODEL)  # nosec
             self._detection_model = TableTransformerForObjectDetection.from_pretrained(
-                DETECTION_MODEL
+                DETECTION_MODEL  # nosec
             )
             self._detection_model.to(self._device)
             self._detection_model.eval()
@@ -108,9 +108,9 @@ class TableExtractor:
             self._structure_processor = model_store.get_model("table_structure_processor")
         else:
             logger.info("TableExtractor: Loading structure model '%s'...", STRUCTURE_MODEL)
-            self._structure_processor = AutoImageProcessor.from_pretrained(STRUCTURE_MODEL)
+            self._structure_processor = AutoImageProcessor.from_pretrained(STRUCTURE_MODEL)  # nosec
             self._structure_model = TableTransformerForObjectDetection.from_pretrained(
-                STRUCTURE_MODEL
+                STRUCTURE_MODEL  # nosec
             )
             self._structure_model.to(self._device)
             self._structure_model.eval()

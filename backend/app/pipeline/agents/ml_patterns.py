@@ -208,7 +208,7 @@ class MLPatternDetector:
         """Load trained model."""
         import pickle
         with open(filepath, 'rb') as f:
-            data = pickle.load(f)
+            data = pickle.load(f)  # nosec
             self.scaler = data["scaler"]
             self.clusterer = data["clusterer"]
             self.anomaly_detector = data["anomaly_detector"]

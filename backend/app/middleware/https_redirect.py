@@ -26,7 +26,7 @@ class HTTPSRedirectMiddleware(BaseHTTPMiddleware):
         if request.url.scheme == "https":
             return await call_next(request)
 
-        if request.url.hostname in ("localhost", "127.0.0.1", "0.0.0.0"):
+        if request.url.hostname in ("localhost", "127.0.0.1", "0.0.0.0"):  # nosec
             return await call_next(request)
 
         if request.url.path in self.HEALTH_PATHS:

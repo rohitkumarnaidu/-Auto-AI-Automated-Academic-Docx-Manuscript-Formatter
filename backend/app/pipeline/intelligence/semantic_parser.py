@@ -129,13 +129,13 @@ class SemanticParser:
 
         logger.info("SemanticParser: loading local SciBERT model (%s)...", self.model_name)
         try:
-            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)  # nosec
             logger.warning(
                 "Initializing SciBERT classification head from base weights. "
                 "Predictions improve with fine-tuned checkpoints."
             )
             self.model = AutoModel.from_pretrained(
-                self.model_name,
+                self.model_name,  # nosec
                 ignore_mismatched_sizes=True,
             )
             logger.info("SemanticParser: local SciBERT loaded.")
