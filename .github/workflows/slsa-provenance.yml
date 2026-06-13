@@ -25,10 +25,10 @@ jobs:
     needs: slsa
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Download SLSA provenance
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: "${{ needs.slsa.outputs.provenance-name }}"
           path: provenance/
@@ -39,7 +39,7 @@ jobs:
           cat provenance/*.jsonl | head -20
 
       - name: Upload provenance to release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         if: github.event_name == 'release'
         with:
           files: provenance/*
