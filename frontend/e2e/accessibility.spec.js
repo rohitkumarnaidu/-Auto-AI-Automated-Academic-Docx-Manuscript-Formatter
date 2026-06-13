@@ -48,7 +48,7 @@ test.describe('Accessibility Tests', () => {
         expect(criticalViolations.length).toBe(0);
     });
 
-    test('dashboard page loads without critical accessibility violations', async ({ page, browserName }) => {
+    test('dashboard page loads without critical accessibility violations', async ({ page }) => {
         test.skip(!hasSupabaseUrl, 'NEXT_PUBLIC_SUPABASE_URL not set');
         await page.goto('/dashboard');
         await expect(page.locator('body')).toBeVisible();
