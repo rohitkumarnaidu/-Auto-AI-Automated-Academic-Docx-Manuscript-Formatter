@@ -24,7 +24,7 @@ jobs:
           comment-summary-in-pr: true
           allow-licenses: >-
             MIT, BSD-2-Clause, BSD-3-Clause, Apache-2.0, ISC,
-            Python-2.0, PSF, MPL-2.0, Unlicense, CC0-1.0, 0BSD
+            Python-2.0, MPL-2.0, Unlicense, CC0-1.0, 0BSD
           deny-licenses: >-
             AGPL-3.0, GPL-3.0, GPL-2.0, LGPL-3.0, BSL-1.0
           warn-only: false

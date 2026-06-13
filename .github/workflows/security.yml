@@ -21,6 +21,9 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Set up Java for OWASP DC
+        run: sudo apt-get update && sudo apt-get install -y default-jre-headless
+
       - name: Build backend image
         continue-on-error: ${{ github.event_name != 'pull_request' }}
         run: docker build -f backend/docker/Dockerfile -t scholarform-backend backend
