@@ -2,10 +2,10 @@
 <style xmlns="http://purl.org/net/xbiblio/csl" version="1.0" class="in-text" default-locale="en-US">
   <info>
     <title>APA 7th (Minimal)</title>
-    <id>https://eclearnix.local/styles/apa-minimal</id>
-    <link href="https://eclearnix.local/styles/apa-minimal" rel="self"/>
+    <id>https://scholarform.ai/styles/apa-minimal</id>
+    <link href="https://scholarform.ai/styles/apa-minimal" rel="self"/>
     <author>
-      <name>ECLearnIX</name>
+      <name>ScholarForm AI</name>
     </author>
     <category citation-format="author-date"/>
     <updated>2026-02-16T00:00:00+00:00</updated>

@@ -89,7 +89,7 @@ backend/
   db/                     # Database migrations & semantic store
 
 frontend/
-  src/app/                # Next.js 14 App Router pages
+  src/app/                # Next.js 16 App Router pages
   src/components/         # React components
   src/context/            # React context providers
   e2e/                    # Playwright E2E tests

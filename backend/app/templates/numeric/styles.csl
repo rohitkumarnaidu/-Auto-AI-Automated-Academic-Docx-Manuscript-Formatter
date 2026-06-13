@@ -2,10 +2,10 @@
 <style xmlns="http://purl.org/net/xbiblio/csl" version="1.0" class="in-text" default-locale="en-US">
   <info>
     <title>IEEE (Minimal)</title>
-    <id>https://eclearnix.local/styles/ieee-minimal</id>
-    <link href="https://eclearnix.local/styles/ieee-minimal" rel="self"/>
+    <id>https://scholarform.ai/styles/ieee-minimal</id>
+    <link href="https://scholarform.ai/styles/ieee-minimal" rel="self"/>
     <author>
-      <name>ECLearnIX</name>
+      <name>ScholarForm AI</name>
     </author>
     <category citation-format="numeric"/>
     <updated>2026-02-16T00:00:00+00:00</updated>

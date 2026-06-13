@@ -2,9 +2,9 @@
 <style xmlns="http://purl.org/net/xbiblio/csl" version="1.0" class="in-text" default-locale="en-US">
   <info>
     <title>Harvard (Minimal)</title>
-    <id>https://eclearnix.local/styles/harvard-minimal</id>
-    <link href="https://eclearnix.local/styles/harvard-minimal" rel="self"/>
-    <author><name>ECLearnIX</name></author>
+    <id>https://scholarform.ai/styles/harvard-minimal</id>
+    <link href="https://scholarform.ai/styles/harvard-minimal" rel="self"/>
+    <author><name>ScholarForm AI</name></author>
     <category citation-format="author-date"/>
     <updated>2026-02-21T00:00:00+00:00</updated>
   </info>

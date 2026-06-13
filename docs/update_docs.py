@@ -1,7 +1,7 @@
 import os
 
-DOCS_DIR = r"C:\Hackathons\ECLearnIX\(Auto AI) Automated Academic Docx Manuscript Formatter\automated-manuscript-formatter\docs"
-ARTIFACTS_DIR = r"C:\Users\Dell\.gemini\antigravity\brain\171e5cc5-2510-4118-aa08-29e2b7847f5f"
+DOCS_DIR = os.path.dirname(os.path.abspath(__file__))
+ARTIFACTS_DIR = os.path.join(DOCS_DIR, "artifacts")
 
 REPLACEMENTS = {
     "Vite": "Next.js",

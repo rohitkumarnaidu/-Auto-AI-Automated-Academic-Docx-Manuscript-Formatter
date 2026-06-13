@@ -9,7 +9,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    BROWSER (Next.js 14)                      │
+│                    BROWSER (Next.js 16 + React 19)           │
 │  Auth │ Formatter UI │ Generator UI │ Live Editor │ Admin    │
 │  34 frontend routes in frontend/src/app/                     │
 ├─────────────────────────────────────────────────────────────┤

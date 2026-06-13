@@ -68,7 +68,7 @@ class TestGROBIDPipelineIntegration:
 
         text.setFont("Helvetica", 11)
         text.textLine("Amina Patel, Victor Chen")
-        text.textLine("ECLearnIX Research Lab")
+        text.textLine("ScholarForm AI Research Lab")
         text.moveCursor(0, 14)
 
         text.setFont("Helvetica-Bold", 12)

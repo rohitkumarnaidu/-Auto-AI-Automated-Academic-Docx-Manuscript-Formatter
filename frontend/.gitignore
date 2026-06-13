@@ -1,7 +1,6 @@
 # Next.js build output
 .next/
 out/
-dist/
 
 # Dependencies
 node_modules/
@@ -50,10 +49,9 @@ frontend_git_status.txt
 .eslintcache
 .stylelintcache
 
-# Vite legacy
+# Legacy build artifacts
 dist/
 index.html
-!_legacy_vite_archive/index.html
 
 # Editor & IDE
 .vscode/

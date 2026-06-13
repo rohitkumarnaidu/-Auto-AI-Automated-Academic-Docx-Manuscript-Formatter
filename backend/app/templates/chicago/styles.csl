@@ -2,9 +2,9 @@
 <style xmlns="http://purl.org/net/xbiblio/csl" version="1.0" class="in-text" default-locale="en-US">
   <info>
     <title>Chicago (Minimal)</title>
-    <id>https://eclearnix.local/styles/chicago-minimal</id>
-    <link href="https://eclearnix.local/styles/chicago-minimal" rel="self"/>
-    <author><name>ECLearnIX</name></author>
+    <id>https://scholarform.ai/styles/chicago-minimal</id>
+    <link href="https://scholarform.ai/styles/chicago-minimal" rel="self"/>
+    <author><name>ScholarForm AI</name></author>
     <category citation-format="author-date"/>
     <updated>2026-02-21T00:00:00+00:00</updated>
   </info>

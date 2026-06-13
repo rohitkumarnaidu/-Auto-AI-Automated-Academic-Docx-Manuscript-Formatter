@@ -4,10 +4,10 @@
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
-[![Next.js 14](https://img.shields.io/badge/Next.js-14-black)](https://nextjs.org/)
+[![Next.js 16](https://img.shields.io/badge/Next.js-16-black)](https://nextjs.org/)
 [![CI](https://github.com/rohitkumarnaidu/ScholarFormAI/actions/workflows/backend-ci.yml/badge.svg)](https://github.com/rohitkumarnaidu/ScholarFormAI/actions/workflows/backend-ci.yml)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
-[![Coverage](https://img.shields.io/badge/coverage-61%25-yellow)](backend/coverage.xml)
+[![Coverage](backend/.coverage)](https://img.shields.io/badge/coverage-61%25-yellow)
 
 </div>
 
@@ -15,10 +15,10 @@ ScholarForm AI formats academic manuscripts into publisher-ready outputs using d
 
 ## Quick Links
 
-- **Frontend:** `http://localhost:3000` (Next.js 14)
+- **Frontend:** `http://localhost:3000` (Next.js 16 + React 19)
 - **Backend API:** `http://localhost:8000` — Swagger at `http://localhost:8000/docs` (requires `DEBUG=true`)
 - **OpenAPI Schema:** `http://localhost:8000/openapi.json` (requires `DEBUG=true`)
-- **Framework:** Next.js 14 (App Router), **NOT** Vite
+- **Framework:** Next.js 16 (App Router) + React 19, **NOT** Vite
 - **Python:** 3.12.x (pinned)
 - **Routes:** 36 pages in `frontend/app/`
 
@@ -151,7 +151,7 @@ See [`docs/API.md`](docs/API.md) for the complete endpoint reference.
 
 ## Architecture
 
-- **Frontend:** Next.js 14 (App Router) on Vercel
+- **Frontend:** Next.js 16 (App Router) + React 19 on Vercel
 - **Backend:** FastAPI + Uvicorn on Render
 - **Gateway:** FastAPI only — no Spring Boot gateway (the Spring Boot gateway in earlier plans is **obsolete/incorrect**)
 - **Realtime:** Redis pub/sub → WebSocket / SSE

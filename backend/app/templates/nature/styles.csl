@@ -2,9 +2,9 @@
 <style xmlns="http://purl.org/net/xbiblio/csl" version="1.0" class="in-text" default-locale="en-US">
   <info>
     <title>Nature (Minimal)</title>
-    <id>https://eclearnix.local/styles/nature-minimal</id>
-    <link href="https://eclearnix.local/styles/nature-minimal" rel="self"/>
-    <author><name>ECLearnIX</name></author>
+    <id>https://scholarform.ai/styles/nature-minimal</id>
+    <link href="https://scholarform.ai/styles/nature-minimal" rel="self"/>
+    <author><name>ScholarForm AI</name></author>
     <category citation-format="numeric"/>
     <updated>2026-02-21T00:00:00+00:00</updated>
   </info>

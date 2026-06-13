@@ -223,7 +223,7 @@ function AgentWorkspaceContent() {
               <BrainCircuit className="w-3.5 h-3.5 text-white" />
             </div>
             <h1 className="text-sm font-semibold text-slate-900 dark:text-slate-100 italic">
-              ECLearnIX <span className="text-slate-400 font-normal hidden sm:inline">Agent Workspace</span>
+              ScholarForm AI <span className="text-slate-400 font-normal hidden sm:inline">Agent Workspace</span>
             </h1>
           </div>
         </div>
