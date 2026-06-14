@@ -28,8 +28,9 @@ jobs:
   prepare:
     runs-on: ubuntu-latest
     outputs:
-      tags: ${{ steps.meta.outputs.tags }}
+      backend_tags: ${{ steps.meta-backend.outputs.tags }}
       backend_labels: ${{ steps.meta-backend.outputs.labels }}
+      worker_tags: ${{ steps.meta-worker.outputs.tags }}
       worker_labels: ${{ steps.meta-worker.outputs.labels }}
       version: ${{ steps.version.outputs.version }}
     steps:
@@ -103,14 +104,12 @@ jobs:
           file: backend/docker/Dockerfile
           platforms: ${{ matrix.platform }}
           labels: ${{ needs.prepare.outputs.backend_labels }}
-          tags: ${{ needs.prepare.outputs.tags }}
+          tags: ${{ needs.prepare.outputs.backend_tags }}
           push: true
           cache-from: type=gha,scope=backend
           cache-to: type=gha,mode=max,scope=backend
           provenance: mode=max
           sbom: true
-          outputs: |
-            type=image,name=${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }},push-by-digest=true,name-canonical=true
 
       - name: Attest backend image
         uses: actions/attest-build-provenance@v2
@@ -144,7 +143,7 @@ jobs:
           file: backend/docker/Dockerfile
           platforms: linux/amd64
           labels: ${{ needs.prepare.outputs.worker_labels }}
-          tags: ${{ needs.prepare.outputs.worker_labels }}
+          tags: ${{ needs.prepare.outputs.worker_tags }}
           push: true
           target: runtime
           cache-from: type=gha,scope=worker

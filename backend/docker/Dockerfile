@@ -1,6 +1,6 @@
 FROM python:3.12-slim AS builder
 WORKDIR /build
-COPY requirements-render.txt .
+COPY requirements-render.txt requirements.txt .
 RUN apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir --prefix=/install -r requirements-render.txt
 
@@ -18,7 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY alembic.ini .
 COPY alembic/ alembic/
 COPY app/ app/
-COPY requirements-render.txt .
+COPY requirements-render.txt requirements.txt .
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 USER appuser
 EXPOSE 8000
