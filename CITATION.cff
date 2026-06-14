@@ -11,7 +11,7 @@ authors:
     affiliation: "ScholarForm AI"
 repository-code: "https://github.com/scholarform/scholarform"
 license: MIT
-version: 1.0.0
+version: 0.1.0
 date-released: 2026-06-13
 keywords:
   - academic-writing

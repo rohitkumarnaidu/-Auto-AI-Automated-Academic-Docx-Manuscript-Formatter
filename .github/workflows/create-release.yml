@@ -37,18 +37,13 @@ jobs:
       - name: Verify tag matches version files
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          if [ -f "backend/pyproject.toml" ]; then
-            FILE_VER=$(grep -m1 'version = "' backend/pyproject.toml | cut -d'"' -f2)
-            if [ -n "$FILE_VER" ] && [ "$FILE_VER" != "$VERSION" ]; then
-              echo "::warning::Backend pyproject.toml version ($FILE_VER) != tag version ($VERSION)"
-            fi
+          CANONICAL=$(python scripts/sync_version.py --show)
+          if [ "$CANONICAL" != "$VERSION" ]; then
+            echo "ERROR: version mismatch — tag is $VERSION, canonical version is $CANONICAL"
+            echo "Fix: python scripts/sync_version.py to sync all files, then re-tag."
+            exit 1
           fi
-          if [ -f "frontend/package.json" ]; then
-            FILE_VER=$(grep -m1 '"version"' frontend/package.json | cut -d'"' -f4)
-            if [ -n "$FILE_VER" ] && [ "$FILE_VER" != "$VERSION" ]; then
-              echo "::warning::Frontend package.json version ($FILE_VER) != tag version ($VERSION)"
-            fi
-          fi
+          python scripts/sync_version.py --check
 
       - name: Determine pre-release status
         id: prerelease
