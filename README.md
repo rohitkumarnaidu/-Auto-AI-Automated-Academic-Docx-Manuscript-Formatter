@@ -18,6 +18,7 @@
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
 [![SBOM](https://img.shields.io/badge/SBOM-CycloneDX-8A2BE2)](sbom/backend-sbom.json)
 [![Dependency Review](https://img.shields.io/badge/dependency%20review-passing-brightgreen)](.github/workflows/dependency-review.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/rohitkumarnaidu/ScholarFormAI/badge)](https://api.scorecard.dev/projects/github.com/rohitkumarnaidu/ScholarFormAI)
 [![Renovate](https://img.shields.io/badge/renovate-enabled-1A1F6E)](renovate.json)
 [![FOSSA](https://img.shields.io/badge/license%20scan-FOSSA-289E6D)](.fossa.yml)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/rohitkumarnaidu/ScholarFormAI/badge)](https://securityscorecards.dev/viewer/?uri=github.com/rohitkumarnaidu/ScholarFormAI)
