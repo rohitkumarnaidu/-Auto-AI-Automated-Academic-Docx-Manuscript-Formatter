@@ -407,7 +407,7 @@ websocket-client==1.9.0
 websockets==15.0.1
 Werkzeug==3.1.6
 wheel==0.46.3
-wrapt==1.17.3
+wrapt==2.2.1
 xlsxwriter==3.2.9
 xmltodict==1.0.2
 xxhash==3.6.0
