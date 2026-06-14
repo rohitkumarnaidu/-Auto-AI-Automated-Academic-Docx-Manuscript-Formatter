@@ -39,7 +39,7 @@ jobs:
         run: |
           FAILED_JOBS="${{ toJSON(needs.*.result) }}"
           if echo "$FAILED_JOBS" | grep -q "failure"; then
-            echo "❌ Some required checks failed. Merge blocked."
+            echo "FAIL: Some required checks failed. Merge blocked."
             exit 1
           fi
-          echo "✅ All required checks passed. Ready to merge."
+            echo "OK: All required checks passed. Ready to merge."

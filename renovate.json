@@ -64,5 +64,14 @@
   "branchPrefix": "renovate/",
   "assignees": ["rohitkumarnaidu"],
   "reviewers": ["rohitkumarnaidu"],
-  "platformAutomerge": true
+  "platformAutomerge": true,
+  "gitIgnoredAuthors": ["github-actions[bot]@users.noreply.github.com"],
+  "ignorePaths": ["sbom/"],
+  "gitAuthor": "Renovate Bot <renovate@scholarform.ai>",
+  "rebaseWhen": "behind-base-branch",
+  "rangeStrategy": "pin",
+  "lockFileMaintenance": { "enabled": true, "automerge": true },
+  "githubActions": {
+    "pinDigests": true
+  }
 }

@@ -22,7 +22,7 @@ jobs:
       is_prerelease: ${{ steps.prerelease.outputs.is_prerelease }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
         with:
           fetch-depth: 0
 
@@ -67,7 +67,7 @@ jobs:
       body: ${{ steps.generate.outputs.body }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
         with:
           fetch-depth: 0
 
@@ -93,19 +93,14 @@ jobs:
           FEAT=""; FIX=""; DOCS=""; SECURITY=""; CHORE=""; UNCAT=""
           while IFS= read -r line; do
             TYPE=$(echo "$line" | sed -n 's/- \([a-z]*\).*/\1/p')
+            NL=$'\n'
             case "$TYPE" in
-              feat|feature)     FEAT="$FEAT
-$line" ;;
-              fix|bug)          FIX="$FIX
-$line" ;;
-              docs|doc)         DOCS="$DOCS
-$line" ;;
-              security|sec)     SECURITY="$SECURITY
-$line" ;;
-              chore|ci|build|refactor|perf|test) CHORE="$CHORE
-$line" ;;
-              *)                UNCAT="$UNCAT
-$line" ;;
+              feat|feature)     FEAT="${FEAT}${line}${NL}" ;;
+              fix|bug)          FIX="${FIX}${line}${NL}" ;;
+              docs|doc)         DOCS="${DOCS}${line}${NL}" ;;
+              security|sec)     SECURITY="${SECURITY}${line}${NL}" ;;
+              chore|ci|build|refactor|perf|test) CHORE="${CHORE}${line}${NL}" ;;
+              *)                UNCAT="${UNCAT}${line}${NL}" ;;
             esac
           done <<< "${{ steps.changelog.outputs.log }}"
 
@@ -160,7 +155,7 @@ $line" ;;
 
           ---
 
-          ## 🐳 Docker Images
+          ## Docker Images
 
           Pull from GitHub Container Registry:
 
@@ -182,14 +177,14 @@ $line" ;;
             --repo $REPO
           \`\`\`
 
-          ## 📦 Packages
+          ## Packages
 
           \`\`\`bash
           npm install @$OWNER/frontend@$VERSION
           pip install scholarform-backend==$VERSION
           \`\`\`
 
-          ## ✅ Release Assets
+          ## Release Assets
 
           | Asset | Description |
           |-------|-------------|
@@ -218,7 +213,7 @@ $line" ;;
       upload_url: ${{ steps.release.outputs.upload_url }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
 
       - name: Generate checksums
         run: |
@@ -227,7 +222,7 @@ $line" ;;
 
       - name: Create GitHub Release
         id: release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
         with:
           tag_name: ${{ github.ref_name }}
           name: ScholarForm AI ${{ github.ref_name }}
@@ -247,10 +242,10 @@ $line" ;;
     needs: [verify, create]
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: "3.12"
 
@@ -262,7 +257,7 @@ $line" ;;
           echo "SBOM generated with $COMPONENTS components"
 
       - name: Upload SBOM to release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
         with:
           tag_name: ${{ github.ref_name }}
           files: |
@@ -281,14 +276,14 @@ $line" ;;
       attestations: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
 
       - name: Attest release checksums
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be
         with:
           subject-path: release-checksums.txt
 
       - name: Attest SBOM
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be
         with:
           subject-path: sbom/release-sbom.json

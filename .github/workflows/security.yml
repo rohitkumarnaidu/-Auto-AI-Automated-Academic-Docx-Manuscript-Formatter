@@ -9,15 +9,18 @@ on:
   schedule:
     - cron: "0 3 * * 1"
 
+permissions:
+  contents: read
+
 jobs:
   security:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: "3.12"
 
@@ -30,7 +33,7 @@ jobs:
 
       - name: Trivy scan
         continue-on-error: ${{ github.event_name != 'pull_request' }}
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@bfa4b33a029b9aa80ddb784b45574c30e072c59e
         with:
           image-ref: scholarform-backend
           severity: CRITICAL,HIGH
@@ -44,14 +47,14 @@ jobs:
 
       - name: Upload Bandit report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: bandit-report
           path: bandit-report.json
 
       - name: OWASP Dependency Check
         continue-on-error: ${{ github.event_name != 'pull_request' }}
-        uses: dependency-check/Dependency-Check_Action@main
+        uses: dependency-check/Dependency-Check_Action@1e54355a8b4c8abaa8cc7d0b70aa655a3bb15a6c
         with:
           project: "scholarform-backend"
           path: "backend"
@@ -61,7 +64,7 @@ jobs:
 
       - name: Upload OWASP Dependency-Check report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: dependency-check-report
           path: dependency-check-report/

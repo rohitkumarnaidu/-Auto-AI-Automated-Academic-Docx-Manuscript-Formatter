@@ -8,6 +8,9 @@ on:
     types:
       - completed
 
+permissions:
+  contents: read
+
 jobs:
   e2e-staging:
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
@@ -17,7 +20,7 @@ jobs:
         working-directory: frontend
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
 
       - name: Validate E2E secrets
         id: preflight
@@ -33,7 +36,7 @@ jobs:
 
       - name: Set up Node
         if: steps.preflight.outputs.ready == 'true'
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: "20"
 
