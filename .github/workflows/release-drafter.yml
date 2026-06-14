@@ -1,4 +1,4 @@
-name: release-drafter
+name: Release Drafter
 
 on:
   push:
@@ -8,18 +8,21 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
 
 jobs:
   draft:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
       - name: Draft release notes
         uses: release-drafter/release-drafter@v6
         with:
           config-name: release-drafter.yml
           publish: false
-          prerelease: false
+          filter-by-commitish: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

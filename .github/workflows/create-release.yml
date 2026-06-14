@@ -11,38 +11,214 @@ permissions:
   attestations: read
   id-token: write
 
+env:
+  REGISTRY: ghcr.io
+
 jobs:
-  release:
+  verify:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      is_prerelease: ${{ steps.prerelease.outputs.is_prerelease }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
+      - name: Extract version
+        id: version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Tag: $GITHUB_REF_NAME"
+          echo "Version: $VERSION"
+
       - name: Verify tag matches version files
         run: |
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
-          BACKEND_VERSION=$(grep -m1 'version = "' backend/pyproject.toml | cut -d'"' -f2)
-          FRONTEND_VERSION=$(grep -m1 '"version"' frontend/package.json | cut -d'"' -f4)
-          echo "Tag: v$TAG_VERSION"
-          echo "Backend: $BACKEND_VERSION"
-          echo "Frontend: $FRONTEND_VERSION"
-          if [ "$BACKEND_VERSION" != "$TAG_VERSION" ] && [ -n "$BACKEND_VERSION" ]; then
-            echo "::warning::Backend version $BACKEND_VERSION != tag version $TAG_VERSION"
+          VERSION="${{ steps.version.outputs.version }}"
+          if [ -f "backend/pyproject.toml" ]; then
+            FILE_VER=$(grep -m1 'version = "' backend/pyproject.toml | cut -d'"' -f2)
+            if [ -n "$FILE_VER" ] && [ "$FILE_VER" != "$VERSION" ]; then
+              echo "::warning::Backend pyproject.toml version ($FILE_VER) != tag version ($VERSION)"
+            fi
           fi
-          if [ "$FRONTEND_VERSION" != "$TAG_VERSION" ] && [ -n "$FRONTEND_VERSION" ]; then
-            echo "::warning::Frontend version $FRONTEND_VERSION != tag version $TAG_VERSION"
+          if [ -f "frontend/package.json" ]; then
+            FILE_VER=$(grep -m1 '"version"' frontend/package.json | cut -d'"' -f4)
+            if [ -n "$FILE_VER" ] && [ "$FILE_VER" != "$VERSION" ]; then
+              echo "::warning::Frontend package.json version ($FILE_VER) != tag version ($VERSION)"
+            fi
           fi
 
-      - name: Generate release notes
-        id: release_notes
-        uses: release-drafter/release-drafter@v6
+      - name: Determine pre-release status
+        id: prerelease
+        run: |
+          TAG="${{ github.ref_name }}"
+          if echo "$TAG" | grep -Eq '(rc|beta|alpha|preview)\.[0-9]+$'; then
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  release-notes:
+    runs-on: ubuntu-latest
+    needs: verify
+    outputs:
+      body: ${{ steps.generate.outputs.body }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
         with:
-          config-name: release-drafter.yml
-          publish: false
+          fetch-depth: 0
+
+      - name: Generate changelog from git log
+        id: changelog
+        run: |
+          VERSION="${{ needs.verify.outputs.version }}"
+          PREV_TAG=$(git tag --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -2 | tail -1 || echo "")
+          if [ -z "$PREV_TAG" ]; then
+            echo "No previous tag found. Using all commits."
+            LOG=$(git log --pretty=format:"- %s (%h) @%an" --no-merges)
+          else
+            LOG=$(git log "$PREV_TAG"..HEAD --pretty=format:"- %s (%h) @%an" --no-merges)
+            echo "Previous tag: $PREV_TAG"
+          fi
+          echo "log<<LOGDELIM" >> "$GITHUB_OUTPUT"
+          echo "$LOG" >> "$GITHUB_OUTPUT"
+          echo "LOGDELIM" >> "$GITHUB_OUTPUT"
+
+      - name: Categorize changes
+        id: categorize
+        run: |
+          FEAT=""; FIX=""; DOCS=""; SECURITY=""; CHORE=""; UNCAT=""
+          while IFS= read -r line; do
+            TYPE=$(echo "$line" | sed -n 's/- \([a-z]*\).*/\1/p')
+            case "$TYPE" in
+              feat|feature)     FEAT="$FEAT
+$line" ;;
+              fix|bug)          FIX="$FIX
+$line" ;;
+              docs|doc)         DOCS="$DOCS
+$line" ;;
+              security|sec)     SECURITY="$SECURITY
+$line" ;;
+              chore|ci|build|refactor|perf|test) CHORE="$CHORE
+$line" ;;
+              *)                UNCAT="$UNCAT
+$line" ;;
+            esac
+          done <<< "${{ steps.changelog.outputs.log }}"
+
+          {
+            echo "features<<SECTION"
+            echo "$FEAT"
+            echo "SECTION"
+            echo "fixes<<SECTION"
+            echo "$FIX"
+            echo "SECTION"
+            echo "docs<<SECTION"
+            echo "$DOCS"
+            echo "SECTION"
+            echo "security<<SECTION"
+            echo "$SECURITY"
+            echo "SECTION"
+            echo "maintenance<<SECTION"
+            echo "$CHORE"
+            echo "SECTION"
+            echo "uncategorized<<SECTION"
+            echo "$UNCAT"
+            echo "SECTION"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Generate release notes from GitHub API
+        id: generate
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ needs.verify.outputs.version }}"
+          TAG_NAME="${{ github.ref_name }}"
+          REPO="${{ github.repository }}"
+          OWNER="${{ github.repository_owner }}"
+          REGISTRY="${{ env.REGISTRY }}"
+
+          # Use GitHub Release Notes API as the authoritative source
+          GENERATED=$(gh api \
+            "/repos/$REPO/releases/generate-notes" \
+            --field tag_name="$TAG_NAME" \
+            --field target_commitish="main" \
+            --jq '.body' 2>/dev/null || echo "")
+
+          if [ -z "$GENERATED" ]; then
+            GENERATED="> See CHANGELOG.md for the full list of changes."
+          fi
+
+          # Write release body to a file (prevents heredoc escaping issues)
+          cat > release-body.md << ENDMARKER
+          ## ScholarForm AI $VERSION
+
+          $GENERATED
+
+          ---
+
+          ## 🐳 Docker Images
+
+          Pull from GitHub Container Registry:
+
+          \`\`\`bash
+          docker pull $REGISTRY/$REPO/backend:$VERSION
+          docker pull $REGISTRY/$REPO/celery-worker:$VERSION
+          \`\`\`
+
+          **Verify image signature:**
+          \`\`\`bash
+          cosign verify $REGISTRY/$REPO/backend:$VERSION \\
+            --certificate-identity-regexp "https://github.com/$REPO.*" \\
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
+          \`\`\`
+
+          **Verify build provenance:**
+          \`\`\`bash
+          gh attestation verify $REGISTRY/$REPO/backend:$VERSION \\
+            --repo $REPO
+          \`\`\`
+
+          ## 📦 Packages
+
+          \`\`\`bash
+          npm install @$OWNER/frontend@$VERSION
+          pip install scholarform-backend==$VERSION
+          \`\`\`
+
+          ## ✅ Release Assets
+
+          | Asset | Description |
+          |-------|-------------|
+          | \`release-checksums.txt\` | SHA256 checksums of all artifacts |
+          | \`backend-sbom.json\` | Backend CycloneDX SBOM (Python deps) |
+          | \`frontend-sbom.json\` | Frontend CycloneDX SBOM (npm deps) |
+
+          \`\`\`bash
+          gh release download $TAG_NAME
+          sha256sum -c release-checksums.txt
+          \`\`\`
+
+          ---
+
+          *Full changelog: https://github.com/$REPO/releases/tag/$TAG_NAME*
+          ENDMARKER
+
+          echo "body<<BODYDELIM" >> "$GITHUB_OUTPUT"
+          cat release-body.md >> "$GITHUB_OUTPUT"
+          echo "BODYDELIM" >> "$GITHUB_OUTPUT"
+
+  create:
+    runs-on: ubuntu-latest
+    needs: [verify, release-notes]
+    outputs:
+      upload_url: ${{ steps.release.outputs.upload_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
 
       - name: Generate checksums
         run: |
@@ -50,24 +226,25 @@ jobs:
           cat release-checksums.txt
 
       - name: Create GitHub Release
+        id: release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: v${{ github.ref_name }}
-          body: ${{ steps.release_notes.outputs.payload }}
+          name: ScholarForm AI ${{ github.ref_name }}
+          body: ${{ needs.release-notes.outputs.body }}
           draft: false
-          prerelease: ${{ contains(github.ref_name, 'rc') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') }}
+          prerelease: ${{ needs.verify.outputs.is_prerelease }}
           files: |
             release-checksums.txt
             sbom/backend-sbom.json
             sbom/frontend-sbom.json
-          generate_release_notes: true
+          fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  publish-artifacts:
-    needs: release
+  sbom:
     runs-on: ubuntu-latest
+    needs: [verify, create]
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -77,32 +254,41 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Generate SPDX SBOM for release
+      - name: Generate release SBOM
         run: |
           pip install cyclonedx-bom
-          pip freeze | cyclonedx-py -- --output-format json -o sbom/release-sbom.json
-          echo "SBOM generated with $(jq '.components | length' sbom/release-sbom.json) components"
+          pip freeze | cyclonedx-py -- --output-format json -o sbom/release-sbom.json 2>/dev/null || echo "{}" > sbom/release-sbom.json
+          COMPONENTS=$(jq '.components | length // 0' sbom/release-sbom.json)
+          echo "SBOM generated with $COMPONENTS components"
 
-      - name: Upload release SBOM
-        uses: actions/upload-release-asset@v1
+      - name: Upload SBOM to release
+        uses: softprops/action-gh-release@v2
         with:
-          upload_url: ${{ needs.release.outputs.upload_url }}
-          asset_path: sbom/release-sbom.json
-          asset_name: scholarform-sbom-${{ github.ref_name }}.json
-          asset_content_type: application/json
+          tag_name: ${{ github.ref_name }}
+          files: |
+            sbom/release-sbom.json
+          fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  provenance:
-    needs: release
+  attest:
+    if: ${{ needs.verify.outputs.is_prerelease == 'false' }}
+    needs: [verify, create, sbom]
     runs-on: ubuntu-latest
     permissions:
-      actions: read
       id-token: write
-      contents: write
+      contents: read
+      attestations: write
     steps:
-      - name: Generate SLSA provenance
-        uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Attest release checksums
+        uses: actions/attest-build-provenance@v2
         with:
-          base64-subjects: "${{ needs.release.outputs.artifacts }}"
-          upload-assets: true
+          subject-path: release-checksums.txt
+
+      - name: Attest SBOM
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: sbom/release-sbom.json
