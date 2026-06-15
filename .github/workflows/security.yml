@@ -33,7 +33,7 @@ jobs:
 
       - name: Trivy scan
         continue-on-error: ${{ github.event_name != 'pull_request' }}
-        uses: aquasecurity/trivy-action@bfa4b33a029b9aa80ddb784b45574c30e072c59e
+        uses: aquasecurity/trivy-action@e671314e1a27937f25a35b6aba93efa97182a201
         with:
           image-ref: scholarform-backend
           severity: CRITICAL,HIGH
