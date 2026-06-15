@@ -67,7 +67,7 @@ docxtpl==0.20.2
 weasyprint==62.3
 reportlab==4.4.9
 pylatexenc==2.10
-numpy==1.26.4
+numpy==2.4.6
 
 # ─── LLM / AI (lightweight clients only — no torch/transformers) ───────────────
 litellm @ https://github.com/BerriAI/litellm/archive/refs/tags/v1.81.13.tar.gz
