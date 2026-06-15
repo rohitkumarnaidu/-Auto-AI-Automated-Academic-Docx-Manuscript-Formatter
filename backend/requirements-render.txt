@@ -113,7 +113,7 @@ filelock==3.24.3
 packaging==26.0
 setuptools
 pytz==2025.2
-tzdata==2025.3
+tzdata==2026.2
 
 # ─── Keyword Extraction (CPU-only, safe on 512MB) ──────────────────────────────
 yake==0.4.8
