@@ -197,7 +197,7 @@ networkx==3.6.1
 nltk==3.9.2
 nodeenv==1.10.0
 nougat-ocr==0.1.17
-numpy==1.26.4
+numpy==2.4.6
 oauthlib==3.3.1
 ollama==0.6.1
 omegaconf==2.3.0
