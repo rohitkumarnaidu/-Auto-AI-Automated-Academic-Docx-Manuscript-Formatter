@@ -400,7 +400,7 @@ watchdog==6.0.0
 watchfiles==1.1.1
 wcwidth==0.6.0
 weasel==0.4.3
-weasyprint==62.3
+weasyprint==69.0
 webcolors==25.10.0
 webencodings==0.5.1
 websocket-client==1.9.0
